@@ -48,8 +48,7 @@ try {
   const kinds = run(cli, ["kinds", "--format", "json"], temporary);
   const kindsResult = JSON.parse(kinds.stdout);
   if (kindsResult.result?.kinds?.at(-1)?.code !== "80") throw new Error("Installed CLI omitted canonical kind 80.");
-  const invalidInvocation = commandInvocation(cli, ["matrix", "--kind", "80"]);
-  const invalid = spawnSync(invalidInvocation.command, invalidInvocation.args, { cwd: temporary, encoding: "utf8" });
+  const invalid = spawn(cli, ["matrix", "--kind", "80"], temporary);
   if (invalid.status !== 2 || JSON.parse(invalid.stdout).error?.code !== "missing_parameter" || !invalid.stderr.includes("matrix")) {
     throw new Error("Installed CLI validation/stdout/stderr contract failed.");
   }
@@ -65,17 +64,28 @@ function pack(directory) {
 }
 
 function run(command, args, cwd) {
-  const invocation = commandInvocation(command, args);
-  const result = spawnSync(invocation.command, invocation.args, { cwd, encoding: "utf8" });
+  const result = spawn(command, args, cwd);
   if (result.status !== 0) {
     throw new Error(`${command} ${args.join(" ")} failed (${result.status}):\n${result.stdout}\n${result.stderr}`);
   }
   return result;
 }
 
+function spawn(command, args, cwd) {
+  const invocation = commandInvocation(command, args);
+  return spawnSync(invocation.command, invocation.args, {
+    cwd,
+    encoding: "utf8",
+    ...invocation.options
+  });
+}
+
 function exec(command, args, options) {
   const invocation = commandInvocation(command, args);
-  return execFileSync(invocation.command, invocation.args, options);
+  return execFileSync(invocation.command, invocation.args, {
+    ...options,
+    ...invocation.options
+  });
 }
 
 function commandInvocation(command, args) {
@@ -85,7 +95,8 @@ function commandInvocation(command, args) {
   const commandLine = [command, ...args].map(quoteCmdArgument).join(" ");
   return {
     command: process.env.ComSpec || "cmd.exe",
-    args: ["/d", "/s", "/c", `"${commandLine}"`]
+    args: ["/d", "/s", "/c", `"${commandLine}"`],
+    options: { windowsVerbatimArguments: true }
   };
 }
 

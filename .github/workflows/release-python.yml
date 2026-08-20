@@ -20,7 +20,7 @@ concurrency:
 
 jobs:
   metadata:
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-2vcpu-ubuntu-2404
     outputs:
       package_version: ${{ steps.package.outputs.package_version }}
       source_tag: ${{ steps.package.outputs.source_tag }}
@@ -69,7 +69,7 @@ jobs:
           echo "source_sha=$SOURCE_SHA" >> "$GITHUB_OUTPUT"
 
   python_validation:
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-2vcpu-ubuntu-2404
     needs: metadata
 
     steps:
@@ -126,7 +126,7 @@ jobs:
           if-no-files-found: error
 
   publish:
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-2vcpu-ubuntu-2404
     needs:
       - metadata
       - python_validation

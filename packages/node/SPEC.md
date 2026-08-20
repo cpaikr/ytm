@@ -4,9 +4,9 @@
 SDK. The agent-facing contract is English while source-native terms such as
 `기준일`, `종류`, `국채`, and `회사채(사모)` remain unchanged.
 
-The repository's [product contract](https://github.com/sjunepark/ytm/blob/main/SPEC.md),
-[wire authority](https://github.com/sjunepark/ytm/blob/main/contracts/kisnet/openapi.yaml), and
-[architecture](https://github.com/sjunepark/ytm/blob/main/ARCHITECTURE.md) are normative. This package document
+The repository's [product contract](https://github.com/cpaikr/ytm/blob/main/SPEC.md),
+[wire authority](https://github.com/cpaikr/ytm/blob/main/contracts/kisnet/openapi.yaml), and
+[architecture](https://github.com/cpaikr/ytm/blob/main/ARCHITECTURE.md) are normative. This package document
 summarizes only the installed Node surface and deliberately does not copy HTTP
 or XML details.
 

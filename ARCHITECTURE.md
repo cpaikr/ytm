@@ -125,19 +125,20 @@ The cutover raises the minimum supported runtime to Node.js 22 rather than
 claiming support for an end-of-life major. Consumer validation covers Node 22
 and 24 plus Node 26 for forward compatibility.
 
-The selected native matrix is Linux GNU x64/ARM64, macOS Intel/ARM64, and
-Windows x64. Selection is not a support claim: each platform becomes supported
+The selected native matrix is Linux GNU x64/ARM64, macOS ARM64, and Windows
+x64. Selection is not a support claim: each platform becomes supported
 only after its own native runner builds the artifact and a clean consumer
 installs the packed root package, resolves the executable and toolset export,
-and completes a fixture smoke. musl, Windows ARM64/ia32, FreeBSD, Android, and
-WASM remain outside the initial cutover claim.
+and completes a fixture smoke. Intel macOS, musl, Windows ARM64/ia32, FreeBSD,
+Android, and WASM remain outside the initial cutover claim.
 
 ## Release and removal boundary
 
-Release Please remains the version, changelog, and tag authority. At cutover it
-will manage only the Node root package; native platform packages use the exact
-same version and are collected before the root npm artifact is publishable.
-The Node release workflow keeps the established Node tag namespace.
+Release PR and tag automation is intentionally disabled. At cutover the root
+Node package and native platform packages must still use one explicitly
+approved version and be collected before the root npm artifact is publishable.
+The Node publish workflow keeps the established Node tag namespace; selecting
+or creating a future release remains outside this cutover.
 
 The cutover removes both legacy conformers, the Python package and workflows,
 the JavaScript XML dependency, linked Node/Python release assumptions, and

@@ -6,7 +6,7 @@
   "type": "module",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/sjunepark/ytm.git",
+    "url": "git+https://github.com/cpaikr/ytm.git",
     "directory": "candidate/node"
   },
   "bin": {
@@ -41,7 +41,6 @@
   "optionalDependencies": {
     "@sjunepark/ytm-linux-x64-gnu": "0.2.0",
     "@sjunepark/ytm-linux-arm64-gnu": "0.2.0",
-    "@sjunepark/ytm-darwin-x64": "0.2.0",
     "@sjunepark/ytm-darwin-arm64": "0.2.0",
     "@sjunepark/ytm-win32-x64-msvc": "0.2.0"
   }

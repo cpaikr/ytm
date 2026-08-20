@@ -6,7 +6,7 @@ resolver = "2"
 version = "0.2.0"
 edition = "2021"
 license = "MIT"
-repository = "https://github.com/sjunepark/ytm"
+repository = "https://github.com/cpaikr/ytm"
 rust-version = "1.92"
 
 [workspace.dependencies]

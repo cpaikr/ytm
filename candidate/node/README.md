@@ -6,5 +6,5 @@ approved Node 22 floor, removal of custom JavaScript transport injection, and
 addition of canonical kind `80` (`회사채(사모)`).
 
 The final cutover moves this product to `packages/node`. See the repository
-[`SPEC.md`](https://github.com/sjunepark/ytm/blob/main/SPEC.md) and
-[`ARCHITECTURE.md`](https://github.com/sjunepark/ytm/blob/main/ARCHITECTURE.md).
+[`SPEC.md`](https://github.com/cpaikr/ytm/blob/main/SPEC.md) and
+[`ARCHITECTURE.md`](https://github.com/cpaikr/ytm/blob/main/ARCHITECTURE.md).

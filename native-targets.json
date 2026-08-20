@@ -14,7 +14,7 @@
       "packageName": "@sjunepark/ytm-linux-x64-gnu",
       "packageDirectory": "linux-x64-gnu",
       "artifactFile": "ytm.linux-x64-gnu.node",
-      "runner": "ubuntu-24.04"
+      "runner": "blacksmith-2vcpu-ubuntu-2404"
     },
     {
       "rustTarget": "aarch64-unknown-linux-gnu",
@@ -24,16 +24,7 @@
       "packageName": "@sjunepark/ytm-linux-arm64-gnu",
       "packageDirectory": "linux-arm64-gnu",
       "artifactFile": "ytm.linux-arm64-gnu.node",
-      "runner": "ubuntu-24.04-arm"
-    },
-    {
-      "rustTarget": "x86_64-apple-darwin",
-      "npmPlatform": "darwin",
-      "npmArch": "x64",
-      "packageName": "@sjunepark/ytm-darwin-x64",
-      "packageDirectory": "darwin-x64",
-      "artifactFile": "ytm.darwin-x64.node",
-      "runner": "macos-15-intel"
+      "runner": "blacksmith-2vcpu-ubuntu-2404-arm"
     },
     {
       "rustTarget": "aarch64-apple-darwin",
@@ -42,7 +33,7 @@
       "packageName": "@sjunepark/ytm-darwin-arm64",
       "packageDirectory": "darwin-arm64",
       "artifactFile": "ytm.darwin-arm64.node",
-      "runner": "macos-15"
+      "runner": "blacksmith-6vcpu-macos-15"
     },
     {
       "rustTarget": "x86_64-pc-windows-msvc",
@@ -51,10 +42,11 @@
       "packageName": "@sjunepark/ytm-win32-x64-msvc",
       "packageDirectory": "win32-x64-msvc",
       "artifactFile": "ytm.win32-x64-msvc.node",
-      "runner": "windows-2025"
+      "runner": "blacksmith-2vcpu-windows-2025"
     }
   ],
   "notSupportedAtCutover": [
+    "darwin-x64",
     "linux-musl",
     "win32-arm64",
     "win32-ia32",

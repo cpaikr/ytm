@@ -29,7 +29,7 @@ concurrency:
 
 jobs:
   node:
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-2vcpu-ubuntu-2404
 
     steps:
       - name: Check out source
@@ -69,7 +69,7 @@ jobs:
           node -e 'const p=require("./.tmp/node-smoke.json"); if (!p.ok || !p.result?.rows?.length) process.exit(1); console.log(`KIS-NET Node smoke passed: requested=${p.result.requestedBaseDate} resolved=${p.result.baseDate} rows=${p.result.rows.length}`)'
 
   python:
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-2vcpu-ubuntu-2404
 
     steps:
       - name: Check out source

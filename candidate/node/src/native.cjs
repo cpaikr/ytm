@@ -5,7 +5,6 @@ const { join } = require("node:path");
 const packageByTarget = {
   "linux-x64-gnu": "@sjunepark/ytm-linux-x64-gnu",
   "linux-arm64-gnu": "@sjunepark/ytm-linux-arm64-gnu",
-  "darwin-x64": "@sjunepark/ytm-darwin-x64",
   "darwin-arm64": "@sjunepark/ytm-darwin-arm64",
   "win32-x64": "@sjunepark/ytm-win32-x64-msvc"
 };

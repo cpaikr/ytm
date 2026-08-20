@@ -24,7 +24,18 @@ Goal contract
 
 ## Authorized amendments
 
-_None._
+- 2026-08-20 — The user authorized transferring the GitHub repository from
+  `sjunepark` to the `cpaikr` organization and migrating GitHub Actions to
+  Blacksmith using the lowest compute tier suitable for each runner image.
+  Repository references, active PR delivery, and validation may be updated as
+  necessary to complete that move; publication and the final main PR merge
+  remain excluded.
+- 2026-08-20 — The user chose a simple native CI matrix over Intel macOS
+  emulation. The cutover supports Linux GNU x64/ARM64, macOS ARM64, and Windows
+  x64; Intel macOS is unclaimed rather than cross-built or run through Rosetta.
+- 2026-08-20 — The user removed Release Please automation for now. Release-PR
+  and tag creation stay disabled; future release procedure and publication
+  require separate authorization.
 
 ## Execution status
 
@@ -40,9 +51,9 @@ Rust core and Node product; parity, packaging, and kind 80 — delivery pending
 
 ### Next in-scope action
 
-Commit and push the accepted PR #10 review fixes, reply to and resolve every
-inline thread, and finish the repeated CI lifecycle before starting the atomic
-cutover.
+Verify `cpaikr` transfer authority and Blacksmith runner conventions, migrate
+the active workflow and repository references, transfer the repository, then
+finish the repeated PR #10 CI lifecycle before starting the atomic cutover.
 
 ### Evidence and blockers
 
@@ -57,7 +68,7 @@ cutover.
 - The reviewed black-box judge passes 56 public CLI/toolset scenarios against the archived package and rejects a deliberate missing-value null-to-zero mutation.
 - A disposable Rust 1.92 probe reproduced both live operations with reqwest 0.13.4, rustls, quick-xml 0.41.0, and no browser impersonation. Only sanitized metadata is retained; the temporary source and all bodies were discarded.
 - `contracts/kisnet/openapi.yaml` now owns the exact two-operation wire contract and Nexacro profile; fixtures remain independent evidence, and `contracts:check` enforces the boundary and native target selection.
-- Target decisions are recorded: Rust-only transport, exact HTTP 200, no redirects or automatic retries, 20-second per-call deadline, 1 MiB decoded limit, Node 22 floor, five native targets, removal of public `context.fetch`, canonical kind 80, and protocol-feasible/not-production-qualified provider status.
+- Target decisions are recorded: Rust-only transport, exact HTTP 200, no redirects or automatic retries, 20-second per-call deadline, 1 MiB decoded limit, Node 22 floor, four native targets after the Blacksmith simplification, removal of public `context.fetch`, canonical kind 80, and protocol-feasible/not-production-qualified provider status.
 - Foundation validation passed on 2026-08-20: frozen Bun and uv sync, `bun run validate`, `bun run test` (90 passed; 3 opt-in live tests skipped), `bun run judge`, deliberate-failure proof, `bun run build`, both package checks, and `git diff --check`.
 - Foundation delivery completed through PR #9 at merge commit `63282fc`; all repository and security checks passed, no actionable review threads were filed, and CodeRabbit's attached run was skipped after the progress-metadata head update because automatic reviews are disabled. Repository policy forbids a manual retrigger.
 - Blockers: none.
@@ -80,7 +91,7 @@ cutover.
   ColumnInfo metadata; the authority, fictional evidence, and parser now agree
   that this metadata is allowed and ignored.
 - The local macOS ARM64 release artifact passed package assembly and a clean
-  npm consumer install under Node 26. The PR workflow will build all five
+  npm consumer install under Node 26. The PR workflow will build all four
   selected native targets and clean-install each under Node 22, 24, and 26
   before any support claim is made.
 - Final pre-delivery validation passes: frozen JavaScript/Python dependency
@@ -101,3 +112,15 @@ cutover.
   and generated-artifact freshness checks, and a clean macOS ARM64 package
   consumer. The Windows harness now routes both npm and generated CLI batch
   launchers through a bounded `cmd.exe` invocation for the repeated matrix.
+- The first repeated Windows consumers proved native build and assembly but
+  exposed Node escaping the wrapper's nested quote characters before npm ran.
+  The follow-up retains the validated command/argument quoting and enables
+  verbatim Windows argument transmission; the next native matrix is the
+  required platform proof.
+- Transfer preparation is locally complete: active repository references use
+  `cpaikr/ytm`; compatible jobs use the lowest Blacksmith Linux, ARM Linux,
+  macOS, and Windows runners; npm publishing retains its required GitHub-hosted
+  runner; Release Please automation is absent and enforced; Intel macOS is
+  unclaimed. Contract, release, generated-build, 76-scenario judge, YAML,
+  syntax, diff, and macOS ARM64 clean-consumer checks pass. Repository transfer
+  and the four-target Blacksmith matrix remain pending.

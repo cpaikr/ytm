@@ -8,7 +8,7 @@ The agent-facing contract is English, while official KIS-NET terms such as `ê¸°ì
 
 The tool reproduces the mobile source protocol directly instead of driving a
 browser. External HTTP and Nexacro details have one repository authority:
-[`contracts/kisnet/openapi.yaml`](https://github.com/sjunepark/ytm/blob/main/contracts/kisnet/openapi.yaml).
+[`contracts/kisnet/openapi.yaml`](https://github.com/cpaikr/ytm/blob/main/contracts/kisnet/openapi.yaml).
 Fictional fixtures are independent evidence, and the installed public behavior
 is summarized in [`SPEC.md`](SPEC.md).
 
@@ -57,13 +57,13 @@ The npm package includes an agent skill at `skills/kisnet-ytm/SKILL.md` so agent
 
 ```sh
 # Inspect available skills from this repo
-bunx skills add https://github.com/sjunepark/ytm/tree/main/skills --list
+bunx skills add https://github.com/cpaikr/ytm/tree/main/skills --list
 
 # Install the skill globally for Pi and Claude Code
-bunx skills add https://github.com/sjunepark/ytm/tree/main/skills --skill kisnet-ytm --copy -g -a pi -a claude-code -y
+bunx skills add https://github.com/cpaikr/ytm/tree/main/skills --skill kisnet-ytm --copy -g -a pi -a claude-code -y
 
 # Use it directly without installing
-bunx skills use sjunepark/ytm --skill kisnet-ytm
+bunx skills use cpaikr/ytm --skill kisnet-ytm
 ```
 
 If you edit the skill locally, commit and push before installing from the GitHub URL. For local validation, use `bunx skills add ./skills --list`.
