@@ -80,9 +80,10 @@ green; review-feedback hardening is implemented locally for the follow-up run.
   successful JSON, guarantees temporary cleanup, normalizes nondeterministic
   stderr evidence, validates required root-tarball entries and the scoped Node
   lock entry, bounds CI, and decodes live-smoke stdin as UTF-8.
-- `main` branch protection now requires the app-pinned `validate` context only;
-  retired Python contexts are removed while strict checks, administrator
-  enforcement, conversation resolution, and force-push/deletion bans remain.
+- `main` branch protection now requires the app-pinned `validate` context and
+  all 12 supported-target/Node consumer contexts; retired Python checks are
+  removed while strict checks, administrator enforcement, conversation
+  resolution, and force-push/deletion bans remain.
 
 ### Next action
 

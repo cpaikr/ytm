@@ -96,9 +96,10 @@ current cutover state that follows.
 - Node/Rust-only CI and live smoke use the lowest suitable Blacksmith images.
   The retained tag-only npm workflow assembles and clean-installs every native
   package before validating the complete artifact set and the root package.
-- `main` branch protection requires the stable, app-pinned `validate` context;
-  retired Python contexts are removed without weakening strict checks,
-  administrator enforcement, conversation resolution, or branch immutability.
+- `main` branch protection requires the app-pinned `validate` context and all
+  12 supported-target/Node consumer contexts. Retired Python checks are removed
+  without weakening strict checks, administrator enforcement, conversation
+  resolution, platform gates, or branch immutability.
 - The pre-PR local pass covers frozen Bun state, contract/release/build
   freshness, 77 public scenarios, deliberate oracle corruption, Rust
   formatting/Clippy/19 tests, RustSec and dependency policy, native licenses,
