@@ -1,0 +1,187 @@
+# Rewrite ytm around a Rust HTTP core and Node SDK
+
+## Outcome
+
+`ytm` becomes a Node.js-only product whose KIS-NET protocol implementation is
+owned by one Rust core, exposed through a narrow asynchronous Node-API binding
+and an idiomatic TypeScript/JavaScript facade and CLI. A language-neutral HTTP
+contract, independent fixtures, black-box parity checks, package-consumer tests,
+and live evidence make the rewrite safe to cut over without retaining the old
+Node or Python implementations.
+
+## Current state
+
+- The released product has handwritten Node and Python implementations at
+  version `0.2.0`. The existing component tags preserve the published package
+  sources, while `dev` contains documentation-only work not yet on `main`.
+- `SPEC.md` and `contracts/kisnet` currently share authority over protocol
+  facts. The rewrite must make OpenAPI the repository authority for HTTP wire
+  behavior and retain fixtures as independent evidence.
+- Shared fixtures provide substantial behavioral coverage, but Python tests
+  import private modules and therefore are not a portable public-surface judge.
+- GitHub issue #7 records an upstream-supported private-corporate-bond kind
+  (`80`) that both implementations currently reject because discovery results
+  are treated as the complete kind catalog.
+- Scheduled Node and Python live checks are healthy. Successful requests do not
+  yet establish provider rights, quotas, retention rules, or production
+  suitability; those require a separate qualification decision.
+- The remaining live-metadata item in the historical XML-hardening plan is
+  absorbed by the rewrite's transport qualification and live validation.
+
+## Decisions
+
+- Keep the existing repository, history, npm package identity, and ordinary Git
+  ancestry. Do not use an orphan branch or a new repository.
+- After `dev` and `main` have one validated baseline, create an annotated,
+  non-release archive tag and a `codex/rewrite-vnext` branch in a sibling
+  worktree. Keep the old implementation runnable until parity and cutover.
+- Build only the Rust implementation and Node.js product. Do not build a new
+  Python implementation, binding, package, or API. Remove Python source,
+  documentation, CI, and release automation at cutover; the already-published
+  PyPI `0.2.0` remains historical and installable.
+- Support Node.js through Node-API. Bun may remain a development package
+  manager, but browser, edge, Deno, and Bun runtime compatibility are not
+  product requirements.
+- Make OpenAPI the sole repository authority for external HTTP wire facts. Keep
+  fictional fixtures and independently authored expectations as evidence, not
+  as a second authority. If OpenAPI cannot truthfully express a Nexacro detail,
+  record the limitation and preserve that fact in an explicitly named,
+  language-neutral canonical contract rather than hiding it in code.
+- Keep Rust as the sole HTTP conformer. Rust owns request construction,
+  transport, bounds, retry policy, XML decoding, domain normalization, and
+  failure semantics. The Node-API binding and TypeScript facade own only the
+  public boundary and JavaScript ergonomics.
+- Preserve the npm package name, `ytm` executable, toolset subpath, machine-mode
+  JSON/error contract, retrieval semantics, and deterministic output unless an
+  explicit reviewed decision declares a breaking change.
+- Adapt Anthropic's migration kit as a redesign: establish a judge before
+  implementation, work by subsystem, replace translation rules with target
+  architecture, use adversarial design review and a disposable vertical slice,
+  and omit the translation bakeoff and per-file agent factory.
+
+## Delivery plan
+
+### 0. Establish the recoverable baseline
+
+- Land the documentation-only `dev` delta on `main` through normal review and
+  run the complete validation and package-artifact checks there.
+- Create an annotated tag such as `archive/pre-rewrite-2026-08-20` on that exact
+  commit. Do not use or move Release Please's `node-v*`, `python-v*`, or `v*`
+  tag namespaces.
+- Create `codex/rewrite-vnext` in a sibling worktree such as `../ytm-rewrite`.
+  Create a `maintenance/0.2` branch only if fixes to the old line are actually
+  required during the rewrite.
+
+### 1. Prove feasibility and freeze observable behavior
+
+- Inventory the public Node CLI, toolset export, schemas, errors, package
+  contents, source fallback, XML limits, and live behavior. Human-review the
+  scenario list before treating it as the parity definition.
+- Build a black-box judge that can run the old and new public surfaces with the
+  same inputs, without importing implementation internals. Prove that it fails
+  against deliberately broken legacy behavior.
+- Run a disposable Rust transport/XML vertical slice against fixtures and the
+  live source. Treat inability to reproduce the required network behavior as a
+  feasibility blocker, not as permission to add a second JavaScript transport.
+- Select and document the native package matrix before implementation. At
+  minimum, test every declared target through a clean consumer install; do not
+  imply support for unbuilt targets.
+
+### 2. Establish target authority and architecture
+
+- Add the narrow OpenAPI contract for the KIS-NET initialization and matrix
+  requests, including media types, bounded responses, protocol failures, and
+  the exact known/unknown boundary.
+- Add `ARCHITECTURE.md` describing the Rust core, binding, facade/CLI,
+  generated/projected artifacts, dependency direction, error ownership, and
+  clean removal path for the legacy implementations.
+- Record provider qualification separately from protocol conformance: source
+  status, documented versus observed claims, reuse/attribution, request pacing,
+  retries, retention, monitoring, incident response, and withdrawal criteria.
+- Define the public compatibility contract and the acceptance case for issue
+  #7. Discovery output must not silently override a supported canonical kind.
+- Replace linked Node/Python release assumptions with a Node-only release
+  design, but leave Release Please in control of versions, changelogs, and tags.
+
+### 3. Implement by subsystem
+
+- Implement bounded Nexacro request/response handling and explicit error types
+  in Rust, followed by transport, initialization, kind resolution, matrix
+  retrieval, previous-date fallback, and deterministic output projection.
+- Add exact OpenAPI conformance and fictional-fixture checks around the Rust
+  boundary. Keep unknown external values open where the source is genuinely
+  extensible.
+- Expose one narrow asynchronous Node-API surface, then rebuild the public
+  toolset and CLI as thin TypeScript/JavaScript adapters with no wire behavior.
+- Review the high-risk subsystem boundaries independently: wire authority,
+  XML parser, transport, kind resolution/fallback, native binding, and public
+  adapters. Fix recurring failures in the authority or architecture rather
+  than accumulating local exceptions.
+
+### 4. Prove parity and distributability
+
+- Run old-versus-new black-box parity over every accepted scenario, including
+  malformed XML, size/encoding bounds, protocol failures, unknown values,
+  fallback histories, deterministic CLI output, and issue #7.
+- Run real-transport verification separately from ordinary deterministic CI.
+  Capture response metadata without persisting response bodies.
+- Build npm artifacts for the declared native matrix and test clean installs,
+  executable discovery, toolset imports, version/capability/validation
+  discovery, stdout/stderr separation, and exit statuses from those artifacts.
+- Complete TODO/BUG/PERF review, source/package inspection, security review, and
+  a repository-level code review before declaring the candidate cutover-ready.
+
+### 5. Cut over and retire superseded paths
+
+- Switch the npm package, CLI, tests, documentation, CI, and live smoke to the
+  new implementation in one reviewable cutover while retaining normal Git
+  history.
+- Remove the legacy Node transport/parser and all Python implementation,
+  package, tests, lockfiles, workflows, release configuration, and claims.
+- Reconcile `SPEC.md`, fixtures, generated artifacts, architecture, provider
+  decisions, and release docs so every durable concern has one named authority
+  and a freshness rule.
+- Let Release Please prepare the Node-only release. Confirm the exact version
+  and native artifacts before merging any release PR, because publication may
+  start immediately. External publication or PyPI deprecation requires separate
+  explicit authorization.
+- Before publication, undo a failed cutover with an ordinary revert. After
+  publication, revert and publish a new corrective version; never move release
+  tags or attempt to replace an immutable registry version.
+
+## Completion criteria
+
+- One Rust implementation owns all external HTTP and Nexacro behavior; no
+  JavaScript or Python HTTP conformer remains.
+- OpenAPI and any explicitly documented Nexacro extension are the named wire
+  authority, and all derived artifacts have enforced freshness checks.
+- The packaged Node CLI and toolset pass the approved black-box judge, issue #7,
+  deterministic fixture tests, supported-target clean installs, and separate
+  live verification.
+- Provider qualification and production enablement decisions are explicit.
+- Python is absent from the active product and release machinery; historical
+  releases and source tags remain intact.
+- Current architecture, operations, and release documentation contain the
+  durable result; migration diaries and superseded plans are closed or reduced
+  to history.
+
+## Out of scope
+
+- A replacement Python implementation, extension, package, or API.
+- A new repository, orphaned history, or parallel long-term implementation.
+- Browser, edge, Deno, or Bun runtime support.
+- Publishing a registry release, deprecating the PyPI project, merging a pull
+  request, or changing external provider state without explicit authorization.
+
+## References
+
+- [Anthropic code migration kit](https://github.com/anthropics/code-migration-kit-with-claude-code/tree/cf91c9d5068d9aaf95a36164169f08c3e636c909)
+- [mytech code-rewrite guidance](../../mytech/practices/code-rewrites.md)
+- [External HTTP contracts and handwritten clients](../../mytech/architecture/external-http/external-http-contracts-and-handwritten-clients.md)
+- [Rust cores for Node.js HTTP SDKs](../../mytech/architecture/external-http/rust-cores-for-nodejs-http-sdks.md)
+- [External provider qualification](../../mytech/practices/external-provider-qualification.md)
+
+## Next action
+
+Establish and validate the shared pre-rewrite baseline, then run the feasibility
+and black-box-judge gate before implementing the target architecture.

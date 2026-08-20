@@ -1,5 +1,9 @@
 # XML Protocol Hardening
 
+Status: superseded by [`plans/rust-node-rewrite.md`](../../plans/rust-node-rewrite.md).
+The remaining live-response metadata check is absorbed by the rewrite's
+transport qualification and live-validation gate.
+
 ## Purpose
 
 Harden KIS-NET Nexacro XML handling consistently across Node and Python. Replace

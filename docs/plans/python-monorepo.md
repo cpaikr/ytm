@@ -2,6 +2,9 @@
 
 Status: complete.
 
+Lifecycle: historical. The Node-only Rust rewrite and removal of the Python
+product are tracked in [`plans/rust-node-rewrite.md`](../../plans/rust-node-rewrite.md).
+
 ## Current state
 
 `packages/python` now builds `kisnet-ytm` for Python 3.11-3.14 with Pydantic
