@@ -1,5 +1,6 @@
 use serde::Serialize;
 use serde_json::Value;
+use std::fmt;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -33,11 +34,18 @@ pub struct ErrorDetails {
     pub cause: Option<String>,
 }
 
-#[derive(Debug, Clone, thiserror::Error)]
-#[error("{details:?}")]
+#[derive(Debug, Clone)]
 pub struct YtmError {
     pub details: Box<ErrorDetails>,
 }
+
+impl fmt::Display for YtmError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(formatter, "{}: {}", self.details.code, self.details.reason)
+    }
+}
+
+impl std::error::Error for YtmError {}
 
 impl YtmError {
     pub fn invalid_parameter(
@@ -56,6 +64,30 @@ impl YtmError {
             actual: Some(actual),
             example_input: None,
             recovery_hint: "Inspect command help and retry with a supported value.".into(),
+            recovery_action: "inspect_command_help",
+            recoverable: true,
+            retryable: false,
+            source_error_code: None,
+            source_error_message: None,
+            attempted_dates: None,
+            lookback_days: None,
+            cause: None,
+        })
+    }
+
+    pub fn unsupported_kind(actual: &str, expected: Value, example_input: Value) -> Self {
+        Self::new(ErrorDetails {
+            ok: false,
+            code: "invalid_parameter",
+            operation_name: Some("matrix".into()),
+            parameter: Some("kind".into()),
+            reason: format!("Unknown 종류: {actual}."),
+            expected: Some(expected),
+            actual: Some(Value::String(actual.to_owned())),
+            example_input: Some(example_input),
+            recovery_hint:
+                "Use kinds to inspect accepted 종류 values, then retry with a listed code or label."
+                    .into(),
             recovery_action: "inspect_command_help",
             recoverable: true,
             retryable: false,
@@ -161,10 +193,11 @@ impl YtmError {
         let nearby_date = chrono::NaiveDate::parse_from_str(base_date, "%Y-%m-%d")
             .ok()
             .and_then(|date| date.checked_sub_days(chrono::Days::new(1)))
-            .map(|date| date.format("%Y-%m-%d").to_string())
-            .unwrap_or_else(|| "2026-06-08".to_owned());
+            .map(|date| date.format("%Y-%m-%d").to_string());
         let example_input = if operation == "matrix" && exhausted {
-            serde_json::json!({ "baseDate": nearby_date, "kind": kind.unwrap_or("국채") })
+            nearby_date
+                .map(|date| serde_json::json!({ "baseDate": date, "kind": kind.unwrap_or("국채") }))
+                .unwrap_or_else(|| serde_json::json!({ "kind": kind.unwrap_or("국채") }))
         } else if operation == "matrix" {
             serde_json::json!({
                 "baseDate": base_date,
@@ -173,7 +206,9 @@ impl YtmError {
                 "lookbackDays": 10
             })
         } else {
-            serde_json::json!({ "baseDate": nearby_date })
+            nearby_date
+                .map(|date| serde_json::json!({ "baseDate": date }))
+                .unwrap_or_else(|| serde_json::json!({}))
         };
         Self::new(ErrorDetails {
             ok: false,

@@ -98,13 +98,17 @@ model.
   enable or select it. Rust conformance tests compare the same core request and
   outcome projections to OpenAPI; native clean-install tests exercise the
   unmodified release build separately.
-- Rust returns source metadata and capability projections. JavaScript does not
-  recreate source facts or copy the canonical kind catalog.
+- Rust returns source metadata and the canonical kind capability projection.
+  JavaScript owns its public input-schema constants, but does not recreate
+  source facts or copy the canonical kind catalog.
 - Canonical kinds are merged with discovery by code. Discovery may add values;
   it cannot remove or redefine a canonical value. Conflicts fail explicitly.
 - Transport is sequential, bounded, redirect-free, and has no automatic retry.
   Product date fallback is not a transport retry and advances only after a
   confirmed empty result.
+- The direct fixed-origin transport does not discover proxies from environment
+  variables or operating-system settings. Proxy support is outside the initial
+  runtime contract and must not be inferred from reqwest defaults.
 - Matrix lookup performs initialization followed by retrieval for each date.
   The maximum fallback window therefore permits 32 dates and 64 sequential
   HTTP calls, each with its own 20-second deadline; caller cancellation remains

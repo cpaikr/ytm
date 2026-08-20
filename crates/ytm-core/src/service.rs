@@ -199,11 +199,13 @@ impl YtmService {
             .await?
             .kinds;
         let kind = resolve_kind(kind_input, &kinds).ok_or_else(|| {
-            YtmError::invalid_parameter(
-                "matrix",
-                "kind",
-                format!("Unknown 종류: {kind_input}."),
-                json!(kind_input),
+            YtmError::unsupported_kind(
+                kind_input,
+                json!(kinds),
+                json!({
+                    "baseDate": display,
+                    "kind": kinds.first().map(|kind| kind.name.as_str()).unwrap_or("국채")
+                }),
             )
         })?;
         let response = self
@@ -360,8 +362,15 @@ fn normalize_row(row: IndexMap<String, String>, kind: &Kind) -> Result<MatrixRow
 
 fn normalize_date(value: &str, operation: &str) -> Result<(String, String), YtmError> {
     let trimmed = value.trim();
-    let compact = trimmed.replace(['-', '.'], "");
-    if compact.len() != 8 || !compact.bytes().all(|byte| byte.is_ascii_digit()) {
+    let bytes = trimmed.as_bytes();
+    let supported_shape = bytes.len() == 8 && bytes.iter().all(u8::is_ascii_digit)
+        || bytes.len() == 10
+            && matches!((bytes[4], bytes[7]), (b'-', b'-') | (b'.', b'.'))
+            && bytes
+                .iter()
+                .enumerate()
+                .all(|(index, byte)| matches!(index, 4 | 7) || byte.is_ascii_digit());
+    if !supported_shape {
         return Err(YtmError::invalid_parameter(
             operation,
             "baseDate",
@@ -369,6 +378,7 @@ fn normalize_date(value: &str, operation: &str) -> Result<(String, String), YtmE
             json!(value),
         ));
     }
+    let compact = trimmed.replace(['-', '.'], "");
     let date = NaiveDate::parse_from_str(&compact, "%Y%m%d").map_err(|_| {
         YtmError::invalid_parameter(
             operation,
@@ -448,5 +458,21 @@ mod tests {
         }])
         .unwrap_err();
         assert_eq!(error.details.code, "source_format_error");
+    }
+
+    #[test]
+    fn date_normalization_accepts_only_the_documented_shapes() {
+        for value in ["20260820", "2026-08-20", "2026.08.20"] {
+            assert_eq!(
+                normalize_date(value, "matrix").unwrap(),
+                ("2026-08-20".into(), "20260820".into())
+            );
+        }
+        for value in ["2026.08-20", "2026-0820", "202608-20", "2026..08.20"] {
+            assert_eq!(
+                normalize_date(value, "matrix").unwrap_err().details.code,
+                "invalid_parameter"
+            );
+        }
     }
 }

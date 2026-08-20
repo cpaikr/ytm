@@ -70,6 +70,7 @@ pub fn parse(bytes: &[u8], selected_dataset: &str) -> Result<DatasetResponse, Yt
     let mut structure = StructureState::default();
     let mut root_closed = false;
     let mut declaration_seen = false;
+    let mut document_start = true;
     let mut parameters = IndexMap::<String, String>::new();
     let mut rows = Vec::new();
 
@@ -81,6 +82,12 @@ pub fn parse(bytes: &[u8], selected_dataset: &str) -> Result<DatasetResponse, Yt
                     YtmError::format(format!("KIS-NET returned malformed Nexacro XML: {error}."))
                 })?;
         let namespace_ok = matches!(resolution, ResolveResult::Bound(namespace) if namespace.as_ref() == NAMESPACE);
+        if matches!(&event, Event::Decl(_)) && !document_start {
+            return Err(YtmError::format(
+                "KIS-NET XML declaration is duplicated or misplaced.",
+            ));
+        }
+        document_start = false;
         match event {
             Event::Decl(declaration) => {
                 if declaration_seen || structure.root_seen {
@@ -433,7 +440,7 @@ fn required_id(element: &BytesStart<'_>, decoder: Decoder) -> Result<String, Ytm
                 "KIS-NET response contains an invalid attribute: {error}."
             ))
         })?;
-        if attribute.key.local_name().as_ref() == b"id" {
+        if attribute.key.as_ref() == b"id" {
             if id.is_some() {
                 return Err(YtmError::format(
                     "KIS-NET element contains duplicate id attributes.",
@@ -748,6 +755,31 @@ mod tests {
             namespace = std::str::from_utf8(NAMESPACE).unwrap(),
         );
         assert!(parse(xml.as_bytes(), "output1").is_ok());
+    }
+
+    #[test]
+    fn rejects_declarations_after_any_document_content() {
+        let fixture = include_bytes!("../../../contracts/kisnet/init-success.xml");
+        for prefix in [b" \n".as_slice(), b"<!--before-->".as_slice()] {
+            let mut xml = prefix.to_vec();
+            xml.extend_from_slice(fixture);
+            assert_eq!(
+                parse(&xml, "output1").unwrap_err().details.code,
+                "source_format_error"
+            );
+        }
+    }
+
+    #[test]
+    fn requires_an_unqualified_id_attribute() {
+        let xml = format!(
+            "<Root xmlns=\"{namespace}\" xmlns:vendor=\"urn:vendor\"><Parameters><Parameter vendor:id=\"ErrorCode\">0</Parameter></Parameters><Dataset id=\"output1\"><Rows/></Dataset></Root>",
+            namespace = std::str::from_utf8(NAMESPACE).unwrap(),
+        );
+        assert_eq!(
+            parse(xml.as_bytes(), "output1").unwrap_err().details.code,
+            "source_format_error"
+        );
     }
 
     fn contract_fixture(filename: &str) -> std::path::PathBuf {

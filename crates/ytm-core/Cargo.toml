@@ -19,11 +19,10 @@ quick-xml.workspace = true
 reqwest.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-thiserror.workspace = true
 tokio.workspace = true
 tokio-util.workspace = true
 
 [dev-dependencies]
 flate2.workspace = true
-serde_yaml.workspace = true
+serde_yaml_ng.workspace = true
 tokio = { workspace = true, features = ["io-util", "net"] }

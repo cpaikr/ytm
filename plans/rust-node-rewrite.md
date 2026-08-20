@@ -39,12 +39,13 @@ Node or Python implementations.
   source and all request/response bodies were discarded.
 - The complete foundation landed on the rewrite integration branch through PR
   #9 at `63282fc`; the Rust core and Node product are now the active slice.
-- The staged implementation now contains the Rust HTTP/Nexacro core, Node-API
-  binding, thin candidate CLI/toolset, generated five-target native package
-  set, and candidate CI matrix. The expanded public judge passes 67 scenarios,
-  including kind 80 and the live-observed optional `ColumnInfo` response
-  metadata.
-- Hermetic Rust tests exercise strict XML/profile parsing, OpenAPI request
+- PR #10 now contains the Rust HTTP/Nexacro core, Node-API binding, thin
+  candidate CLI/toolset, generated five-target native package set, and
+  candidate CI matrix. Its review-hardened public judge passes 76 scenarios,
+  including kind 80, strict date shapes, missing-native behavior, pre-aborted
+  binding cancellation, immutable operation descriptions, formula-safe CSV,
+  and the live-observed optional `ColumnInfo` response metadata.
+- Nineteen hermetic Rust tests exercise strict XML/profile parsing, OpenAPI request
   conformance, exact HTTP 200, redirect refusal, required headers,
   decompressed-size bounds, and in-flight cancellation. Rust formatting,
   Clippy, tests, advisory audit, license/source policy, and dependency policy
@@ -52,8 +53,10 @@ Node or Python implementations.
 - A production binding smoke on 2026-08-20 completed both live operations
   without the judge transport and retained sanitized counts and timing only.
   The macOS ARM64 release package also passed a clean npm consumer install on
-  Node 26. Full five-runner Node 22/24/26 validation remains a delivery check,
-  so selected targets are not yet claimed as supported.
+  Node 26. The first PR matrix passed every native build and all non-Windows
+  consumers; the Windows build also passed and its harness-only `.cmd` launch
+  incompatibility is fixed for the repeated Node 22/24/26 delivery check.
+  Selected targets are not yet claimed as supported.
 
 ## Decisions
 

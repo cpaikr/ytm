@@ -123,7 +123,7 @@ for (const relativePath of ["../SPEC.md", "../packages/node/SPEC.md", "../packag
   }
 }
 
-for (const relativePath of ["../candidate/node/src/toolset.js", "../candidate/node/src/cli.js", "../candidate/node/src/native.js"]) {
+for (const relativePath of ["../candidate/node/src/toolset.js", "../candidate/node/src/cli.js", "../candidate/node/src/native.js", "../candidate/node/src/native.cjs"]) {
   const text = await readFile(new URL(relativePath, import.meta.url), "utf8");
   for (const forbidden of [
     "https://kis-net.kr",

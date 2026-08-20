@@ -40,9 +40,9 @@ Rust core and Node product; parity, packaging, and kind 80 — delivery pending
 
 ### Next in-scope action
 
-Push `codex/rewrite-implementation`, create its review PR against
-`codex/rewrite-vnext`, and finish the complete feedback and CI lifecycle before
-starting the atomic cutover.
+Commit and push the accepted PR #10 review fixes, reply to and resolve every
+inline thread, and finish the repeated CI lifecycle before starting the atomic
+cutover.
 
 ### Evidence and blockers
 
@@ -67,7 +67,7 @@ starting the atomic cutover.
 - The staged implementation contains the sole Rust HTTP/Nexacro conformer, a
   panic-contained Node-API binding, a wire-ignorant Node facade/CLI, and a
   compile-time-only judge transport absent from release builds.
-- Rust gates pass with 15 tests, including OpenAPI request conformance, the
+- Rust gates pass with 19 tests, including OpenAPI request conformance, the
   independent XML corpus, protocol precedence, localhost HTTP headers/status,
   redirect refusal, decompressed-size bounds, and in-flight cancellation.
   Formatting, Clippy with warnings denied, RustSec audit, cargo-deny license,
@@ -84,7 +84,20 @@ starting the atomic cutover.
   selected native targets and clean-install each under Node 22, 24, and 26
   before any support claim is made.
 - Final pre-delivery validation passes: frozen JavaScript/Python dependency
-  state, contract/release checks, Rust gates, 67-scenario candidate judge,
+  state, contract/release checks, Rust gates, 76-scenario candidate judge,
   deliberate-failure proof, candidate freshness, legacy Node/Python validation
   and tests (91 Python passed; 3 live tests skipped), both legacy package
   artifact checks, workflow YAML parsing, diff checks, and source/TODO review.
+- PR #10 is open against `codex/rewrite-vnext`. Its first CI run passed every
+  Rust, parity, legacy, and non-Windows native job; all Windows native builds
+  succeeded, while the clean-consumer harness exposed a Windows `.cmd` spawn
+  incompatibility rather than a product artifact failure.
+- All 26 initial Codex and CodeRabbit inline comments were assessed. The
+  candidate now incorporates the 25 applicable fixes and hardening changes;
+  the remaining exact native-target-order comment was already enforced by the
+  contract validator and required no code change.
+- The review-hardened implementation passes 19 Rust core tests, the expanded
+  76-scenario public judge, a release-build fixture exclusion proof, contract
+  and generated-artifact freshness checks, and a clean macOS ARM64 package
+  consumer. The Windows harness now routes both npm and generated CLI batch
+  launchers through a bounded `cmd.exe` invocation for the repeated matrix.

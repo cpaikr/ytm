@@ -1,10 +1,8 @@
 import { describeNative, invokeNative } from "./native.js";
 
-const CAPABILITIES = describeNative();
-const FALLBACK_PREVIOUS_AVAILABLE = CAPABILITIES.fallback;
-const DEFAULT_LOOKBACK_DAYS = CAPABILITIES.defaultLookbackDays;
-const MAX_LOOKBACK_DAYS = CAPABILITIES.maxLookbackDays;
-const STATIC_KINDS = CAPABILITIES.kinds;
+const FALLBACK_PREVIOUS_AVAILABLE = "previous-available";
+const DEFAULT_LOOKBACK_DAYS = 10;
+const MAX_LOOKBACK_DAYS = 31;
 
 const operationSpecs = [
   {
@@ -127,10 +125,11 @@ export function createKisnetYtmToolset() {
       ].join("\n");
     },
     listOperations() {
-      return operationSpecs.map((spec) => ({ ...spec }));
+      return structuredClone(operationSpecs);
     },
     getOperation(name) {
-      return operationSpecs.find((spec) => spec.name === name);
+      const spec = operationSpecs.find((spec) => spec.name === name);
+      return spec && structuredClone(spec);
     },
     getCommandHelp(name) {
       if (name === "matrix") {
@@ -260,9 +259,12 @@ function normalizeLookbackDays(value) {
 function normalizeBaseDate(value) {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
-  const match = /^(\d{4})(?:[-.]?)(\d{2})(?:[-.]?)(\d{2})$/.exec(trimmed);
+  const match = /^(?:(\d{4})(\d{2})(\d{2})|(\d{4})-(\d{2})-(\d{2})|(\d{4})\.(\d{2})\.(\d{2}))$/.exec(trimmed);
   if (!match) return null;
-  const [, yyyy, mm, dd] = match;
+  const [, compactYear, compactMonth, compactDay, dashedYear, dashedMonth, dashedDay, dottedYear, dottedMonth, dottedDay] = match;
+  const yyyy = compactYear || dashedYear || dottedYear;
+  const mm = compactMonth || dashedMonth || dottedMonth;
+  const dd = compactDay || dashedDay || dottedDay;
   const month = Number(mm);
   const day = Number(dd);
   if (month < 1 || month > 12 || day < 1 || day > 31) return null;
@@ -305,12 +307,13 @@ function serializeError(error) {
   if (error && typeof error === "object" && error.details) return error.details;
   return {
     ok: false,
-    code: "invalid_request",
-    reason: error instanceof Error ? error.message : String(error),
-    recoveryHint: "Inspect command help and retry. If the source is unavailable, retry later.",
-    recoveryAction: "inspect_tool_help",
-    recoverable: true,
-    retryable: true
+    code: "internal_error",
+    reason: "The Node adapter encountered an internal error.",
+    recoveryHint: "Reinstall or update the package for this platform, then report the failure if it persists.",
+    recoveryAction: "update_package",
+    recoverable: false,
+    retryable: false,
+    cause: error instanceof Error ? error.name : "Error"
   };
 }
 
@@ -324,5 +327,9 @@ function safeActual(value) {
 
 
 function formatKindsForHelp() {
-  return STATIC_KINDS.map((kind) => `${kind.code} = ${kind.name}`);
+  try {
+    return describeNative().kinds.map((kind) => `${kind.code} = ${kind.name}`);
+  } catch {
+    return ["Native capabilities unavailable; reinstall @sjunepark/ytm for this platform."];
+  }
 }

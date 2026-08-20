@@ -1,14 +1,17 @@
 #![cfg_attr(test, allow(dead_code))]
 
-use std::{panic::AssertUnwindSafe, sync::OnceLock};
+#[cfg(all(feature = "judge-fixtures", not(debug_assertions)))]
+compile_error!("the judge-fixtures transport cannot be compiled into a release artifact");
 
+use std::panic::AssertUnwindSafe;
+
+use futures_util::FutureExt;
 use napi::{
-    bindgen_prelude::{AbortSignal, AsyncTask},
-    Env, Task,
+    bindgen_prelude::{AbortSignal, AsyncBlock, AsyncBlockBuilder},
+    Env,
 };
 use napi_derive::napi;
 use serde_json::{json, Value};
-use tokio::runtime::Runtime;
 use tokio_util::sync::CancellationToken;
 use ytm_core::{HttpTransport, KindsInput, MatrixInput, Transport, YtmError, YtmService};
 
@@ -17,65 +20,38 @@ enum Operation {
     Kinds(KindsInput),
 }
 
-struct CoreTask {
-    operation: Option<Operation>,
-    cancellation: CancellationToken,
-}
-
-#[napi]
-impl Task for CoreTask {
-    type Output = String;
-    type JsValue = String;
-
-    fn compute(&mut self) -> napi::Result<Self::Output> {
-        let operation = self
-            .operation
-            .take()
-            .ok_or_else(|| napi::Error::from_reason("native task was already consumed"))?;
-        let cancellation = self.cancellation.clone();
-        let result = std::panic::catch_unwind(AssertUnwindSafe(|| {
-            runtime().block_on(async move {
-                let transport = transport()?;
-                let service = YtmService::new(transport);
-                match operation {
-                    Operation::Matrix(input) => {
-                        service.matrix(input, cancellation).await.map(|value| {
-                            serde_json::to_value(value).expect("matrix result serializes")
-                        })
-                    }
-                    Operation::Kinds(input) => service
-                        .kinds(input, cancellation)
-                        .await
-                        .map(|value| serde_json::to_value(value).expect("kinds result serializes")),
-                }
-            })
-        }));
-        let envelope = match result {
-            Ok(Ok(value)) => json!({ "ok": true, "value": value }),
-            Ok(Err(error)) => error_envelope(error),
-            Err(_) => error_envelope(YtmError::defect()),
-        };
-        serde_json::to_string(&envelope)
-            .map_err(|_| napi::Error::from_reason("native result serialization failed"))
-    }
-
-    fn resolve(&mut self, _env: Env, output: Self::Output) -> napi::Result<Self::JsValue> {
-        Ok(output)
-    }
-}
-
 #[napi(js_name = "matrix")]
-fn matrix(input_json: String, signal: Option<AbortSignal>) -> napi::Result<AsyncTask<CoreTask>> {
+fn matrix(
+    env: Env,
+    input_json: String,
+    signal: Option<AbortSignal>,
+    pre_aborted: Option<bool>,
+) -> napi::Result<AsyncBlock<String>> {
     let input: MatrixInput = serde_json::from_str(&input_json)
         .map_err(|error| napi::Error::from_reason(format!("invalid matrix input JSON: {error}")))?;
-    Ok(task(Operation::Matrix(input), signal))
+    task(
+        &env,
+        Operation::Matrix(input),
+        signal,
+        pre_aborted.unwrap_or(false),
+    )
 }
 
 #[napi(js_name = "kinds")]
-fn kinds(input_json: String, signal: Option<AbortSignal>) -> napi::Result<AsyncTask<CoreTask>> {
+fn kinds(
+    env: Env,
+    input_json: String,
+    signal: Option<AbortSignal>,
+    pre_aborted: Option<bool>,
+) -> napi::Result<AsyncBlock<String>> {
     let input: KindsInput = serde_json::from_str(&input_json)
         .map_err(|error| napi::Error::from_reason(format!("invalid kinds input JSON: {error}")))?;
-    Ok(task(Operation::Kinds(input), signal))
+    task(
+        &env,
+        Operation::Kinds(input),
+        signal,
+        pre_aborted.unwrap_or(false),
+    )
 }
 
 #[napi]
@@ -87,21 +63,49 @@ fn describe() -> String {
     }
 }
 
-fn task(operation: Operation, signal: Option<AbortSignal>) -> AsyncTask<CoreTask> {
+fn task(
+    env: &Env,
+    operation: Operation,
+    signal: Option<AbortSignal>,
+    pre_aborted: bool,
+) -> napi::Result<AsyncBlock<String>> {
     let cancellation = CancellationToken::new();
+    if pre_aborted {
+        cancellation.cancel();
+    }
     if let Some(signal) = signal {
         let token = cancellation.clone();
         signal.on_abort(move || token.cancel());
     }
-    AsyncTask::new(CoreTask {
-        operation: Some(operation),
-        cancellation,
-    })
+
+    let future = async move {
+        let result = AssertUnwindSafe(execute(operation, cancellation))
+            .catch_unwind()
+            .await;
+        let envelope = match result {
+            Ok(Ok(value)) => json!({ "ok": true, "value": value }),
+            Ok(Err(error)) => error_envelope(error),
+            Err(_) => error_envelope(YtmError::defect()),
+        };
+        serde_json::to_string(&envelope)
+            .map_err(|_| napi::Error::from_reason("native result serialization failed"))
+    };
+    AsyncBlockBuilder::new(future).build(env)
 }
 
-fn runtime() -> &'static Runtime {
-    static RUNTIME: OnceLock<Runtime> = OnceLock::new();
-    RUNTIME.get_or_init(|| Runtime::new().expect("Tokio runtime initialization must succeed"))
+async fn execute(operation: Operation, cancellation: CancellationToken) -> Result<Value, YtmError> {
+    let transport = transport()?;
+    let service = YtmService::new(transport);
+    match operation {
+        Operation::Matrix(input) => service
+            .matrix(input, cancellation)
+            .await
+            .map(|value| serde_json::to_value(value).expect("matrix result serializes")),
+        Operation::Kinds(input) => service
+            .kinds(input, cancellation)
+            .await
+            .map(|value| serde_json::to_value(value).expect("kinds result serializes")),
+    }
 }
 
 fn transport() -> Result<std::sync::Arc<dyn Transport>, YtmError> {

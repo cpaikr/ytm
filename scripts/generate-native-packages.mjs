@@ -28,7 +28,10 @@ for (const target of manifest.targets) {
     cpu: [target.npmArch],
     engines: { node: ">=22" },
     publishConfig: { access: "public" },
-    repository: rootPackage.repository,
+    repository: {
+      ...rootPackage.repository,
+      directory: `${manifest.candidateNativePackageRoot}/${target.packageDirectory}`
+    },
     license: rootPackage.license
   };
   if (target.libc) nativePackage.libc = [target.libc];

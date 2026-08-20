@@ -84,6 +84,14 @@ impl Transport for HttpTransport {
                 None,
             ));
         }
+        if let Some(content_type) = response.headers().get(header::CONTENT_TYPE) {
+            let valid = content_type.to_str().is_ok_and(is_nexacro_content_type);
+            if !valid {
+                return Err(YtmError::format(
+                    "KIS-NET HTTP 200 response Content-Type must use text/xml; charset=UTF-8 when present.",
+                ));
+            }
+        }
         let mut stream = response.bytes_stream();
         let mut body = Vec::new();
         loop {
@@ -106,6 +114,26 @@ impl Transport for HttpTransport {
         }
         Ok(body)
     }
+}
+
+fn is_nexacro_content_type(value: &str) -> bool {
+    let mut parts = value.split(';');
+    if !parts
+        .next()
+        .is_some_and(|media_type| media_type.trim().eq_ignore_ascii_case("text/xml"))
+    {
+        return false;
+    }
+    let Some(charset) = parts.next() else {
+        return false;
+    };
+    if parts.next().is_some() {
+        return false;
+    }
+    let Some((name, value)) = charset.split_once('=') else {
+        return false;
+    };
+    name.trim().eq_ignore_ascii_case("charset") && value.trim().eq_ignore_ascii_case("UTF-8")
 }
 
 fn error_name(error: &reqwest::Error) -> &'static str {
@@ -134,7 +162,12 @@ mod tests {
 
     #[tokio::test]
     async fn posts_required_headers_and_accepts_exact_http_200() {
-        let (url, request) = server(response(200, &[], b"ok")).await;
+        let (url, request) = server(response(
+            200,
+            &[("Content-Type", "text/xml; charset=UTF-8")],
+            b"ok",
+        ))
+        .await;
         let body = HttpTransport::new()
             .unwrap()
             .post(prepared(url), CancellationToken::new())
@@ -171,6 +204,32 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn accepts_missing_success_content_type_and_rejects_invalid_values() {
+        let (url, _) = server(response(200, &[], b"ok")).await;
+        let body = HttpTransport::new()
+            .unwrap()
+            .post(prepared(url), CancellationToken::new())
+            .await
+            .unwrap();
+        assert_eq!(body, b"ok");
+
+        for headers in [
+            vec![("Content-Type", "text/html; charset=UTF-8")],
+            vec![("Content-Type", "text/xml; charset=EUC-KR")],
+            vec![("Content-Type", "text/xml")],
+        ] {
+            let (url, _) = server(response(200, &headers, b"ok")).await;
+            let error = HttpTransport::new()
+                .unwrap()
+                .post(prepared(url), CancellationToken::new())
+                .await
+                .unwrap_err();
+            assert_eq!(error.details.code, "source_format_error");
+        }
+        assert!(is_nexacro_content_type("TEXT/XML ; CHARSET = utf-8"));
+    }
+
+    #[tokio::test]
     async fn caps_the_decompressed_response_body() {
         for (size, succeeds) in [
             (MAX_RESPONSE_BODY_BYTES, true),
@@ -179,8 +238,15 @@ mod tests {
             let mut encoder = GzEncoder::new(Vec::new(), Compression::fast());
             encoder.write_all(&vec![b'x'; size]).unwrap();
             let compressed = encoder.finish().unwrap();
-            let (url, _) =
-                server(response(200, &[("Content-Encoding", "gzip")], &compressed)).await;
+            let (url, _) = server(response(
+                200,
+                &[
+                    ("Content-Encoding", "gzip"),
+                    ("Content-Type", "text/xml; charset=UTF-8"),
+                ],
+                &compressed,
+            ))
+            .await;
             let result = HttpTransport::new()
                 .unwrap()
                 .post(prepared(url), CancellationToken::new())
@@ -202,7 +268,7 @@ mod tests {
             let (mut socket, _) = listener.accept().await.unwrap();
             read_request(&mut socket).await;
             socket
-                .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 10\r\nConnection: close\r\n\r\n")
+                .write_all(b"HTTP/1.1 200 OK\r\nContent-Type: text/xml; charset=UTF-8\r\nContent-Length: 10\r\nConnection: close\r\n\r\n")
                 .await
                 .unwrap();
             headers_sent.send(()).unwrap();

@@ -19,7 +19,7 @@ const temporary = await mkdtemp(resolve(tmpdir(), "ytm-consumer-"));
 try {
   const nativeTarball = pack(resolve(repositoryRoot, manifest.candidateNativePackageRoot, target.packageDirectory));
   const rootTarball = pack(resolve(repositoryRoot, manifest.candidateRootPackage));
-  const rootPack = JSON.parse(execFileSync(npm, ["pack", "--dry-run", "--json", resolve(repositoryRoot, manifest.candidateRootPackage)], { encoding: "utf8" }))[0];
+  const rootPack = JSON.parse(exec(npm, ["pack", "--dry-run", "--json", resolve(repositoryRoot, manifest.candidateRootPackage)], { encoding: "utf8" }))[0];
   if (rootPack.files.some(({ path }) => path.endsWith(".node"))) {
     throw new Error("The root package must not embed a native artifact.");
   }
@@ -48,7 +48,8 @@ try {
   const kinds = run(cli, ["kinds", "--format", "json"], temporary);
   const kindsResult = JSON.parse(kinds.stdout);
   if (kindsResult.result?.kinds?.at(-1)?.code !== "80") throw new Error("Installed CLI omitted canonical kind 80.");
-  const invalid = spawnSync(cli, ["matrix", "--kind", "80"], { cwd: temporary, encoding: "utf8" });
+  const invalidInvocation = commandInvocation(cli, ["matrix", "--kind", "80"]);
+  const invalid = spawnSync(invalidInvocation.command, invalidInvocation.args, { cwd: temporary, encoding: "utf8" });
   if (invalid.status !== 2 || JSON.parse(invalid.stdout).error?.code !== "missing_parameter" || !invalid.stderr.includes("matrix")) {
     throw new Error("Installed CLI validation/stdout/stderr contract failed.");
   }
@@ -58,15 +59,40 @@ try {
 }
 
 function pack(directory) {
-  const result = JSON.parse(execFileSync(npm, ["pack", "--json", "--pack-destination", temporary, directory], { encoding: "utf8" }))[0];
+  const result = JSON.parse(exec(npm, ["pack", "--json", "--pack-destination", temporary, directory], { encoding: "utf8" }))[0];
   if (!result?.filename) throw new Error(`npm pack did not report an artifact for ${directory}.`);
   return resolve(temporary, result.filename);
 }
 
 function run(command, args, cwd) {
-  const result = spawnSync(command, args, { cwd, encoding: "utf8" });
+  const invocation = commandInvocation(command, args);
+  const result = spawnSync(invocation.command, invocation.args, { cwd, encoding: "utf8" });
   if (result.status !== 0) {
     throw new Error(`${command} ${args.join(" ")} failed (${result.status}):\n${result.stdout}\n${result.stderr}`);
   }
   return result;
+}
+
+function exec(command, args, options) {
+  const invocation = commandInvocation(command, args);
+  return execFileSync(invocation.command, invocation.args, options);
+}
+
+function commandInvocation(command, args) {
+  if (process.platform !== "win32" || !/\.(?:cmd|bat)$/i.test(command)) {
+    return { command, args };
+  }
+  const commandLine = [command, ...args].map(quoteCmdArgument).join(" ");
+  return {
+    command: process.env.ComSpec || "cmd.exe",
+    args: ["/d", "/s", "/c", `"${commandLine}"`]
+  };
+}
+
+function quoteCmdArgument(value) {
+  const text = String(value);
+  if (/[\0\r\n"]/.test(text)) {
+    throw new Error("Windows command arguments must not contain NUL, line breaks, or quotes.");
+  }
+  return `"${text.replace(/%/g, "%%")}"`;
 }

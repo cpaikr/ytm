@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { isDeepStrictEqual } from "node:util";
+import { pathToFileURL } from "node:url";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { parse } from "yaml";
@@ -140,6 +141,18 @@ for (const [dateValue, normalized] of [["2026-06-08", "2026-06-08"], ["2026.06.0
   });
 }
 
+for (const dateValue of ["2026.06-08", "2026-0608", "202606-08", "2026..06.08"]) {
+  runCandidateToolset(`validation-recovery:reject-date-${dateValue}`, { action: "validate", operation: "matrix", input: { baseDate: dateValue, kind: "10" } }, undefined, (result, label) => {
+    check(result.value?.valid === false && result.value?.error?.parameter === "baseDate", `${label} must reject an undocumented date shape`);
+  });
+}
+
+runCandidateToolset("toolset-operation-immutability", { action: "operation-mutation" }, undefined, (result, label) => {
+  check(result.ok, `${label} must complete the mutation probe`);
+  check(result.value?.operation?.examples?.[0]?.input?.baseDate === "2026-06-08", `${label} getOperation must return a deep copy`);
+  check(result.value?.listed?.limitations?.[0] !== "mutated", `${label} listOperations must return a deep copy`);
+});
+
 const successFixture = fixture([
   { path: initPath, fixture: evidence.fixtures.init },
   { path: matrixPath, fixture: evidence.fixtures.matrix }
@@ -161,6 +174,15 @@ runToolset("missing-values", { action: "execute", operation: "matrix", input: { 
     check(result.value?.rows?.[0]?.yields?.[tenor] === null, `${label} must normalize missing ${tenor} to null`);
     check(result.value?.rows?.[0]?.yieldText?.[tenor] === evidence.expectations.missingValues.rawValues[tenor], `${label} must retain raw ${tenor}`);
   }
+});
+
+runCandidateToolset("unknown-kind-recovery", { action: "execute", operation: "matrix", input: { baseDate: request.baseDate, kind: "not-a-kind" } }, fixture([
+  { path: initPath, fixture: evidence.fixtures.init }
+]), (result, label) => {
+  check(!result.ok && result.error?.code === "invalid_parameter" && result.error?.parameter === "kind", `${label} must reject the unknown kind`);
+  check(result.error?.expected?.some(({ code }) => code === "80"), `${label} must expose the accepted catalog`);
+  check(result.error?.exampleInput?.baseDate === request.baseDate && result.error?.exampleInput?.kind, `${label} must expose a usable example`);
+  check(result.error?.recoveryAction === "inspect_command_help" && result.error?.retryable === false, `${label} must preserve kind-specific recovery metadata`);
 });
 
 runToolset("fallback-order", { action: "execute", operation: "matrix", input: { baseDate: "2026-06-07", kind: "국채", fallback: "previous-available", lookbackDays: 2 } }, fixture([
@@ -270,6 +292,24 @@ runCli("cli-machine-contract:tsv", ["kinds", "--format", "tsv"], undefined, (res
   check(result.status === 0 && result.stdout.startsWith("code\tname"), `${label} TSV must preserve its header`);
 });
 
+runCandidateCli("cli-machine-contract:formula-safe-csv", ["matrix", "--base-date", request.baseDate, "--kind", request.kind.name, "--format", "csv"], fixture([
+  { path: initPath, fixture: evidence.fixtures.init },
+  {
+    path: matrixPath,
+    fixture: evidence.fixtures.matrix,
+    replace: [
+      ["<Col id=\"pricingGroupName\">국고채권</Col>", "<Col id=\"pricingGroupName\">=1+1</Col>"],
+      ["<Col id=\"m3\">2.500</Col>", "<Col id=\"m3\">-4.455</Col>"]
+    ]
+  }
+]), (result, label) => {
+  check(result.status === 0 && result.stdout.includes(",'=1+1,"), `${label} must neutralize source strings that spreadsheet software can execute`);
+  check(result.stdout.includes(",-4.455,"), `${label} must preserve negative numeric yields as numbers`);
+});
+
+runCandidateNativePreabort();
+runCandidateWithoutNative();
+
 runCandidateToolset("kind-80:offline-catalog", { action: "execute", operation: "kinds", input: {} }, undefined, (result, label) => {
   check(result.ok, `${label} must return the offline canonical catalog`);
   const privateBond = result.value?.kinds?.find(({ code }) => code === "80");
@@ -342,6 +382,42 @@ console.log(`public-surface judge passed ${scenariosRun} scenario(s)`);
 
 function fixture(steps) {
   return { fixtureDirectory, steps };
+}
+
+function runCandidateNativePreabort() {
+  const name = "native-binding:preaborted-signal";
+  if (!scenarioEnabled(name)) return;
+  scenariosRun += 1;
+  const captureDirectory = mkdtempSync(resolve(tmpdir(), "ytm-native-judge-"));
+  const capturePath = resolve(captureDirectory, "requests.json");
+  const nativeUrl = pathToFileURL(resolve(candidateRoot, "dist/native.js")).href;
+  const code = `const {invokeNative}=await import(${JSON.stringify(nativeUrl)});const c=new AbortController();c.abort();const v=await invokeNative('kinds',{baseDate:${JSON.stringify(request.baseDate)}},c.signal);process.stdout.write(JSON.stringify(v));`;
+  const result = spawnSync(process.execPath, ["--import", resolve(root, "judge/fixture-preload.mjs"), "--input-type=module", "-e", code], {
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      YTM_JUDGE_CAPTURE_PATH: capturePath,
+      YTM_JUDGE_FIXTURE: JSON.stringify(fixture([{ path: initPath, fixture: evidence.fixtures.init }]))
+    }
+  });
+  const envelope = result.status === 0 ? JSON.parse(result.stdout) : undefined;
+  const captures = existsSync(capturePath) ? JSON.parse(readFileSync(capturePath, "utf8")) : [];
+  rmSync(captureDirectory, { recursive: true, force: true });
+  check(result.status === 0 && envelope?.error?.code === evidence.expectations.transportError, `${name}: binding must preserve a pre-aborted signal`);
+  check(captures.length === 1 && captures[0]?.signalAborted === true, `${name}: cancellation must reach Rust before transport work begins`);
+}
+
+function runCandidateWithoutNative() {
+  const name = "node-adapter:missing-native";
+  if (!scenarioEnabled(name)) return;
+  scenariosRun += 1;
+  const toolsetUrl = pathToFileURL(resolve(candidateRoot, "src/toolset.js")).href;
+  const code = `const m=await import(${JSON.stringify(toolsetUrl)});const t=m.createKisnetYtmToolset();const validation=t.validateInput('matrix',{baseDate:'20260820',kind:'80'});let failure;try{await t.execute('kinds',{});}catch(error){failure=t.serializeError(error)}process.stdout.write(JSON.stringify({help:t.help(),validation,failure}));`;
+  const result = spawnSync(process.execPath, ["--input-type=module", "-e", code], { encoding: "utf8" });
+  const value = result.status === 0 ? JSON.parse(result.stdout) : undefined;
+  check(result.status === 0 && value?.help?.includes("Native capabilities unavailable"), `${name}: help must remain available without a native package`);
+  check(value?.validation?.valid === true, `${name}: pure validation must remain available without a native package`);
+  check(value?.failure?.code === "internal_error" && value?.failure?.retryable === false, `${name}: execution must return a stable internal failure`);
 }
 
 function invokeToolset(packageRoot, requestPayload, fixtureConfig) {

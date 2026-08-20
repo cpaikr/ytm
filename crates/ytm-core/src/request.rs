@@ -1,4 +1,5 @@
 use crate::transport::PreparedRequest;
+use quick_xml::escape::escape;
 
 pub const SOURCE_ORIGIN: &str = "https://kis-net.kr";
 pub const SOURCE_PAGE_URL: &str = "https://kis-net.kr/kisnet_mobile/index.html";
@@ -37,13 +38,48 @@ fn prepare(
     kind_code: &str,
 ) -> PreparedRequest {
     let body = format!(
-        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Root xmlns=\"http://www.nexacroplatform.com/platform/dataset\">\n  <Parameters/>\n  <Dataset id=\"ds_search\">\n    <ColumnInfo>\n      <Column id=\"pageIndex\" type=\"STRING\" size=\"256\"/>\n      <Column id=\"pageSize\" type=\"STRING\" size=\"256\"/>\n      <Column id=\"pageUnit\" type=\"STRING\" size=\"256\"/>\n      <Column id=\"calBaseDt\" type=\"STRING\" size=\"256\"/>\n      <Column id=\"cboYtmSort\" type=\"STRING\" size=\"256\"/>\n    </ColumnInfo>\n    <Rows><Row>\n      <Col id=\"pageIndex\">1</Col>\n      <Col id=\"pageSize\">10</Col>\n      <Col id=\"pageUnit\">10</Col>\n      <Col id=\"calBaseDt\">{}</Col>\n      <Col id=\"cboYtmSort\">{}</Col>\n    </Row></Rows>\n  </Dataset>\n  <Dataset id=\"gds_tranInfo\">\n    <ColumnInfo>\n      <Column id=\"svcID\" type=\"STRING\" size=\"32\"/>\n      <Column id=\"URL\" type=\"STRING\" size=\"32\"/>\n      <Column id=\"inDatasets\" type=\"STRING\" size=\"32\"/>\n      <Column id=\"outDatasets\" type=\"STRING\" size=\"32\"/>\n      <Column id=\"browserType\" type=\"STRING\" size=\"32\"/>\n    </ColumnInfo>\n    <Rows><Row>\n      <Col id=\"svcID\">{}</Col>\n      <Col id=\"URL\">{}</Col>\n      <Col id=\"inDatasets\">{}</Col>\n      <Col id=\"outDatasets\">{}</Col>\n      <Col id=\"browserType\">Chrome</Col>\n    </Row></Rows>\n  </Dataset>\n</Root>",
-        escape_xml(base_date_compact),
-        escape_xml(kind_code),
-        escape_xml(service_id),
-        escape_xml(path),
-        escape_xml(IN_DATASETS),
-        escape_xml(out_datasets),
+        r#"<?xml version="1.0" encoding="UTF-8"?>
+<Root xmlns="http://www.nexacroplatform.com/platform/dataset">
+  <Parameters/>
+  <Dataset id="ds_search">
+    <ColumnInfo>
+      <Column id="pageIndex" type="STRING" size="256"/>
+      <Column id="pageSize" type="STRING" size="256"/>
+      <Column id="pageUnit" type="STRING" size="256"/>
+      <Column id="calBaseDt" type="STRING" size="256"/>
+      <Column id="cboYtmSort" type="STRING" size="256"/>
+    </ColumnInfo>
+    <Rows><Row>
+      <Col id="pageIndex">1</Col>
+      <Col id="pageSize">10</Col>
+      <Col id="pageUnit">10</Col>
+      <Col id="calBaseDt">{base_date}</Col>
+      <Col id="cboYtmSort">{kind}</Col>
+    </Row></Rows>
+  </Dataset>
+  <Dataset id="gds_tranInfo">
+    <ColumnInfo>
+      <Column id="svcID" type="STRING" size="32"/>
+      <Column id="URL" type="STRING" size="32"/>
+      <Column id="inDatasets" type="STRING" size="32"/>
+      <Column id="outDatasets" type="STRING" size="32"/>
+      <Column id="browserType" type="STRING" size="32"/>
+    </ColumnInfo>
+    <Rows><Row>
+      <Col id="svcID">{service_id}</Col>
+      <Col id="URL">{path}</Col>
+      <Col id="inDatasets">{in_datasets}</Col>
+      <Col id="outDatasets">{out_datasets}</Col>
+      <Col id="browserType">Chrome</Col>
+    </Row></Rows>
+  </Dataset>
+</Root>"#,
+        base_date = escape(base_date_compact),
+        kind = escape(kind_code),
+        service_id = escape(service_id),
+        path = escape(path),
+        in_datasets = escape(IN_DATASETS),
+        out_datasets = escape(out_datasets),
     );
     PreparedRequest {
         operation,
@@ -53,19 +89,10 @@ fn prepare(
     }
 }
 
-fn escape_xml(value: &str) -> String {
-    value
-        .replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
-        .replace('"', "&quot;")
-        .replace('\'', "&apos;")
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_yaml::Value;
+    use serde_yaml_ng::Value;
 
     #[test]
     fn matrix_request_contains_both_ordered_datasets() {
@@ -80,7 +107,8 @@ mod tests {
     #[test]
     fn prepared_requests_conform_to_openapi_authority() {
         let contract: Value =
-            serde_yaml::from_str(include_str!("../../../contracts/kisnet/openapi.yaml")).unwrap();
+            serde_yaml_ng::from_str(include_str!("../../../contracts/kisnet/openapi.yaml"))
+                .unwrap();
         assert_eq!(contract["servers"][0]["url"].as_str(), Some(SOURCE_ORIGIN));
         assert_eq!(
             contract["x-ytm-nexacro-profile"]["response"]["maxDecompressedBodyBytes"].as_u64(),

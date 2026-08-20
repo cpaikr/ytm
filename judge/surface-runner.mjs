@@ -27,6 +27,16 @@ try {
     };
   } else if (request.action === "validate") {
     value = toolset.validateInput(request.operation, request.input);
+  } else if (request.action === "operation-mutation") {
+    const operation = toolset.getOperation("matrix");
+    operation.inputJsonSchema.properties.baseDate.description = "mutated";
+    operation.examples[0].input.baseDate = "mutated";
+    const listed = toolset.listOperations();
+    listed[0].limitations[0] = "mutated";
+    value = {
+      operation: toolset.getOperation("matrix"),
+      listed: toolset.listOperations()[0]
+    };
   } else if (request.action === "execute") {
     let context;
     if (request.abortBeforeExecute) {
