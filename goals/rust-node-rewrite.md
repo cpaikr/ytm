@@ -1,6 +1,6 @@
 # Goal: Deliver cutover-ready Node-only ytm
 
-Status: active
+Status: delivery complete; final main merge excluded
 Planning scope: ROADMAP.md
 
 ## Original contract
@@ -57,9 +57,10 @@ Goal contract
 ### Current result
 
 Delivery — PR #12 is open from `codex/rewrite-vnext` to `main` and intentionally
-unmerged. Its initial `validate` and all 12 native-consumer contexts passed;
-the final review feedback has been triaged and its accepted fixes are locally
-validated for the follow-up head.
+unmerged. Its feedback head `b41e98c` passed both the pull-request and duplicate
+push matrices: `validate` plus all 12 native-consumer contexts. Every one of the
+20 Codex/CodeRabbit review threads has an evidence-backed reply and is resolved;
+a fresh feedback collection found no unresolved thread.
 
 ### Current evidence
 
@@ -98,9 +99,8 @@ validated for the follow-up head.
 
 ### Next action
 
-Push the validated PR #12 feedback fixes, resolve every review thread, complete
-the follow-up CI/review lifecycle, and leave the final main merge unperformed
-as required.
+No in-scope delivery work remains. Await separate authorization for the final
+main merge; publication and PyPI deprecation remain excluded.
 
 ### Blockers
 

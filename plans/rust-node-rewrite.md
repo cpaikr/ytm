@@ -107,10 +107,10 @@ current cutover state that follows.
   root package contents, macOS ARM64 clean install on Node 26, workflow parsing,
   diff checks, and the earlier metadata-only production live lookup.
 - PR #12 is open from `codex/rewrite-vnext` to `main` and remains intentionally
-  unmerged. Its initial `validate` and all 12 native-consumer contexts passed.
-  Twenty Codex/CodeRabbit threads were triaged; accepted protocol, transport,
-  fixture, packaging, workflow-bound, and diagnostic fixes are locally green
-  and await their follow-up push and review lifecycle.
+  unmerged. Its feedback head `b41e98c` passed `validate` and all 12
+  native-consumer contexts in both the pull-request and duplicate push
+  matrices. All 20 Codex/CodeRabbit threads have evidence-backed replies and
+  are resolved; a fresh feedback collection found no unresolved thread.
 
 ## Decisions
 
@@ -299,5 +299,5 @@ current cutover state that follows.
 
 ## Next action
 
-Push the validated PR #12 feedback fixes, resolve every review thread, complete
-the follow-up CI/review lifecycle, and leave its final merge unperformed.
+No in-scope delivery work remains. Await separate authorization for the final
+main merge; publication and PyPI deprecation remain excluded.
