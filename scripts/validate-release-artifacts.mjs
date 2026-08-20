@@ -52,6 +52,24 @@ const rootEntries = listTarball(rootTarballs[0]);
 if (rootEntries.some((entry) => entry.endsWith(".node"))) {
   throw new Error("Root tarball must not contain a native artifact.");
 }
+const binPaths = typeof rootSource.bin === "string" ? [rootSource.bin] : Object.values(rootSource.bin || {});
+const expectedRootPaths = new Set([
+  "package.json",
+  ...binPaths,
+  ...collectStringLeaves(rootSource.exports).map((entry) => entry.replace(/^\.\//, "")),
+  "dist/native.cjs",
+  "dist/native.js",
+  "CHANGELOG.md",
+  "LICENSE.md",
+  "README.md",
+  "SPEC.md",
+  "skills/kisnet-ytm/SKILL.md"
+]);
+const expectedRootEntries = [...expectedRootPaths].map((entry) => `package/${entry}`);
+const missingRootEntries = expectedRootEntries.filter((entry) => !rootEntries.includes(entry));
+if (missingRootEntries.length > 0) {
+  throw new Error(`Root tarball is missing required package entries: ${missingRootEntries.join(", ")}.`);
+}
 
 console.log(`release artifact set is complete for ${root.name}@${root.version}`);
 
@@ -72,4 +90,10 @@ function listTarball(tarball) {
   const result = spawnSync("tar", ["-tzf", tarball], { encoding: "utf8" });
   if (result.status !== 0) throw new Error(`Could not list ${tarball}: ${result.stderr}`);
   return result.stdout.split(/\r?\n/).filter(Boolean);
+}
+
+function collectStringLeaves(value) {
+  if (typeof value === "string") return [value];
+  if (!value || typeof value !== "object") return [];
+  return Object.values(value).flatMap(collectStringLeaves);
 }

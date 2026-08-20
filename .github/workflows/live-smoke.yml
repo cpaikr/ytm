@@ -67,4 +67,4 @@ jobs:
             --kind "$KIND" \
             --fallback previous-available \
             --lookback-days "$LOOKBACK" \
-            | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const p=JSON.parse(s);if(!p.ok||!p.result?.rows?.length)process.exit(1);console.log(`KIS-NET smoke passed: requested=${p.result.requestedBaseDate} resolved=${p.result.baseDate} rows=${p.result.rows.length}`)})'
+            | node -e 'let s="";process.stdin.setEncoding("utf8");process.stdin.on("data",d=>s+=d).on("end",()=>{const p=JSON.parse(s);if(!p.ok||!p.result?.rows?.length)process.exit(1);console.log(`KIS-NET smoke passed: requested=${p.result.requestedBaseDate} resolved=${p.result.baseDate} rows=${p.result.rows.length}`)})'

@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { cp, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -6,6 +7,10 @@ import { fileURLToPath } from "node:url";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const productRoot = resolve(root, "packages/node");
+const sourceToolsetPath = resolve(productRoot, "dist/toolset.js");
+if (!existsSync(sourceToolsetPath)) {
+  throw new Error("Missing packages/node/dist/toolset.js; run `bun run build:judge` before proving judge sensitivity");
+}
 const temporaryRoot = await mkdtemp(join(tmpdir(), "ytm-judge-broken-"));
 
 try {

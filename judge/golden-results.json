@@ -15,7 +15,7 @@
         "cause": "AbortError"
       }
     },
-    "stderr": ""
+    "stderr": "empty"
   },
   "cli:cli-machine-contract:aliases": {
     "status": 0,
@@ -1229,7 +1229,7 @@
         "cause": "Error"
       }
     },
-    "stderr": ""
+    "stderr": "empty"
   },
   "toolset:protocol-error": {
     "ok": false,

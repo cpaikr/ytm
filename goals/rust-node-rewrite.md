@@ -52,8 +52,9 @@ Goal contract
 
 ### Current result
 
-Node cutover and legacy retirement — implementation and local validation in
-progress on `codex/rewrite-cutover` from merge commit `63c344f`.
+Node cutover and legacy retirement — PR #11 is open from
+`codex/rewrite-cutover` to `codex/rewrite-vnext`. Its initial Blacksmith run is
+green; review-feedback hardening is implemented locally for the follow-up run.
 
 ### Current evidence
 
@@ -69,18 +70,26 @@ progress on `codex/rewrite-cutover` from merge commit `63c344f`.
   acceptance case are frozen as 77 full golden results.
   The active single-product judge verifies every public CLI/toolset outcome,
   including `source`, and rejects a deliberate source-envelope corruption.
-- The final local pass covers frozen Bun state, contract/release/build
+- The pre-PR local pass covers frozen Bun state, contract/release/build
   freshness, 77 public scenarios, deliberate oracle corruption, Rust
   formatting/Clippy/19 tests, RustSec and dependency policy, native licenses,
   root package contents, macOS ARM64 clean install on Node 26, workflow parsing,
-  diff checks, and a metadata-only production live lookup. Repository review
-  found no remaining Bucket I or Bucket II issue.
+  diff checks, and a metadata-only production live lookup.
+- PR #11's initial remote run passed `validate` and all 12 supported-target
+  consumers. Feedback hardening now rejects duplicate golden keys and malformed
+  successful JSON, guarantees temporary cleanup, normalizes nondeterministic
+  stderr evidence, validates required root-tarball entries and the scoped Node
+  lock entry, bounds CI, and decodes live-smoke stdin as UTF-8.
+- `main` branch protection now requires the app-pinned `validate` context only;
+  retired Python contexts are removed while strict checks, administrator
+  enforcement, conversation resolution, and force-push/deletion bans remain.
 
 ### Next action
 
-Deliver this validated atomic cutover through its PR and feedback lifecycle.
-Then open the reviewed integration-to-`main` PR and leave that final main merge
-unperformed as required.
+Push and validate the PR #11 feedback commit, finish every review thread, and
+merge the completed cutover into `codex/rewrite-vnext`. Then open the reviewed
+integration-to-`main` PR and leave that final main merge unperformed as
+required.
 
 ### Blockers
 

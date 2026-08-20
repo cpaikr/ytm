@@ -53,7 +53,8 @@ check(nodePackage.publishConfig?.access === "public", "Node package must retain 
 check(nodePackage.engines?.node === ">=22", "Node package must require Node 22 or newer");
 check(nodePackage.repository?.url === "git+https://github.com/cpaikr/ytm.git" && nodePackage.repository?.directory === "packages/node", "Node package repository metadata must use cpaikr/ytm");
 check(!nodePackage.dependencies?.["@xmldom/xmldom"], "legacy JavaScript XML dependencies must be absent");
-check(bunLock.includes(`"version": "${nodePackage.version}"`), "Bun lock must retain the Node workspace version");
+const nodeLockWorkspace = parse(bunLock)?.workspaces?.["packages/node"];
+check(nodeLockWorkspace?.name === nodePackage.name && nodeLockWorkspace?.version === nodePackage.version, "Bun lock must retain the Node workspace version");
 check(!bunLock.includes("@xmldom/xmldom"), "Bun lock must not retain the legacy JavaScript XML parser");
 
 const expectedOptionalDependencies = Object.fromEntries(nativeTargets.targets.map((target) => [target.packageName, nodePackage.version]));
@@ -71,6 +72,8 @@ check(!releasePleaseWorkflowPresent && !releasePleaseConfigPresent && !releasePl
 check(!pythonPackagePresent && !pythonWorkflowPresent, "Python product and publishing workflow must remain absent");
 equal(Object.keys(ciWorkflow.jobs || {}), ["validate", "native-consumer"], "CI must contain only Node/Rust validation and native consumers");
 equal(Object.keys(liveWorkflow.jobs || {}), ["node"], "live smoke must contain only the Node product");
+check(ciWorkflow.jobs?.validate?.["timeout-minutes"] === 20, "CI validation must have a bounded timeout");
+check(activeShell(findNamedStep(liveWorkflow.jobs?.node, "Run live smoke")).includes('process.stdin.setEncoding("utf8")'), "live smoke must decode streamed JSON as UTF-8");
 const ciNativeJob = ciWorkflow.jobs?.["native-consumer"];
 equal(ciNativeJob?.strategy?.matrix?.node, nativeTargets.validationNodeMajors, "CI native consumers must cover every declared Node major");
 equal(ciNativeJob?.strategy?.matrix?.target?.map(({ rust }) => rust), nativeTargets.targets.map(({ rustTarget }) => rustTarget), "CI native consumers must cover every supported target");

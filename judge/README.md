@@ -16,3 +16,13 @@ bun run judge:broken
 
 `judge:broken` copies the built package, corrupts the public source envelope,
 and proves that the approved golden result rejects the mutation.
+
+[`golden-results.json`](golden-results.json) is the reviewed public-conformance
+oracle. After an intentional public-contract change, regenerate it only with a
+complete run:
+
+```sh
+node judge/run.mjs --update-golden
+```
+
+Review every changed golden result before committing the updated oracle.

@@ -86,7 +86,9 @@ current cutover state that follows.
 - `codex/rewrite-cutover` promotes the reviewed Rust-backed product to
   `packages/node` and `packages/native`, then removes the legacy JavaScript
   HTTP/XML implementation, Python product/release paths, Release Please, and
-  candidate-only staging paths atomically.
+  candidate-only staging paths atomically. PR #11 is open against the rewrite
+  integration branch; its initial `validate` job and all 12 native-consumer
+  contexts passed on Blacksmith.
 - The active judge freezes the reviewed PR #10 public projections plus the
   explicit kind-80 fallback acceptance case as 77 golden results and
   deep-compares every CLI/toolset outcome, including source metadata. A
@@ -94,12 +96,15 @@ current cutover state that follows.
 - Node/Rust-only CI and live smoke use the lowest suitable Blacksmith images.
   The retained tag-only npm workflow assembles and clean-installs every native
   package before validating the complete artifact set and the root package.
-- The final local pass covers frozen Bun state, contract/release/build
+- `main` branch protection requires the stable, app-pinned `validate` context;
+  retired Python contexts are removed without weakening strict checks,
+  administrator enforcement, conversation resolution, or branch immutability.
+- The pre-PR local pass covers frozen Bun state, contract/release/build
   freshness, 77 public scenarios, deliberate oracle corruption, Rust
   formatting/Clippy/19 tests, RustSec and dependency policy, native licenses,
   root package contents, macOS ARM64 clean install on Node 26, workflow parsing,
-  diff checks, and a metadata-only production live lookup. Repository review
-  found no remaining Bucket I or Bucket II issue.
+  diff checks, and a metadata-only production live lookup. PR feedback
+  hardening is implemented locally and awaits the follow-up remote run.
 
 ## Decisions
 
@@ -288,5 +293,6 @@ current cutover state that follows.
 
 ## Next action
 
-Deliver the validated atomic cutover PR to `codex/rewrite-vnext`, then open the
-reviewed integration-to-`main` PR and leave its final merge unperformed.
+Finish PR #11's feedback lifecycle and merge it to `codex/rewrite-vnext`, then
+open the reviewed integration-to-`main` PR and leave its final merge
+unperformed.
