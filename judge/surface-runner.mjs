@@ -42,9 +42,18 @@ try {
   error = toolset.serializeError(caught);
 }
 
+let requests = globalThis.__YTM_JUDGE_REQUESTS__ || [];
+if (requests.length === 0 && process.env.YTM_JUDGE_CAPTURE_PATH) {
+  try {
+    requests = JSON.parse(await readFile(process.env.YTM_JUDGE_CAPTURE_PATH, "utf8"));
+  } catch (caught) {
+    if (caught?.code !== "ENOENT") throw caught;
+  }
+}
+
 process.stdout.write(`${JSON.stringify({
   ok: error === undefined,
   value,
   error,
-  requests: globalThis.__YTM_JUDGE_REQUESTS__ || []
+  requests
 })}\n`);

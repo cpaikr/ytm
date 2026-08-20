@@ -1,0 +1,48 @@
+{
+  "name": "@sjunepark/ytm",
+  "version": "0.2.0",
+  "description": "Deterministic CLI and neutral toolset for KIS-NET YTM Matrix lookups.",
+  "private": true,
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sjunepark/ytm.git",
+    "directory": "packages/node"
+  },
+  "bin": {
+    "ytm": "dist/cli.js"
+  },
+  "exports": {
+    "./toolset": {
+      "types": "./dist/toolset.d.ts",
+      "import": "./dist/toolset.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist/cli.js",
+    "dist/native.cjs",
+    "dist/native.js",
+    "dist/toolset.d.ts",
+    "dist/toolset.js",
+    "skills",
+    "README.md",
+    "SPEC.md",
+    "LICENSE.md"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "license": "MIT",
+  "scripts": {
+    "build": "cargo build --manifest-path ../../Cargo.toml -p ytm-node --features judge-fixtures && bun scripts/build.mjs",
+    "test": "node ../../judge/run.mjs --baseline-root ../../packages/node --candidate-root ."
+  },
+  "optionalDependencies": {
+    "@sjunepark/ytm-linux-x64-gnu": "0.2.0",
+    "@sjunepark/ytm-linux-arm64-gnu": "0.2.0",
+    "@sjunepark/ytm-darwin-x64": "0.2.0",
+    "@sjunepark/ytm-darwin-arm64": "0.2.0",
+    "@sjunepark/ytm-win32-x64-msvc": "0.2.0"
+  }
+}

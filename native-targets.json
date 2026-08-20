@@ -3,12 +3,17 @@
   "supportClaim": "selected-for-cutover-validation",
   "minimumNodeMajor": 22,
   "validationNodeMajors": [22, 24, 26],
+  "candidateRootPackage": "candidate/node",
+  "candidateNativePackageRoot": "candidate/native",
   "targets": [
     {
       "rustTarget": "x86_64-unknown-linux-gnu",
       "npmPlatform": "linux",
       "npmArch": "x64",
       "libc": "glibc",
+      "packageName": "@sjunepark/ytm-linux-x64-gnu",
+      "packageDirectory": "linux-x64-gnu",
+      "artifactFile": "ytm.linux-x64-gnu.node",
       "runner": "ubuntu-24.04"
     },
     {
@@ -16,24 +21,36 @@
       "npmPlatform": "linux",
       "npmArch": "arm64",
       "libc": "glibc",
+      "packageName": "@sjunepark/ytm-linux-arm64-gnu",
+      "packageDirectory": "linux-arm64-gnu",
+      "artifactFile": "ytm.linux-arm64-gnu.node",
       "runner": "ubuntu-24.04-arm"
     },
     {
       "rustTarget": "x86_64-apple-darwin",
       "npmPlatform": "darwin",
       "npmArch": "x64",
+      "packageName": "@sjunepark/ytm-darwin-x64",
+      "packageDirectory": "darwin-x64",
+      "artifactFile": "ytm.darwin-x64.node",
       "runner": "macos-15-intel"
     },
     {
       "rustTarget": "aarch64-apple-darwin",
       "npmPlatform": "darwin",
       "npmArch": "arm64",
+      "packageName": "@sjunepark/ytm-darwin-arm64",
+      "packageDirectory": "darwin-arm64",
+      "artifactFile": "ytm.darwin-arm64.node",
       "runner": "macos-15"
     },
     {
       "rustTarget": "x86_64-pc-windows-msvc",
       "npmPlatform": "win32",
       "npmArch": "x64",
+      "packageName": "@sjunepark/ytm-win32-x64-msvc",
+      "packageDirectory": "win32-x64-msvc",
+      "artifactFile": "ytm.win32-x64-msvc.node",
       "runner": "windows-2025"
     }
   ],
