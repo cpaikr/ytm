@@ -17,9 +17,9 @@ if (process.platform !== target.npmPlatform || process.arch !== target.npmArch) 
 const npm = process.platform === "win32" ? await resolveWindowsCommand("npm.cmd") : "npm";
 const temporary = await mkdtemp(resolve(tmpdir(), "ytm-consumer-"));
 try {
-  const nativeTarball = pack(resolve(repositoryRoot, manifest.candidateNativePackageRoot, target.packageDirectory));
-  const rootTarball = pack(resolve(repositoryRoot, manifest.candidateRootPackage));
-  const rootPack = JSON.parse(exec(npm, ["pack", "--dry-run", "--json", resolve(repositoryRoot, manifest.candidateRootPackage)], { encoding: "utf8" }))[0];
+  const nativeTarball = pack(resolve(repositoryRoot, manifest.nativePackageRoot, target.packageDirectory));
+  const rootTarball = pack(resolve(repositoryRoot, manifest.rootPackage));
+  const rootPack = JSON.parse(exec(npm, ["pack", "--dry-run", "--json", resolve(repositoryRoot, manifest.rootPackage)], { encoding: "utf8" }))[0];
   if (rootPack.files.some(({ path }) => path.endsWith(".node"))) {
     throw new Error("The root package must not embed a native artifact.");
   }

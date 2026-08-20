@@ -2,14 +2,13 @@
 
 ## Purpose and boundary
 
-`ytm` is a Node.js product for deterministic KIS-NET YTM Matrix lookup. Its
-target architecture has one external-protocol conformer: a Rust core reached
-through a narrow asynchronous Node-API binding. JavaScript provides the public
-toolset and CLI ergonomics; it does not implement HTTP, XML, source fallback,
-or source-domain rules.
+`ytm` is a Node.js product for deterministic KIS-NET YTM Matrix lookup. One
+Rust core conforms to the external HTTP and Nexacro protocol through a narrow
+asynchronous Node-API binding. JavaScript provides public toolset and CLI
+ergonomics only.
 
-Browser, edge, Deno, Bun-runtime, and replacement Python APIs are outside the
-product boundary. Bun remains a development package manager.
+Browser, edge, Deno, Bun-runtime, proxy discovery, and Python APIs are outside
+the product boundary. Bun remains a development package manager.
 
 ## System shape
 
@@ -25,46 +24,38 @@ contracts/kisnet/openapi.yaml
        Node-API boundary
               |
               v
-   candidate/node/src (staging)
-      toolset and CLI adapters
+      packages/node/src
+      toolset + CLI adapters
               |
               v
- packages/node/src (at cutover)
+ packages/native/* + root npm package
 ```
 
-Dependencies point downward only. Public adapters call the binding; the
-binding maps project-owned values; the core owns all source interaction and
-domain normalization. Nothing below the public adapters imports JavaScript.
+Dependencies point downward only. Nothing below the public adapters imports
+JavaScript, and no JavaScript module owns HTTP, XML, fallback, or source-domain
+rules.
 
 ## Components and start-here paths
 
-- [`contracts/kisnet/openapi.yaml`](contracts/kisnet/openapi.yaml) — start here
-  for external HTTP and serialized Nexacro facts. Its named extension is the
-  canonical profile for constraints OpenAPI cannot express directly.
-- `crates/ytm-core` — prepared requests, bounded transport,
+- [`contracts/kisnet/openapi.yaml`](contracts/kisnet/openapi.yaml) — sole
+  authority for external HTTP and serialized Nexacro facts, including the
+  named profile for constraints OpenAPI cannot express directly.
+- [`crates/ytm-core`](crates/ytm-core) — prepared requests, bounded transport,
   strict XML parsing, kind resolution, matrix normalization, date fallback,
-  and tagged errors. It remains independent of Node-API types.
-- `crates/ytm-node` — the small Node-API projection. It exposes
-  async `matrix` and `kinds` calls, cancellation, capabilities, and stable
-  error data; it contains no source rules.
-- [`candidate/node/src`](candidate/node/src) — implemented staging home of the
-  thin JavaScript adapters. Help, CLI parsing, stdout rendering, and
-  synchronous public-shape validation belong here. The final cutover moves
-  this package to [`packages/node/src`](packages/node/src), which remains the
-  legacy comparison product until then.
-- [`judge`](judge) — public-surface compatibility scenarios. The judge invokes
-  built package surfaces in separate processes and never imports conformer
-  internals.
-- [`native-targets.json`](native-targets.json) — canonical selected release
-  matrix. Candidate platform manifests, the native loader, optional
-  dependencies, and CI jobs are generated or checked against this manifest.
-- [`docs/provider-qualification.md`](docs/provider-qualification.md) — evidence
-  and enablement decisions that protocol tests cannot establish.
-
-The Rust and judge paths are introduced by the rewrite. Until the final
-cutover, the archived JavaScript and Python conformers remain runnable for
-comparison. Their presence is migration state, not the target dependency
-model.
+  and tagged errors. It is independent of Node-API types.
+- [`crates/ytm-node`](crates/ytm-node) — async `matrix` and `kinds` projection,
+  cancellation, capabilities, and stable error data. It contains no source
+  rules.
+- [`packages/node/src`](packages/node/src) — wire-ignorant public validation,
+  help, CLI parsing, and stdout rendering.
+- [`packages/native`](packages/native) — generated platform package manifests;
+  release builds add exactly one Node-API artifact to each package.
+- [`judge`](judge) — process-isolated public-product conformance scenarios. It
+  never imports conformer internals.
+- [`native-targets.json`](native-targets.json) — canonical support matrix and
+  source for optional dependencies, native manifests, loader selection, and CI.
+- [`docs/provider-qualification.md`](docs/provider-qualification.md) — source
+  evidence and enablement decisions that protocol tests cannot establish.
 
 ## Runtime flow
 
@@ -78,70 +69,57 @@ model.
    status or datasets, then returns normalized domain data and source metadata.
 5. Only confirmed unavailable data can advance previous-date fallback.
 6. The binding projects Rust values and tagged failures without raw bodies,
-   dependency-specific errors, or panics. The adapter renders the stable
-   toolset result or CLI envelope.
+   dependency errors, or panics. The adapter renders the public result.
 
 ## Ownership and invariants
 
 - OpenAPI and its named Nexacro profile are the only wire authority. Fixtures
-  and judge expectations are independent evidence, never generated truth.
+  and judge expectations are independent evidence.
 - Rust is the only component allowed to know source origins, paths, headers,
-  serialized XML, transport policy, parser rules, or source dataset mappings.
+  serialized XML, transport policy, parser rules, or dataset mappings.
 - The Node-API surface is asynchronous and project-owned. Rust crate types,
-  parser types, transport errors, raw response bodies, and panics do not cross
-  it.
-- The public toolset preserves cancellation but intentionally removes the
-  legacy `context.fetch` seam. Test transport substitution happens below the
-  public product boundary or in an outer black-box process preload.
-- Candidate judge builds enable a compile-time-only Rust fixture transport and
-  consume the judge's process-level fixture sequence. Release builds cannot
-  enable or select it. Rust conformance tests compare the same core request and
-  outcome projections to OpenAPI; native clean-install tests exercise the
-  unmodified release build separately.
+  parser types, raw bodies, dependency errors, and panics do not cross it.
+- The public toolset accepts `AbortSignal` cancellation and has no JavaScript
+  transport-injection seam.
+- Judge builds enable a compile-time-only Rust fixture transport. Release
+  builds cannot enable or select it, and clean-install tests exercise release
+  artifacts separately.
 - Rust returns source metadata and the canonical kind capability projection.
-  JavaScript owns its public input-schema constants, but does not recreate
-  source facts or copy the canonical kind catalog.
-- Canonical kinds are merged with discovery by code. Discovery may add values;
-  it cannot remove or redefine a canonical value. Conflicts fail explicitly.
-- Transport is sequential, bounded, redirect-free, and has no automatic retry.
-  Product date fallback is not a transport retry and advances only after a
-  confirmed empty result.
-- The direct fixed-origin transport does not discover proxies from environment
-  variables or operating-system settings. Proxy support is outside the initial
-  runtime contract and must not be inferred from reqwest defaults.
+  JavaScript owns public input-shape constants, not source facts or the kind
+  catalog.
+- Discovery may add kinds but cannot remove or redefine canonical values;
+  conflicts fail explicitly.
+- Transport is sequential, bounded, redirect-free, proxy-free, and has no
+  automatic retry. Date fallback advances only after confirmed empty data.
 - Matrix lookup performs initialization followed by retrieval for each date.
-  The maximum fallback window therefore permits 32 dates and 64 sequential
-  HTTP calls, each with its own 20-second deadline; caller cancellation remains
-  the overall stop mechanism.
-- Error categories and recovery metadata are stable project values. Adapters
-  preserve them instead of translating dependency messages.
-- Generated declarations, native loaders, platform manifests, package
-  dependencies, and built distribution files must have a deterministic
-  freshness check before cutover.
+  The maximum fallback window permits 32 dates and 64 sequential HTTP calls,
+  each with its own 20-second deadline; cancellation is the overall stop.
+- Stable project error categories and recovery metadata cross adapters;
+  dependency messages do not.
+- Native manifests, the loader, optional dependencies, and built JavaScript
+  files are generated or compared deterministically before delivery.
 
 ## Runtime and native distribution
 
-The cutover raises the minimum supported runtime to Node.js 22 rather than
-claiming support for an end-of-life major. Consumer validation covers Node 22
-and 24 plus Node 26 for forward compatibility.
+Node.js 22 is the minimum runtime. CI also validates Node 24 and 26.
 
-The selected native matrix is Linux GNU x64/ARM64, macOS ARM64, and Windows
-x64. Selection is not a support claim: each platform becomes supported
-only after its own native runner builds the artifact and a clean consumer
-installs the packed root package, resolves the executable and toolset export,
-and completes a fixture smoke. Intel macOS, musl, Windows ARM64/ia32, FreeBSD,
-Android, and WASM remain outside the initial cutover claim.
+Supported native targets are Linux GNU x64/ARM64, macOS ARM64, and Windows x64.
+Each target is built on its native Blacksmith image and clean-installs the
+packed root and platform packages under all three Node majors. Intel macOS,
+Linux musl, Windows ARM64/ia32, FreeBSD, Android, and WASM are unclaimed.
 
-## Release and removal boundary
+The root npm package contains JavaScript only and selects an exact-version
+optional native package at runtime. Platform packages contain one `.node`
+artifact and are not public entry points.
 
-Release PR and tag automation is intentionally disabled. At cutover the root
-Node package and native platform packages must still use one explicitly
-approved version and be collected before the root npm artifact is publishable.
-The Node publish workflow keeps the established Node tag namespace; selecting
-or creating a future release remains outside this cutover.
+## Release boundary
 
-The cutover removes both legacy conformers, the Python package and workflows,
-the JavaScript XML dependency, linked Node/Python release assumptions, and
-claims that those paths remain active. Historical commits, component tags, and
-published artifacts stay immutable. Publication, PyPI deprecation, and the
-final main-branch merge require authority outside this rewrite.
+No workflow creates release PRs, tags, or GitHub Releases. Release Please and
+the Python release path are absent. A future authorized `node-vX.Y.Z` tag makes
+`release.yml` build all four native packages on their native Blacksmith images,
+validate and pack the root package, then publish native packages before the
+root from npm's required GitHub-hosted OIDC runner.
+
+The current `0.2.0` version remains historical until a new version is
+explicitly approved. Publication, PyPI deprecation, provider-state changes,
+and the final main-branch merge remain separate authority boundaries.

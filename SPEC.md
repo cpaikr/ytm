@@ -95,10 +95,8 @@ Source failures use `source_data_unavailable`, `source_transport_error`,
 the source status and message. Validation failures preserve specific codes and
 machine-readable recovery metadata.
 
-## Legacy Python boundary during migration
+## Runtime boundary
 
-The archived Python API remains runnable only until the Node cutover. It is not
-part of the target product, receives no replacement implementation or kind-80
-work, and is removed from active source, CI, documentation, and release
-machinery in the cutover slice. Published historical artifacts and tags remain
-unchanged.
+The active product is Node.js-only. Historical Python releases and component
+tags remain immutable registry and Git history, but no Python source, API,
+package, CI, live smoke, or release path is part of this repository state.

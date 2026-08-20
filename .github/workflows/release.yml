@@ -4,18 +4,12 @@ on:
   push:
     tags:
       - "node-v*.*.*"
-  workflow_dispatch:
-    inputs:
-      tag:
-        description: "Existing Node component tag, for example node-v0.2.0"
-        required: true
-        type: string
 
 permissions:
   contents: read
 
 concurrency:
-  group: npm-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+  group: npm-${{ github.ref_name }}
   cancel-in-progress: false
 
 jobs:
@@ -24,7 +18,6 @@ jobs:
     outputs:
       package_name: ${{ steps.package.outputs.package_name }}
       package_version: ${{ steps.package.outputs.package_version }}
-      source_tag: ${{ steps.package.outputs.source_tag }}
       source_sha: ${{ steps.package.outputs.source_sha }}
 
     steps:
@@ -32,51 +25,88 @@ jobs:
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
         with:
           persist-credentials: false
-          ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/{0}', inputs.tag) || github.sha }}
+          ref: ${{ github.sha }}
 
-      - name: Set up Python for metadata validation
-        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
-        with:
-          python-version: "3.11"
-
-      - name: Validate component metadata
+      - name: Validate release metadata
         id: package
         shell: bash
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          DISPATCH_TAG: ${{ inputs.tag }}
         run: |
           PACKAGE_NAME=$(node -p "require('./packages/node/package.json').name")
           PACKAGE_VERSION=$(node -p "require('./packages/node/package.json').version")
-          PYTHON_VERSION=$(python -c 'import tomllib; print(tomllib.load(open("packages/python/pyproject.toml", "rb"))["project"]["version"])')
-
-          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
-            SOURCE_TAG="$DISPATCH_TAG"
-          else
-            SOURCE_TAG="$GITHUB_REF_NAME"
-          fi
           SOURCE_SHA=$(git rev-parse HEAD)
 
-          if [ "$PACKAGE_VERSION" != "$PYTHON_VERSION" ]; then
-            echo "Node $PACKAGE_VERSION does not match Python $PYTHON_VERSION." >&2
-            exit 1
-          fi
-          if [ "$SOURCE_TAG" != "node-v$PACKAGE_VERSION" ]; then
-            echo "Tag $SOURCE_TAG does not match Node version node-v$PACKAGE_VERSION." >&2
+          if [ "$GITHUB_REF_NAME" != "node-v$PACKAGE_VERSION" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match Node version node-v$PACKAGE_VERSION." >&2
             exit 1
           fi
 
+          node scripts/generate-native-packages.mjs --check
           echo "package_name=$PACKAGE_NAME" >> "$GITHUB_OUTPUT"
           echo "package_version=$PACKAGE_VERSION" >> "$GITHUB_OUTPUT"
-          echo "source_tag=$SOURCE_TAG" >> "$GITHUB_OUTPUT"
           echo "source_sha=$SOURCE_SHA" >> "$GITHUB_OUTPUT"
 
-  npm_validation:
+  native_packages:
+    name: Native package (${{ matrix.target.rust }})
+    needs: metadata
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - rust: x86_64-unknown-linux-gnu
+            runner: blacksmith-2vcpu-ubuntu-2404
+            directory: linux-x64-gnu
+          - rust: aarch64-unknown-linux-gnu
+            runner: blacksmith-2vcpu-ubuntu-2404-arm
+            directory: linux-arm64-gnu
+          - rust: aarch64-apple-darwin
+            runner: blacksmith-6vcpu-macos-15
+            directory: darwin-arm64
+          - rust: x86_64-pc-windows-msvc
+            runner: blacksmith-2vcpu-windows-2025
+            directory: win32-x64-msvc
+    runs-on: ${{ matrix.target.runner }}
+
+    steps:
+      - name: Check out immutable release source
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
+        with:
+          persist-credentials: false
+          ref: ${{ needs.metadata.outputs.source_sha }}
+
+      - name: Set up Node
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - name: Install Rust target
+        run: rustup target add ${{ matrix.target.rust }}
+
+      - name: Build native artifact
+        run: cargo build --locked --release --target ${{ matrix.target.rust }} -p ytm-node
+
+      - name: Assemble and pack native package
+        shell: bash
+        run: |
+          node scripts/generate-native-packages.mjs
+          node scripts/assemble-native-package.mjs ${{ matrix.target.rust }}
+          node scripts/test-native-consumer.mjs ${{ matrix.target.rust }}
+          mkdir -p .artifacts
+          npm pack --pack-destination .artifacts packages/native/${{ matrix.target.directory }}
+
+      - name: Upload native package
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: native-${{ matrix.target.directory }}-${{ needs.metadata.outputs.package_version }}
+          path: .artifacts/*.tgz
+          if-no-files-found: error
+
+  root_package:
     runs-on: blacksmith-2vcpu-ubuntu-2404
     needs: metadata
 
     steps:
-      - name: Check out source
+      - name: Check out immutable release source
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
         with:
           persist-credentials: false
@@ -91,43 +121,65 @@ jobs:
           node-version: 24
           package-manager-cache: false
 
-      - name: Install dependencies
+      - name: Install frozen JavaScript dependencies
         run: bun install --frozen-lockfile
 
-      - name: Build npm CLI bundle
-        run: bun run build:node
+      - name: Validate immutable source
+        run: |
+          bun run validate
+          cargo fmt --all --check
+          cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
+          cargo test --locked --workspace --all-targets --all-features
+          bun run test:node
+          bun run judge:broken
 
-      - name: Validate tool and shared contract surfaces
-        run: bun run contracts:check && bun run validate:node
+      - name: Pack root package without a native binary
+        shell: bash
+        run: |
+          bun run build:facade
+          mkdir -p .artifacts
+          npm pack --pack-destination .artifacts --workspace packages/node
 
-      - name: Check npm package contents
-        run: bun run pack:node
+      - name: Upload root package
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: root-${{ needs.metadata.outputs.package_version }}
+          path: .artifacts/*.tgz
+          if-no-files-found: error
 
   publish:
     # npm Trusted Publishing does not support self-hosted runners.
     runs-on: ubuntu-latest
     needs:
       - metadata
-      - npm_validation
+      - native_packages
+      - root_package
     environment:
       name: npm
       url: https://www.npmjs.com/package/@sjunepark/ytm/v/${{ needs.metadata.outputs.package_version }}
     permissions:
       contents: read
       id-token: write
-    env:
-      PACKAGE_NAME: ${{ needs.metadata.outputs.package_name }}
-      PACKAGE_VERSION: ${{ needs.metadata.outputs.package_version }}
 
     steps:
-      - name: Check out source
+      - name: Check out immutable release source
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
         with:
           persist-credentials: false
           ref: ${{ needs.metadata.outputs.source_sha }}
 
-      - name: Set up Bun
-        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
+      - name: Download native packages
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          pattern: native-*-${{ needs.metadata.outputs.package_version }}
+          path: dist/native
+          merge-multiple: true
+
+      - name: Download root package
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: root-${{ needs.metadata.outputs.package_version }}
+          path: dist/root
 
       - name: Set up Node for npm trusted publishing
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
@@ -141,31 +193,35 @@ jobs:
           npm install --global npm@11.6.2
           npm --version
 
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
+      - name: Validate complete release artifact set
+        run: node scripts/validate-release-artifacts.mjs dist/native dist/root
 
-      - name: Build npm CLI bundle
-        run: bun run build:node
-
-      - name: Publish npm package
+      - name: Reject an already-published version
         shell: bash
-        working-directory: packages/node
         run: |
-          if npm view "$PACKAGE_NAME@$PACKAGE_VERSION" version >/dev/null 2>&1; then
-            echo "$PACKAGE_NAME@$PACKAGE_VERSION is already published; skipping npm publish."
-            exit 0
-          fi
+          registry_error=$(mktemp)
+          trap 'rm -f "$registry_error"' EXIT
+          for tarball in dist/native/*.tgz dist/root/*.tgz; do
+            package_name=$(tar -xOf "$tarball" package/package.json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).name))')
+            package_version=$(tar -xOf "$tarball" package/package.json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).version))')
+            if npm view "$package_name@$package_version" version >/dev/null 2>"$registry_error"; then
+              echo "$package_name@$package_version already exists; approve a new version instead of repairing a partial publish in place." >&2
+              exit 1
+            fi
+            if ! grep -q 'E404' "$registry_error"; then
+              cat "$registry_error" >&2
+              echo "Could not prove $package_name@$package_version is absent from npm." >&2
+              exit 1
+            fi
+            : > "$registry_error"
+          done
 
-          set +e
-          npm publish --access public 2>&1 | tee npm-publish.log
-          publish_status=${PIPESTATUS[0]}
-          set -e
+      - name: Publish native packages, then root package
+        shell: bash
+        run: |
+          for tarball in dist/native/*.tgz; do
+            npm publish "$tarball" --access public
+          done
 
-          if [ "$publish_status" -eq 0 ]; then
-            exit 0
-          fi
-          if grep -qi "previously published versions: $PACKAGE_VERSION" npm-publish.log; then
-            echo "$PACKAGE_NAME@$PACKAGE_VERSION is already published; skipping npm publish."
-            exit 0
-          fi
-          exit "$publish_status"
+          root_tarball=$(find dist/root -maxdepth 1 -name '*.tgz' -print)
+          npm publish "$root_tarball" --access public

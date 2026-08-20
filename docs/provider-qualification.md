@@ -70,6 +70,11 @@ selected `Rows` and row-column contract. An independently authored valid
 fixture locks that decision. The corrected production core then passed the
 bounded live check above.
 
+The promoted Node-only product repeated the production check during cutover on
+2026-08-20. An exact-date kind-10 lookup for `2026-08-20` returned 3 rows
+without fallback. The result was streamed into a metadata-only checker; no
+response body, normalized row, raw cell, or yield was written to disk or logs.
+
 ## Unknowns requiring provider or owner confirmation
 
 - Whether the site terms permit automated access and this specific reuse.

@@ -1,5 +1,5 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
-import { readFile } from "node:fs/promises";
+import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { isDeepStrictEqual } from "node:util";
@@ -10,11 +10,15 @@ import { parse } from "yaml";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const options = parseArguments(process.argv.slice(2));
-const baselineRoot = resolve(options.baselineRoot || resolve(root, "packages/node"));
-const candidateRoot = resolve(options.candidateRoot || baselineRoot);
+const productRoot = resolve(options.productRoot || resolve(root, "packages/node"));
 const selectedScenario = options.scenario;
 const failures = [];
 let scenariosRun = 0;
+const goldenPath = resolve(root, "judge/golden-results.json");
+const goldenResults = options.updateGolden
+  ? {}
+  : JSON.parse(await readFile(goldenPath, "utf8"));
+const observedGoldenKeys = new Set();
 
 const evidence = JSON.parse(await readFile(resolve(root, "contracts/kisnet/cases.json"), "utf8"));
 const wire = parse(await readFile(resolve(root, "contracts/kisnet/openapi.yaml"), "utf8"));
@@ -33,82 +37,43 @@ function scenarioEnabled(name) {
   return !selectedScenario || selectedScenario === name;
 }
 
-function compare(name, baseline, candidate) {
-  if (name === "cancellation") return;
-  const left = comparisonProjection({ ok: baseline.ok, value: baseline.value, error: baseline.error });
-  const right = comparisonProjection({ ok: candidate.ok, value: candidate.value, error: candidate.error }, left);
-  if (name === "package-surface") right.value.engine = left.value.engine;
-  check(isDeepStrictEqual(left, right), `${name}: public result differs between baseline and candidate`);
+function assertGolden(name, surface, actual) {
+  const key = `${surface}:${name}`;
+  if (observedGoldenKeys.has(key)) {
+    failures.push(`${name}: ${surface} attempted to reuse approved golden key ${key}`);
+    return;
+  }
+  const normalized = JSON.parse(JSON.stringify(actual));
+  observedGoldenKeys.add(key);
+  if (options.updateGolden) {
+    goldenResults[key] = normalized;
+    return;
+  }
+  check(Object.hasOwn(goldenResults, key), `${name}: ${surface} has no approved golden result`);
+  if (Object.hasOwn(goldenResults, key)) {
+    check(isDeepStrictEqual(normalized, goldenResults[key]), `${name}: ${surface} public result differs from the approved golden result`);
+  }
 }
 
-function comparisonProjection(result, baseline) {
-  const projected = structuredClone(result);
-  normalizeCatalogText(projected);
-  if (baseline?.value?.kinds && projected.value?.kinds) {
-    const legacyCodes = new Set(baseline.value.kinds.map(({ code }) => code));
-    projected.value.kinds = projected.value.kinds.filter(({ code }) => legacyCodes.has(code));
-    if (baseline.value.source?.note && projected.value.source?.note) {
-      projected.value.source.note = baseline.value.source.note;
-    }
-  }
-  if (projected.error?.code === "source_format_error") delete projected.error.reason;
-  return projected;
+function publicToolsetResult(result) {
+  return { ok: result.ok, value: result.value, error: result.error };
 }
 
-function normalizeCatalogText(value) {
-  if (typeof value === "string") {
-    return value
-      .replace(/^[ \t]*80 = 회사채\(사모\)\n?/gm, "")
-      .replace(/^80\t회사채\(사모\)\n?/gm, "");
-  }
-  if (Array.isArray(value)) {
-    for (let index = 0; index < value.length; index += 1) value[index] = normalizeCatalogText(value[index]);
-  } else if (value && typeof value === "object") {
-    for (const [key, child] of Object.entries(value)) value[key] = normalizeCatalogText(child);
-  }
-  return value;
-}
-
-function runToolset(name, requestPayload, fixture, assertResult, options = {}) {
+function runToolset(name, requestPayload, fixture, assertResult, runnerOptions = {}) {
   if (!scenarioEnabled(name)) return;
   scenariosRun += 1;
-  const baseline = invokeToolset(baselineRoot, requestPayload, fixture);
-  const candidate = invokeToolset(candidateRoot, requestPayload, fixture);
-  compare(name, baseline, candidate);
-  assertResult?.(candidate, `${name}: candidate`);
-  assertRequests(candidate.requests, options.candidateSteps ?? fixture?.steps ?? [], `${name}: candidate`);
+  const product = invokeToolset(productRoot, requestPayload, fixture);
+  assertGolden(name, "toolset", publicToolsetResult(product));
+  assertResult?.(product, `${name}: product`);
+  assertRequests(product.requests, runnerOptions.productSteps ?? fixture?.steps ?? [], `${name}: product`);
 }
 
 function runCli(name, args, fixture, assertResult) {
   if (!scenarioEnabled(name)) return;
   scenariosRun += 1;
-  const baseline = invokeCli(baselineRoot, args, fixture);
-  const candidate = invokeCli(candidateRoot, args, fixture);
-  const projectedBaseline = normalizeCliResult(structuredClone(baseline));
-  const projectedCandidate = normalizeCliResult(structuredClone(candidate));
-  check(isDeepStrictEqual(projectedBaseline, projectedCandidate), `${name}: CLI process result differs between baseline and candidate`);
-  assertResult?.(candidate, `${name}: candidate`);
-}
-
-function runCandidateToolset(name, requestPayload, fixture, assertResult) {
-  if (!scenarioEnabled(name)) return;
-  scenariosRun += 1;
-  const candidate = invokeToolset(candidateRoot, requestPayload, fixture);
-  assertResult(candidate, `${name}: candidate`);
-  assertRequests(candidate.requests, fixture?.steps || [], `${name}: candidate`);
-}
-
-function runCandidateCli(name, args, fixture, assertResult) {
-  if (!scenarioEnabled(name)) return;
-  scenariosRun += 1;
-  const candidate = invokeCli(candidateRoot, args, fixture);
-  assertResult(candidate, `${name}: candidate`);
-}
-
-function normalizeCliResult(result) {
-  result.stdout = normalizeCatalogText(result.stdout);
-  result.stderr = normalizeCatalogText(result.stderr);
-  return result;
+  const product = invokeCli(productRoot, args, fixture);
+  assertGolden(name, "cli", product);
+  assertResult?.(product, `${name}: product`);
 }
 
 runToolset("toolset-discovery", { action: "inspect" }, undefined, (result, label) => {
@@ -142,12 +107,12 @@ for (const [dateValue, normalized] of [["2026-06-08", "2026-06-08"], ["2026.06.0
 }
 
 for (const dateValue of ["2026.06-08", "2026-0608", "202606-08", "2026..06.08"]) {
-  runCandidateToolset(`validation-recovery:reject-date-${dateValue}`, { action: "validate", operation: "matrix", input: { baseDate: dateValue, kind: "10" } }, undefined, (result, label) => {
+  runToolset(`validation-recovery:reject-date-${dateValue}`, { action: "validate", operation: "matrix", input: { baseDate: dateValue, kind: "10" } }, undefined, (result, label) => {
     check(result.value?.valid === false && result.value?.error?.parameter === "baseDate", `${label} must reject an undocumented date shape`);
   });
 }
 
-runCandidateToolset("toolset-operation-immutability", { action: "operation-mutation" }, undefined, (result, label) => {
+runToolset("toolset-operation-immutability", { action: "operation-mutation" }, undefined, (result, label) => {
   check(result.ok, `${label} must complete the mutation probe`);
   check(result.value?.operation?.examples?.[0]?.input?.baseDate === "2026-06-08", `${label} getOperation must return a deep copy`);
   check(result.value?.listed?.limitations?.[0] !== "mutated", `${label} listOperations must return a deep copy`);
@@ -176,7 +141,7 @@ runToolset("missing-values", { action: "execute", operation: "matrix", input: { 
   }
 });
 
-runCandidateToolset("unknown-kind-recovery", { action: "execute", operation: "matrix", input: { baseDate: request.baseDate, kind: "not-a-kind" } }, fixture([
+runToolset("unknown-kind-recovery", { action: "execute", operation: "matrix", input: { baseDate: request.baseDate, kind: "not-a-kind" } }, fixture([
   { path: initPath, fixture: evidence.fixtures.init }
 ]), (result, label) => {
   check(!result.ok && result.error?.code === "invalid_parameter" && result.error?.parameter === "kind", `${label} must reject the unknown kind`);
@@ -199,7 +164,7 @@ runToolset("cancellation", { action: "execute", operation: "matrix", input: { ba
 ]), (result, label) => {
   check(!result.ok && result.error?.code === evidence.expectations.transportError, `${label} must preserve cancellation as ${evidence.expectations.transportError}`);
   check(result.requests?.length === 0, `${label} must not start HTTP after pre-cancellation`);
-}, { candidateSteps: [] });
+}, { productSteps: [] });
 
 for (const failure of [
   { name: "protocol-error", second: { fixture: evidence.fixtures.protocolError }, code: evidence.expectations.protocolError },
@@ -292,7 +257,7 @@ runCli("cli-machine-contract:tsv", ["kinds", "--format", "tsv"], undefined, (res
   check(result.status === 0 && result.stdout.startsWith("code\tname"), `${label} TSV must preserve its header`);
 });
 
-runCandidateCli("cli-machine-contract:formula-safe-csv", ["matrix", "--base-date", request.baseDate, "--kind", request.kind.name, "--format", "csv"], fixture([
+runCli("cli-machine-contract:formula-safe-csv", ["matrix", "--base-date", request.baseDate, "--kind", request.kind.name, "--format", "csv"], fixture([
   { path: initPath, fixture: evidence.fixtures.init },
   {
     path: matrixPath,
@@ -307,23 +272,23 @@ runCandidateCli("cli-machine-contract:formula-safe-csv", ["matrix", "--base-date
   check(result.stdout.includes(",-4.455,"), `${label} must preserve negative numeric yields as numbers`);
 });
 
-runCandidateNativePreabort();
-runCandidateWithoutNative();
+runNativePreabort();
+runWithoutNative();
 
-runCandidateToolset("kind-80:offline-catalog", { action: "execute", operation: "kinds", input: {} }, undefined, (result, label) => {
+runToolset("kind-80:offline-catalog", { action: "execute", operation: "kinds", input: {} }, undefined, (result, label) => {
   check(result.ok, `${label} must return the offline canonical catalog`);
   const privateBond = result.value?.kinds?.find(({ code }) => code === "80");
   check(privateBond?.name === "회사채(사모)", `${label} must include canonical kind 80`);
 });
 
-runCandidateToolset("kind-80:dated-catalog", { action: "execute", operation: "kinds", input: { baseDate: request.baseDate } }, fixture([
+runToolset("kind-80:dated-catalog", { action: "execute", operation: "kinds", input: { baseDate: request.baseDate } }, fixture([
   { path: initPath, fixture: evidence.fixtures.init }
 ]), (result, label) => {
   check(result.ok && result.value?.kinds?.at(-1)?.code === "80", `${label} must retain kind 80 when discovery omits it`);
 });
 
 for (const [id, kind] of [["code", "80"], ["number", 80], ["label", "회사채(사모)"], ["normalized-label", "회사채 (사모)"]]) {
-  runCandidateToolset(`kind-80:matrix-${id}`, { action: "execute", operation: "matrix", input: { baseDate: request.baseDate, kind } }, fixture([
+  runToolset(`kind-80:matrix-${id}`, { action: "execute", operation: "matrix", input: { baseDate: request.baseDate, kind } }, fixture([
     { path: initPath, fixture: evidence.fixtures.init },
     { path: matrixPath, fixture: evidence.fixtures.missingValues }
   ]), (result, label) => {
@@ -335,7 +300,7 @@ for (const [id, kind] of [["code", "80"], ["number", 80], ["label", "회사채(�
   });
 }
 
-runCandidateToolset("kind-80:unavailable", { action: "execute", operation: "matrix", input: { baseDate: request.baseDate, kind: "80" } }, fixture([
+runToolset("kind-80:unavailable", { action: "execute", operation: "matrix", input: { baseDate: request.baseDate, kind: "80" } }, fixture([
   { path: initPath, fixture: evidence.fixtures.init },
   { path: matrixPath, fixture: evidence.fixtures.unavailable }
 ]), (result, label) => {
@@ -343,7 +308,27 @@ runCandidateToolset("kind-80:unavailable", { action: "execute", operation: "matr
   check(result.requests?.[1]?.body.includes('<Col id="cboYtmSort">80</Col>'), `${label} must attempt code 80 directly`);
 });
 
-runCandidateToolset("kind-80:discovery-conflict", { action: "execute", operation: "kinds", input: { baseDate: request.baseDate } }, fixture([
+runToolset("kind-80:fallback-preserves-kind", { action: "execute", operation: "matrix", input: {
+  baseDate: request.baseDate,
+  kind: "80",
+  fallback: "previous-available",
+  lookbackDays: 1
+} }, fixture([
+  { path: initPath, fixture: evidence.fixtures.init },
+  { path: matrixPath, fixture: evidence.fixtures.unavailable },
+  { path: initPath, fixture: evidence.fixtures.init },
+  { path: matrixPath, fixture: evidence.fixtures.missingValues }
+]), (result, label) => {
+  check(result.ok && result.value?.baseDate === "2026-06-07", `${label} must resolve the prior available date`);
+  check(result.value?.kind?.code === "80" && result.value?.kind?.name === "회사채(사모)", `${label} must preserve canonical kind 80`);
+  check(result.value?.dateResolution?.attemptedDates?.join(",") === "2026-06-08,2026-06-07", `${label} must preserve the kind-80 fallback history`);
+  for (const index of [1, 3]) {
+    check(result.requests?.[index]?.body.includes('<Col id="cboYtmSort">80</Col>'), `${label} matrix attempt ${index === 1 ? 1 : 2} must send code 80`);
+    check(!result.requests?.[index]?.body.includes('<Col id="cboYtmSort">70</Col>'), `${label} matrix attempt ${index === 1 ? 1 : 2} must never substitute code 70`);
+  }
+});
+
+runToolset("kind-80:discovery-conflict", { action: "execute", operation: "kinds", input: { baseDate: request.baseDate } }, fixture([
   {
     path: initPath,
     fixture: evidence.fixtures.init,
@@ -354,7 +339,7 @@ runCandidateToolset("kind-80:discovery-conflict", { action: "execute", operation
 });
 
 for (const [id, kind] of [["code", "80"], ["label", "회사채(사모)"]]) {
-  runCandidateCli(`kind-80:cli-${id}`, ["matrix", "--base-date", request.baseDate, "--kind", kind], fixture([
+  runCli(`kind-80:cli-${id}`, ["matrix", "--base-date", request.baseDate, "--kind", kind], fixture([
     { path: initPath, fixture: evidence.fixtures.init },
     { path: matrixPath, fixture: evidence.fixtures.matrix }
   ]), (result, label) => {
@@ -364,19 +349,28 @@ for (const [id, kind] of [["code", "80"], ["label", "회사채(사모)"]]) {
 
 if (scenarioEnabled("package-surface")) {
   scenariosRun += 1;
-  const baseline = await inspectPackage(baselineRoot);
-  const candidate = await inspectPackage(candidateRoot);
-  compare("package-surface", { ok: true, value: baseline }, { ok: true, value: candidate });
-  check(candidate.name === "@sjunepark/ytm", "package-surface: candidate must preserve package identity");
-  check(candidate.engine === ">=22", "package-surface: candidate must require Node 22 or newer");
-  check(candidate.bin === "dist/cli.js" && candidate.toolset === "./dist/toolset.js", "package-surface: candidate must preserve bin and toolset exports");
-  check(candidate.files.every(({ exists }) => exists), "package-surface: candidate must ship all required public files");
+  const product = await inspectPackage(productRoot);
+  assertGolden("package-surface", "package", product);
+  check(product.name === "@sjunepark/ytm", "package-surface: product must preserve package identity");
+  check(product.engine === ">=22", "package-surface: product must require Node 22 or newer");
+  check(product.bin === "dist/cli.js" && product.toolset === "./dist/toolset.js", "package-surface: product must preserve bin and toolset exports");
+  check(product.files.every(({ exists }) => exists), "package-surface: product must ship all required public files");
 }
 
+if (!selectedScenario && !options.updateGolden) {
+  const unobserved = Object.keys(goldenResults).filter((key) => !observedGoldenKeys.has(key));
+  check(unobserved.length === 0, `approved golden results contain stale scenarios: ${unobserved.join(", ")}`);
+}
 if (selectedScenario && scenariosRun === 0) failures.push(`Unknown or unavailable scenario filter: ${selectedScenario}`);
 if (failures.length > 0) {
   console.error(failures.map((failure) => `- ${failure}`).join("\n"));
   process.exit(1);
+}
+if (options.updateGolden) {
+  if (selectedScenario) throw new Error("Golden results can only be updated by a complete judge run");
+  const sorted = Object.fromEntries(Object.entries(goldenResults).sort(([left], [right]) => left.localeCompare(right)));
+  await writeFile(goldenPath, `${JSON.stringify(sorted, null, 2)}\n`);
+  console.log(`updated ${Object.keys(sorted).length} approved golden result(s)`);
 }
 console.log(`public-surface judge passed ${scenariosRun} scenario(s)`);
 
@@ -384,40 +378,73 @@ function fixture(steps) {
   return { fixtureDirectory, steps };
 }
 
-function runCandidateNativePreabort() {
+function runNativePreabort() {
   const name = "native-binding:preaborted-signal";
   if (!scenarioEnabled(name)) return;
   scenariosRun += 1;
   const captureDirectory = mkdtempSync(resolve(tmpdir(), "ytm-native-judge-"));
   const capturePath = resolve(captureDirectory, "requests.json");
-  const nativeUrl = pathToFileURL(resolve(candidateRoot, "dist/native.js")).href;
+  const nativeUrl = pathToFileURL(resolve(productRoot, "dist/native.js")).href;
   const code = `const {invokeNative}=await import(${JSON.stringify(nativeUrl)});const c=new AbortController();c.abort();const v=await invokeNative('kinds',{baseDate:${JSON.stringify(request.baseDate)}},c.signal);process.stdout.write(JSON.stringify(v));`;
-  const result = spawnSync(process.execPath, ["--import", resolve(root, "judge/fixture-preload.mjs"), "--input-type=module", "-e", code], {
-    encoding: "utf8",
-    env: {
-      ...process.env,
-      YTM_JUDGE_CAPTURE_PATH: capturePath,
-      YTM_JUDGE_FIXTURE: JSON.stringify(fixture([{ path: initPath, fixture: evidence.fixtures.init }]))
-    }
-  });
-  const envelope = result.status === 0 ? JSON.parse(result.stdout) : undefined;
-  const captures = existsSync(capturePath) ? JSON.parse(readFileSync(capturePath, "utf8")) : [];
-  rmSync(captureDirectory, { recursive: true, force: true });
+  let result;
+  let envelope;
+  let captures = [];
+  try {
+    result = spawnSync(process.execPath, ["--import", resolve(root, "judge/fixture-preload.mjs"), "--input-type=module", "-e", code], {
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        YTM_JUDGE_CAPTURE_PATH: capturePath,
+        YTM_JUDGE_FIXTURE: JSON.stringify(fixture([{ path: initPath, fixture: evidence.fixtures.init }]))
+      }
+    });
+    envelope = parseSuccessfulJson(result, name);
+    captures = existsSync(capturePath) ? parseJson(readFileSync(capturePath, "utf8"), `${name}: request capture`) ?? [] : [];
+  } finally {
+    rmSync(captureDirectory, { recursive: true, force: true });
+  }
+  assertGolden(name, "binding", { status: result.status, envelope, stderr: result.stderr === "" ? "empty" : "nonempty" });
+  check(result.stderr === "", `${name}: binding must not write to stderr`);
   check(result.status === 0 && envelope?.error?.code === evidence.expectations.transportError, `${name}: binding must preserve a pre-aborted signal`);
   check(captures.length === 1 && captures[0]?.signalAborted === true, `${name}: cancellation must reach Rust before transport work begins`);
 }
 
-function runCandidateWithoutNative() {
+function runWithoutNative() {
   const name = "node-adapter:missing-native";
   if (!scenarioEnabled(name)) return;
   scenariosRun += 1;
-  const toolsetUrl = pathToFileURL(resolve(candidateRoot, "src/toolset.js")).href;
-  const code = `const m=await import(${JSON.stringify(toolsetUrl)});const t=m.createKisnetYtmToolset();const validation=t.validateInput('matrix',{baseDate:'20260820',kind:'80'});let failure;try{await t.execute('kinds',{});}catch(error){failure=t.serializeError(error)}process.stdout.write(JSON.stringify({help:t.help(),validation,failure}));`;
-  const result = spawnSync(process.execPath, ["--input-type=module", "-e", code], { encoding: "utf8" });
-  const value = result.status === 0 ? JSON.parse(result.stdout) : undefined;
+  const isolatedRoot = mkdtempSync(resolve(tmpdir(), "ytm-no-native-"));
+  let result;
+  let value;
+  try {
+    cpSync(resolve(productRoot, "src"), resolve(isolatedRoot, "src"), { recursive: true });
+    writeFileSync(resolve(isolatedRoot, "package.json"), '{"type":"module"}\n');
+    const toolsetUrl = pathToFileURL(resolve(isolatedRoot, "src/toolset.js")).href;
+    const code = `const m=await import(${JSON.stringify(toolsetUrl)});const t=m.createKisnetYtmToolset();const validation=t.validateInput('matrix',{baseDate:'20260820',kind:'80'});let failure;try{await t.execute('kinds',{});}catch(error){failure=t.serializeError(error)}process.stdout.write(JSON.stringify({help:t.help(),validation,failure}));`;
+    result = spawnSync(process.execPath, ["--input-type=module", "-e", code], { encoding: "utf8" });
+    value = parseSuccessfulJson(result, name);
+  } finally {
+    rmSync(isolatedRoot, { recursive: true, force: true });
+  }
+  assertGolden(name, "toolset", { status: result.status, value, stderr: result.stderr === "" ? "empty" : "nonempty" });
+  check(result.stderr === "", `${name}: toolset must not write to stderr`);
   check(result.status === 0 && value?.help?.includes("Native capabilities unavailable"), `${name}: help must remain available without a native package`);
   check(value?.validation?.valid === true, `${name}: pure validation must remain available without a native package`);
   check(value?.failure?.code === "internal_error" && value?.failure?.retryable === false, `${name}: execution must return a stable internal failure`);
+}
+
+function parseSuccessfulJson(result, name) {
+  if (result.status !== 0) return undefined;
+  return parseJson(result.stdout, `${name}: successful process`);
+}
+
+function parseJson(value, label) {
+  try {
+    return JSON.parse(value);
+  } catch (error) {
+    failures.push(`${label} emitted invalid JSON: ${error.message}`);
+    return undefined;
+  }
 }
 
 function invokeToolset(packageRoot, requestPayload, fixtureConfig) {
@@ -489,12 +516,10 @@ function parseArguments(args) {
   const parsed = {};
   for (let index = 0; index < args.length; index += 1) {
     const option = args[index];
-    const value = args[index + 1];
-    if (option === "--baseline-root") parsed.baselineRoot = value;
-    else if (option === "--candidate-root") parsed.candidateRoot = value;
-    else if (option === "--scenario") parsed.scenario = value;
+    if (option === "--update-golden") parsed.updateGolden = true;
+    else if (option === "--product-root") parsed.productRoot = args[++index];
+    else if (option === "--scenario") parsed.scenario = args[++index];
     else throw new Error(`Unknown judge option: ${option}`);
-    index += 1;
   }
   return parsed;
 }

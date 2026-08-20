@@ -1,54 +1,36 @@
 # KIS-NET YTM
 
-Language-native access to the KIS-NET YTM Matrix, with exact-date lookup by
-default and explicit previous-available date resolution.
+Node.js access to the KIS-NET YTM Matrix, backed by a Rust HTTP and Nexacro
+core. The JavaScript package is a thin CLI and runtime-neutral toolset; it does
+not implement source transport or parsing.
 
-## Packages
+## Install and run
 
-- [`@sjunepark/ytm`](packages/node): Node.js 20.18.1+ CLI and runtime-neutral
-  toolset SDK
-- [`kisnet-ytm`](packages/python): typed, synchronous Python 3.11+ API that does
-  not invoke Node.js
-
-Both packages send the same deterministic Nexacro requests and share fixtures
-for source parsing, missing values, unavailable dates, protocol statuses,
-fallback order, and failure classification. Their language-specific result
-shapes are documented in [SPEC.md](SPEC.md).
-
-## Quick start
-
-Node CLI:
+Node.js 22 or newer is required.
 
 ```sh
 npx -y @sjunepark/ytm matrix --base-date 2026-06-08 --kind 국채 --format json
+npx -y @sjunepark/ytm kinds --format json
 ```
 
-Python:
-
-```python
-from datetime import date
-from kisnet_ytm import fetch_matrix
-
-matrix = fetch_matrix(date(2026, 6, 8), "국채")
-print(matrix.rows[0].yields["10Y"])
-```
-
-Current releases are available on
-[npm](https://www.npmjs.com/package/@sjunepark/ytm) and
-[PyPI](https://pypi.org/project/kisnet-ytm/).
+The package also exports `@sjunepark/ytm/toolset` for in-process use. Run
+`ytm --help` and `ytm <command> --help` for the current CLI contract. See
+[`SPEC.md`](SPEC.md) for product behavior and
+[`docs/provider-qualification.md`](docs/provider-qualification.md) before
+treating source availability as production suitability.
 
 ## Repository validation
 
 ```sh
 bun install --frozen-lockfile
-uv sync --locked --project packages/python
 bun run validate
+cargo fmt --all --check
+cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
+cargo test --locked --workspace --all-targets --all-features
 bun run test
-bun run build
 bun run pack:node
-bun run pack:python
 ```
 
 Live KIS-NET smoke checks are scheduled and manually dispatchable rather than
-pull-request gates. See [docs/release.md](docs/release.md) for the lockstep
-release flow and publisher configuration.
+pull-request gates. Release creation and publication remain disabled pending a
+separate version and release decision; see [`docs/release.md`](docs/release.md).

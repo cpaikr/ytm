@@ -1,8 +1,17 @@
-import { mkdir, copyFile, chmod } from "node:fs/promises";
+import { copyFile, mkdir, rm } from "node:fs/promises";
+import { resolve } from "node:path";
 
-await mkdir("dist", { recursive: true });
-await copyFile("src/nexacro.js", "dist/nexacro.js");
-await copyFile("src/toolset.js", "dist/toolset.js");
-await copyFile("src/toolset.d.ts", "dist/toolset.d.ts");
-await copyFile("src/cli.js", "dist/cli.js");
-await chmod("dist/cli.js", 0o755);
+const packageRoot = resolve(import.meta.dirname, "..");
+const repositoryRoot = resolve(packageRoot, "../..");
+const dist = resolve(packageRoot, "dist");
+const facadeOnly = process.argv.includes("--facade-only");
+const extension = process.platform === "win32" ? "dll" : process.platform === "darwin" ? "dylib" : "so";
+const prefix = process.platform === "win32" ? "" : "lib";
+const native = resolve(repositoryRoot, `target/debug/${prefix}ytm_node.${extension}`);
+
+await rm(dist, { recursive: true, force: true });
+await mkdir(dist, { recursive: true });
+for (const filename of ["cli.js", "native.cjs", "native.js", "toolset.d.ts", "toolset.js"]) {
+  await copyFile(resolve(packageRoot, "src", filename), resolve(dist, filename));
+}
+if (!facadeOnly) await copyFile(native, resolve(dist, "ytm.node"));
