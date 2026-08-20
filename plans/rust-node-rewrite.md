@@ -179,10 +179,9 @@ Node or Python implementations.
 ## References
 
 - [Anthropic code migration kit](https://github.com/anthropics/code-migration-kit-with-claude-code/tree/cf91c9d5068d9aaf95a36164169f08c3e636c909)
-- [mytech code-rewrite guidance](../../mytech/practices/code-rewrites.md)
-- [External HTTP contracts and handwritten clients](../../mytech/architecture/external-http/external-http-contracts-and-handwritten-clients.md)
-- [Rust cores for Node.js HTTP SDKs](../../mytech/architecture/external-http/rust-cores-for-nodejs-http-sdks.md)
-- [External provider qualification](../../mytech/practices/external-provider-qualification.md)
+- [External HTTP contracts and handwritten clients](https://github.com/sjunepark/mytech/blob/d20f8c511979dd0cfcdbf4f046f0b145dce38e79/architecture/external-http-contracts-and-handwritten-clients.md)
+- [Rust for external HTTP protocol implementations](https://github.com/sjunepark/mytech/blob/d20f8c511979dd0cfcdbf4f046f0b145dce38e79/architecture/rust-for-external-http-protocols.md)
+- [External provider qualification](https://github.com/sjunepark/mytech/blob/d20f8c511979dd0cfcdbf4f046f0b145dce38e79/practices/external-provider-qualification.md)
 
 ## Next action
 

@@ -16,9 +16,9 @@ diagnosis after both direct package surfaces fail.
 ## CLI
 
 ```sh
-npx -y @sjunepark/ytm@latest kinds --format json
-npx -y @sjunepark/ytm@latest matrix --base-date 2026-06-08 --kind 국채 --format json --pretty
-npx -y @sjunepark/ytm@latest matrix --base-date 2026-06-07 --kind 국채 --fallback previous-available --lookback-days 10 --format json --pretty
+npx -y @sjunepark/ytm@0.2.0 kinds --format json
+npx -y @sjunepark/ytm@0.2.0 matrix --base-date 2026-06-08 --kind 국채 --format json --pretty
+npx -y @sjunepark/ytm@0.2.0 matrix --base-date 2026-06-07 --kind 국채 --fallback previous-available --lookback-days 10 --format json --pretty
 ```
 
 - Dates accept `YYYY-MM-DD`, `YYYY.MM.DD`, or `YYYYMMDD`.

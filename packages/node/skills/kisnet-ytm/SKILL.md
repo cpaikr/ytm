@@ -14,13 +14,13 @@ Prefer the published `@sjunepark/ytm` CLI when shell access is available. It rep
 Use one of these forms:
 
 ```sh
-npx -y @sjunepark/ytm@latest --help
-npx -y @sjunepark/ytm@latest kinds --format json
-npx -y @sjunepark/ytm@latest matrix --base-date 2026-06-08 --kind 국채 --format json --pretty
-npx -y @sjunepark/ytm@latest matrix --base-date 2026-06-07 --kind 국채 --fallback previous-available --format json --pretty
+npx -y @sjunepark/ytm@0.2.0 --help
+npx -y @sjunepark/ytm@0.2.0 kinds --format json
+npx -y @sjunepark/ytm@0.2.0 matrix --base-date 2026-06-08 --kind 국채 --format json --pretty
+npx -y @sjunepark/ytm@0.2.0 matrix --base-date 2026-06-07 --kind 국채 --fallback previous-available --format json --pretty
 
-bunx @sjunepark/ytm@latest --help
-bunx @sjunepark/ytm@latest matrix --base-date 2026-06-08 --kind 회사채\(무보증\) --format json --pretty
+bunx @sjunepark/ytm@0.2.0 --help
+bunx @sjunepark/ytm@0.2.0 matrix --base-date 2026-06-08 --kind 회사채\(무보증\) --format json --pretty
 
 ytm matrix --base-date 2026-06-08 --kind 10 --format tsv
 ```
