@@ -36,12 +36,13 @@ _None._
 
 ### Current in-scope result
 
-Rust core and Node product
+Rust core and Node product; parity, packaging, and kind 80 — delivery pending
 
 ### Next in-scope action
 
-Create the next branch from `63282fc` and implement the Rust core, Node-API
-binding, and thin Node product against the frozen authority and judge.
+Push `codex/rewrite-implementation`, create its review PR against
+`codex/rewrite-vnext`, and finish the complete feedback and CI lifecycle before
+starting the atomic cutover.
 
 ### Evidence and blockers
 
@@ -60,3 +61,30 @@ binding, and thin Node product against the frozen authority and judge.
 - Foundation validation passed on 2026-08-20: frozen Bun and uv sync, `bun run validate`, `bun run test` (90 passed; 3 opt-in live tests skipped), `bun run judge`, deliberate-failure proof, `bun run build`, both package checks, and `git diff --check`.
 - Foundation delivery completed through PR #9 at merge commit `63282fc`; all repository and security checks passed, no actionable review threads were filed, and CodeRabbit's attached run was skipped after the progress-metadata head update because automatic reviews are disabled. Repository policy forbids a manual retrigger.
 - Blockers: none.
+- Boundary check: the Rust core/Node product and parity/packaging/kind-80
+  results share one candidate artifact and validation boundary, so they are
+  delivered in one reviewable PR; proceed.
+- The staged implementation contains the sole Rust HTTP/Nexacro conformer, a
+  panic-contained Node-API binding, a wire-ignorant Node facade/CLI, and a
+  compile-time-only judge transport absent from release builds.
+- Rust gates pass with 15 tests, including OpenAPI request conformance, the
+  independent XML corpus, protocol precedence, localhost HTTP headers/status,
+  redirect refusal, decompressed-size bounds, and in-flight cancellation.
+  Formatting, Clippy with warnings denied, RustSec audit, cargo-deny license,
+  source, and wildcard policy all pass; only the reported transitive syn 2/3
+  duplication remains a non-blocking warning.
+- The public judge passes 67 legacy-parity, boundary, CLI, package, and issue
+  #7 scenarios and still rejects the deliberate null-to-zero mutation.
+- A production binding smoke completed both live operations on 2026-08-20
+  without retaining bodies, rows, or yields. It exposed optional live
+  ColumnInfo metadata; the authority, fictional evidence, and parser now agree
+  that this metadata is allowed and ignored.
+- The local macOS ARM64 release artifact passed package assembly and a clean
+  npm consumer install under Node 26. The PR workflow will build all five
+  selected native targets and clean-install each under Node 22, 24, and 26
+  before any support claim is made.
+- Final pre-delivery validation passes: frozen JavaScript/Python dependency
+  state, contract/release checks, Rust gates, 67-scenario candidate judge,
+  deliberate-failure proof, candidate freshness, legacy Node/Python validation
+  and tests (91 Python passed; 3 live tests skipped), both legacy package
+  artifact checks, workflow YAML parsing, diff checks, and source/TODO review.
