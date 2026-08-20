@@ -129,3 +129,9 @@ Node-only cutover and legacy retirement.
   Release Please is disabled at GitHub, its guard variable is false, and its
   workflow is deleted on the PR head. Commit `6a29065` started the four-target
   Blacksmith matrix; this terminal progress commit becomes the final PR head.
+- The first final-head Blacksmith matrix passed all ordinary CI, all Linux
+  consumers, and macOS Node 22/24 before Windows exposed one remaining harness
+  issue: bare `npm.cmd` made npm resolve its support files relative to the
+  repository. The product build and assembly passed. The bounded fix resolves
+  the batch launcher to its absolute PATH location before the existing quoted
+  invocation; repeated Windows and full-matrix proof remain required.

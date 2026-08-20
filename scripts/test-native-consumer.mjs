@@ -1,7 +1,7 @@
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { access, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { resolve } from "node:path";
+import { delimiter, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const repositoryRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
@@ -14,7 +14,7 @@ if (process.platform !== target.npmPlatform || process.arch !== target.npmArch) 
   throw new Error(`Consumer runner is ${process.platform}-${process.arch}, expected ${target.npmPlatform}-${target.npmArch}.`);
 }
 
-const npm = process.platform === "win32" ? "npm.cmd" : "npm";
+const npm = process.platform === "win32" ? await resolveWindowsCommand("npm.cmd") : "npm";
 const temporary = await mkdtemp(resolve(tmpdir(), "ytm-consumer-"));
 try {
   const nativeTarball = pack(resolve(repositoryRoot, manifest.candidateNativePackageRoot, target.packageDirectory));
@@ -98,6 +98,20 @@ function commandInvocation(command, args) {
     args: ["/d", "/s", "/c", `"${commandLine}"`],
     options: { windowsVerbatimArguments: true }
   };
+}
+
+async function resolveWindowsCommand(command) {
+  for (const directory of (process.env.PATH || "").split(delimiter)) {
+    if (!directory) continue;
+    const candidate = resolve(directory, command);
+    try {
+      await access(candidate);
+      return candidate;
+    } catch {
+      // Keep searching PATH.
+    }
+  }
+  throw new Error(`Could not resolve ${command} from PATH.`);
 }
 
 function quoteCmdArgument(value) {

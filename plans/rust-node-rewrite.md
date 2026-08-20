@@ -68,6 +68,11 @@ Node or Python implementations.
   protection, and Actions settings now live at `cpaikr/ytm`; the shared remote
   is canonical. Release Please is disabled and its guard is false. The final
   PR head is running the four-target Blacksmith matrix.
+- That matrix passed ordinary CI, Linux consumers, and macOS Node 22/24 before
+  the Windows harness showed that bare `npm.cmd` resolves npm internals from
+  the working directory under the bounded wrapper. Resolve the launcher to its
+  absolute PATH entry and repeat the full matrix; native build and assembly
+  were already successful.
 
 ## Decisions
 
