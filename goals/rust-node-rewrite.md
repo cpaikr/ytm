@@ -51,9 +51,9 @@ Rust core and Node product; parity, packaging, and kind 80 — delivery pending
 
 ### Next in-scope action
 
-Verify `cpaikr` transfer authority and Blacksmith runner conventions, migrate
-the active workflow and repository references, transfer the repository, then
-finish the repeated PR #10 CI lifecycle before starting the atomic cutover.
+Finish the final-head PR #10 Blacksmith CI and feedback lifecycle, merge the
+reviewed implementation into `codex/rewrite-vnext`, then start the atomic
+Node-only cutover and legacy retirement.
 
 ### Evidence and blockers
 
@@ -122,5 +122,10 @@ finish the repeated PR #10 CI lifecycle before starting the atomic cutover.
   macOS, and Windows runners; npm publishing retains its required GitHub-hosted
   runner; Release Please automation is absent and enforced; Intel macOS is
   unclaimed. Contract, release, generated-build, 76-scenario judge, YAML,
-  syntax, diff, and macOS ARM64 clean-consumer checks pass. Repository transfer
-  and the four-target Blacksmith matrix remain pending.
+  syntax, diff, and macOS ARM64 clean-consumer checks passed before transfer.
+- GitHub repository `1264066471` transferred successfully to `cpaikr/ytm` with
+  PR #10, issue #7, branches, secrets, environments, main protection, and
+  Actions settings intact. The shared Git remote now uses the canonical URL.
+  Release Please is disabled at GitHub, its guard variable is false, and its
+  workflow is deleted on the PR head. Commit `6a29065` started the four-target
+  Blacksmith matrix; this terminal progress commit becomes the final PR head.

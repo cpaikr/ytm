@@ -63,8 +63,11 @@ Node or Python implementations.
   Blacksmith runner for its native image, keeps npm's OIDC publish job on the
   GitHub-hosted runner required by npm, removes Release Please automation, and
   updates repository authority to `cpaikr/ytm`. Focused validation and the
-  macOS ARM64 clean consumer pass locally; the transfer and Blacksmith matrix
-  remain the next external proof.
+  macOS ARM64 clean consumer passed locally before transfer.
+- Repository `1264066471`, PR #10, issue #7, branches, secrets, environments,
+  protection, and Actions settings now live at `cpaikr/ytm`; the shared remote
+  is canonical. Release Please is disabled and its guard is false. The final
+  PR head is running the four-target Blacksmith matrix.
 
 ## Decisions
 
