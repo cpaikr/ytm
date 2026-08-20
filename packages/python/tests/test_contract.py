@@ -55,7 +55,7 @@ FIXTURES = {
     name: (CONTRACT_DIRECTORY / filename).read_text(encoding="utf-8")
     for name, filename in CONTRACT["fixtures"].items()
 }
-REQUESTED_DATE = date.fromisoformat(CONTRACT["request"]["baseDate"])
+REQUESTED_DATE = date.fromisoformat(CONTRACT["requestExample"]["baseDate"])
 
 
 class FixtureResponseRequestError(RequestsError):
@@ -121,18 +121,19 @@ def test_malformed_kind_rows_are_source_format_errors(fixture_name: str) -> None
 
 
 def test_request_mapping_and_canonical_tenors() -> None:
-    request = build_request_xml(REQUESTED_DATE, CONTRACT["request"]["kind"]["code"], initial=False)
+    request = build_request_xml(
+        REQUESTED_DATE, CONTRACT["requestExample"]["kind"]["code"], initial=False
+    )
 
-    assert f'<Col id="calBaseDt">{CONTRACT["request"]["baseDateCompact"]}</Col>' in request
-    assert f'<Col id="cboYtmSort">{CONTRACT["request"]["kind"]["code"]}</Col>' in request
-    assert CONTRACT["request"]["matrixEndpoint"] in request
+    assert f'<Col id="calBaseDt">{CONTRACT["requestExample"]["baseDateCompact"]}</Col>' in request
+    assert f'<Col id="cboYtmSort">{CONTRACT["requestExample"]["kind"]["code"]}</Col>' in request
 
     result = fetch_matrix_from_source(
         FixtureSource({REQUESTED_DATE: FIXTURES["matrix"]}),
         REQUESTED_DATE,
-        CONTRACT["request"]["kind"]["name"],
+        CONTRACT["requestExample"]["kind"]["name"],
     )
-    assert result.tenors == tuple(item["label"] for item in CONTRACT["canonicalTenors"])
+    assert result.tenors == tuple(item["label"] for item in CONTRACT["expectedTenors"])
     assert result.base_date == REQUESTED_DATE
     assert result.requested_date == REQUESTED_DATE
     assert result.date_resolution.attempted_dates == (REQUESTED_DATE,)

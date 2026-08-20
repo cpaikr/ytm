@@ -8,6 +8,47 @@ For every release, confirm the exact version for both components and obtain
 explicit approval before merging the combined release PR. Do not manually edit
 Release Please-owned output as a fallback.
 
+## Node-only cutover design
+
+The lockstep model below remains active until the final rewrite cutover. The
+cutover changes release ownership atomically; none of these target-state claims
+apply to the current `0.2.0` line.
+
+- `release-please-config.json` will retain only `packages/node`; the manifest
+  will retain only that component, and the linked-versions plugin will be
+  removed. Release Please continues to own the root Node version, changelog,
+  manifest entry, `node-vX.Y.Z` tag, and GitHub Release.
+- The existing `release.yml` filename, `npm` environment, trusted-publisher
+  identity, package name, and Node component tag namespace remain stable.
+- Release assembly will build the exact targets selected in
+  [`native-targets.json`](../native-targets.json) on their native runners. It
+  will project the one Release Please-owned version into disposable platform
+  package manifests, collect the exact native artifacts, and reject any
+  missing, duplicate, or mismatched target/version before publication can run.
+- Every selected target must install the packed root package in a clean native
+  consumer and verify executable discovery, `./toolset` import, capabilities,
+  validation, native loading, and network-free error/exit behavior. The
+  corresponding compile-time judge build must pass fixture execution on the
+  same target and commit; its fixture feature is absent from the packed release
+  binary. A cross-build alone is not a support claim.
+- Platform packages publish before the root package; the root artifact may
+  reference only the exact same version. Registry idempotency checks apply to
+  every artifact. A partial publish is repaired with a new Release
+  Please-managed version, never by moving a tag or replacing an immutable
+  package version.
+- `release-python.yml`, the `pypi` environment dependency, Python metadata
+  checks, and Python entries in release validation are removed from the active
+  repository. The historical PyPI project and Python tags are not changed or
+  deprecated by the cutover.
+
+The final rewrite is breaking: it removes the Python product, removes the
+toolset's JavaScript `context.fetch` transport seam, raises the minimum Node
+major to 22, and narrows the native platform claim. Its eventual main-branch
+merge must carry an accurate `!` or `BREAKING CHANGE:` release input. With the
+current pre-1.0 Release Please policy, the expected result from `0.2.0` is a
+minor release, but the exact generated version must be reviewed and explicitly
+confirmed before any release PR merge or publication.
+
 ## Repository release model
 
 `release-please-config.json` owns two components in one linked-version group:

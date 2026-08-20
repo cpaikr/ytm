@@ -1,84 +1,70 @@
-# KIS-NET YTM Matrix Contract
+# KIS-NET YTM Matrix Product Contract
 
 ## Capability
 
-Retrieve KIS-NET YTM Matrix rows from the mobile Nexacro source at
-<https://kis-net.kr/kisnet_mobile/index.html> by:
+`ytm` retrieves KIS-NET YTM Matrix rows by `baseDate` (`기준일`) and
+`kind` (`종류`). It reproduces the source protocol directly and does not drive
+a browser.
 
-- `baseDate` / `base_date` (`기준일`), sent as `calBaseDt=YYYYMMDD`
-- `kind` (`종류`), accepted as a source code or Korean label and sent as
-  `cboYtmSort=<code>`
+## Authority and evidence
 
-The packages reproduce the source request directly; neither drives a browser.
+- [`contracts/kisnet/openapi.yaml`](contracts/kisnet/openapi.yaml) is the sole
+  repository authority for external HTTP and serialized Nexacro wire facts.
+- [`contracts/kisnet/cases.json`](contracts/kisnet/cases.json) and its fictional
+  XML fixtures are independently authored behavioral evidence. They do not
+  define endpoints, transport bounds, or parser policy.
+- [`ARCHITECTURE.md`](ARCHITECTURE.md) owns component boundaries, dependency
+  direction, and error ownership.
+- [`docs/provider-qualification.md`](docs/provider-qualification.md) owns the
+  distinction between protocol conformance, observed availability, and
+  production suitability.
 
-## Source request contract
+## Product behavior
 
-The inspected form is `rateinfo::YtmMatrix.xfdl`.
-
-Initial load and 종류 discovery use:
-
-- `POST https://kis-net.kr/rateInfo/ytmMatrixMobileInitList.do`
-- Nexacro XML PlatformData body
-- input dataset `ds_search=ds_search`
-- output datasets `ds_tymSort=output1 ds_list=output2`
-- parameters `pageIndex=1`, `pageSize=10`, `pageUnit=10`, `calBaseDt`, and
-  `cboYtmSort=10`
-
-Matrix lookup uses:
-
-- `POST https://kis-net.kr/rateInfo/ytmMatrixMobileList.do`
-- Nexacro XML PlatformData body
-- input dataset `ds_search=ds_search`
-- output dataset `ds_list=output1`
-- parameters `pageIndex=1`, `pageSize=10`, `pageUnit=10`, `calBaseDt`, and
-  `cboYtmSort`
-
-## Shared behavior
-
-- Lookup is exact-date unless the caller explicitly requests previous-available
-  resolution.
-- Fallback tries the requested date first, then earlier calendar dates in order
-  within the caller's bounded window.
-- Only a confirmed no-data response advances fallback. Transport, nonzero
-  Nexacro protocol status, and source-format failures stop immediately.
-- A successful matrix contains at least one row and records the requested,
+- `baseDate` accepts `YYYY-MM-DD`, `YYYY.MM.DD`, or `YYYYMMDD` and normalizes to
+  `YYYY-MM-DD`.
+- `kind` accepts a source code, a numeric-looking value, or a Korean label.
+  Surrounding whitespace is ignored; label comparison also ignores internal
+  whitespace.
+- Lookup is exact-date unless the caller explicitly requests
+  `previous-available` resolution.
+- Previous-available resolution tries the requested date first, then earlier
+  calendar dates in order, within a caller-bounded window of 1 through 31 prior
+  days. The default window is 10.
+- Only confirmed empty source data advances fallback. Transport, protocol,
+  source-format, validation, and kind-resolution failures stop immediately.
+- A successful matrix contains at least one row and records requested,
   attempted, and resolved dates.
-- Missing `-` or empty yield cells become null-like values while the original
-  cell text remains available.
-- Invalid numeric cells and missing required columns are source-format errors,
-  not unavailable data.
-- KIS-NET 종류 and tenor strings remain source-compatible rather than closed
-  public enums.
+- Empty or `-` yield cells become `null` while their original cell text remains
+  available. Invalid numeric cells and missing required columns are
+  source-format errors.
+- Source kinds, pricing groups, and unknown row columns remain open for source
+  compatibility. Output tenor labels and order remain deterministic.
 
-### Nexacro response XML
+## Supported-kind policy and kind 80
 
-- Responses are well-formed XML 1.0 encoded as UTF-8, with an optional UTF-8 BOM, in the
-  `http://www.nexacroplatform.com/platform/dataset` namespace. The namespace
-  may use a default declaration or any prefix, but the root and recognized
-  Nexacro protocol elements must resolve to that exact URI.
-- `DOCTYPE`, custom entities, external resources, unsupported encodings,
-  element depth above 64 (with the root at depth 1), and bodies larger than
-  1 MiB (1,048,576 bytes of decompressed response payload, measured before
-  text decoding) are source-format errors.
-  XML built-in and numeric character references remain valid.
-- The direct `Parameters` container must provide exactly one `ErrorCode`.
-  `ErrorMsg` and `ErrorMessage` may each appear at most once. Nonzero protocol
-  status is reported before a missing result dataset and preserves the existing
-  `ErrorMsg`-then-`ErrorMessage` fallback order.
-- A successful response has exactly one direct dataset with the requested `id`
-  and exactly one direct `Rows` container. Rows and columns are read only from
-  direct `Row` and `Col` children.
-- Every `Col` has a nonempty `id` that is unique within its row. Text and CDATA
-  content are combined, self-closing columns are empty strings, and nested
-  element content is rejected.
-- Duplicate protocol parameters, matching datasets, or row columns are
-  source-format errors. Additional attributes, unknown parameters, unrelated
-  datasets, and unknown columns remain valid for source compatibility.
+The product owns a canonical inspected kind catalog; live discovery augments it
+but cannot remove or silently redefine a supported kind.
 
-The versioned fixtures and expected cases under `contracts/kisnet` are the
-executable source contract for both implementations.
+- The canonical catalog is ordered by source code and includes codes `10`
+  through `70` plus `{ "code": "80", "name": "회사채(사모)" }`.
+- Code `80` remains distinct from code `70` (`회사채(무보증)`).
+- Merge canonical and live kinds by code. Canonical entries retain canonical
+  order; genuinely live-only codes follow in first-seen source order.
+- An identical live entry coalesces. A duplicate live code with conflicting
+  labels, or a live label that conflicts with a canonical code, is a
+  `source_format_error`.
+- Offline and dated `kinds` include code `80` even when live initialization
+  omits it.
+- Matrix lookup by `80`, numeric `80`, exact label, or whitespace-normalized
+  label sends kind 80 on every attempt. Date fallback never changes the kind.
+- No alias, code-70 fallback, synthetic spread, or synthesized yield is valid.
+  Empty code-80 rows use the ordinary unavailable-data behavior.
 
-## Node surface
+This is the approved divergence from the archived `0.2.0` implementation and
+is the Node-only acceptance boundary for GitHub issue #7.
+
+## Node surfaces
 
 The CLI is:
 
@@ -87,45 +73,32 @@ ytm matrix --base-date <기준일> --kind <종류> [--fallback previous-availabl
 ytm kinds [--base-date <기준일>] [--format json|csv|tsv] [--pretty]
 ```
 
-`baseDate` accepts `YYYY-MM-DD`, `YYYY.MM.DD`, or `YYYYMMDD`. JSON is the
-default; failures print one structured JSON object and exit non-zero.
+JSON is the default. A successful JSON command prints exactly one
+`{ "ok": true, "operation", "result" }` object. A failure prints exactly one
+structured JSON object and exits nonzero; data needed to consume the result is
+never available only on stderr.
 
 `@sjunepark/ytm/toolset` exports `createKisnetYtmToolset()` with `help`,
 `listOperations`, `getOperation`, `getCommandHelp`, `validateInput`, `execute`,
-and `serializeError`.
+and `serializeError`. Discovery, help, and validation remain network-free.
+Execution accepts cancellation through `AbortSignal`. The rewrite intentionally
+removes the legacy public `context.fetch` injection seam because allowing a
+JavaScript transport would violate the single Rust conformer boundary.
 
-A Node matrix uses camelCase fields: `baseDate`, `requestedBaseDate`,
-`dateResolution`, `kind`, `tenors`, `rows`, and `source`. Each row includes
-`pricingGroupCode`, `pricingGroupName`, numeric `yields`, source `yieldText`,
-and raw columns. Source missing values are `null` in `yields`.
+A matrix result uses camelCase fields: `baseDate`, `requestedBaseDate`,
+`dateResolution`, `kind`, `tenors`, `rows`, and `source`. Rows expose
+`pricingGroupCode`, `pricingGroupName`, numeric-or-null `yields`, source
+`yieldText`, and open raw columns.
 
-Node source failures use `source_data_unavailable`, `source_transport_error`,
-`source_protocol_error`, and `source_format_error`. A protocol error preserves
-the nonzero Nexacro status as `sourceErrorCode` and `sourceErrorMessage`.
-Validation failures retain the CLI/toolset's more specific structured codes
-and recovery metadata.
+Source failures use `source_data_unavailable`, `source_transport_error`,
+`source_protocol_error`, and `source_format_error`. Protocol failures preserve
+the source status and message. Validation failures preserve specific codes and
+machine-readable recovery metadata.
 
-## Python surface
+## Legacy Python boundary during migration
 
-The synchronous API is:
-
-```python
-fetch_matrix(base_date, kind, *, previous_available_days=None) -> Matrix
-list_kinds(base_date=None) -> tuple[Kind, ...]
-```
-
-`base_date` is a `datetime.date`. Omitting `previous_available_days` performs
-one exact lookup. Values from `0` through `31` permit at most that many prior
-calendar dates after the requested date; larger or impossible date windows are
-`InvalidInputError`.
-
-A Python `Matrix` uses snake_case fields: `base_date`, `requested_date`,
-`date_resolution`, `kind`, `tenors`, and `rows`. Yield values are
-`Decimal | None`; tuples and Pydantic frozen models protect the outer result
-structure. Each row also preserves `yield_text` and raw columns.
-
-Public Python failures inherit `YtmError`: `InvalidInputError`,
-`DataUnavailableError`, `SourceTransportError`, `SourceProtocolError`, and
-`SourceFormatError`. `DataUnavailableError` exposes the requested and attempted
-dates. `SourceProtocolError` exposes the nonzero Nexacro `error_code` and
-`error_message`.
+The archived Python API remains runnable only until the Node cutover. It is not
+part of the target product, receives no replacement implementation or kind-80
+work, and is removed from active source, CI, documentation, and release
+machinery in the cutover slice. Published historical artifacts and tags remain
+unchanged.

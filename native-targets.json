@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "supportClaim": "selected-for-cutover-validation",
+  "minimumNodeMajor": 22,
+  "validationNodeMajors": [22, 24, 26],
+  "targets": [
+    {
+      "rustTarget": "x86_64-unknown-linux-gnu",
+      "npmPlatform": "linux",
+      "npmArch": "x64",
+      "libc": "glibc",
+      "runner": "ubuntu-24.04"
+    },
+    {
+      "rustTarget": "aarch64-unknown-linux-gnu",
+      "npmPlatform": "linux",
+      "npmArch": "arm64",
+      "libc": "glibc",
+      "runner": "ubuntu-24.04-arm"
+    },
+    {
+      "rustTarget": "x86_64-apple-darwin",
+      "npmPlatform": "darwin",
+      "npmArch": "x64",
+      "runner": "macos-15-intel"
+    },
+    {
+      "rustTarget": "aarch64-apple-darwin",
+      "npmPlatform": "darwin",
+      "npmArch": "arm64",
+      "runner": "macos-15"
+    },
+    {
+      "rustTarget": "x86_64-pc-windows-msvc",
+      "npmPlatform": "win32",
+      "npmArch": "x64",
+      "runner": "windows-2025"
+    }
+  ],
+  "notSupportedAtCutover": [
+    "linux-musl",
+    "win32-arm64",
+    "win32-ia32",
+    "freebsd",
+    "android",
+    "wasm"
+  ]
+}

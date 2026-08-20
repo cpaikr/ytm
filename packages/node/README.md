@@ -1,27 +1,23 @@
 # @sjunepark/ytm
 
-`ytm` is a deterministic CLI plus runtime-neutral `./toolset` SDK for KIS-NET YTM Matrix lookups from <https://kis-net.kr/kisnet_mobile/index.html>. It is the Node interface of the KIS-NET YTM monorepo; the sibling `kisnet-ytm` package provides a native Python API.
+`ytm` is a deterministic CLI plus runtime-neutral `./toolset` SDK for KIS-NET YTM Matrix lookups from <https://kis-net.kr/kisnet_mobile/index.html>. It is the Node interface of the KIS-NET YTM monorepo; the sibling `kisnet-ytm` package remains available only during the Node-only rewrite.
 
 The agent-facing contract is English, while official KIS-NET terms such as `기준일`, `종류`, `국채`, and `회사채(무보증)` are preserved.
 
-## Request inspection summary
+## Contract authority
 
-The mobile site is a Nexacro app. The YTM Matrix form is `rateinfo::YtmMatrix.xfdl`.
-
-- Initial YTM Matrix load posts Nexacro XML PlatformData to `/rateInfo/ytmMatrixMobileInitList.do`.
-  - Input dataset: `ds_search=ds_search`
-  - Output datasets: `ds_tymSort=output1 ds_list=output2`
-  - `cboYtmSort` is hard-coded to `10`.
-- Each `검색` click posts Nexacro XML PlatformData to `/rateInfo/ytmMatrixMobileList.do`.
-  - Input dataset: `ds_search=ds_search`
-  - Output dataset: `ds_list=output1`
-  - `calBaseDt` comes from `기준일`; `cboYtmSort` comes from selected `종류`.
-
-The tool reproduces that deterministic POST shape directly instead of driving the browser.
+The tool reproduces the mobile source protocol directly instead of driving a
+browser. External HTTP and Nexacro details have one repository authority:
+[`contracts/kisnet/openapi.yaml`](https://github.com/sjunepark/ytm/blob/main/contracts/kisnet/openapi.yaml).
+Fictional fixtures are independent evidence, and the installed public behavior
+is summarized in [`SPEC.md`](SPEC.md).
 
 ## CLI
 
-The published npm CLI requires Node 20.18.1 or newer. Local development uses Bun 1.3 or newer.
+The current published `0.2.0` CLI requires Node 20.18.1 or newer. The rewrite
+cutover raises the supported runtime floor to Node 22; until that cutover, this
+checkout retains the legacy runtime declaration. Local development uses Bun
+1.3 or newer.
 
 ```sh
 # Source-run CLI, no build needed

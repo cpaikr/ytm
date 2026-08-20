@@ -9,7 +9,7 @@ const destinations = [
 
 const casesText = await readFile(new URL("cases.json", contractDirectory), "utf8");
 const contract = JSON.parse(casesText);
-const filenames = [...new Set(["cases.json", ...Object.values(contract.fixtures || {})])].sort();
+const filenames = [...new Set(["openapi.yaml", "cases.json", ...Object.values(contract.fixtures || {})])].sort();
 for (const filename of filenames) {
   if (
     typeof filename !== "string"
