@@ -37,6 +37,8 @@ Node or Python implementations.
   reqwest 0.13.4 over rustls and parsed the independent fixtures with quick-xml
   0.41.0. Sanitized metadata is retained in provider qualification; the probe
   source and all request/response bodies were discarded.
+- The complete foundation landed on the rewrite integration branch through PR
+  #9 at `63282fc`; the Rust core and Node product are now the active slice.
 
 ## Decisions
 
@@ -216,7 +218,6 @@ Node or Python implementations.
 
 ## Next action
 
-Finish review and integration-branch delivery of the public-surface judge,
-Rust feasibility evidence, target matrix, wire authority, architecture, and
-provider-qualification foundation; then implement the Rust core and Node-API
-product against that frozen boundary.
+Implement the Rust core, Node-API binding, and thin Node product against the
+frozen OpenAPI and judge boundary, then complete parity, native packaging, and
+kind-80 acceptance before the atomic cutover.

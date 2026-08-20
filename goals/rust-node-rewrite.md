@@ -31,15 +31,17 @@ _None._
 ### Completed included results
 
 - Baseline/workspace — PR #8 merged to `main` as `81a60e0`; the exact commit passed the full validation and package-artifact suite, is archived at `archive/pre-rewrite-2026-08-20`, and anchors `codex/rewrite-vnext` in `/Users/sejunpark/IT/ytm-rewrite`.
+- Judge and Rust feasibility — PR #9 merged to `codex/rewrite-vnext` as `63282fc`; its 56-scenario public judge, deliberate-failure proof, disposable rustls/live probe, and five-target selection passed all applicable gates.
+- Wire authority, architecture, provider qualification — PR #9 established the enforced OpenAPI/Nexacro authority, target module boundaries, protocol-feasible/not-production-qualified decision, compatibility decisions, and Node-only release design.
 
 ### Current in-scope result
 
-Judge and Rust feasibility
+Rust core and Node product
 
 ### Next in-scope action
 
-Complete PR #9's full address-feedback lifecycle and merge it to
-`codex/rewrite-vnext` before starting the Rust core implementation.
+Create the next branch from `63282fc` and implement the Rust core, Node-API
+binding, and thin Node product against the frozen authority and judge.
 
 ### Evidence and blockers
 
@@ -56,5 +58,5 @@ Complete PR #9's full address-feedback lifecycle and merge it to
 - `contracts/kisnet/openapi.yaml` now owns the exact two-operation wire contract and Nexacro profile; fixtures remain independent evidence, and `contracts:check` enforces the boundary and native target selection.
 - Target decisions are recorded: Rust-only transport, exact HTTP 200, no redirects or automatic retries, 20-second per-call deadline, 1 MiB decoded limit, Node 22 floor, five native targets, removal of public `context.fetch`, canonical kind 80, and protocol-feasible/not-production-qualified provider status.
 - Foundation validation passed on 2026-08-20: frozen Bun and uv sync, `bun run validate`, `bun run test` (90 passed; 3 opt-in live tests skipped), `bun run judge`, deliberate-failure proof, `bun run build`, both package checks, and `git diff --check`.
-- Foundation delivery: commit `2af5669` is pushed and PR #9 targets `codex/rewrite-vnext`; the `coderabbit-review` label is attached and CI/review are in progress.
+- Foundation delivery completed through PR #9 at merge commit `63282fc`; all repository and security checks passed, no actionable review threads were filed, and CodeRabbit's attached run was skipped after the progress-metadata head update because automatic reviews are disabled. Repository policy forbids a manual retrigger.
 - Blockers: none.
