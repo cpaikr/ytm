@@ -52,6 +52,24 @@ boundary, local HTTP, cancellation, and decompression scenario.
 No response or request body was written to the repository or evidence record.
 Only this sanitized metadata was retained.
 
+## Product-core live verification
+
+The production Rust core and Node-API binding (with the judge-only feature
+disabled) ran a bounded live check at `2026-08-20T07:21:58Z`. For the known
+date `2026-06-08`, initialization returned 8 merged kinds including canonical
+kind 80, and matrix lookup for kind 10 returned 3 rows without fallback. The
+two product operations completed in 704 ms. Only these counts, identifiers,
+date-resolution fields, and timing were printed; no body, row, or yield was
+persisted.
+
+The first product-core attempt exposed one legitimate drift from the fictional
+fixtures: the live selected dataset includes optional `ColumnInfo` metadata.
+The wire authority now permits that direct child and declares it
+non-authoritative; the parser ignores its contents while still enforcing the
+selected `Rows` and row-column contract. An independently authored valid
+fixture locks that decision. The corrected production core then passed the
+bounded live check above.
+
 ## Unknowns requiring provider or owner confirmation
 
 - Whether the site terms permit automated access and this specific reuse.

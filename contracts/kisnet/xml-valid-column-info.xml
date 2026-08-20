@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Root xmlns="http://www.nexacroplatform.com/platform/dataset">
+  <Parameters><Parameter id="ErrorCode">0</Parameter></Parameters>
+  <Dataset id="output1">
+    <ColumnInfo>
+      <Column id="divCode" type="STRING" size="32"/>
+      <Column id="divName" type="STRING" size="256"/>
+    </ColumnInfo>
+    <Rows>
+      <Row><Col id="divCode">10</Col><Col id="divName">국채</Col></Row>
+    </Rows>
+  </Dataset>
+</Root>

@@ -46,6 +46,7 @@
     "xmlAstralEntity": "xml-valid-astral-entity.xml",
     "xmlNonrecursiveEntity": "xml-valid-nonrecursive-entity.xml",
     "xmlStandaloneDeclaration": "xml-valid-standalone-declaration.xml",
+    "xmlColumnInfo": "xml-valid-column-info.xml",
     "xmlMalformedNesting": "xml-invalid-malformed-nesting.xml",
     "xmlMissingNamespace": "xml-invalid-missing-namespace.xml",
     "xmlWrongNamespace": "xml-invalid-wrong-namespace.xml",
@@ -70,7 +71,8 @@
       { "fixture": "xmlCdata", "operation": "kinds", "expectedKindCode": "10", "expectedKindName": "국채" },
       { "fixture": "xmlAstralEntity", "operation": "kinds", "expectedKindCode": "10", "expectedKindName": "국채📈" },
       { "fixture": "xmlNonrecursiveEntity", "operation": "kinds", "expectedKindCode": "10", "expectedKindName": "&lt;" },
-      { "fixture": "xmlStandaloneDeclaration", "operation": "kinds", "expectedKindCode": "10", "expectedKindName": "국채" }
+      { "fixture": "xmlStandaloneDeclaration", "operation": "kinds", "expectedKindCode": "10", "expectedKindName": "국채" },
+      { "fixture": "xmlColumnInfo", "operation": "kinds", "expectedKindCode": "10", "expectedKindName": "국채" }
     ],
     "invalid": [
       "xmlMalformedNesting",
