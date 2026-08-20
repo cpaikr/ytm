@@ -80,6 +80,7 @@ x-ytm-nexacro-profile:
     directChildRules:
       parameters: exactly-one
       selectedDataset: exactly-one
+      columnInfo: allowed-and-ignored
       rowsContainer: exactly-one
       rows: direct-only
       columns: direct-only

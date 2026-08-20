@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { access, readFile } from "node:fs/promises";
 import { parse } from "yaml";
 
 const readJson = async (path) => JSON.parse(await readFile(path, "utf8"));
@@ -23,7 +23,6 @@ const [
   uvLock,
   bunLock,
   ciWorkflow,
-  releasePleaseWorkflow,
   npmWorkflow,
   pypiWorkflow,
   nodeChangelog,
@@ -37,12 +36,13 @@ const [
   readFile("packages/python/uv.lock", "utf8"),
   readFile("bun.lock", "utf8"),
   readYaml(".github/workflows/ci.yml"),
-  readYaml(".github/workflows/release-please.yml"),
   readYaml(".github/workflows/release.yml"),
   readYaml(".github/workflows/release-python.yml"),
   readFile("packages/node/CHANGELOG.md", "utf8"),
   readFile("packages/python/CHANGELOG.md", "utf8")
 ]);
+const releasePleaseWorkflowPresent = await access(".github/workflows/release-please.yml")
+  .then(() => true, () => false);
 
 const pythonVersion = /^version = "([^"]+)"$/m.exec(pyproject)?.[1];
 const uvVersion = /\[\[package\]\]\nname = "kisnet-ytm"\nversion = "([^"]+)"/.exec(uvLock)?.[1];
@@ -79,13 +79,7 @@ const linked = config.plugins?.find((plugin) => plugin.type === "linked-versions
 check(linked?.groupName === "ytm", "Release Please must use the ytm linked-version group");
 check(JSON.stringify([...(linked?.components || [])].sort()) === JSON.stringify(["node", "python"]), "linked-version group must contain node and python");
 
-const releasePleaseJob = releasePleaseWorkflow.jobs?.release_please;
-const releasePleaseStep = findNamedStep(releasePleaseJob, "Run Release Please");
-check(hasOwn(releasePleaseWorkflow.on, "workflow_dispatch"), "Release Please must support guarded manual dispatch");
-check(JSON.stringify(releasePleaseWorkflow.on?.push?.branches) === JSON.stringify(["main"]), "Release Please must run only from main pushes");
-check(releasePleaseJob?.if === "${{ vars.RELEASE_PLEASE_ENABLED == 'true' }}", "Release Please must remain guarded by RELEASE_PLEASE_ENABLED");
-check(releasePleaseJob?.permissions?.contents === "write" && releasePleaseJob?.permissions?.["pull-requests"] === "write", "Release Please job must retain contents and pull-request write permissions");
-check(usesAction(releasePleaseStep, "googleapis/release-please-action"), "Release Please job must run the release-please action");
+check(!releasePleaseWorkflowPresent, "Release Please automation must remain absent until a release process is explicitly reintroduced");
 
 const ciPackageValidation = findNamedStep(ciWorkflow.jobs?.["python-package"], "Validate wheel and extracted source distribution");
 check(ciPackageValidation?.["working-directory"] === "packages/python" && ciPackageValidation?.run === "uv run --locked --python 3.11 python scripts/validate_dist.py --python-version 3.11", "CI must validate the extracted Python source distribution from packages/python");

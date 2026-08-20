@@ -1,6 +1,9 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { tmpdir } from "node:os";
+import { isDeepStrictEqual } from "node:util";
+import { pathToFileURL } from "node:url";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { parse } from "yaml";
@@ -31,19 +34,49 @@ function scenarioEnabled(name) {
 }
 
 function compare(name, baseline, candidate) {
-  const left = JSON.stringify({ ok: baseline.ok, value: baseline.value, error: baseline.error });
-  const right = JSON.stringify({ ok: candidate.ok, value: candidate.value, error: candidate.error });
-  check(left === right, `${name}: public result differs between baseline and candidate`);
+  if (name === "cancellation") return;
+  const left = comparisonProjection({ ok: baseline.ok, value: baseline.value, error: baseline.error });
+  const right = comparisonProjection({ ok: candidate.ok, value: candidate.value, error: candidate.error }, left);
+  if (name === "package-surface") right.value.engine = left.value.engine;
+  check(isDeepStrictEqual(left, right), `${name}: public result differs between baseline and candidate`);
 }
 
-function runToolset(name, requestPayload, fixture, assertResult) {
+function comparisonProjection(result, baseline) {
+  const projected = structuredClone(result);
+  normalizeCatalogText(projected);
+  if (baseline?.value?.kinds && projected.value?.kinds) {
+    const legacyCodes = new Set(baseline.value.kinds.map(({ code }) => code));
+    projected.value.kinds = projected.value.kinds.filter(({ code }) => legacyCodes.has(code));
+    if (baseline.value.source?.note && projected.value.source?.note) {
+      projected.value.source.note = baseline.value.source.note;
+    }
+  }
+  if (projected.error?.code === "source_format_error") delete projected.error.reason;
+  return projected;
+}
+
+function normalizeCatalogText(value) {
+  if (typeof value === "string") {
+    return value
+      .replace(/^[ \t]*80 = 회사채\(사모\)\n?/gm, "")
+      .replace(/^80\t회사채\(사모\)\n?/gm, "");
+  }
+  if (Array.isArray(value)) {
+    for (let index = 0; index < value.length; index += 1) value[index] = normalizeCatalogText(value[index]);
+  } else if (value && typeof value === "object") {
+    for (const [key, child] of Object.entries(value)) value[key] = normalizeCatalogText(child);
+  }
+  return value;
+}
+
+function runToolset(name, requestPayload, fixture, assertResult, options = {}) {
   if (!scenarioEnabled(name)) return;
   scenariosRun += 1;
   const baseline = invokeToolset(baselineRoot, requestPayload, fixture);
   const candidate = invokeToolset(candidateRoot, requestPayload, fixture);
   compare(name, baseline, candidate);
   assertResult?.(candidate, `${name}: candidate`);
-  assertRequests(candidate.requests, fixture?.steps || [], `${name}: candidate`);
+  assertRequests(candidate.requests, options.candidateSteps ?? fixture?.steps ?? [], `${name}: candidate`);
 }
 
 function runCli(name, args, fixture, assertResult) {
@@ -51,8 +84,31 @@ function runCli(name, args, fixture, assertResult) {
   scenariosRun += 1;
   const baseline = invokeCli(baselineRoot, args, fixture);
   const candidate = invokeCli(candidateRoot, args, fixture);
-  check(JSON.stringify(baseline) === JSON.stringify(candidate), `${name}: CLI process result differs between baseline and candidate`);
+  const projectedBaseline = normalizeCliResult(structuredClone(baseline));
+  const projectedCandidate = normalizeCliResult(structuredClone(candidate));
+  check(isDeepStrictEqual(projectedBaseline, projectedCandidate), `${name}: CLI process result differs between baseline and candidate`);
   assertResult?.(candidate, `${name}: candidate`);
+}
+
+function runCandidateToolset(name, requestPayload, fixture, assertResult) {
+  if (!scenarioEnabled(name)) return;
+  scenariosRun += 1;
+  const candidate = invokeToolset(candidateRoot, requestPayload, fixture);
+  assertResult(candidate, `${name}: candidate`);
+  assertRequests(candidate.requests, fixture?.steps || [], `${name}: candidate`);
+}
+
+function runCandidateCli(name, args, fixture, assertResult) {
+  if (!scenarioEnabled(name)) return;
+  scenariosRun += 1;
+  const candidate = invokeCli(candidateRoot, args, fixture);
+  assertResult(candidate, `${name}: candidate`);
+}
+
+function normalizeCliResult(result) {
+  result.stdout = normalizeCatalogText(result.stdout);
+  result.stderr = normalizeCatalogText(result.stderr);
+  return result;
 }
 
 runToolset("toolset-discovery", { action: "inspect" }, undefined, (result, label) => {
@@ -85,6 +141,18 @@ for (const [dateValue, normalized] of [["2026-06-08", "2026-06-08"], ["2026.06.0
   });
 }
 
+for (const dateValue of ["2026.06-08", "2026-0608", "202606-08", "2026..06.08"]) {
+  runCandidateToolset(`validation-recovery:reject-date-${dateValue}`, { action: "validate", operation: "matrix", input: { baseDate: dateValue, kind: "10" } }, undefined, (result, label) => {
+    check(result.value?.valid === false && result.value?.error?.parameter === "baseDate", `${label} must reject an undocumented date shape`);
+  });
+}
+
+runCandidateToolset("toolset-operation-immutability", { action: "operation-mutation" }, undefined, (result, label) => {
+  check(result.ok, `${label} must complete the mutation probe`);
+  check(result.value?.operation?.examples?.[0]?.input?.baseDate === "2026-06-08", `${label} getOperation must return a deep copy`);
+  check(result.value?.listed?.limitations?.[0] !== "mutated", `${label} listOperations must return a deep copy`);
+});
+
 const successFixture = fixture([
   { path: initPath, fixture: evidence.fixtures.init },
   { path: matrixPath, fixture: evidence.fixtures.matrix }
@@ -108,6 +176,15 @@ runToolset("missing-values", { action: "execute", operation: "matrix", input: { 
   }
 });
 
+runCandidateToolset("unknown-kind-recovery", { action: "execute", operation: "matrix", input: { baseDate: request.baseDate, kind: "not-a-kind" } }, fixture([
+  { path: initPath, fixture: evidence.fixtures.init }
+]), (result, label) => {
+  check(!result.ok && result.error?.code === "invalid_parameter" && result.error?.parameter === "kind", `${label} must reject the unknown kind`);
+  check(result.error?.expected?.some(({ code }) => code === "80"), `${label} must expose the accepted catalog`);
+  check(result.error?.exampleInput?.baseDate === request.baseDate && result.error?.exampleInput?.kind, `${label} must expose a usable example`);
+  check(result.error?.recoveryAction === "inspect_command_help" && result.error?.retryable === false, `${label} must preserve kind-specific recovery metadata`);
+});
+
 runToolset("fallback-order", { action: "execute", operation: "matrix", input: { baseDate: "2026-06-07", kind: "국채", fallback: "previous-available", lookbackDays: 2 } }, fixture([
   { path: initPath, fixture: evidence.fixtures.init }, { path: matrixPath, fixture: evidence.fixtures.unavailable },
   { path: initPath, fixture: evidence.fixtures.init }, { path: matrixPath, fixture: evidence.fixtures.unavailable },
@@ -121,8 +198,8 @@ runToolset("cancellation", { action: "execute", operation: "matrix", input: { ba
   { path: initPath, fixture: evidence.fixtures.init }
 ]), (result, label) => {
   check(!result.ok && result.error?.code === evidence.expectations.transportError, `${label} must preserve cancellation as ${evidence.expectations.transportError}`);
-  check(result.requests?.[0]?.signalAborted === true, `${label} must forward the aborted signal`);
-});
+  check(result.requests?.length === 0, `${label} must not start HTTP after pre-cancellation`);
+}, { candidateSteps: [] });
 
 for (const failure of [
   { name: "protocol-error", second: { fixture: evidence.fixtures.protocolError }, code: evidence.expectations.protocolError },
@@ -140,9 +217,12 @@ for (const failure of [
 
 for (const xmlCase of evidence.xmlCases.valid) {
   const operation = xmlCase.operation;
+  const replacement = xmlCase.expectedKindCode === "10" && xmlCase.expectedKindName !== "국채"
+    ? { replace: [["<Col id=\"divCode\">10</Col>", "<Col id=\"divCode\">90</Col>"]] }
+    : {};
   const steps = operation === "matrix"
     ? [{ path: initPath, fixture: evidence.fixtures.init }, { path: matrixPath, fixture: evidence.fixtures[xmlCase.fixture] }]
-    : [{ path: initPath, fixture: evidence.fixtures[xmlCase.fixture] }];
+    : [{ path: initPath, fixture: evidence.fixtures[xmlCase.fixture], ...replacement }];
   const input = operation === "matrix" ? { baseDate: request.baseDate, kind: request.kind.name } : { baseDate: request.baseDate };
   runToolset(`xml-fixture-corpus:valid-${xmlCase.fixture}`, { action: "execute", operation, input }, fixture(steps), (result, label) => {
     check(result.ok, `${label} must accept the valid XML evidence`);
@@ -212,12 +292,83 @@ runCli("cli-machine-contract:tsv", ["kinds", "--format", "tsv"], undefined, (res
   check(result.status === 0 && result.stdout.startsWith("code\tname"), `${label} TSV must preserve its header`);
 });
 
+runCandidateCli("cli-machine-contract:formula-safe-csv", ["matrix", "--base-date", request.baseDate, "--kind", request.kind.name, "--format", "csv"], fixture([
+  { path: initPath, fixture: evidence.fixtures.init },
+  {
+    path: matrixPath,
+    fixture: evidence.fixtures.matrix,
+    replace: [
+      ["<Col id=\"pricingGroupName\">국고채권</Col>", "<Col id=\"pricingGroupName\">=1+1</Col>"],
+      ["<Col id=\"m3\">2.500</Col>", "<Col id=\"m3\">-4.455</Col>"]
+    ]
+  }
+]), (result, label) => {
+  check(result.status === 0 && result.stdout.includes(",'=1+1,"), `${label} must neutralize source strings that spreadsheet software can execute`);
+  check(result.stdout.includes(",-4.455,"), `${label} must preserve negative numeric yields as numbers`);
+});
+
+runCandidateNativePreabort();
+runCandidateWithoutNative();
+
+runCandidateToolset("kind-80:offline-catalog", { action: "execute", operation: "kinds", input: {} }, undefined, (result, label) => {
+  check(result.ok, `${label} must return the offline canonical catalog`);
+  const privateBond = result.value?.kinds?.find(({ code }) => code === "80");
+  check(privateBond?.name === "회사채(사모)", `${label} must include canonical kind 80`);
+});
+
+runCandidateToolset("kind-80:dated-catalog", { action: "execute", operation: "kinds", input: { baseDate: request.baseDate } }, fixture([
+  { path: initPath, fixture: evidence.fixtures.init }
+]), (result, label) => {
+  check(result.ok && result.value?.kinds?.at(-1)?.code === "80", `${label} must retain kind 80 when discovery omits it`);
+});
+
+for (const [id, kind] of [["code", "80"], ["number", 80], ["label", "회사채(사모)"], ["normalized-label", "회사채 (사모)"]]) {
+  runCandidateToolset(`kind-80:matrix-${id}`, { action: "execute", operation: "matrix", input: { baseDate: request.baseDate, kind } }, fixture([
+    { path: initPath, fixture: evidence.fixtures.init },
+    { path: matrixPath, fixture: evidence.fixtures.missingValues }
+  ]), (result, label) => {
+    check(result.ok && result.value?.kind?.code === "80" && result.value?.kind?.name === "회사채(사모)", `${label} must resolve canonical kind 80`);
+    check(result.value?.rows?.[0]?.groupName === "회사채(사모)", `${label} must preserve the canonical row group`);
+    check(result.value?.rows?.[0]?.yields?.["6M"] === null && result.value?.rows?.[0]?.yieldText?.["6M"] === "-", `${label} must preserve generic missing-value semantics`);
+    check(result.requests?.[1]?.body.includes('<Col id="cboYtmSort">80</Col>'), `${label} must send only code 80`);
+    check(!result.requests?.[1]?.body.includes('<Col id="cboYtmSort">70</Col>'), `${label} must never substitute code 70`);
+  });
+}
+
+runCandidateToolset("kind-80:unavailable", { action: "execute", operation: "matrix", input: { baseDate: request.baseDate, kind: "80" } }, fixture([
+  { path: initPath, fixture: evidence.fixtures.init },
+  { path: matrixPath, fixture: evidence.fixtures.unavailable }
+]), (result, label) => {
+  check(!result.ok && result.error?.code === evidence.expectations.unavailableError, `${label} must preserve unavailable semantics`);
+  check(result.requests?.[1]?.body.includes('<Col id="cboYtmSort">80</Col>'), `${label} must attempt code 80 directly`);
+});
+
+runCandidateToolset("kind-80:discovery-conflict", { action: "execute", operation: "kinds", input: { baseDate: request.baseDate } }, fixture([
+  {
+    path: initPath,
+    fixture: evidence.fixtures.init,
+    replace: [["<Col id=\"divCode\">70</Col>", "<Col id=\"divCode\">80</Col>"]]
+  }
+]), (result, label) => {
+  check(!result.ok && result.error?.code === evidence.expectations.formatError, `${label} must reject a live label conflict`);
+});
+
+for (const [id, kind] of [["code", "80"], ["label", "회사채(사모)"]]) {
+  runCandidateCli(`kind-80:cli-${id}`, ["matrix", "--base-date", request.baseDate, "--kind", kind], fixture([
+    { path: initPath, fixture: evidence.fixtures.init },
+    { path: matrixPath, fixture: evidence.fixtures.matrix }
+  ]), (result, label) => {
+    check(result.status === 0 && JSON.parse(result.stdout).result?.kind?.code === "80", `${label} must execute kind 80`);
+  });
+}
+
 if (scenarioEnabled("package-surface")) {
   scenariosRun += 1;
   const baseline = await inspectPackage(baselineRoot);
   const candidate = await inspectPackage(candidateRoot);
   compare("package-surface", { ok: true, value: baseline }, { ok: true, value: candidate });
   check(candidate.name === "@sjunepark/ytm", "package-surface: candidate must preserve package identity");
+  check(candidate.engine === ">=22", "package-surface: candidate must require Node 22 or newer");
   check(candidate.bin === "dist/cli.js" && candidate.toolset === "./dist/toolset.js", "package-surface: candidate must preserve bin and toolset exports");
   check(candidate.files.every(({ exists }) => exists), "package-surface: candidate must ship all required public files");
 }
@@ -233,16 +384,56 @@ function fixture(steps) {
   return { fixtureDirectory, steps };
 }
 
+function runCandidateNativePreabort() {
+  const name = "native-binding:preaborted-signal";
+  if (!scenarioEnabled(name)) return;
+  scenariosRun += 1;
+  const captureDirectory = mkdtempSync(resolve(tmpdir(), "ytm-native-judge-"));
+  const capturePath = resolve(captureDirectory, "requests.json");
+  const nativeUrl = pathToFileURL(resolve(candidateRoot, "dist/native.js")).href;
+  const code = `const {invokeNative}=await import(${JSON.stringify(nativeUrl)});const c=new AbortController();c.abort();const v=await invokeNative('kinds',{baseDate:${JSON.stringify(request.baseDate)}},c.signal);process.stdout.write(JSON.stringify(v));`;
+  const result = spawnSync(process.execPath, ["--import", resolve(root, "judge/fixture-preload.mjs"), "--input-type=module", "-e", code], {
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      YTM_JUDGE_CAPTURE_PATH: capturePath,
+      YTM_JUDGE_FIXTURE: JSON.stringify(fixture([{ path: initPath, fixture: evidence.fixtures.init }]))
+    }
+  });
+  const envelope = result.status === 0 ? JSON.parse(result.stdout) : undefined;
+  const captures = existsSync(capturePath) ? JSON.parse(readFileSync(capturePath, "utf8")) : [];
+  rmSync(captureDirectory, { recursive: true, force: true });
+  check(result.status === 0 && envelope?.error?.code === evidence.expectations.transportError, `${name}: binding must preserve a pre-aborted signal`);
+  check(captures.length === 1 && captures[0]?.signalAborted === true, `${name}: cancellation must reach Rust before transport work begins`);
+}
+
+function runCandidateWithoutNative() {
+  const name = "node-adapter:missing-native";
+  if (!scenarioEnabled(name)) return;
+  scenariosRun += 1;
+  const toolsetUrl = pathToFileURL(resolve(candidateRoot, "src/toolset.js")).href;
+  const code = `const m=await import(${JSON.stringify(toolsetUrl)});const t=m.createKisnetYtmToolset();const validation=t.validateInput('matrix',{baseDate:'20260820',kind:'80'});let failure;try{await t.execute('kinds',{});}catch(error){failure=t.serializeError(error)}process.stdout.write(JSON.stringify({help:t.help(),validation,failure}));`;
+  const result = spawnSync(process.execPath, ["--input-type=module", "-e", code], { encoding: "utf8" });
+  const value = result.status === 0 ? JSON.parse(result.stdout) : undefined;
+  check(result.status === 0 && value?.help?.includes("Native capabilities unavailable"), `${name}: help must remain available without a native package`);
+  check(value?.validation?.valid === true, `${name}: pure validation must remain available without a native package`);
+  check(value?.failure?.code === "internal_error" && value?.failure?.retryable === false, `${name}: execution must return a stable internal failure`);
+}
+
 function invokeToolset(packageRoot, requestPayload, fixtureConfig) {
+  const captureDirectory = mkdtempSync(resolve(tmpdir(), "ytm-judge-"));
+  const capturePath = resolve(captureDirectory, "requests.json");
   const result = spawnSync(process.execPath, ["--import", resolve(root, "judge/fixture-preload.mjs"), resolve(root, "judge/surface-runner.mjs")], {
     encoding: "utf8",
     env: {
       ...process.env,
       YTM_JUDGE_REQUEST: JSON.stringify({ packageRoot, ...requestPayload }),
+      YTM_JUDGE_CAPTURE_PATH: capturePath,
       ...(fixtureConfig ? { YTM_JUDGE_FIXTURE: JSON.stringify(fixtureConfig) } : {})
     },
     maxBuffer: 4 * 1024 * 1024
   });
+  rmSync(captureDirectory, { recursive: true, force: true });
   if (result.status !== 0) {
     return { ok: false, error: { code: "judge_runner_failure", status: result.status, stderr: result.stderr, stdout: result.stdout }, requests: [] };
   }

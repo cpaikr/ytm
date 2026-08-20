@@ -90,6 +90,7 @@ check(profile?.response?.maxDecompressedBodyBytes === 1_048_576, "response byte 
 check(profile?.response?.maxElementDepth === 64 && profile?.response?.rootDepth === 1, "response depth boundary must remain 64 with root at depth 1");
 check(profile?.response?.doctype === "forbidden" && profile?.response?.externalResourceResolution === "forbidden", "DTD and external resource handling must remain fail-closed");
 check(profile?.response?.parameters?.ErrorCode?.cardinality === "exactly-one", "Nexacro ErrorCode must be singular and required");
+check(profile?.response?.directChildRules?.columnInfo === "allowed-and-ignored", "response ColumnInfo metadata must remain non-authoritative");
 equal(profile?.response?.interpretationOrder, ["transport-and-body-bounds", "xml-well-formedness-and-profile", "protocol-status", "selected-dataset"], "protocol status must precede selected-dataset interpretation");
 check(profile?.request?.declaration === "required" && profile?.request?.bom === "forbidden", "request XML declaration and BOM policy must remain exact");
 check(profile?.request?.directChildRules?.columns === "exact-order-matching-column-info", "request serialization must preserve exact column order");
@@ -110,7 +111,7 @@ equal(Object.keys(evidence), ["schemaVersion", "requestExample", "expectedTenors
 check(!("initEndpoint" in (evidence.requestExample || {})) && !("matrixEndpoint" in (evidence.requestExample || {})), "evidence examples must not own endpoint paths");
 check(!("xmlLimits" in evidence), "evidence manifest must not own parser or transport limits");
 
-for (const relativePath of ["../SPEC.md", "../packages/node/SPEC.md", "../packages/node/README.md"]) {
+for (const relativePath of ["../SPEC.md", "../packages/node/SPEC.md", "../packages/node/README.md", "../candidate/node/SPEC.md", "../candidate/node/README.md"]) {
   const text = await readFile(new URL(relativePath, import.meta.url), "utf8");
   for (const forbidden of [
     "/rateInfo/ytmMatrixMobileInitList.do",
@@ -122,6 +123,21 @@ for (const relativePath of ["../SPEC.md", "../packages/node/SPEC.md", "../packag
   }
 }
 
+for (const relativePath of ["../candidate/node/src/toolset.js", "../candidate/node/src/cli.js", "../candidate/node/src/native.js", "../candidate/node/src/native.cjs"]) {
+  const text = await readFile(new URL(relativePath, import.meta.url), "utf8");
+  for (const forbidden of [
+    "https://kis-net.kr",
+    "/rateInfo/",
+    "nexacroplatform.com",
+    "ds_search",
+    "gds_tranInfo",
+    "cboYtmSort",
+    "text/xml"
+  ]) {
+    check(!text.includes(forbidden), `${relativePath} must remain a wire-ignorant Node adapter; found ${forbidden}`);
+  }
+}
+
 const nativeTargets = JSON.parse(await readFile(new URL("../native-targets.json", import.meta.url), "utf8"));
 check(nativeTargets.schemaVersion === 1, "native target manifest schemaVersion must be 1");
 check(nativeTargets.supportClaim === "selected-for-cutover-validation", "native targets must not claim support before clean-install validation");
@@ -130,12 +146,20 @@ equal(nativeTargets.validationNodeMajors, [22, 24, 26], "Node validation majors 
 const expectedRustTargets = [
   "x86_64-unknown-linux-gnu",
   "aarch64-unknown-linux-gnu",
-  "x86_64-apple-darwin",
   "aarch64-apple-darwin",
   "x86_64-pc-windows-msvc"
 ];
 equal(nativeTargets.targets?.map(({ rustTarget }) => rustTarget), expectedRustTargets, "native release target selection must stay explicit");
 check(new Set(nativeTargets.targets?.map(({ runner }) => runner)).size === expectedRustTargets.length, "every native target must have its own native runner");
+check(nativeTargets.candidateRootPackage === "candidate/node", "implementation packaging must name the candidate root package");
+check(nativeTargets.candidateNativePackageRoot === "candidate/native", "implementation packaging must name the candidate native package root");
+check(new Set(nativeTargets.targets?.map(({ packageName }) => packageName)).size === expectedRustTargets.length, "every native target must have a unique npm package");
+check(new Set(nativeTargets.targets?.map(({ artifactFile }) => artifactFile)).size === expectedRustTargets.length, "every native target must have a unique artifact filename");
+check(new Set(nativeTargets.targets?.map((target) => [target.npmPlatform, target.npmArch, target.libc || ""].join("-"))).size === expectedRustTargets.length, "every native target must have a unique runtime platform/architecture/libc key");
+for (const target of nativeTargets.targets || []) {
+  check(target.packageName?.startsWith("@sjunepark/ytm-"), `${target.rustTarget} must use the ytm npm scope`);
+  check(target.artifactFile?.endsWith(".node"), `${target.rustTarget} must name a Node-API artifact`);
+}
 
 if (failures.length > 0) {
   console.error(failures.map((failure) => `- ${failure}`).join("\n"));

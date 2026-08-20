@@ -39,6 +39,40 @@ Node or Python implementations.
   source and all request/response bodies were discarded.
 - The complete foundation landed on the rewrite integration branch through PR
   #9 at `63282fc`; the Rust core and Node product are now the active slice.
+- PR #10 now contains the Rust HTTP/Nexacro core, Node-API binding, thin
+  candidate CLI/toolset, generated four-target native package set, and
+  candidate CI matrix. Its review-hardened public judge passes 76 scenarios,
+  including kind 80, strict date shapes, missing-native behavior, pre-aborted
+  binding cancellation, immutable operation descriptions, formula-safe CSV,
+  and the live-observed optional `ColumnInfo` response metadata.
+- Nineteen hermetic Rust tests exercise strict XML/profile parsing, OpenAPI request
+  conformance, exact HTTP 200, redirect refusal, required headers,
+  decompressed-size bounds, and in-flight cancellation. Rust formatting,
+  Clippy, tests, advisory audit, license/source policy, and dependency policy
+  pass locally.
+- A production binding smoke on 2026-08-20 completed both live operations
+  without the judge transport and retained sanitized counts and timing only.
+  The macOS ARM64 release package also passed a clean npm consumer install on
+  Node 26. The first PR matrix passed every native build and all non-Windows
+  consumers. Windows builds and assembly pass, while its first two consumer
+  attempts exposed harness-only `.cmd` spawning and Node quote-escaping
+  incompatibilities before npm ran; the verbatim bounded wrapper awaits the
+  repeated Node 22/24/26 delivery check. Selected targets are not yet claimed
+  as supported.
+- The pending PR follow-up moves every compatible workflow job to the smallest
+  Blacksmith runner for its native image, keeps npm's OIDC publish job on the
+  GitHub-hosted runner required by npm, removes Release Please automation, and
+  updates repository authority to `cpaikr/ytm`. Focused validation and the
+  macOS ARM64 clean consumer passed locally before transfer.
+- Repository `1264066471`, PR #10, issue #7, branches, secrets, environments,
+  protection, and Actions settings now live at `cpaikr/ytm`; the shared remote
+  is canonical. Release Please is disabled and its guard is false. The final
+  PR head is running the four-target Blacksmith matrix.
+- That matrix passed ordinary CI, Linux consumers, and macOS Node 22/24 before
+  the Windows harness showed that bare `npm.cmd` resolves npm internals from
+  the working directory under the bounded wrapper. Resolve the launcher to its
+  absolute PATH entry and repeat the full matrix; native build and assembly
+  were already successful.
 
 ## Decisions
 
@@ -80,18 +114,20 @@ Node or Python implementations.
   change required by the single-conformer architecture.
 - Raise the cutover runtime floor to Node.js 22 and validate Node 22 and 24 plus
   Node 26 for forward compatibility.
-- Select Linux GNU x64/ARM64, macOS Intel/ARM64, and Windows x64 for cutover
-  validation. Selection becomes support only after native build and clean
-  consumer installation on each target; all other platforms remain unclaimed.
+- Select Linux GNU x64/ARM64, macOS ARM64, and Windows x64 for cutover
+  validation. Intel macOS is intentionally unclaimed because Blacksmith has no
+  native Intel runner and this personal project does not need a Rosetta path.
+  Selection becomes support only after native build and clean consumer
+  installation on each target; all other platforms remain unclaimed.
 - Keep kind 80 (`회사채(사모)`) in the Rust-owned canonical catalog, distinct
   from kind 70. Discovery may add kinds but cannot remove or redefine a
   canonical entry; conflicts fail as source-format errors.
 - Classify the source as protocol-feasible but not production-qualified.
   Bounded scheduled smoke is monitoring, not production authorization; raw
   bodies, rows, request bodies, and yields are not retained as live evidence.
-- At cutover, make Release Please Node-only while retaining the npm identity,
-  `release.yml`, and `node-v*` tag namespace. Native packages share the exact
-  Release Please-owned version and must assemble before the root artifact.
+- Keep release-PR and tag automation disabled. At cutover retain the npm
+  identity, `release.yml`, and `node-v*` tag namespace; native packages share
+  one explicitly approved version and must assemble before the root artifact.
 
 ## Delivery plan
 
@@ -135,7 +171,7 @@ Node or Python implementations.
 - Define the public compatibility contract and the acceptance case for issue
   #7. Discovery output must not silently override a supported canonical kind.
 - Replace linked Node/Python release assumptions with a Node-only release
-  design, but leave Release Please in control of versions, changelogs, and tags.
+  design while leaving release-PR and tag creation disabled.
 
 ### 3. Implement by subsystem
 
@@ -175,9 +211,8 @@ Node or Python implementations.
 - Reconcile `SPEC.md`, fixtures, generated artifacts, architecture, provider
   decisions, and release docs so every durable concern has one named authority
   and a freshness rule.
-- Let Release Please prepare the Node-only release. Confirm the exact version
-  and native artifacts before merging any release PR, because publication may
-  start immediately. External publication or PyPI deprecation requires separate
+- Leave Node release and tag creation disabled. Any future release procedure,
+  exact version, external publication, or PyPI deprecation requires separate
   explicit authorization.
 - Before publication, undo a failed cutover with an ordinary revert. After
   publication, revert and publish a new corrective version; never move release
@@ -218,6 +253,5 @@ Node or Python implementations.
 
 ## Next action
 
-Implement the Rust core, Node-API binding, and thin Node product against the
-frozen OpenAPI and judge boundary, then complete parity, native packaging, and
-kind-80 acceptance before the atomic cutover.
+Deliver the staged Rust/Node implementation through review and the complete
+native CI matrix, then perform the atomic Node cutover and legacy retirement.

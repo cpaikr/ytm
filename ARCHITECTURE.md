@@ -25,8 +25,11 @@ contracts/kisnet/openapi.yaml
        Node-API boundary
               |
               v
-      packages/node/src
+   candidate/node/src (staging)
       toolset and CLI adapters
+              |
+              v
+ packages/node/src (at cutover)
 ```
 
 Dependencies point downward only. Public adapters call the binding; the
@@ -38,21 +41,23 @@ domain normalization. Nothing below the public adapters imports JavaScript.
 - [`contracts/kisnet/openapi.yaml`](contracts/kisnet/openapi.yaml) — start here
   for external HTTP and serialized Nexacro facts. Its named extension is the
   canonical profile for constraints OpenAPI cannot express directly.
-- `crates/ytm-core` — target home of prepared requests, bounded transport,
+- `crates/ytm-core` — prepared requests, bounded transport,
   strict XML parsing, kind resolution, matrix normalization, date fallback,
   and tagged errors. It remains independent of Node-API types.
-- `crates/ytm-node` — target home of the small Node-API projection. It exposes
+- `crates/ytm-node` — the small Node-API projection. It exposes
   async `matrix` and `kinds` calls, cancellation, capabilities, and stable
   error data; it contains no source rules.
-- [`packages/node/src`](packages/node/src) — target home of thin JavaScript or
-  TypeScript toolset and CLI adapters. Help, CLI parsing, stdout rendering, and
-  synchronous public-shape validation belong here.
+- [`candidate/node/src`](candidate/node/src) — implemented staging home of the
+  thin JavaScript adapters. Help, CLI parsing, stdout rendering, and
+  synchronous public-shape validation belong here. The final cutover moves
+  this package to [`packages/node/src`](packages/node/src), which remains the
+  legacy comparison product until then.
 - [`judge`](judge) — public-surface compatibility scenarios. The judge invokes
   built package surfaces in separate processes and never imports conformer
   internals.
 - [`native-targets.json`](native-targets.json) — canonical selected release
-  matrix. Platform packages and CI jobs will be generated or checked against
-  this manifest.
+  matrix. Candidate platform manifests, the native loader, optional
+  dependencies, and CI jobs are generated or checked against this manifest.
 - [`docs/provider-qualification.md`](docs/provider-qualification.md) — evidence
   and enablement decisions that protocol tests cannot establish.
 
@@ -93,13 +98,17 @@ model.
   enable or select it. Rust conformance tests compare the same core request and
   outcome projections to OpenAPI; native clean-install tests exercise the
   unmodified release build separately.
-- Rust returns source metadata and capability projections. JavaScript does not
-  recreate source facts or copy the canonical kind catalog.
+- Rust returns source metadata and the canonical kind capability projection.
+  JavaScript owns its public input-schema constants, but does not recreate
+  source facts or copy the canonical kind catalog.
 - Canonical kinds are merged with discovery by code. Discovery may add values;
   it cannot remove or redefine a canonical value. Conflicts fail explicitly.
 - Transport is sequential, bounded, redirect-free, and has no automatic retry.
   Product date fallback is not a transport retry and advances only after a
   confirmed empty result.
+- The direct fixed-origin transport does not discover proxies from environment
+  variables or operating-system settings. Proxy support is outside the initial
+  runtime contract and must not be inferred from reqwest defaults.
 - Matrix lookup performs initialization followed by retrieval for each date.
   The maximum fallback window therefore permits 32 dates and 64 sequential
   HTTP calls, each with its own 20-second deadline; caller cancellation remains
@@ -116,19 +125,20 @@ The cutover raises the minimum supported runtime to Node.js 22 rather than
 claiming support for an end-of-life major. Consumer validation covers Node 22
 and 24 plus Node 26 for forward compatibility.
 
-The selected native matrix is Linux GNU x64/ARM64, macOS Intel/ARM64, and
-Windows x64. Selection is not a support claim: each platform becomes supported
+The selected native matrix is Linux GNU x64/ARM64, macOS ARM64, and Windows
+x64. Selection is not a support claim: each platform becomes supported
 only after its own native runner builds the artifact and a clean consumer
 installs the packed root package, resolves the executable and toolset export,
-and completes a fixture smoke. musl, Windows ARM64/ia32, FreeBSD, Android, and
-WASM remain outside the initial cutover claim.
+and completes a fixture smoke. Intel macOS, musl, Windows ARM64/ia32, FreeBSD,
+Android, and WASM remain outside the initial cutover claim.
 
 ## Release and removal boundary
 
-Release Please remains the version, changelog, and tag authority. At cutover it
-will manage only the Node root package; native platform packages use the exact
-same version and are collected before the root npm artifact is publishable.
-The Node release workflow keeps the established Node tag namespace.
+Release PR and tag automation is intentionally disabled. At cutover the root
+Node package and native platform packages must still use one explicitly
+approved version and be collected before the root npm artifact is publishable.
+The Node publish workflow keeps the established Node tag namespace; selecting
+or creating a future release remains outside this cutover.
 
 The cutover removes both legacy conformers, the Python package and workflows,
 the JavaScript XML dependency, linked Node/Python release assumptions, and

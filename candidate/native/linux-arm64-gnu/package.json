@@ -1,0 +1,30 @@
+{
+  "name": "@sjunepark/ytm-linux-arm64-gnu",
+  "version": "0.2.0",
+  "description": "Native Node-API binary for @sjunepark/ytm on linux-arm64.",
+  "main": "ytm.linux-arm64-gnu.node",
+  "files": [
+    "ytm.linux-arm64-gnu.node"
+  ],
+  "os": [
+    "linux"
+  ],
+  "cpu": [
+    "arm64"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cpaikr/ytm.git",
+    "directory": "candidate/native/linux-arm64-gnu"
+  },
+  "license": "MIT",
+  "libc": [
+    "glibc"
+  ]
+}

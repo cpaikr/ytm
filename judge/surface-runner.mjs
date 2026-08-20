@@ -27,6 +27,16 @@ try {
     };
   } else if (request.action === "validate") {
     value = toolset.validateInput(request.operation, request.input);
+  } else if (request.action === "operation-mutation") {
+    const operation = toolset.getOperation("matrix");
+    operation.inputJsonSchema.properties.baseDate.description = "mutated";
+    operation.examples[0].input.baseDate = "mutated";
+    const listed = toolset.listOperations();
+    listed[0].limitations[0] = "mutated";
+    value = {
+      operation: toolset.getOperation("matrix"),
+      listed: toolset.listOperations()[0]
+    };
   } else if (request.action === "execute") {
     let context;
     if (request.abortBeforeExecute) {
@@ -42,9 +52,18 @@ try {
   error = toolset.serializeError(caught);
 }
 
+let requests = globalThis.__YTM_JUDGE_REQUESTS__ || [];
+if (requests.length === 0 && process.env.YTM_JUDGE_CAPTURE_PATH) {
+  try {
+    requests = JSON.parse(await readFile(process.env.YTM_JUDGE_CAPTURE_PATH, "utf8"));
+  } catch (caught) {
+    if (caught?.code !== "ENOENT") throw caught;
+  }
+}
+
 process.stdout.write(`${JSON.stringify({
   ok: error === undefined,
   value,
   error,
-  requests: globalThis.__YTM_JUDGE_REQUESTS__ || []
+  requests
 })}\n`);
