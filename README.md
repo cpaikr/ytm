@@ -33,8 +33,9 @@ matrix = fetch_matrix(date(2026, 6, 8), "국채")
 print(matrix.rows[0].yields["10Y"])
 ```
 
-The Python package is complete in this repository; its selected first shared
-release is `0.2.0`, with publication pending external trusted-publisher setup.
+Current releases are available on
+[npm](https://www.npmjs.com/package/@sjunepark/ytm) and
+[PyPI](https://pypi.org/project/kisnet-ytm/).
 
 ## Repository validation
 
@@ -49,5 +50,5 @@ bun run pack:python
 ```
 
 Live KIS-NET smoke checks are scheduled and manually dispatchable rather than
-pull-request gates. See [docs/release.md](docs/release.md) for the repository-ready
-lockstep release flow and the external setup that remains.
+pull-request gates. See [docs/release.md](docs/release.md) for the lockstep
+release flow and publisher configuration.

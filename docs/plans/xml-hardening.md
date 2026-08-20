@@ -1,5 +1,9 @@
 # XML Protocol Hardening
 
+Status: superseded by [`plans/rust-node-rewrite.md`](../../plans/rust-node-rewrite.md).
+The remaining live-response metadata check is absorbed by the rewrite's
+transport qualification and live-validation gate.
+
 ## Purpose
 
 Harden KIS-NET Nexacro XML handling consistently across Node and Python. Replace
@@ -26,8 +30,7 @@ executable contract.
   byte-limit, encoding, BOM, U+FFFD, depth, and transport-boundary cases.
 - Transport policy: accept well-formed XML 1.0 encoded as UTF-8, including a
   single UTF-8 BOM; cap the decompressed payload at 1,048,576 bytes before text
-  decoding. Current fixtures are below 1 KiB; verify a live response before
-  release.
+  decoding. Scheduled and manual live checks monitor upstream compatibility.
 
 ## Shared XML contract
 
@@ -55,7 +58,7 @@ executable contract.
   unknown columns so upstream additions do not break the source-compatible
   model.
 
-## Next implementation slice
+## Implementation checklist
 
 - [x] Update `SPEC.md` and `contracts/kisnet/cases.json` with the shared XML
   invariants before changing either parser.
@@ -86,8 +89,8 @@ executable contract.
   exceptions.
 - [x] Rebuild Node `dist`, sync contract hashes, inspect npm contents, and run
   `$code-review` for the Node parser slice.
-- [ ] Verify the live response size, namespace, declaration, and content type
-  without persisting the response body.
+- [ ] Record the live response size, namespace, declaration, and content type
+  without persisting the response body when the source is reachable.
 - [x] Update only user-visible package documentation if behavior warrants it,
   and run `$code-review` again after the shared transport/Python slice.
 
@@ -131,9 +134,9 @@ executable contract.
 - Live verification was attempted without retaining a response body, but the
   environment could not resolve `kis-net.kr`; no live response metadata was
   available to record.
-- Next: rerun the opt-in live verification from an environment where
+- Follow-up: rerun the opt-in live verification from an environment where
   `kis-net.kr` resolves, then record response size, namespace, declaration, and
-  content type before release.
+  content type as non-gating compatibility evidence.
 
 ## Files to inspect first
 
@@ -169,8 +172,8 @@ executable contract.
 - Python uses curl-cffi's content callback rather than `stream=True`; the latter
   can queue data ahead of the consumer and is not a hard memory bound.
 - Stricter namespace enforcement could expose a live upstream variant not in
-  fixtures. Verify the current live shape before release, but do not weaken the
-  contract without capturing and documenting the variant.
+  fixtures. Use opt-in live verification to detect variants, but do not weaken
+  the contract without capturing and documenting the variant.
 - Preserve unrelated working-tree changes and regenerate only owned build or
   contract artifacts.
 

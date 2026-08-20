@@ -1,15 +1,12 @@
 # Release
 
 Release Please is the only version authority for `@sjunepark/ytm` and
-`kisnet-ytm`. The selected first shared release is `0.2.0` for both packages,
-but it has not been created or published. Package metadata and the manifest
-remain at the historical product baseline `0.1.1` until Release Please prepares
-the combined release PR.
+`kisnet-ytm`. It owns their linked versions and generates package versions,
+changelogs, lock versions, the manifest, component tags, and release notes.
 
-Do not merge the first combined release PR, push component tags, or publish
-either package until that PR confirms `0.2.0` for both components and receives
-explicit approval. Do not manually edit package versions, changelogs, lock
-versions, or the Release Please manifest as a fallback.
+For every release, confirm the exact version for both components and obtain
+explicit approval before merging the combined release PR. Do not manually edit
+Release Please-owned output as a fallback.
 
 ## Repository release model
 
@@ -42,51 +39,40 @@ for breaking changes. Mark breaking changes with `!` or a `BREAKING CHANGE:`
 footer. The linked group then applies the highest required bump to both
 packages.
 
-The first shared release must retain this squash-merge input so Release Please
-classifies the new Node contract as the selected pre-1.0 minor release:
-
-```text
-feat!: add lockstep KIS-NET package surfaces
-
-BREAKING CHANGE: Node consumers must migrate from the legacy error behavior to the structured error codes and serialized error details.
-```
-
 ## Release hold
 
 The Release Please job runs only when the Actions repository variable
-`RELEASE_PLEASE_ENABLED` is exactly `true`. Leave it unset or false until the
-external setup below is complete and `0.2.0` remains the approved target. After
-enabling it, manually dispatch the Release Please workflow or land the approved
-breaking Conventional Commit on `main`. Setting the variable does not publish
-or merge anything; the generated release PR remains a separate review gate.
+`RELEASE_PLEASE_ENABLED` is exactly `true`. Set it to false to pause release-PR
+creation. Changing the variable does not publish or merge anything; the
+generated release PR remains the review gate.
 
-## Required external setup
+## External publisher configuration
 
-These administrator actions are intentionally not performed by repository
-automation.
+These administrator-owned settings must remain aligned with the workflows:
 
 1. Keep `RELEASE_PLEASE_TOKEN` configured with Contents and Pull requests
    read/write access. Release Please-created component tags must be able to
    trigger the publishing workflows.
-2. Create GitHub environments named `npm` and `pypi`. Add environment
-   protection or required reviewers as appropriate.
-3. Configure the existing npm package `@sjunepark/ytm` with this trusted
-   publisher:
+2. Keep GitHub environments named `npm` and `pypi`. Review their protection
+   rules before merging; without an approval rule, publication starts
+   immediately after Release Please creates the component tags.
+3. Configure the npm package `@sjunepark/ytm` with this trusted publisher:
    - provider: GitHub Actions
    - owner: `sjunepark`
    - repository: `ytm`
    - workflow: `release.yml`
    - environment: `npm`
    - permission: publish
-4. Configure a PyPI pending trusted publisher for the currently unclaimed
-   project name `kisnet-ytm`:
+4. Configure the PyPI project `kisnet-ytm` with this trusted publisher:
    - owner: `sjunepark`
    - repository: `ytm`
    - workflow: `release-python.yml`
    - environment: `pypi`
 5. Protect `main` with the Node validation check, Python quality check, all
-   supported-version Python test jobs, and Python package-build check. Update
-   required check names if the workflow job names change.
+   supported-version Python test jobs, and the Python package-build check.
+   Include administrators, require conversation resolution, and disable force
+   pushes and deletion. Update required check names if workflow job names
+   change.
 
 Both publisher workflows use OIDC and require no long-lived npm or PyPI publish
 token. The npm workflow filename stays `release.yml` to preserve the existing
@@ -113,10 +99,10 @@ cross-tag races. Both are version-scoped and idempotent: npm checks the registry
 before publishing, and uv uses PyPI's simple index to skip files that already
 exist.
 
-Before confirming the first release, also verify that the locked curl-cffi
-version provides wheels for every advertised Python and operating-system target
-and that `kisnet-ytm` remains available or belongs to the configured pending
-publisher.
+Before confirming a future release that changes Python support or curl-cffi,
+verify wheel availability for every advertised Python and operating-system
+target. Keep both trusted publisher identities synchronized with workflow,
+repository, and environment renames.
 
 ## Read-only validation
 

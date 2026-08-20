@@ -1,9 +1,9 @@
 # Python Package and Monorepo Plan
 
-Status: repository-local implementation, robustness fixes, and cross-language
-Nexacro status policy are complete.
+Status: complete.
 
-Last updated: 2026-07-17.
+Lifecycle: historical. The Node-only Rust rewrite and removal of the Python
+product are tracked in [`plans/rust-node-rewrite.md`](../../plans/rust-node-rewrite.md).
 
 ## Current state
 
@@ -15,11 +15,9 @@ own extracted contents, and registry workflows resolve component tags once and
 pin downstream jobs to the resulting commit. CI covers Python quality, the
 supported version matrix, artifacts, and a clean wheel import while preserving
 the existing Node check name and npm pack contract. Release Please owns two
-linked components at the historical `0.1.1` baseline.
-
-Next: complete the documented external publisher setup and explicitly approve
-the selected `0.2.0` target before creating or merging a release PR. Those
-external actions remain outside this repository-local implementation.
+linked components. Component tags route immutable commits to separate npm and
+PyPI OIDC publishing workflows. Future versions follow the recurring approval
+and lockstep flow in `docs/release.md`.
 
 ## Objective
 
@@ -175,10 +173,8 @@ tags trigger registry workflows that publish both packages even when only one
 package's implementation changed. This is an accepted cost of presenting the
 Node and Python packages as two interfaces to one product.
 
-The existing unprefixed tags remain historical. Do not switch workflows or
-documentation to component-prefixed tags until the monorepo migration is
-complete. The selected first shared release is `0.2.0`, pending explicit
-approval before any release PR merge, tag, or registry publication.
+The existing unprefixed tags remain historical. The current flow uses
+component-prefixed tags for both packages.
 
 Publishing targets:
 
@@ -214,8 +210,7 @@ Python and operating-system target.
 5. [x] Add cross-language contract tests, Python CI, scheduled network smoke
    validation, and clean-wheel installation tests.
 6. [x] Configure linked Release Please components and OIDC PyPI publishing;
-   document the external trusted-publisher setup that remains an administrator
-   action before the new flow can operate.
+   document the administrator-owned trusted-publisher configuration.
 7. [x] Update the root README, package READMEs, source specification, and agent
    skill to describe shipped behavior, then run a final review of both public
    interfaces.
@@ -272,8 +267,29 @@ Python and operating-system target.
   and both registry workflows pin downstream jobs to one immutable release
   commit. Next: external publisher setup, explicit `0.2.0` approval, and any
   release action.
+- 2026-07-17: Audited the first lockstep release without changing external
+  state. Full documented local validation and the latest `main` CI pass; the
+  linked breaking input still resolves to `0.2.0`, npm has only `0.1.0` and
+  `0.1.1`, and `kisnet-ytm` is not published on PyPI. GitHub has the release
+  token secret metadata but lacks both publishing environments and `main`
+  protection; registry-side trusted publisher settings require administrator
+  confirmation. Next: obtain explicit approval of both `0.2.0` targets, finish
+  those prerequisites, and dispatch Release Please.
+- 2026-07-17: Received explicit approval for both `0.2.0` targets, completed
+  both trusted publisher identities and GitHub environments, and protected
+  `main` with all seven CI checks. Enabled and dispatched Release Please; run
+  `29564062227` created combined PR #5 with exact lockstep versions. Its full CI
+  and independent release review pass with only non-blocking first-tag compare
+  links and a pre-existing duplicate Python changelog heading. No environment
+  approval rule will pause publication after merge. Next: obtain explicit
+  authorization to merge PR #5 and both `0.2.0` releases.
+- 2026-07-17: Received exact merge authorization and merged PR #5 with a merge
+  commit that preserved the reviewed Release Please commit. Both component
+  tags and GitHub Releases resolve to `f2c25e0`; the npm and PyPI workflows,
+  post-merge CI, independent artifact-hash comparisons, and isolated registry
+  installs all pass. The first lockstep release is complete.
 
-## Non-goals for the initial release
+## Non-goals
 
 - Calling the Node CLI or toolset from Python
 - A public generic transport or provider plugin system

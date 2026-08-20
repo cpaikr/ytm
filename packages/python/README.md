@@ -4,7 +4,7 @@
 Matrix. It requires Python 3.11 or newer and never invokes Node.js or drives a
 browser.
 
-After publication:
+Install from PyPI:
 
 ```sh
 python -m pip install kisnet-ytm
