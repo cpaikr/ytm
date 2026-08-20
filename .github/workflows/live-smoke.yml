@@ -34,6 +34,8 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
+        with:
+          persist-credentials: false
 
       - name: Set up Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
@@ -44,13 +46,13 @@ jobs:
           node-version: 24
           package-manager-cache: false
 
-      - name: Install dependencies
+      - name: Install frozen JavaScript dependencies
         run: bun install --frozen-lockfile
 
-      - name: Build npm CLI bundle
+      - name: Build Node product
         run: bun run build:node
 
-      - name: Run live Node smoke
+      - name: Run live smoke
         shell: bash
         env:
           INPUT_BASE_DATE: ${{ inputs.base_date }}
@@ -60,50 +62,9 @@ jobs:
           BASE_DATE=${INPUT_BASE_DATE:-$(date -u +%F)}
           KIND=${INPUT_KIND:-국채}
           LOOKBACK=${INPUT_LOOKBACK:-10}
-          mkdir -p .tmp
           node packages/node/dist/cli.js matrix \
             --base-date "$BASE_DATE" \
             --kind "$KIND" \
             --fallback previous-available \
-            --lookback-days "$LOOKBACK" > .tmp/node-smoke.json
-          node -e 'const p=require("./.tmp/node-smoke.json"); if (!p.ok || !p.result?.rows?.length) process.exit(1); console.log(`KIS-NET Node smoke passed: requested=${p.result.requestedBaseDate} resolved=${p.result.baseDate} rows=${p.result.rows.length}`)'
-
-  python:
-    runs-on: blacksmith-2vcpu-ubuntu-2404
-
-    steps:
-      - name: Check out source
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
-
-      - name: Set up Python
-        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
-        with:
-          python-version: "3.11"
-
-      - name: Set up uv
-        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
-        with:
-          version: "0.11.21"
-          enable-cache: true
-          cache-dependency-glob: packages/python/uv.lock
-
-      - name: Install locked Python environment
-        run: uv sync --locked
-        working-directory: packages/python
-
-      - name: Run live Python tests
-        shell: bash
-        env:
-          INPUT_BASE_DATE: ${{ inputs.base_date }}
-          INPUT_KIND: ${{ inputs.kind }}
-          INPUT_LOOKBACK: ${{ inputs.previous_available_days }}
-        run: |
-          BASE_DATE=${INPUT_BASE_DATE:-$(date -u +%F)}
-          KIND=${INPUT_KIND:-국채}
-          LOOKBACK=${INPUT_LOOKBACK:-10}
-          uv run --locked pytest tests/test_live.py \
-            --live-kisnet \
-            --live-base-date "$BASE_DATE" \
-            --live-kind "$KIND" \
-            --live-lookback "$LOOKBACK"
-        working-directory: packages/python
+            --lookback-days "$LOOKBACK" \
+            | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const p=JSON.parse(s);if(!p.ok||!p.result?.rows?.length)process.exit(1);console.log(`KIS-NET smoke passed: requested=${p.result.requestedBaseDate} resolved=${p.result.baseDate} rows=${p.result.rows.length}`)})'

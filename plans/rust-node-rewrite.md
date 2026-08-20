@@ -9,7 +9,11 @@ contract, independent fixtures, black-box parity checks, package-consumer tests,
 and live evidence make the rewrite safe to cut over without retaining the old
 Node or Python implementations.
 
-## Current state
+## Historical execution record
+
+The bullets in this section preserve the staged evidence through PR #10,
+including intermediate failed Windows harness runs. They are superseded by the
+current cutover state that follows.
 
 - The shared pre-rewrite baseline landed on `main` through PR #8 at `81a60e0`,
   passed the complete validation and package-artifact gates there, and is
@@ -74,6 +78,29 @@ Node or Python implementations.
   absolute PATH entry and repeat the full matrix; native build and assembly
   were already successful.
 
+## Current state
+
+- PR #10 merged to `codex/rewrite-vnext` as `63c344f` after its final
+  Blacksmith run passed all 12 supported-target clean consumers under Node
+  22/24/26, the complete Rust/parity job, and the feedback lifecycle.
+- `codex/rewrite-cutover` promotes the reviewed Rust-backed product to
+  `packages/node` and `packages/native`, then removes the legacy JavaScript
+  HTTP/XML implementation, Python product/release paths, Release Please, and
+  candidate-only staging paths atomically.
+- The active judge freezes the reviewed PR #10 public projections plus the
+  explicit kind-80 fallback acceptance case as 77 golden results and
+  deep-compares every CLI/toolset outcome, including source metadata. A
+  deliberate source-envelope mutation proves the oracle fails.
+- Node/Rust-only CI and live smoke use the lowest suitable Blacksmith images.
+  The retained tag-only npm workflow assembles and clean-installs every native
+  package before validating the complete artifact set and the root package.
+- The final local pass covers frozen Bun state, contract/release/build
+  freshness, 77 public scenarios, deliberate oracle corruption, Rust
+  formatting/Clippy/19 tests, RustSec and dependency policy, native licenses,
+  root package contents, macOS ARM64 clean install on Node 26, workflow parsing,
+  diff checks, and a metadata-only production live lookup. Repository review
+  found no remaining Bucket I or Bucket II issue.
+
 ## Decisions
 
 - Keep the existing repository, history, npm package identity, and ordinary Git
@@ -119,6 +146,11 @@ Node or Python implementations.
   native Intel runner and this personal project does not need a Rosetta path.
   Selection becomes support only after native build and clean consumer
   installation on each target; all other platforms remain unclaimed.
+- Run protocol/fixture parity once in the platform-neutral Rust/Node validation
+  job and run the production artifact through a clean consumer on every
+  supported target. The user's simplified personal-project matrix deliberately
+  does not duplicate the fixture judge on every OS; platform support is based
+  on native build and runtime installation, not redundant protocol execution.
 - Keep kind 80 (`회사채(사모)`) in the Rust-owned canonical catalog, distinct
   from kind 70. Discovery may add kinds but cannot remove or redefine a
   canonical entry; conflicts fail as source-format errors.
@@ -128,6 +160,9 @@ Node or Python implementations.
 - Keep release-PR and tag automation disabled. At cutover retain the npm
   identity, `release.yml`, and `node-v*` tag namespace; native packages share
   one explicitly approved version and must assemble before the root artifact.
+- Refuse to begin a registry release if any root or native package already
+  exists at the selected version. Repair a partial publish with a newly
+  approved immutable version rather than filling missing packages in place.
 
 ## Delivery plan
 
@@ -253,5 +288,5 @@ Node or Python implementations.
 
 ## Next action
 
-Deliver the staged Rust/Node implementation through review and the complete
-native CI matrix, then perform the atomic Node cutover and legacy retirement.
+Deliver the validated atomic cutover PR to `codex/rewrite-vnext`, then open the
+reviewed integration-to-`main` PR and leave its final merge unperformed.

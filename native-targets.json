@@ -1,10 +1,10 @@
 {
-  "schemaVersion": 1,
-  "supportClaim": "selected-for-cutover-validation",
+  "schemaVersion": 2,
+  "supportClaim": "supported",
   "minimumNodeMajor": 22,
   "validationNodeMajors": [22, 24, 26],
-  "candidateRootPackage": "candidate/node",
-  "candidateNativePackageRoot": "candidate/native",
+  "rootPackage": "packages/node",
+  "nativePackageRoot": "packages/native",
   "targets": [
     {
       "rustTarget": "x86_64-unknown-linux-gnu",

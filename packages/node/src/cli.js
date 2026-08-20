@@ -28,7 +28,7 @@ async function main(argv) {
 
   if (!toolset.getOperation(command)) {
     writeRootHelpDiagnostic();
-    writeJsonFailure(toolset.serializeError(new Error(`Unknown command: ${command}`)), {
+    writeJsonFailure({
       code: "invalid_request",
       reason: `Unknown command: ${command}.`,
       expected: toolset.listOperations().map((operation) => operation.name),
@@ -207,13 +207,14 @@ function table(columns, rows, delimiter) {
 }
 
 function formatCell(value, delimiter) {
-  const text = value === null || value === undefined ? "" : String(value);
+  let text = value === null || value === undefined ? "" : String(value);
+  if (typeof value === "string" && /^[=+\-@\t\r]/.test(text)) text = `'${text}`;
   if (delimiter === "\t") return text.replace(/[\t\r\n]/g, " ");
   if (/[",\r\n]/.test(text)) return `"${text.replace(/"/g, '""')}"`;
   return text;
 }
 
-function writeJsonFailure(error, override) {
-  const payload = { ok: false, error: override || error };
+function writeJsonFailure(error) {
+  const payload = { ok: false, error };
   process.stdout.write(`${JSON.stringify(payload)}\n`);
 }

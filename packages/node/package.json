@@ -20,29 +20,37 @@
     "./package.json": "./package.json"
   },
   "files": [
-    "dist",
+    "dist/cli.js",
+    "dist/native.cjs",
+    "dist/native.js",
+    "dist/toolset.d.ts",
+    "dist/toolset.js",
     "skills",
+    "CHANGELOG.md",
     "README.md",
     "SPEC.md",
     "LICENSE.md"
   ],
+  "engines": {
+    "node": ">=22"
+  },
+  "license": "MIT",
   "publishConfig": {
     "access": "public"
   },
-  "engines": {
-    "node": ">=20.18.1"
-  },
-  "license": "MIT",
-  "dependencies": {
-    "@xmldom/xmldom": "^0.9.10"
-  },
   "scripts": {
-    "build": "bun scripts/build.mjs",
-    "prepack": "bun run build",
-    "prepublishOnly": "bun run build && bun run validate",
-    "cli": "bun run src/cli.js",
-    "validate": "bun scripts/validate-tool-surface.mjs",
-    "test": "bun run build && bun run validate",
+    "build": "cargo build --manifest-path ../../Cargo.toml --locked -p ytm-node && node scripts/build.mjs",
+    "build:facade": "node scripts/build.mjs --facade-only",
+    "prepack": "node scripts/build.mjs --facade-only",
+    "prepublishOnly": "node scripts/build.mjs --facade-only && node ../../judge/run.mjs --product-root . --scenario package-surface",
+    "validate": "node ../../judge/run.mjs --product-root . --scenario package-surface",
+    "test": "cargo build --manifest-path ../../Cargo.toml --locked -p ytm-node --features judge-fixtures && node scripts/build.mjs && node ../../judge/run.mjs --product-root .",
     "smoke": "node dist/cli.js matrix --base-date 2026-06-08 --kind 국채 --format json"
+  },
+  "optionalDependencies": {
+    "@sjunepark/ytm-linux-x64-gnu": "0.2.0",
+    "@sjunepark/ytm-linux-arm64-gnu": "0.2.0",
+    "@sjunepark/ytm-darwin-arm64": "0.2.0",
+    "@sjunepark/ytm-win32-x64-msvc": "0.2.0"
   }
 }

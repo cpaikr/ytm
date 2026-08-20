@@ -111,7 +111,7 @@ equal(Object.keys(evidence), ["schemaVersion", "requestExample", "expectedTenors
 check(!("initEndpoint" in (evidence.requestExample || {})) && !("matrixEndpoint" in (evidence.requestExample || {})), "evidence examples must not own endpoint paths");
 check(!("xmlLimits" in evidence), "evidence manifest must not own parser or transport limits");
 
-for (const relativePath of ["../SPEC.md", "../packages/node/SPEC.md", "../packages/node/README.md", "../candidate/node/SPEC.md", "../candidate/node/README.md"]) {
+for (const relativePath of ["../SPEC.md", "../packages/node/SPEC.md", "../packages/node/README.md"]) {
   const text = await readFile(new URL(relativePath, import.meta.url), "utf8");
   for (const forbidden of [
     "/rateInfo/ytmMatrixMobileInitList.do",
@@ -123,7 +123,7 @@ for (const relativePath of ["../SPEC.md", "../packages/node/SPEC.md", "../packag
   }
 }
 
-for (const relativePath of ["../candidate/node/src/toolset.js", "../candidate/node/src/cli.js", "../candidate/node/src/native.js", "../candidate/node/src/native.cjs"]) {
+for (const relativePath of ["../packages/node/src/toolset.js", "../packages/node/src/cli.js", "../packages/node/src/native.js", "../packages/node/src/native.cjs"]) {
   const text = await readFile(new URL(relativePath, import.meta.url), "utf8");
   for (const forbidden of [
     "https://kis-net.kr",
@@ -138,9 +138,14 @@ for (const relativePath of ["../candidate/node/src/toolset.js", "../candidate/no
   }
 }
 
+const repositorySkill = await readFile(new URL("../skills/kisnet-ytm/SKILL.md", import.meta.url), "utf8");
+const packagedSkill = await readFile(new URL("../packages/node/skills/kisnet-ytm/SKILL.md", import.meta.url), "utf8");
+check(repositorySkill === packagedSkill, "the repository and packaged KIS-NET skills must remain identical");
+check(!repositorySkill.includes("Python") && repositorySkill.includes("80` 회사채(사모)"), "the active skill must be Node-only and include canonical kind 80");
+
 const nativeTargets = JSON.parse(await readFile(new URL("../native-targets.json", import.meta.url), "utf8"));
-check(nativeTargets.schemaVersion === 1, "native target manifest schemaVersion must be 1");
-check(nativeTargets.supportClaim === "selected-for-cutover-validation", "native targets must not claim support before clean-install validation");
+check(nativeTargets.schemaVersion === 2, "native target manifest schemaVersion must be 2");
+check(nativeTargets.supportClaim === "supported", "native targets must record the clean-install support decision");
 check(nativeTargets.minimumNodeMajor === 22, "the rewrite must not claim support for end-of-life Node majors");
 equal(nativeTargets.validationNodeMajors, [22, 24, 26], "Node validation majors must stay explicit");
 const expectedRustTargets = [
@@ -150,9 +155,14 @@ const expectedRustTargets = [
   "x86_64-pc-windows-msvc"
 ];
 equal(nativeTargets.targets?.map(({ rustTarget }) => rustTarget), expectedRustTargets, "native release target selection must stay explicit");
-check(new Set(nativeTargets.targets?.map(({ runner }) => runner)).size === expectedRustTargets.length, "every native target must have its own native runner");
-check(nativeTargets.candidateRootPackage === "candidate/node", "implementation packaging must name the candidate root package");
-check(nativeTargets.candidateNativePackageRoot === "candidate/native", "implementation packaging must name the candidate native package root");
+equal(nativeTargets.targets?.map(({ runner }) => runner), [
+  "blacksmith-2vcpu-ubuntu-2404",
+  "blacksmith-2vcpu-ubuntu-2404-arm",
+  "blacksmith-6vcpu-macos-15",
+  "blacksmith-2vcpu-windows-2025"
+], "native targets must use the lowest suitable Blacksmith runner for each image");
+check(nativeTargets.rootPackage === "packages/node", "native packaging must name the active root package");
+check(nativeTargets.nativePackageRoot === "packages/native", "native packaging must name the active native package root");
 check(new Set(nativeTargets.targets?.map(({ packageName }) => packageName)).size === expectedRustTargets.length, "every native target must have a unique npm package");
 check(new Set(nativeTargets.targets?.map(({ artifactFile }) => artifactFile)).size === expectedRustTargets.length, "every native target must have a unique artifact filename");
 check(new Set(nativeTargets.targets?.map((target) => [target.npmPlatform, target.npmArch, target.libc || ""].join("-"))).size === expectedRustTargets.length, "every native target must have a unique runtime platform/architecture/libc key");

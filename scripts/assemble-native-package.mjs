@@ -12,6 +12,6 @@ if (!target) throw new Error(`Unknown native target: ${rustTarget}`);
 const extension = target.npmPlatform === "win32" ? "dll" : target.npmPlatform === "darwin" ? "dylib" : "so";
 const prefix = target.npmPlatform === "win32" ? "" : "lib";
 const source = resolve(repositoryRoot, "target", rustTarget, profile, `${prefix}ytm_node.${extension}`);
-const destination = resolve(repositoryRoot, manifest.candidateNativePackageRoot, target.packageDirectory, target.artifactFile);
+const destination = resolve(repositoryRoot, manifest.nativePackageRoot, target.packageDirectory, target.artifactFile);
 await copyFile(source, destination);
 console.log(`${rustTarget} -> ${destination.slice(repositoryRoot.length + 1)}`);
