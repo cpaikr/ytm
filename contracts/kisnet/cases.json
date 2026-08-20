@@ -1,16 +1,14 @@
 {
   "schemaVersion": 1,
-  "request": {
+  "requestExample": {
     "baseDate": "2026-06-08",
     "baseDateCompact": "20260608",
     "kind": {
       "code": "10",
       "name": "국채"
-    },
-    "initEndpoint": "/rateInfo/ytmMatrixMobileInitList.do",
-    "matrixEndpoint": "/rateInfo/ytmMatrixMobileList.do"
+    }
   },
-  "canonicalTenors": [
+  "expectedTenors": [
     { "source": "m3", "label": "3M" },
     { "source": "m6", "label": "6M" },
     { "source": "m9", "label": "9M" },
@@ -27,10 +25,6 @@
     { "source": "y30", "label": "30Y" },
     { "source": "y50", "label": "50Y" }
   ],
-  "xmlLimits": {
-    "maxBodyBytes": 1048576,
-    "maxElementDepth": 64
-  },
   "fixtures": {
     "init": "init-success.xml",
     "initMalformedMixed": "init-malformed-mixed.xml",

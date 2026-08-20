@@ -30,15 +30,16 @@ _None._
 
 ### Completed included results
 
-_None._
+- Baseline/workspace — PR #8 merged to `main` as `81a60e0`; the exact commit passed the full validation and package-artifact suite, is archived at `archive/pre-rewrite-2026-08-20`, and anchors `codex/rewrite-vnext` in `/Users/sejunpark/IT/ytm-rewrite`.
 
 ### Current in-scope result
 
-Baseline/workspace
+Judge and Rust feasibility
 
 ### Next in-scope action
 
-Open the validated documentation-only `dev` baseline PR to `main` and complete its review-feedback lifecycle before creating the rewrite branch.
+Complete PR #9's full address-feedback lifecycle and merge it to
+`codex/rewrite-vnext` before starting the Rust core implementation.
 
 ### Evidence and blockers
 
@@ -46,4 +47,14 @@ Open the validated documentation-only `dev` baseline PR to `main` and complete i
 - Delivery base: `dev` is the established non-production integration branch. GitHub reports it is unprotected and has no branch rules, so direct initialization and terminal metadata pushes are permitted.
 - Baseline plan commit `ec40038` is present locally on `dev` and precedes this goal initialization.
 - Baseline validation passed on 2026-08-20: frozen Bun and uv dependency sync, `bun run validate`, `bun run test` (90 Python tests passed; 3 opt-in live tests skipped), `bun run build`, `bun run pack:node`, `bun run pack:python`, and `git diff --check`.
+- Baseline delivery completed through PR #8 and its full Codex/CodeRabbit feedback lifecycle; follow-up `a3aadd8` resolved both findings and all CI checks passed.
+- The landed merge commit `81a60e0` repeated the complete local baseline validation before archive tag and rewrite-branch creation.
+- Planning ownership: the rewrite worktree exclusively edits the ordinary `ROADMAP.md`, plan, and goal state while the `main` worktree remains read-only; no planning files are concurrently owned.
+- Boundary check: the foundation PR combines the explicitly included `Judge and Rust feasibility` and `Wire authority, architecture, provider qualification` results because they share the same pre-implementation acceptance boundary; proceed.
+- The reviewed black-box judge passes 56 public CLI/toolset scenarios against the archived package and rejects a deliberate missing-value null-to-zero mutation.
+- A disposable Rust 1.92 probe reproduced both live operations with reqwest 0.13.4, rustls, quick-xml 0.41.0, and no browser impersonation. Only sanitized metadata is retained; the temporary source and all bodies were discarded.
+- `contracts/kisnet/openapi.yaml` now owns the exact two-operation wire contract and Nexacro profile; fixtures remain independent evidence, and `contracts:check` enforces the boundary and native target selection.
+- Target decisions are recorded: Rust-only transport, exact HTTP 200, no redirects or automatic retries, 20-second per-call deadline, 1 MiB decoded limit, Node 22 floor, five native targets, removal of public `context.fetch`, canonical kind 80, and protocol-feasible/not-production-qualified provider status.
+- Foundation validation passed on 2026-08-20: frozen Bun and uv sync, `bun run validate`, `bun run test` (90 passed; 3 opt-in live tests skipped), `bun run judge`, deliberate-failure proof, `bun run build`, both package checks, and `git diff --check`.
+- Foundation delivery: commit `2af5669` is pushed and PR #9 targets `codex/rewrite-vnext`; the `coderabbit-review` label is attached and CI/review are in progress.
 - Blockers: none.

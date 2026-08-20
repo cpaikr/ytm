@@ -11,17 +11,20 @@ Node or Python implementations.
 
 ## Current state
 
-- The shared pre-rewrite baseline on `dev` passes the complete local validation,
-  test, build, and package-artifact gates. The documentation-only baseline PR
-  to `main` is the next delivery checkpoint.
+- The shared pre-rewrite baseline landed on `main` through PR #8 at `81a60e0`,
+  passed the complete validation and package-artifact gates there, and is
+  archived at `archive/pre-rewrite-2026-08-20`. `codex/rewrite-vnext` and its
+  sibling worktree now own the isolated rewrite integration line.
 - The released product has handwritten Node and Python implementations at
-  version `0.2.0`. The existing component tags preserve the published package
-  sources, while `dev` contains documentation-only work not yet on `main`.
-- `SPEC.md` and `contracts/kisnet` currently share authority over protocol
-  facts. The rewrite must make OpenAPI the repository authority for HTTP wire
-  behavior and retain fixtures as independent evidence.
-- Shared fixtures provide substantial behavioral coverage, but Python tests
-  import private modules and therefore are not a portable public-surface judge.
+  version `0.2.0`. The existing component tags preserve those published package
+  sources.
+- The rewrite foundation now names OpenAPI as the sole wire authority, keeps
+  fixtures as independent evidence, and enforces the boundary with a contract
+  validator and shared evidence-corpus digest.
+- A package-manifest-driven black-box judge exercises the public Node toolset
+  and CLI in isolated processes. Its reviewed 56-scenario inventory covers the
+  legacy parity boundary, and a deliberate null-to-zero mutation proves that
+  the judge detects behavioral drift.
 - GitHub issue #7 records an upstream-supported private-corporate-bond kind
   (`80`) that both implementations currently reject because discovery results
   are treated as the complete kind catalog.
@@ -30,6 +33,10 @@ Node or Python implementations.
   suitability; those require a separate qualification decision.
 - The remaining live-metadata item in the historical XML-hardening plan is
   absorbed by the rewrite's transport qualification and live validation.
+- A disposable Rust 1.92 vertical slice reproduced both live operations with
+  reqwest 0.13.4 over rustls and parsed the independent fixtures with quick-xml
+  0.41.0. Sanitized metadata is retained in provider qualification; the probe
+  source and all request/response bodies were discarded.
 
 ## Decisions
 
@@ -61,6 +68,28 @@ Node or Python implementations.
   implementation, work by subsystem, replace translation rules with target
   architecture, use adversarial design review and a disposable vertical slice,
   and omit the translation bakeoff and per-file agent factory.
+- Treat only HTTP 200 as a wire success; Nexacro failures remain protocol
+  outcomes inside 200 responses. Disable redirects and automatic transport
+  retries, keep the 20-second whole-request deadline and one-mebibyte decoded
+  body cap, and perform calls sequentially. User-Agent construction is Rust
+  client policy rather than provider-contract authority.
+- Preserve `AbortSignal` cancellation but remove the public JavaScript
+  `context.fetch` injection seam at cutover. This is an approved breaking
+  change required by the single-conformer architecture.
+- Raise the cutover runtime floor to Node.js 22 and validate Node 22 and 24 plus
+  Node 26 for forward compatibility.
+- Select Linux GNU x64/ARM64, macOS Intel/ARM64, and Windows x64 for cutover
+  validation. Selection becomes support only after native build and clean
+  consumer installation on each target; all other platforms remain unclaimed.
+- Keep kind 80 (`회사채(사모)`) in the Rust-owned canonical catalog, distinct
+  from kind 70. Discovery may add kinds but cannot remove or redefine a
+  canonical entry; conflicts fail as source-format errors.
+- Classify the source as protocol-feasible but not production-qualified.
+  Bounded scheduled smoke is monitoring, not production authorization; raw
+  bodies, rows, request bodies, and yields are not retained as live evidence.
+- At cutover, make Release Please Node-only while retaining the npm identity,
+  `release.yml`, and `node-v*` tag namespace. Native packages share the exact
+  Release Please-owned version and must assemble before the root artifact.
 
 ## Delivery plan
 
@@ -173,8 +202,10 @@ Node or Python implementations.
 - A replacement Python implementation, extension, package, or API.
 - A new repository, orphaned history, or parallel long-term implementation.
 - Browser, edge, Deno, or Bun runtime support.
-- Publishing a registry release, deprecating the PyPI project, merging a pull
-  request, or changing external provider state without explicit authorization.
+- Publishing a registry release, deprecating the PyPI project, merging the
+  final main/release pull request, or changing external provider state without
+  explicit authorization. Intermediate rewrite PR delivery to the isolated
+  integration branch is part of this plan.
 
 ## References
 
@@ -185,6 +216,7 @@ Node or Python implementations.
 
 ## Next action
 
-Land the validated documentation-only `dev` baseline on `main`, archive that
-exact commit, and create the isolated rewrite branch/worktree. Then run the
-feasibility and black-box-judge gate before implementing the target architecture.
+Finish review and integration-branch delivery of the public-surface judge,
+Rust feasibility evidence, target matrix, wire authority, architecture, and
+provider-qualification foundation; then implement the Rust core and Node-API
+product against that frozen boundary.

@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "reviewedAt": "2026-08-20",
+  "reviewBasis": [
+    "SPEC.md",
+    "contracts/kisnet/openapi.yaml",
+    "contracts/kisnet/cases.json",
+    "archive/pre-rewrite-2026-08-20",
+    "GitHub issue #7"
+  ],
+  "comparison": {
+    "exact": [
+      "toolset-discovery",
+      "validation-recovery",
+      "matrix-success",
+      "missing-values",
+      "fallback-order",
+      "protocol-error",
+      "format-error",
+      "transport-error",
+      "xml-fixture-corpus",
+      "xml-generated-bounds",
+      "cli-machine-contract",
+      "package-surface"
+    ],
+    "approvedDivergence": [
+      "kind-80-catalog",
+      "kind-80-resolution",
+      "remove-context-fetch",
+      "node-minimum-22",
+      "native-package-contents"
+    ]
+  },
+  "requiredCoverage": {
+    "toolset": ["identity", "help", "operation order", "schemas", "examples", "limitations", "validation normalization", "structured recovery", "cancellation"],
+    "execution": ["request projection", "kind resolution", "deterministic tenors", "numeric yields", "raw cells", "source metadata", "unavailable data", "fallback stop conditions"],
+    "xml": ["all valid fixtures", "all invalid fixtures", "BOM", "UTF-8", "XML 1.0", "body bytes", "depth", "protocol status precedence", "open unknown values"],
+    "cli": ["root help", "command help", "exit 0/1/2", "single JSON stdout", "stderr separation", "JSON/CSV/TSV", "pretty determinism", "flag aliases", "input JSON merge"],
+    "package": ["identity", "bin", "toolset export", "package JSON export", "types", "README", "SPEC", "license", "skill", "clean install"],
+    "kind80": ["offline catalog", "discovery omission", "code", "numeric input", "exact label", "whitespace-normalized label", "conflict rejection", "fallback preserves kind", "no synthesis"]
+  }
+}

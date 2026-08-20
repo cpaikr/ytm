@@ -1,11 +1,20 @@
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
+import { parse } from "yaml";
 import { createKisnetYtmToolset } from "../dist/toolset.js";
 
 const failures = [];
 const contractDirectory = new URL("../../../contracts/kisnet/", import.meta.url);
 const contract = JSON.parse(await readFile(new URL("cases.json", contractDirectory), "utf8"));
+const wireContract = parse(await readFile(new URL("../../../contracts/kisnet/openapi.yaml", import.meta.url), "utf8"));
+const request = contract.requestExample;
+const initEndpoint = wireContract.paths["/rateInfo/ytmMatrixMobileInitList.do"].post["x-ytm-nexacro-request"].endpoint;
+const matrixEndpoint = wireContract.paths["/rateInfo/ytmMatrixMobileList.do"].post["x-ytm-nexacro-request"].endpoint;
+const xmlLimits = {
+  maxBodyBytes: wireContract["x-ytm-nexacro-profile"].response.maxDecompressedBodyBytes,
+  maxElementDepth: wireContract["x-ytm-nexacro-profile"].response.maxElementDepth
+};
 const fixtures = Object.fromEntries(await Promise.all(
   Object.entries(contract.fixtures).map(async ([name, file]) => [name, await readFile(new URL(file, contractDirectory), "utf8")])
 ));
@@ -68,21 +77,21 @@ const stringLookback = toolset.validateInput("matrix", { baseDate: "2026-06-07",
 check(!stringLookback.valid && stringLookback.error.parameter === "lookbackDays", "SDK lookbackDays must match its integer schema and reject strings");
 
 const capturedRequests = [];
-const fixtureResult = await toolset.execute("matrix", { baseDate: contract.request.baseDate, kind: contract.request.kind.name }, { fetch: fixtureFetch(fixtures.matrix, capturedRequests) });
-check(fixtureResult.tenors.join(",") === contract.canonicalTenors.map(({ label }) => label).join(","), "matrix result must preserve canonical tenor order from the shared contract");
+const fixtureResult = await toolset.execute("matrix", { baseDate: request.baseDate, kind: request.kind.name }, { fetch: fixtureFetch(fixtures.matrix, capturedRequests) });
+check(fixtureResult.tenors.join(",") === contract.expectedTenors.map(({ label }) => label).join(","), "matrix result must preserve the expected tenor order from the independent evidence corpus");
 check(fixtureResult.rows[0]?.pricingGroupCode === contract.expectations.matrix.pricingGroupCode, "matrix fixture must preserve pricing group code");
 check(fixtureResult.rows[0]?.yieldText["3M"] === contract.expectations.matrix.threeMonth, "matrix fixture must preserve raw yield text");
 check(String(fixtureResult.rows[0]?.yields["10Y"]) === String(Number(contract.expectations.matrix.tenYear)), "matrix fixture must expose numeric yields");
-check(capturedRequests.some(({ url, body }) => url.endsWith(contract.request.initEndpoint) && body.includes(`<Col id="calBaseDt">${contract.request.baseDateCompact}</Col>`)), "init request must map baseDate to calBaseDt using compact form");
-check(capturedRequests.some(({ url, body }) => url.endsWith(contract.request.matrixEndpoint) && body.includes(`<Col id="cboYtmSort">${contract.request.kind.code}</Col>`)), "matrix request must map kind to cboYtmSort using source code");
+check(capturedRequests.some(({ url, body }) => url.endsWith(initEndpoint) && body.includes(`<Col id="calBaseDt">${request.baseDateCompact}</Col>`)), "init request must conform to the authoritative endpoint and compact baseDate projection");
+check(capturedRequests.some(({ url, body }) => url.endsWith(matrixEndpoint) && body.includes(`<Col id="cboYtmSort">${request.kind.code}</Col>`)), "matrix request must conform to the authoritative endpoint and source kind-code projection");
 check(capturedRequests.every(({ signal }) => signal instanceof AbortSignal), "requests without a caller signal must receive a default timeout signal");
 
 const callerAbort = new AbortController();
 const callerSignalRequests = [];
-await toolset.execute("kinds", { baseDate: contract.request.baseDate }, { fetch: fixtureFetch(fixtures.matrix, callerSignalRequests), signal: callerAbort.signal });
+await toolset.execute("kinds", { baseDate: request.baseDate }, { fetch: fixtureFetch(fixtures.matrix, callerSignalRequests), signal: callerAbort.signal });
 check(callerSignalRequests[0]?.signal === callerAbort.signal, "requests must preserve a caller-provided abort signal");
 
-const missingValueResult = await toolset.execute("matrix", { baseDate: contract.request.baseDate, kind: contract.request.kind.name }, { fetch: fixtureFetch(fixtures.missingValues) });
+const missingValueResult = await toolset.execute("matrix", { baseDate: request.baseDate, kind: request.kind.name }, { fetch: fixtureFetch(fixtures.missingValues) });
 for (const tenor of contract.expectations.missingValues.nullTenors) {
   check(missingValueResult.rows[0]?.yields[tenor] === null, `shared missing value ${tenor} must normalize to null`);
   check(missingValueResult.rows[0]?.yieldText[tenor] === contract.expectations.missingValues.rawValues[tenor], `shared missing value ${tenor} must preserve raw text`);
@@ -90,7 +99,7 @@ for (const tenor of contract.expectations.missingValues.nullTenors) {
 
 for (const xmlCase of contract.xmlCases.valid) {
   if (xmlCase.operation === "matrix") {
-    const result = await toolset.execute("matrix", { baseDate: contract.request.baseDate, kind: contract.request.kind.name }, { fetch: fixtureFetch(fixtures[xmlCase.fixture]) });
+    const result = await toolset.execute("matrix", { baseDate: request.baseDate, kind: request.kind.name }, { fetch: fixtureFetch(fixtures[xmlCase.fixture]) });
     check(result.rows[0]?.raw[xmlCase.expectedRawColumn] === xmlCase.expectedRawValue, `${xmlCase.fixture} must preserve the expected raw column value`);
     if (xmlCase.expectedExtraRawColumn) {
       check(Object.hasOwn(result.rows[0]?.raw || {}, xmlCase.expectedExtraRawColumn), `${xmlCase.fixture} must preserve the expected extra raw column as an own property`);
@@ -98,29 +107,29 @@ for (const xmlCase of contract.xmlCases.valid) {
     }
     continue;
   }
-  const result = await toolset.execute("kinds", { baseDate: contract.request.baseDate }, { fetch: () => xmlResponse(fixtures[xmlCase.fixture]) });
+  const result = await toolset.execute("kinds", { baseDate: request.baseDate }, { fetch: () => xmlResponse(fixtures[xmlCase.fixture]) });
   check(result.kinds[0]?.code === xmlCase.expectedKindCode, `${xmlCase.fixture} must preserve the expected kind code`);
   check(result.kinds[0]?.name === xmlCase.expectedKindName, `${xmlCase.fixture} must preserve the expected kind name`);
 }
 
-const bomResult = await toolset.execute("kinds", { baseDate: contract.request.baseDate }, { fetch: () => xmlResponse(`\uFEFF${fixtures.init}`) });
-check(bomResult.kinds[0]?.code === contract.request.kind.code, "a leading UTF-8 BOM must be accepted");
+const bomResult = await toolset.execute("kinds", { baseDate: request.baseDate }, { fetch: () => xmlResponse(`\uFEFF${fixtures.init}`) });
+check(bomResult.kinds[0]?.code === request.kind.code, "a leading UTF-8 BOM must be accepted");
 
 try {
   const doubleBom = concatBytes(new Uint8Array([0xEF, 0xBB, 0xBF, 0xEF, 0xBB, 0xBF]), utf8Encoder.encode(fixtures.init));
-  await toolset.execute("kinds", { baseDate: contract.request.baseDate }, { fetch: () => byteResponse(doubleBom) });
+  await toolset.execute("kinds", { baseDate: request.baseDate }, { fetch: () => byteResponse(doubleBom) });
   failures.push(`a duplicate UTF-8 BOM must throw ${contract.expectations.formatError}`);
 } catch (error) {
   check(toolset.serializeError(error).code === contract.expectations.formatError, `a duplicate UTF-8 BOM must throw ${contract.expectations.formatError}`);
 }
 
-const replacementCharacterResult = await toolset.execute("kinds", { baseDate: contract.request.baseDate }, { fetch: () => xmlResponse(fixtures.init.replace("국채", "국\uFFFD채")) });
+const replacementCharacterResult = await toolset.execute("kinds", { baseDate: request.baseDate }, { fetch: () => xmlResponse(fixtures.init.replace("국채", "국\uFFFD채")) });
 check(replacementCharacterResult.kinds[0]?.name === "국\uFFFD채", "a literal XML 1.0 replacement character must remain valid");
 
 for (const unsupportedXmlVersion of ["1.1", "1.2"]) {
   const response = fixtures.init.replace('version="1.0"', `version="${unsupportedXmlVersion}"`);
   try {
-    await toolset.execute("kinds", { baseDate: contract.request.baseDate }, { fetch: () => xmlResponse(response) });
+    await toolset.execute("kinds", { baseDate: request.baseDate }, { fetch: () => xmlResponse(response) });
     failures.push(`XML ${unsupportedXmlVersion} must throw ${contract.expectations.formatError}`);
   } catch (error) {
     check(toolset.serializeError(error).code === contract.expectations.formatError, `XML ${unsupportedXmlVersion} must throw ${contract.expectations.formatError}`);
@@ -129,26 +138,26 @@ for (const unsupportedXmlVersion of ["1.1", "1.2"]) {
 
 for (const supportedEncoding of ["UTF-8", "utf-8"]) {
   const response = fixtures.init.replace('encoding="UTF-8"', `encoding="${supportedEncoding}"`);
-  const result = await toolset.execute("kinds", { baseDate: contract.request.baseDate }, { fetch: () => xmlResponse(response) });
-  check(result.kinds[0]?.code === contract.request.kind.code, `XML encoding ${supportedEncoding} must remain supported`);
+  const result = await toolset.execute("kinds", { baseDate: request.baseDate }, { fetch: () => xmlResponse(response) });
+  check(result.kinds[0]?.code === request.kind.code, `XML encoding ${supportedEncoding} must remain supported`);
 }
 
 for (const unsupportedEncoding of ["UTF8", "ISO-8859-1", "UTF-16"]) {
   const response = fixtures.init.replace('encoding="UTF-8"', `encoding="${unsupportedEncoding}"`);
   try {
-    await toolset.execute("kinds", { baseDate: contract.request.baseDate }, { fetch: () => xmlResponse(response) });
+    await toolset.execute("kinds", { baseDate: request.baseDate }, { fetch: () => xmlResponse(response) });
     failures.push(`XML encoding ${unsupportedEncoding} must throw ${contract.expectations.formatError}`);
   } catch (error) {
     check(toolset.serializeError(error).code === contract.expectations.formatError, `XML encoding ${unsupportedEncoding} must throw ${contract.expectations.formatError}`);
   }
 }
 
-const exactLimitXml = xmlAtByteLength(fixtures.init, contract.xmlLimits.maxBodyBytes);
-const exactLimitResult = await toolset.execute("kinds", { baseDate: contract.request.baseDate }, { fetch: () => xmlResponse(exactLimitXml, { headers: { "content-length": String(contract.xmlLimits.maxBodyBytes) } }) });
-check(exactLimitResult.kinds[0]?.code === contract.request.kind.code, "a response at the exact XML byte limit must succeed");
+const exactLimitXml = xmlAtByteLength(fixtures.init, xmlLimits.maxBodyBytes);
+const exactLimitResult = await toolset.execute("kinds", { baseDate: request.baseDate }, { fetch: () => xmlResponse(exactLimitXml, { headers: { "content-length": String(xmlLimits.maxBodyBytes) } }) });
+check(exactLimitResult.kinds[0]?.code === request.kind.code, "a response at the exact XML byte limit must succeed");
 
 let oversizedStreamCancelled = false;
-const oversizedBytes = utf8Encoder.encode(xmlAtByteLength(fixtures.init, contract.xmlLimits.maxBodyBytes + 1));
+const oversizedBytes = utf8Encoder.encode(xmlAtByteLength(fixtures.init, xmlLimits.maxBodyBytes + 1));
 const oversizedStream = new ReadableStream({
   start(controller) {
     controller.enqueue(oversizedBytes);
@@ -158,19 +167,19 @@ const oversizedStream = new ReadableStream({
   }
 });
 try {
-  await toolset.execute("kinds", { baseDate: contract.request.baseDate }, { fetch: () => Promise.resolve(new Response(oversizedStream, { status: 200, headers: { "content-length": "1" } })) });
+  await toolset.execute("kinds", { baseDate: request.baseDate }, { fetch: () => Promise.resolve(new Response(oversizedStream, { status: 200, headers: { "content-length": "1" } })) });
   failures.push(`an oversized measured body must throw ${contract.expectations.formatError}`);
 } catch (error) {
   check(toolset.serializeError(error).code === contract.expectations.formatError, `an oversized measured body must throw ${contract.expectations.formatError}`);
   check(oversizedStreamCancelled, "an oversized measured body must cancel its response stream");
 }
 
-const misleadingLengthResult = await toolset.execute("kinds", { baseDate: contract.request.baseDate }, { fetch: () => xmlResponse(fixtures.init, { headers: { "content-length": String(contract.xmlLimits.maxBodyBytes + 1), "content-encoding": "gzip" } }) });
-check(misleadingLengthResult.kinds[0]?.code === contract.request.kind.code, "the measured decompressed body, not encoded Content-Length, must determine the limit");
+const misleadingLengthResult = await toolset.execute("kinds", { baseDate: request.baseDate }, { fetch: () => xmlResponse(fixtures.init, { headers: { "content-length": String(xmlLimits.maxBodyBytes + 1), "content-encoding": "gzip" } }) });
+check(misleadingLengthResult.kinds[0]?.code === request.kind.code, "the measured decompressed body, not encoded Content-Length, must determine the limit");
 
 let nonstreamingArrayBufferCalled = false;
 try {
-  await toolset.execute("kinds", { baseDate: contract.request.baseDate }, {
+  await toolset.execute("kinds", { baseDate: request.baseDate }, {
     fetch: () => Promise.resolve({
       ok: true,
       status: 200,
@@ -189,7 +198,7 @@ try {
 
 try {
   const invalidUtf8 = concatBytes(utf8Encoder.encode(fixtures.init), new Uint8Array([0xFF]));
-  await toolset.execute("kinds", { baseDate: contract.request.baseDate }, { fetch: () => byteResponse(invalidUtf8) });
+  await toolset.execute("kinds", { baseDate: request.baseDate }, { fetch: () => byteResponse(invalidUtf8) });
   failures.push(`invalid UTF-8 response bytes must throw ${contract.expectations.formatError}`);
 } catch (error) {
   check(toolset.serializeError(error).code === contract.expectations.formatError, `invalid UTF-8 response bytes must throw ${contract.expectations.formatError}`);
@@ -197,28 +206,28 @@ try {
 
 for (const fixtureName of contract.xmlCases.invalid) {
   try {
-    await toolset.execute("kinds", { baseDate: contract.request.baseDate }, { fetch: () => xmlResponse(fixtures[fixtureName]) });
+    await toolset.execute("kinds", { baseDate: request.baseDate }, { fetch: () => xmlResponse(fixtures[fixtureName]) });
     failures.push(`${fixtureName} fixture must throw ${contract.expectations.formatError}`);
   } catch (error) {
     check(toolset.serializeError(error).code === contract.expectations.formatError, `${fixtureName} fixture must throw ${contract.expectations.formatError}`);
   }
 }
 
-const excessiveDepthResponse = `<?xml version="1.0" encoding="UTF-8"?><Root xmlns="http://www.nexacroplatform.com/platform/dataset"><Parameters><Parameter id="ErrorCode">0</Parameter></Parameters>${"<Extra>".repeat(contract.xmlLimits.maxElementDepth)}${"</Extra>".repeat(contract.xmlLimits.maxElementDepth)}<Dataset id="output1"><Rows><Row><Col id="divCode">10</Col><Col id="divName">국채</Col></Row></Rows></Dataset></Root>`;
+const excessiveDepthResponse = `<?xml version="1.0" encoding="UTF-8"?><Root xmlns="http://www.nexacroplatform.com/platform/dataset"><Parameters><Parameter id="ErrorCode">0</Parameter></Parameters>${"<Extra>".repeat(xmlLimits.maxElementDepth)}${"</Extra>".repeat(xmlLimits.maxElementDepth)}<Dataset id="output1"><Rows><Row><Col id="divCode">10</Col><Col id="divName">국채</Col></Row></Rows></Dataset></Root>`;
 try {
-  await toolset.execute("kinds", { baseDate: contract.request.baseDate }, { fetch: () => xmlResponse(excessiveDepthResponse) });
-  failures.push(`XML element depth above ${contract.xmlLimits.maxElementDepth} must throw ${contract.expectations.formatError}`);
+  await toolset.execute("kinds", { baseDate: request.baseDate }, { fetch: () => xmlResponse(excessiveDepthResponse) });
+  failures.push(`XML element depth above ${xmlLimits.maxElementDepth} must throw ${contract.expectations.formatError}`);
 } catch (error) {
   check(toolset.serializeError(error).code === contract.expectations.formatError, `excessive XML depth must throw ${contract.expectations.formatError}`);
 }
 const maximumDepthResponse = excessiveDepthResponse.replace("<Extra>", "").replace("</Extra>", "");
-const maximumDepthResult = await toolset.execute("kinds", { baseDate: contract.request.baseDate }, { fetch: () => xmlResponse(maximumDepthResponse) });
-check(maximumDepthResult.kinds[0]?.code === "10", `XML element depth ${contract.xmlLimits.maxElementDepth} must not be rejected solely for depth`);
+const maximumDepthResult = await toolset.execute("kinds", { baseDate: request.baseDate }, { fetch: () => xmlResponse(maximumDepthResponse) });
+check(maximumDepthResult.kinds[0]?.code === "10", `XML element depth ${xmlLimits.maxElementDepth} must not be rejected solely for depth`);
 
 for (const invalidCharacter of ["\u0001", "&#0;", "&#xD800;", "&#xFFFE;", "&#x110000;"]) {
   const response = `<?xml version="1.0" encoding="UTF-8"?><Root xmlns="http://www.nexacroplatform.com/platform/dataset"><Parameters><Parameter id="ErrorCode">0</Parameter></Parameters><Dataset id="output1"><Rows><Row><Col id="divCode">10</Col><Col id="divName">${invalidCharacter}</Col></Row></Rows></Dataset></Root>`;
   try {
-    await toolset.execute("kinds", { baseDate: contract.request.baseDate }, { fetch: () => xmlResponse(response) });
+    await toolset.execute("kinds", { baseDate: request.baseDate }, { fetch: () => xmlResponse(response) });
     failures.push(`XML 1.0 character ${JSON.stringify(invalidCharacter)} must throw ${contract.expectations.formatError}`);
   } catch (error) {
     check(toolset.serializeError(error).code === contract.expectations.formatError, `invalid XML 1.0 character must throw ${contract.expectations.formatError}`);
@@ -226,7 +235,7 @@ for (const invalidCharacter of ["\u0001", "&#0;", "&#xD800;", "&#xFFFE;", "&#x11
 }
 const invalidAttributeCharacterResponse = `<?xml version="1.0" encoding="UTF-8"?><Root xmlns="http://www.nexacroplatform.com/platform/dataset"><Parameters><Parameter id="ErrorCode">0</Parameter></Parameters><Dataset id="output1"><Rows><Row><Col id="divCode">10</Col><Col id="&#0;">ignored</Col><Col id="divName">국채</Col></Row></Rows></Dataset></Root>`;
 try {
-  await toolset.execute("kinds", { baseDate: contract.request.baseDate }, { fetch: () => xmlResponse(invalidAttributeCharacterResponse) });
+  await toolset.execute("kinds", { baseDate: request.baseDate }, { fetch: () => xmlResponse(invalidAttributeCharacterResponse) });
   failures.push(`an invalid XML 1.0 attribute character must throw ${contract.expectations.formatError}`);
 } catch (error) {
   check(toolset.serializeError(error).code === contract.expectations.formatError, `an invalid XML 1.0 attribute character must throw ${contract.expectations.formatError}`);
@@ -240,7 +249,7 @@ for (const [fixtureName, expectedCode] of [
   ["missingColumn", contract.expectations.formatError]
 ]) {
   try {
-    await toolset.execute("matrix", { baseDate: contract.request.baseDate, kind: contract.request.kind.name }, { fetch: fixtureFetch(fixtures[fixtureName]) });
+    await toolset.execute("matrix", { baseDate: request.baseDate, kind: request.kind.name }, { fetch: fixtureFetch(fixtures[fixtureName]) });
     failures.push(`${fixtureName} fixture must throw ${expectedCode}`);
   } catch (error) {
     const serialized = toolset.serializeError(error);
@@ -254,7 +263,7 @@ for (const [fixtureName, expectedCode] of [
 for (const fixtureName of ["protocolError", "protocolWarning"]) {
   const expected = contract.expectations.protocolStatuses[fixtureName];
   try {
-    await toolset.execute("matrix", { baseDate: contract.request.baseDate, kind: contract.request.kind.name }, { fetch: fixtureFetch(fixtures[fixtureName]) });
+    await toolset.execute("matrix", { baseDate: request.baseDate, kind: request.kind.name }, { fetch: fixtureFetch(fixtures[fixtureName]) });
     failures.push(`${fixtureName} fixture must throw ${contract.expectations.protocolError}`);
   } catch (error) {
     const serialized = toolset.serializeError(error);
@@ -264,7 +273,7 @@ for (const fixtureName of ["protocolError", "protocolWarning"]) {
   }
 
   try {
-    await toolset.execute("kinds", { baseDate: contract.request.baseDate }, { fetch: () => xmlResponse(fixtures[fixtureName]) });
+    await toolset.execute("kinds", { baseDate: request.baseDate }, { fetch: () => xmlResponse(fixtures[fixtureName]) });
     failures.push(`${fixtureName} kinds response must throw ${contract.expectations.protocolError}`);
   } catch (error) {
     const serialized = toolset.serializeError(error);
@@ -276,13 +285,13 @@ for (const fixtureName of ["protocolError", "protocolWarning"]) {
 
 for (const errorCode of ["00", "+0", "-0"]) {
   const signedZeroFixture = fixtures.matrix.replace('<Parameter id="ErrorCode">0</Parameter>', `<Parameter id="ErrorCode">${errorCode}</Parameter>`);
-  const result = await toolset.execute("matrix", { baseDate: contract.request.baseDate, kind: contract.request.kind.name }, { fetch: fixtureFetch(signedZeroFixture) });
+  const result = await toolset.execute("matrix", { baseDate: request.baseDate, kind: request.kind.name }, { fetch: fixtureFetch(signedZeroFixture) });
   check(result.rows[0]?.pricingGroupCode === contract.expectations.matrix.pricingGroupCode, `ErrorCode ${errorCode} must remain a successful status`);
 }
 
 for (const fixtureName of ["initMalformedMixed", "initMalformedAll"]) {
   try {
-    await toolset.execute("kinds", { baseDate: contract.request.baseDate }, { fetch: () => xmlResponse(fixtures[fixtureName]) });
+    await toolset.execute("kinds", { baseDate: request.baseDate }, { fetch: () => xmlResponse(fixtures[fixtureName]) });
     failures.push(`${fixtureName} fixture must throw ${contract.expectations.formatError}`);
   } catch (error) {
     check(toolset.serializeError(error).code === contract.expectations.formatError, `${fixtureName} fixture must throw ${contract.expectations.formatError}`);
@@ -290,7 +299,7 @@ for (const fixtureName of ["initMalformedMixed", "initMalformedAll"]) {
 }
 
 try {
-  await toolset.execute("matrix", { baseDate: contract.request.baseDate, kind: contract.request.kind.name }, { fetch: async () => { throw new TypeError("fixture transport failure"); } });
+  await toolset.execute("matrix", { baseDate: request.baseDate, kind: request.kind.name }, { fetch: async () => { throw new TypeError("fixture transport failure"); } });
   failures.push("transport failure must throw source_transport_error");
 } catch (error) {
   check(toolset.serializeError(error).code === contract.expectations.transportError, "transport failure must remain distinct from unavailable, protocol, and malformed source data");
@@ -298,14 +307,14 @@ try {
 
 try {
   const failedStream = new ReadableStream({ pull() { throw new TypeError("fixture stream failure"); } });
-  await toolset.execute("kinds", { baseDate: contract.request.baseDate }, { fetch: () => Promise.resolve(new Response(failedStream, { status: 200 })) });
+  await toolset.execute("kinds", { baseDate: request.baseDate }, { fetch: () => Promise.resolve(new Response(failedStream, { status: 200 })) });
   failures.push("response stream failure must throw source_transport_error");
 } catch (error) {
   check(toolset.serializeError(error).code === contract.expectations.transportError, "response stream failure must throw source_transport_error");
 }
 
 try {
-  await toolset.execute("kinds", { baseDate: contract.request.baseDate }, { fetch: () => xmlResponse(fixtures.init, { status: 503 }) });
+  await toolset.execute("kinds", { baseDate: request.baseDate }, { fetch: () => xmlResponse(fixtures.init, { status: 503 }) });
   failures.push("HTTP failure must throw source_transport_error");
 } catch (error) {
   check(toolset.serializeError(error).code === contract.expectations.transportError, "HTTP failure must throw source_transport_error");
@@ -374,7 +383,7 @@ function fakeUnavailableFetch(url) {
 
 function protocolFallbackFetch(protocolFixture, attemptedDates) {
   return (url, init) => {
-    if (String(url).endsWith(contract.request.initEndpoint)) {
+    if (String(url).endsWith(initEndpoint)) {
       return xmlResponse(fixtures.init);
     }
     attemptedDates.push(/<Col id="calBaseDt">(\d+)<\/Col>/.exec(String(init?.body || ""))?.[1]);
@@ -386,7 +395,7 @@ function fixtureFetch(matrixFixture, capturedRequests = []) {
   return (url, init) => {
     const request = { url: String(url), body: String(init?.body || ""), signal: init?.signal };
     capturedRequests.push(request);
-    return xmlResponse(request.url.endsWith(contract.request.initEndpoint) ? fixtures.init : matrixFixture);
+    return xmlResponse(request.url.endsWith(initEndpoint) ? fixtures.init : matrixFixture);
   };
 }
 

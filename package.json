@@ -17,7 +17,9 @@
     "test:node": "bun run --filter @sjunepark/ytm test",
     "test:python": "uv run --locked --project packages/python pytest packages/python/tests",
     "test:python:live": "uv run --locked --project packages/python pytest packages/python/tests/test_live.py --live-kisnet",
-    "contracts:check": "node scripts/contracts-hash.mjs --check",
+    "judge": "node judge/run.mjs",
+    "judge:broken": "node judge/prove-deliberate-failure.mjs",
+    "contracts:check": "node scripts/validate-contracts.mjs && node scripts/contracts-hash.mjs --check",
     "contracts:sync": "node scripts/contracts-hash.mjs",
     "release:check": "node scripts/validate-release.mjs",
     "pack:node": "npm pack --dry-run --workspace packages/node",
@@ -26,6 +28,7 @@
     "smoke:node": "node packages/node/dist/cli.js matrix --base-date 2026-06-08 --kind 국채 --format json"
   },
   "devDependencies": {
+    "@seriousme/openapi-schema-validator": "2.9.1",
     "yaml": "^2.9.0"
   }
 }
