@@ -38,9 +38,8 @@ Judge and Rust feasibility
 
 ### Next in-scope action
 
-Commit the validated foundation, open its PR to `codex/rewrite-vnext`, and
-complete the full create-PR/address-feedback lifecycle before starting the Rust
-core implementation.
+Complete PR #9's full address-feedback lifecycle and merge it to
+`codex/rewrite-vnext` before starting the Rust core implementation.
 
 ### Evidence and blockers
 
@@ -57,4 +56,5 @@ core implementation.
 - `contracts/kisnet/openapi.yaml` now owns the exact two-operation wire contract and Nexacro profile; fixtures remain independent evidence, and `contracts:check` enforces the boundary and native target selection.
 - Target decisions are recorded: Rust-only transport, exact HTTP 200, no redirects or automatic retries, 20-second per-call deadline, 1 MiB decoded limit, Node 22 floor, five native targets, removal of public `context.fetch`, canonical kind 80, and protocol-feasible/not-production-qualified provider status.
 - Foundation validation passed on 2026-08-20: frozen Bun and uv sync, `bun run validate`, `bun run test` (90 passed; 3 opt-in live tests skipped), `bun run judge`, deliberate-failure proof, `bun run build`, both package checks, and `git diff --check`.
+- Foundation delivery: commit `2af5669` is pushed and PR #9 targets `codex/rewrite-vnext`; the `coderabbit-review` label is attached and CI/review are in progress.
 - Blockers: none.
