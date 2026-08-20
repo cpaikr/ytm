@@ -2,11 +2,11 @@
 
 ## Current
 
-_None._
+[Rewrite ytm around a Rust HTTP core and Node SDK](plans/rust-node-rewrite.md)
 
 ## Plans
 
-1. [Rewrite ytm around a Rust HTTP core and Node SDK](plans/rust-node-rewrite.md)
+_None._
 
 ## Tasks
 
