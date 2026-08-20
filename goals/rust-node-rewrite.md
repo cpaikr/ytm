@@ -56,9 +56,10 @@ Goal contract
 
 ### Current result
 
-Delivery — the complete Node-only rewrite is integrated on
-`codex/rewrite-vnext` and ready for its final reviewable promotion PR to
-`main`. The final merge remains explicitly excluded.
+Delivery — PR #12 is open from `codex/rewrite-vnext` to `main` and intentionally
+unmerged. Its initial `validate` and all 12 native-consumer contexts passed;
+the final review feedback has been triaged and its accepted fixes are locally
+validated for the follow-up head.
 
 ### Current evidence
 
@@ -74,11 +75,17 @@ Delivery — the complete Node-only rewrite is integrated on
   acceptance case are frozen as 77 full golden results.
   The active single-product judge verifies every public CLI/toolset outcome,
   including `source`, and rejects a deliberate source-envelope corruption.
-- The pre-PR local pass covers frozen Bun state, contract/release/build
+- The current local pass covers frozen Bun state, contract/release/build
   freshness, 77 public scenarios, deliberate oracle corruption, Rust
-  formatting/Clippy/19 tests, RustSec and dependency policy, native licenses,
+  formatting/Clippy/24 tests, RustSec and dependency policy, native licenses,
   root package contents, macOS ARM64 clean install on Node 26, workflow parsing,
-  diff checks, and a metadata-only production live lookup.
+  diff checks, and the earlier metadata-only production live lookup.
+- PR #12 review feedback hardening rejects non-contract decimal spellings and
+  padded yield cells, forbidden XML 1.0 characters, ambient proxies, and
+  whitespace-altered protocol identifiers; it also makes fixture assertions,
+  build/package freshness, release metadata, and consumer diagnostics fail
+  closed. The production HTTP client is reused while fixture transports remain
+  isolated per invocation.
 - PR #11's final remote run passed `validate` and all 12 supported-target
   consumers. Feedback hardening rejects duplicate golden keys and malformed
   successful JSON, guarantees temporary cleanup, normalizes nondeterministic
@@ -91,8 +98,9 @@ Delivery — the complete Node-only rewrite is integrated on
 
 ### Next action
 
-Open the integration-to-`main` promotion PR, complete its CI and feedback
-lifecycle, and leave that final main merge unperformed as required.
+Push the validated PR #12 feedback fixes, resolve every review thread, complete
+the follow-up CI/review lifecycle, and leave the final main merge unperformed
+as required.
 
 ### Blockers
 

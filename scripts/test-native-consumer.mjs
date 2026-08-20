@@ -39,17 +39,17 @@ try {
     "-e",
     "const m=await import('@sjunepark/ytm/toolset');const t=m.createKisnetYtmToolset();const v=t.validateInput('matrix',{baseDate:'20260820',kind:'80'});console.log(JSON.stringify({methods:['help','listOperations','getOperation','getCommandHelp','validateInput','execute','serializeError'].every(k=>typeof t[k]==='function'),operations:t.listOperations().map(x=>x.name),kind80:t.help().includes('80 = 회사채(사모)'),valid:v.valid,baseDate:v.normalizedInput?.baseDate}));"
   ], temporary);
-  const capability = JSON.parse(inspection.stdout);
+  const capability = parseJson(inspection, "installed toolset inspection");
   if (!capability.methods || capability.operations.join(",") !== "matrix,kinds" || !capability.kind80 || !capability.valid || capability.baseDate !== "2026-08-20") {
     throw new Error(`Installed toolset capability check failed: ${inspection.stdout}`);
   }
 
   const cli = resolve(temporary, "node_modules/.bin", process.platform === "win32" ? "ytm.cmd" : "ytm");
   const kinds = run(cli, ["kinds", "--format", "json"], temporary);
-  const kindsResult = JSON.parse(kinds.stdout);
+  const kindsResult = parseJson(kinds, "ytm kinds");
   if (kindsResult.result?.kinds?.at(-1)?.code !== "80") throw new Error("Installed CLI omitted canonical kind 80.");
   const invalid = spawn(cli, ["matrix", "--kind", "80"], temporary);
-  if (invalid.status !== 2 || JSON.parse(invalid.stdout).error?.code !== "missing_parameter" || !invalid.stderr.includes("matrix")) {
+  if (invalid.status !== 2 || parseJson(invalid, "ytm matrix").error?.code !== "missing_parameter" || !invalid.stderr.includes("matrix")) {
     throw new Error("Installed CLI validation/stdout/stderr contract failed.");
   }
   console.log(`clean consumer passed ${rustTarget} on Node ${process.versions.node}`);
@@ -69,6 +69,14 @@ function run(command, args, cwd) {
     throw new Error(`${command} ${args.join(" ")} failed (${result.status}):\n${result.stdout}\n${result.stderr}`);
   }
   return result;
+}
+
+function parseJson(result, label) {
+  try {
+    return JSON.parse(result.stdout);
+  } catch (cause) {
+    throw new Error(`${label} did not emit JSON (status ${result.status}):\n${result.stdout}\n${result.stderr}`, { cause });
+  }
 }
 
 function spawn(command, args, cwd) {

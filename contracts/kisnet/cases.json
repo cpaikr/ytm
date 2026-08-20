@@ -67,7 +67,7 @@
       { "fixture": "xmlAttributeOrder", "operation": "kinds", "expectedKindCode": "10", "expectedKindName": "국채" },
       { "fixture": "xmlPrefixedNamespace", "operation": "kinds", "expectedKindCode": "10", "expectedKindName": "국채" },
       { "fixture": "xmlEpilogComment", "operation": "kinds", "expectedKindCode": "10", "expectedKindName": "국채" },
-      { "fixture": "xmlSelfClosingCell", "operation": "matrix", "expectedRawColumn": "y2", "expectedRawValue": "", "expectedExtraRawColumn": "__proto__", "expectedExtraRawValue": "source-compatible" },
+      { "fixture": "xmlSelfClosingCell", "operation": "matrix", "expectedKindCode": "10", "expectedKindName": "국채", "expectedRawColumn": "y2", "expectedRawValue": "", "expectedExtraRawColumn": "__proto__", "expectedExtraRawValue": "source-compatible" },
       { "fixture": "xmlCdata", "operation": "kinds", "expectedKindCode": "10", "expectedKindName": "국채" },
       { "fixture": "xmlAstralEntity", "operation": "kinds", "expectedKindCode": "10", "expectedKindName": "국채📈" },
       { "fixture": "xmlNonrecursiveEntity", "operation": "kinds", "expectedKindCode": "10", "expectedKindName": "&lt;" },

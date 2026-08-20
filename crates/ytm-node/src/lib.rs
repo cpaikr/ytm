@@ -3,7 +3,10 @@
 #[cfg(all(feature = "judge-fixtures", not(debug_assertions)))]
 compile_error!("the judge-fixtures transport cannot be compiled into a release artifact");
 
-use std::panic::AssertUnwindSafe;
+use std::{
+    panic::AssertUnwindSafe,
+    sync::{Arc, OnceLock},
+};
 
 use futures_util::FutureExt;
 use napi::{
@@ -108,12 +111,17 @@ async fn execute(operation: Operation, cancellation: CancellationToken) -> Resul
     }
 }
 
-fn transport() -> Result<std::sync::Arc<dyn Transport>, YtmError> {
+fn transport() -> Result<Arc<dyn Transport>, YtmError> {
     #[cfg(feature = "judge-fixtures")]
     if let Some(transport) = ytm_core::judge::FixtureTransport::from_env()? {
         return Ok(transport);
     }
-    HttpTransport::shared()
+    static SHARED: OnceLock<Arc<dyn Transport>> = OnceLock::new();
+    if let Some(transport) = SHARED.get() {
+        return Ok(transport.clone());
+    }
+    let transport = HttpTransport::shared()?;
+    Ok(SHARED.get_or_init(|| transport).clone())
 }
 
 fn error_envelope(error: YtmError) -> Value {

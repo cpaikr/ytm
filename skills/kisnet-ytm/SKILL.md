@@ -5,15 +5,17 @@ description: Use when retrieving Korean KIS-NET YTM Matrix rows or listing suppo
 
 # KIS-NET YTM
 
-Use the Node-only `@sjunepark/ytm` product. For shell retrieval, run
-`ytm matrix --base-date <date> --kind <code-or-label>` or `ytm kinds`. For an
+Use the Node-only `@sjunepark/ytm` product. Publication of the rewrite is not
+yet authorized. In the repository checkout, build once with `bun run build`
+and replace `ytm` below with `bun run cli --`. After installation from an
+authorized artifact, use the package-provided `ytm` command directly. For an
 in-process integration, import `createKisnetYtmToolset` from
 `@sjunepark/ytm/toolset`.
 
 ```sh
-npx -y @sjunepark/ytm kinds --format json
-npx -y @sjunepark/ytm matrix --base-date 2026-06-08 --kind 국채 --format json --pretty
-npx -y @sjunepark/ytm matrix --base-date 2026-06-07 --kind 80 --fallback previous-available --lookback-days 10 --format json
+ytm kinds --format json
+ytm matrix --base-date 2026-06-08 --kind 국채 --format json --pretty
+ytm matrix --base-date 2026-06-07 --kind 80 --fallback previous-available --lookback-days 10 --format json
 ```
 
 - Dates accept `YYYY-MM-DD`, `YYYY.MM.DD`, or `YYYYMMDD`.

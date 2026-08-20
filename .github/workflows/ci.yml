@@ -76,6 +76,7 @@ jobs:
 
   native-consumer:
     name: Native consumer (${{ matrix.target.rust }} / Node ${{ matrix.node }})
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:

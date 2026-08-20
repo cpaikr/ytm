@@ -182,8 +182,11 @@ for (const failure of [
 
 for (const xmlCase of evidence.xmlCases.valid) {
   const operation = xmlCase.operation;
-  const replacement = xmlCase.expectedKindCode === "10" && xmlCase.expectedKindName !== "국채"
-    ? { replace: [["<Col id=\"divCode\">10</Col>", "<Col id=\"divCode\">90</Col>"]] }
+  const effectiveKindCode = xmlCase.expectedKindCode === "10" && xmlCase.expectedKindName !== "국채"
+    ? "90"
+    : xmlCase.expectedKindCode;
+  const replacement = effectiveKindCode !== xmlCase.expectedKindCode
+    ? { replace: [[`<Col id="divCode">${xmlCase.expectedKindCode}</Col>`, `<Col id="divCode">${effectiveKindCode}</Col>`]] }
     : {};
   const steps = operation === "matrix"
     ? [{ path: initPath, fixture: evidence.fixtures.init }, { path: matrixPath, fixture: evidence.fixtures[xmlCase.fixture] }]
@@ -191,6 +194,19 @@ for (const xmlCase of evidence.xmlCases.valid) {
   const input = operation === "matrix" ? { baseDate: request.baseDate, kind: request.kind.name } : { baseDate: request.baseDate };
   runToolset(`xml-fixture-corpus:valid-${xmlCase.fixture}`, { action: "execute", operation, input }, fixture(steps), (result, label) => {
     check(result.ok, `${label} must accept the valid XML evidence`);
+    const kind = operation === "matrix"
+      ? result.value?.kind
+      : result.value?.kinds?.find(({ code }) => code === effectiveKindCode);
+    check(kind?.code === effectiveKindCode && kind?.name === xmlCase.expectedKindName, `${label} must preserve the fixture kind through any execution-only code remap`);
+    const raw = result.value?.rows?.[0]?.raw;
+    for (const [columnField, valueField] of [
+      ["expectedRawColumn", "expectedRawValue"],
+      ["expectedExtraRawColumn", "expectedExtraRawValue"]
+    ]) {
+      if (xmlCase[columnField] === undefined) continue;
+      check(Object.hasOwn(raw || {}, xmlCase[columnField]), `${label} raw row must own ${xmlCase[columnField]}`);
+      check(raw?.[xmlCase[columnField]] === xmlCase[valueField], `${label} raw ${xmlCase[columnField]} must preserve its declared value`);
+    }
   });
 }
 for (const fixtureName of evidence.xmlCases.invalid) {
@@ -390,7 +406,7 @@ function runNativePreabort() {
   let envelope;
   let captures = [];
   try {
-    result = spawnSync(process.execPath, ["--import", resolve(root, "judge/fixture-preload.mjs"), "--input-type=module", "-e", code], {
+    result = spawnSync(process.execPath, ["--input-type=module", "-e", code], {
       encoding: "utf8",
       env: {
         ...process.env,
@@ -450,7 +466,7 @@ function parseJson(value, label) {
 function invokeToolset(packageRoot, requestPayload, fixtureConfig) {
   const captureDirectory = mkdtempSync(resolve(tmpdir(), "ytm-judge-"));
   const capturePath = resolve(captureDirectory, "requests.json");
-  const result = spawnSync(process.execPath, ["--import", resolve(root, "judge/fixture-preload.mjs"), resolve(root, "judge/surface-runner.mjs")], {
+  const result = spawnSync(process.execPath, [resolve(root, "judge/surface-runner.mjs")], {
     encoding: "utf8",
     env: {
       ...process.env,
@@ -475,7 +491,7 @@ function invokeCli(packageRoot, args, fixtureConfig) {
   const pkg = JSON.parse(readFileSync(resolve(packageRoot, "package.json"), "utf8"));
   const bin = typeof pkg.bin === "string" ? pkg.bin : pkg.bin?.ytm;
   if (!bin) return { status: null, signal: null, stdout: "", stderr: "package does not declare bin.ytm" };
-  const result = spawnSync(process.execPath, ["--import", resolve(root, "judge/fixture-preload.mjs"), resolve(packageRoot, bin), ...args], {
+  const result = spawnSync(process.execPath, [resolve(packageRoot, bin), ...args], {
     encoding: "utf8",
     env: { ...process.env, ...(fixtureConfig ? { YTM_JUDGE_FIXTURE: JSON.stringify(fixtureConfig) } : {}) },
     maxBuffer: 4 * 1024 * 1024

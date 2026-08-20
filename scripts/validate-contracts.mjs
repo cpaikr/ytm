@@ -13,7 +13,7 @@ function equal(actual, expected, message) {
 }
 
 const openapiText = await readFile(new URL("../contracts/kisnet/openapi.yaml", import.meta.url), "utf8");
-const schemaValidation = await new Validator().validate(new URL("../contracts/kisnet/openapi.yaml", import.meta.url).pathname);
+const schemaValidation = await new Validator().validate(openapiText);
 if (!schemaValidation.valid) {
   const errors = typeof schemaValidation.errors === "string" ? [schemaValidation.errors] : schemaValidation.errors;
   for (const error of errors || []) {

@@ -1,7 +1,6 @@
 use indexmap::IndexMap;
 use quick_xml::{
     encoding::Decoder,
-    escape::unescape,
     events::{BytesStart, Event},
     name::ResolveResult,
     reader::NsReader,
@@ -59,8 +58,9 @@ pub fn parse(bytes: &[u8], selected_dataset: &str) -> Result<DatasetResponse, Yt
         )));
     }
     let bytes = strip_bom(bytes)?;
-    std::str::from_utf8(bytes)
+    let xml = std::str::from_utf8(bytes)
         .map_err(|_| YtmError::format("KIS-NET response is not valid UTF-8."))?;
+    validate_xml_characters(xml)?;
     validate_declaration(bytes)?;
 
     let mut reader = NsReader::from_reader(bytes);
@@ -151,11 +151,6 @@ pub fn parse(bytes: &[u8], selected_dataset: &str) -> Result<DatasetResponse, Yt
                 let decoded = text
                     .decode()
                     .map_err(|_| YtmError::format("KIS-NET response is not valid UTF-8."))?;
-                let decoded = unescape(&decoded).map_err(|error| {
-                    YtmError::format(format!(
-                        "KIS-NET response contains an invalid entity reference: {error}."
-                    ))
-                })?;
                 append_text(&mut structure, &decoded)?;
             }
             Event::CData(text) => {
@@ -451,11 +446,10 @@ fn required_id(element: &BytesStart<'_>, decoder: Decoder) -> Result<String, Ytm
                 .map_err(|error| {
                     YtmError::format(format!("KIS-NET id attribute is invalid: {error}."))
                 })?;
-            let value = value.trim();
-            if value.is_empty() {
+            if value.trim().is_empty() {
                 return Err(YtmError::format("KIS-NET element id must be nonempty."));
             }
-            id = Some(value.to_owned());
+            id = Some(value.into_owned());
         }
     }
     id.ok_or_else(|| YtmError::format("KIS-NET element is missing a required id attribute."))
@@ -477,6 +471,18 @@ fn strip_bom(bytes: &[u8]) -> Result<&[u8], YtmError> {
 
 fn record_selected_error(slot: &mut Option<YtmError>, reason: impl Into<String>) {
     slot.get_or_insert_with(|| YtmError::format(reason));
+}
+
+fn validate_xml_characters(value: &str) -> Result<(), YtmError> {
+    if value.chars().all(|character| {
+        matches!(character as u32, 0x9 | 0xa | 0xd | 0x20..=0xd7ff | 0xe000..=0xfffd | 0x10000..=0x10ffff)
+    }) {
+        Ok(())
+    } else {
+        Err(YtmError::format(
+            "KIS-NET response contains a character forbidden by XML 1.0.",
+        ))
+    }
 }
 
 fn validate_declaration(bytes: &[u8]) -> Result<(), YtmError> {
@@ -780,6 +786,42 @@ mod tests {
             parse(xml.as_bytes(), "output1").unwrap_err().details.code,
             "source_format_error"
         );
+    }
+
+    #[test]
+    fn rejects_raw_characters_forbidden_by_xml_1_0_everywhere() {
+        let namespace = std::str::from_utf8(NAMESPACE).unwrap();
+        let invalid = '\u{1}';
+        for xml in [
+            format!("<Root xmlns=\"{namespace}\"><Parameters><Parameter id=\"ErrorCode\">0</Parameter></Parameters><Dataset id=\"output1\"><Rows><Row><Col id=\"divCode\">10{invalid}</Col></Row></Rows></Dataset></Root>"),
+            format!("<Root xmlns=\"{namespace}\"><Parameters><Parameter id=\"ErrorCode\">0</Parameter></Parameters><Dataset id=\"output1\"><Rows><Row><Col id=\"divCode\"><![CDATA[10{invalid}]]></Col></Row></Rows></Dataset></Root>"),
+            format!("<Root xmlns=\"{namespace}\"><Parameters><Parameter id=\"ErrorCode{invalid}\">0</Parameter></Parameters><Dataset id=\"output1\"><Rows/></Dataset></Root>"),
+            format!("<Root xmlns=\"{namespace}\"><!--{invalid}--><Parameters><Parameter id=\"ErrorCode\">0</Parameter></Parameters><Dataset id=\"output1\"><Rows/></Dataset></Root>"),
+            format!("<Root xmlns=\"{namespace}\"><Parameters><Parameter id=\"ErrorCode\">0</Parameter></Parameters><Dataset id=\"unrelated\"><Vendor>{invalid}</Vendor></Dataset><Dataset id=\"output1\"><Rows/></Dataset></Root>"),
+        ] {
+            let error = parse(xml.as_bytes(), "output1").unwrap_err();
+            assert_eq!(error.details.code, "source_format_error");
+            assert!(error.details.reason.contains("forbidden by XML 1.0"));
+        }
+    }
+
+    #[test]
+    fn preserves_identifier_text_for_protocol_matching() {
+        let namespace = std::str::from_utf8(NAMESPACE).unwrap();
+        for xml in [
+            format!("<Root xmlns=\"{namespace}\"><Parameters><Parameter id=\"ErrorCode \">0</Parameter></Parameters><Dataset id=\"output1\"><Rows/></Dataset></Root>"),
+            format!("<Root xmlns=\"{namespace}\"><Parameters><Parameter id=\"ErrorCode\">0</Parameter></Parameters><Dataset id=\"output1 \"><Rows/></Dataset></Root>"),
+        ] {
+            assert_eq!(
+                parse(xml.as_bytes(), "output1").unwrap_err().details.code,
+                "source_format_error"
+            );
+        }
+
+        let xml = format!("<Root xmlns=\"{namespace}\"><Parameters><Parameter id=\"ErrorCode\">0</Parameter></Parameters><Dataset id=\"output1\"><Rows><Row><Col id=\"m3 \">2.5</Col></Row></Rows></Dataset></Root>");
+        let response = parse(xml.as_bytes(), "output1").unwrap();
+        assert!(response.rows[0].contains_key("m3 "));
+        assert!(!response.rows[0].contains_key("m3"));
     }
 
     fn contract_fixture(filename: &str) -> std::path::PathBuf {

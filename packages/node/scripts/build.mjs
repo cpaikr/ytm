@@ -1,4 +1,4 @@
-import { copyFile, mkdir, rm } from "node:fs/promises";
+import { copyFile, mkdir, readdir, rm } from "node:fs/promises";
 import { resolve } from "node:path";
 
 const packageRoot = resolve(import.meta.dirname, "..");
@@ -11,7 +11,11 @@ const native = resolve(repositoryRoot, `target/debug/${prefix}ytm_node.${extensi
 
 await rm(dist, { recursive: true, force: true });
 await mkdir(dist, { recursive: true });
-for (const filename of ["cli.js", "native.cjs", "native.js", "toolset.d.ts", "toolset.js"]) {
+const sourceFiles = (await readdir(resolve(packageRoot, "src"), { withFileTypes: true }))
+  .filter((entry) => entry.isFile())
+  .map((entry) => entry.name)
+  .sort();
+for (const filename of sourceFiles) {
   await copyFile(resolve(packageRoot, "src", filename), resolve(dist, filename));
 }
 if (!facadeOnly) await copyFile(native, resolve(dist, "ytm.node"));

@@ -32,6 +32,7 @@ pub struct HttpTransport {
 impl HttpTransport {
     pub fn new() -> Result<Self, YtmError> {
         let client = Client::builder()
+            .no_proxy()
             .redirect(Policy::none())
             .timeout(Duration::from_secs(REQUEST_DEADLINE_SECONDS))
             .user_agent(format!("ytm/{}", env!("CARGO_PKG_VERSION")))

@@ -4,12 +4,16 @@ Deterministic KIS-NET YTM Matrix CLI and runtime-neutral toolset, backed by a
 Rust HTTP and Nexacro core.
 
 Node.js 22 or newer is required. Supported native targets are Linux GNU
-x64/ARM64, macOS ARM64, and Windows x64.
+x64/ARM64, macOS ARM64, and Windows x64. After installing an authorized
+artifact, use the package-provided CLI:
 
 ```sh
-npx -y @sjunepark/ytm matrix --base-date 2026-06-08 --kind 국채 --format json
-npx -y @sjunepark/ytm kinds --format json
+ytm matrix --base-date 2026-06-08 --kind 국채 --format json
+ytm kinds --format json
 ```
+
+This rewrite has not been published yet. For the current checkout, follow the
+root README instead of installing the historical npm `latest` release.
 
 Run `ytm --help` and `ytm <command> --help` before automation to inspect the
 current inputs, examples, output contract, and recovery guidance.

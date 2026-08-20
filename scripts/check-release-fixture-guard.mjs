@@ -9,6 +9,10 @@ const result = spawnSync("cargo", [
   "--all-features"
 ], { encoding: "utf8" });
 
+if (result.error) {
+  throw new Error(`Could not run cargo check: ${result.error.message}`, { cause: result.error });
+}
+
 const output = `${result.stdout || ""}\n${result.stderr || ""}`;
 const expected = "the judge-fixtures transport cannot be compiled into a release artifact";
 if (result.status === 0 || !output.includes(expected)) {

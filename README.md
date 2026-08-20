@@ -4,13 +4,17 @@ Node.js access to the KIS-NET YTM Matrix, backed by a Rust HTTP and Nexacro
 core. The JavaScript package is a thin CLI and runtime-neutral toolset; it does
 not implement source transport or parsing.
 
-## Install and run
+## Run from this checkout
 
-Node.js 22 or newer is required.
+Node.js 22 or newer is required. Publication of the rewritten package is not
+yet authorized, so build and run the checked-out source rather than the
+historical npm `latest` release.
 
 ```sh
-npx -y @sjunepark/ytm matrix --base-date 2026-06-08 --kind 국채 --format json
-npx -y @sjunepark/ytm kinds --format json
+bun install --frozen-lockfile
+bun run build
+bun run cli -- matrix --base-date 2026-06-08 --kind 국채 --format json
+bun run cli -- kinds --format json
 ```
 
 The package also exports `@sjunepark/ytm/toolset` for in-process use. Run

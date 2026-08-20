@@ -15,6 +15,7 @@ concurrency:
 jobs:
   metadata:
     runs-on: blacksmith-2vcpu-ubuntu-2404
+    timeout-minutes: 30
     outputs:
       package_name: ${{ steps.package.outputs.package_name }}
       package_version: ${{ steps.package.outputs.package_version }}
@@ -26,6 +27,12 @@ jobs:
         with:
           persist-credentials: false
           ref: ${{ github.sha }}
+
+      - name: Set up Node
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: 24
+          package-manager-cache: false
 
       - name: Validate release metadata
         id: package
@@ -48,6 +55,7 @@ jobs:
   native_packages:
     name: Native package (${{ matrix.target.rust }})
     needs: metadata
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -104,6 +112,7 @@ jobs:
   root_package:
     runs-on: blacksmith-2vcpu-ubuntu-2404
     needs: metadata
+    timeout-minutes: 30
 
     steps:
       - name: Check out immutable release source
@@ -150,6 +159,7 @@ jobs:
   publish:
     # npm Trusted Publishing does not support self-hosted runners.
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     needs:
       - metadata
       - native_packages

@@ -58,28 +58,7 @@ impl YtmService {
     ) -> Result<MatrixResult, YtmError> {
         let (requested_date, _) = normalize_date(&input.base_date, "matrix")?;
         let kind_input = kind_text(&input.kind)?;
-        let fallback = input.fallback.as_deref().unwrap_or("exact");
-        if !matches!(fallback, "exact" | "previous-available") {
-            return Err(YtmError::invalid_parameter(
-                "matrix",
-                "fallback",
-                "fallback must be previous-available when provided.",
-                json!(fallback),
-            ));
-        }
-        let lookback_days = if fallback == "previous-available" {
-            input.lookback_days.unwrap_or(10)
-        } else {
-            0
-        };
-        if lookback_days > 31 || (fallback == "previous-available" && lookback_days == 0) {
-            return Err(YtmError::invalid_parameter(
-                "matrix",
-                "lookbackDays",
-                "lookbackDays must be an integer from 1 to 31.",
-                json!(lookback_days),
-            ));
-        }
+        let (fallback, lookback_days) = fallback_policy(&input)?;
         let start = NaiveDate::parse_from_str(&requested_date, "%Y-%m-%d").map_err(|_| {
             YtmError::invalid_parameter(
                 "matrix",
@@ -332,10 +311,15 @@ fn normalize_row(row: IndexMap<String, String>, kind: &Kind) -> Result<MatrixRow
     let mut yields = IndexMap::new();
     let mut yield_text = IndexMap::new();
     for (key, label) in TENORS {
-        let raw = row[key].trim().to_owned();
+        let raw = row[key].to_owned();
         let value = if raw.is_empty() || raw == "-" {
             None
         } else {
+            if !is_decimal_yield(&raw) {
+                return Err(YtmError::format(format!(
+                    "KIS-NET matrix column {key} contains an invalid numeric value."
+                )));
+            }
             Some(raw.parse::<f64>().map_err(|_| {
                 YtmError::format(format!(
                     "KIS-NET matrix column {key} contains an invalid numeric value."
@@ -358,6 +342,58 @@ fn normalize_row(row: IndexMap<String, String>, kind: &Kind) -> Result<MatrixRow
         yield_text,
         raw: row,
     })
+}
+
+fn fallback_policy(input: &MatrixInput) -> Result<(&str, u8), YtmError> {
+    let fallback = input.fallback.as_deref().unwrap_or("exact");
+    if !matches!(fallback, "exact" | "previous-available") {
+        return Err(YtmError::invalid_parameter(
+            "matrix",
+            "fallback",
+            "fallback must be exact or previous-available.",
+            json!(fallback),
+        ));
+    }
+    if fallback != "previous-available" && input.lookback_days.is_some() {
+        return Err(YtmError::invalid_parameter(
+            "matrix",
+            "lookbackDays",
+            "lookbackDays only applies when fallback is previous-available.",
+            json!(input.lookback_days),
+        ));
+    }
+    let lookback_days = if fallback == "previous-available" {
+        input.lookback_days.unwrap_or(10)
+    } else {
+        0
+    };
+    if lookback_days > 31 || (fallback == "previous-available" && lookback_days == 0) {
+        return Err(YtmError::invalid_parameter(
+            "matrix",
+            "lookbackDays",
+            "lookbackDays must be an integer from 1 to 31.",
+            json!(lookback_days),
+        ));
+    }
+    Ok((fallback, lookback_days))
+}
+
+fn is_decimal_yield(value: &str) -> bool {
+    let unsigned = value.strip_prefix(['+', '-']).unwrap_or(value);
+    let mut parts = unsigned.split('.');
+    let integer = parts.next().unwrap_or_default();
+    let fraction = parts.next();
+    if parts.next().is_some() {
+        return false;
+    }
+    match fraction {
+        None => !integer.is_empty() && integer.bytes().all(|byte| byte.is_ascii_digit()),
+        Some(fraction) => {
+            (!integer.is_empty() || !fraction.is_empty())
+                && integer.bytes().all(|byte| byte.is_ascii_digit())
+                && fraction.bytes().all(|byte| byte.is_ascii_digit())
+        }
+    }
 }
 
 fn normalize_date(value: &str, operation: &str) -> Result<(String, String), YtmError> {
@@ -473,6 +509,59 @@ mod tests {
                 normalize_date(value, "matrix").unwrap_err().details.code,
                 "invalid_parameter"
             );
+        }
+    }
+
+    #[test]
+    fn fallback_policy_rejects_lookback_without_previous_available() {
+        for fallback in [None, Some("exact".to_owned())] {
+            let input = MatrixInput {
+                base_date: "2026-08-20".into(),
+                kind: json!("10"),
+                fallback,
+                lookback_days: Some(1),
+            };
+            let error = fallback_policy(&input).unwrap_err();
+            assert_eq!(error.details.code, "invalid_parameter");
+            assert_eq!(error.details.parameter.as_deref(), Some("lookbackDays"));
+        }
+
+        let input = MatrixInput {
+            base_date: "2026-08-20".into(),
+            kind: json!("10"),
+            fallback: Some("unexpected".into()),
+            lookback_days: None,
+        };
+        let error = fallback_policy(&input).unwrap_err();
+        assert_eq!(error.details.parameter.as_deref(), Some("fallback"));
+        assert!(error.details.reason.contains("exact or previous-available"));
+    }
+
+    #[test]
+    fn numeric_yield_cells_accept_only_the_contract_decimal_grammar() {
+        for value in ["0", "-0", "+1", "1.25", ".5", "-.5", "1.", "+1."] {
+            assert!(is_decimal_yield(value), "{value}");
+        }
+        for value in [
+            "", "-", "+", ".", "+.", "1e3", "NaN", "inf", "1.2.3", " 2.5 ", " - ",
+        ] {
+            assert!(!is_decimal_yield(value), "{value}");
+        }
+    }
+
+    #[test]
+    fn matrix_rows_reject_padded_yield_cells() {
+        let kind = canonical_kinds().into_iter().next().unwrap();
+        for value in [" 2.5 ", " - "] {
+            let mut row = IndexMap::from([
+                ("pricingGroupCode".to_owned(), "100".to_owned()),
+                ("pricingGroupName".to_owned(), "국고채권".to_owned()),
+            ]);
+            for (key, _) in TENORS {
+                row.insert((*key).to_owned(), value.to_owned());
+            }
+            let error = normalize_row(row, &kind).unwrap_err();
+            assert_eq!(error.details.code, "source_format_error", "{value}");
         }
     }
 }

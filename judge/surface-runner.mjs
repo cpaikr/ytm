@@ -52,8 +52,8 @@ try {
   error = toolset.serializeError(caught);
 }
 
-let requests = globalThis.__YTM_JUDGE_REQUESTS__ || [];
-if (requests.length === 0 && process.env.YTM_JUDGE_CAPTURE_PATH) {
+let requests = [];
+if (process.env.YTM_JUDGE_CAPTURE_PATH) {
   try {
     requests = JSON.parse(await readFile(process.env.YTM_JUDGE_CAPTURE_PATH, "utf8"));
   } catch (caught) {

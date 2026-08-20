@@ -101,12 +101,16 @@ current cutover state that follows.
   12 supported-target/Node consumer contexts. Retired Python checks are removed
   without weakening strict checks, administrator enforcement, conversation
   resolution, platform gates, or branch immutability.
-- The pre-PR local pass covers frozen Bun state, contract/release/build
+- The current local pass covers frozen Bun state, contract/release/build
   freshness, 77 public scenarios, deliberate oracle corruption, Rust
-  formatting/Clippy/19 tests, RustSec and dependency policy, native licenses,
+  formatting/Clippy/24 tests, RustSec and dependency policy, native licenses,
   root package contents, macOS ARM64 clean install on Node 26, workflow parsing,
-  diff checks, and a metadata-only production live lookup. PR feedback
-  hardening is integrated and passed the follow-up remote run.
+  diff checks, and the earlier metadata-only production live lookup.
+- PR #12 is open from `codex/rewrite-vnext` to `main` and remains intentionally
+  unmerged. Its initial `validate` and all 12 native-consumer contexts passed.
+  Twenty Codex/CodeRabbit threads were triaged; accepted protocol, transport,
+  fixture, packaging, workflow-bound, and diagnostic fixes are locally green
+  and await their follow-up push and review lifecycle.
 
 ## Decisions
 
@@ -295,5 +299,5 @@ current cutover state that follows.
 
 ## Next action
 
-Open the integration-to-`main` promotion PR, complete its CI and feedback
-lifecycle, and leave its final merge unperformed.
+Push the validated PR #12 feedback fixes, resolve every review thread, complete
+the follow-up CI/review lifecycle, and leave its final merge unperformed.
