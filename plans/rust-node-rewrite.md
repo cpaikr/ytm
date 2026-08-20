@@ -11,6 +11,9 @@ Node or Python implementations.
 
 ## Current state
 
+- The shared pre-rewrite baseline on `dev` passes the complete local validation,
+  test, build, and package-artifact gates. The documentation-only baseline PR
+  to `main` is the next delivery checkpoint.
 - The released product has handwritten Node and Python implementations at
   version `0.2.0`. The existing component tags preserve the published package
   sources, while `dev` contains documentation-only work not yet on `main`.
@@ -183,5 +186,6 @@ Node or Python implementations.
 
 ## Next action
 
-Establish and validate the shared pre-rewrite baseline, then run the feasibility
-and black-box-judge gate before implementing the target architecture.
+Land the validated documentation-only `dev` baseline on `main`, archive that
+exact commit, and create the isolated rewrite branch/worktree. Then run the
+feasibility and black-box-judge gate before implementing the target architecture.

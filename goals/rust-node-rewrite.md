@@ -38,11 +38,12 @@ Baseline/workspace
 
 ### Next in-scope action
 
-Persist the goal contract on `dev`, then verify the roadmap and plan baseline before selecting the first reviewable implementation slice.
+Open the validated documentation-only `dev` baseline PR to `main` and complete its review-feedback lifecycle before creating the rewrite branch.
 
 ### Evidence and blockers
 
 - Boundary check: `Baseline/workspace` is included by the original contract; proceed.
 - Delivery base: `dev` is the established non-production integration branch. GitHub reports it is unprotected and has no branch rules, so direct initialization and terminal metadata pushes are permitted.
 - Baseline plan commit `ec40038` is present locally on `dev` and precedes this goal initialization.
+- Baseline validation passed on 2026-08-20: frozen Bun and uv dependency sync, `bun run validate`, `bun run test` (90 Python tests passed; 3 opt-in live tests skipped), `bun run build`, `bun run pack:node`, `bun run pack:python`, and `git diff --check`.
 - Blockers: none.
