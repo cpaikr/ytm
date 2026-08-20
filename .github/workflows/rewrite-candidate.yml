@@ -1,0 +1,105 @@
+name: Rewrite Candidate
+
+on:
+  pull_request:
+  push:
+    branches:
+      - codex/rewrite-vnext
+
+permissions:
+  contents: read
+
+jobs:
+  rust-and-parity:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
+
+      - name: Set up Node
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - name: Install frozen JavaScript dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Validate generated native metadata
+        run: node scripts/generate-native-packages.mjs --check
+
+      - name: Check Rust formatting
+        run: cargo fmt --all --check
+
+      - name: Lint Rust workspace
+        run: cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
+
+      - name: Test Rust workspace
+        run: cargo test --locked --workspace --all-targets --all-features
+
+      - name: Install pinned Rust security checks
+        run: |
+          cargo install --locked cargo-audit --version 0.22.2
+          cargo install --locked cargo-deny --version 0.19.0
+
+      - name: Audit Rust dependencies and policy
+        run: |
+          cargo audit
+          cargo deny check
+
+      - name: Build judge-only native candidate
+        run: cargo build --locked -p ytm-node --features judge-fixtures && node candidate/node/scripts/build.mjs
+
+      - name: Run public parity and kind 80 judge
+        run: node judge/run.mjs --baseline-root packages/node --candidate-root candidate/node
+
+      - name: Prove judge sensitivity
+        run: bun run judge:broken
+
+  native-consumer:
+    name: Native consumer (${{ matrix.target.rust }} / Node ${{ matrix.node }})
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [22, 24, 26]
+        target:
+          - rust: x86_64-unknown-linux-gnu
+            runner: ubuntu-24.04
+          - rust: aarch64-unknown-linux-gnu
+            runner: ubuntu-24.04-arm
+          - rust: x86_64-apple-darwin
+            runner: macos-15-intel
+          - rust: aarch64-apple-darwin
+            runner: macos-15
+          - rust: x86_64-pc-windows-msvc
+            runner: windows-2025
+    runs-on: ${{ matrix.target.runner }}
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
+
+      - name: Set up Node
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: ${{ matrix.node }}
+          package-manager-cache: false
+
+      - name: Install Rust target
+        run: rustup target add ${{ matrix.target.rust }}
+
+      - name: Build production native artifact
+        run: cargo build --locked --release --target ${{ matrix.target.rust }} -p ytm-node
+
+      - name: Assemble candidate packages
+        run: |
+          node scripts/generate-native-packages.mjs
+          node candidate/node/scripts/build.mjs --facade-only
+          node scripts/assemble-native-package.mjs ${{ matrix.target.rust }}
+
+      - name: Test clean installed CLI and toolset
+        run: node scripts/test-native-consumer.mjs ${{ matrix.target.rust }}

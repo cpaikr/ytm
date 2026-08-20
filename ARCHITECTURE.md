@@ -25,8 +25,11 @@ contracts/kisnet/openapi.yaml
        Node-API boundary
               |
               v
-      packages/node/src
+   candidate/node/src (staging)
       toolset and CLI adapters
+              |
+              v
+ packages/node/src (at cutover)
 ```
 
 Dependencies point downward only. Public adapters call the binding; the
@@ -38,21 +41,23 @@ domain normalization. Nothing below the public adapters imports JavaScript.
 - [`contracts/kisnet/openapi.yaml`](contracts/kisnet/openapi.yaml) — start here
   for external HTTP and serialized Nexacro facts. Its named extension is the
   canonical profile for constraints OpenAPI cannot express directly.
-- `crates/ytm-core` — target home of prepared requests, bounded transport,
+- `crates/ytm-core` — prepared requests, bounded transport,
   strict XML parsing, kind resolution, matrix normalization, date fallback,
   and tagged errors. It remains independent of Node-API types.
-- `crates/ytm-node` — target home of the small Node-API projection. It exposes
+- `crates/ytm-node` — the small Node-API projection. It exposes
   async `matrix` and `kinds` calls, cancellation, capabilities, and stable
   error data; it contains no source rules.
-- [`packages/node/src`](packages/node/src) — target home of thin JavaScript or
-  TypeScript toolset and CLI adapters. Help, CLI parsing, stdout rendering, and
-  synchronous public-shape validation belong here.
+- [`candidate/node/src`](candidate/node/src) — implemented staging home of the
+  thin JavaScript adapters. Help, CLI parsing, stdout rendering, and
+  synchronous public-shape validation belong here. The final cutover moves
+  this package to [`packages/node/src`](packages/node/src), which remains the
+  legacy comparison product until then.
 - [`judge`](judge) — public-surface compatibility scenarios. The judge invokes
   built package surfaces in separate processes and never imports conformer
   internals.
 - [`native-targets.json`](native-targets.json) — canonical selected release
-  matrix. Platform packages and CI jobs will be generated or checked against
-  this manifest.
+  matrix. Candidate platform manifests, the native loader, optional
+  dependencies, and CI jobs are generated or checked against this manifest.
 - [`docs/provider-qualification.md`](docs/provider-qualification.md) — evidence
   and enablement decisions that protocol tests cannot establish.
 

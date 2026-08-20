@@ -39,6 +39,21 @@ Node or Python implementations.
   source and all request/response bodies were discarded.
 - The complete foundation landed on the rewrite integration branch through PR
   #9 at `63282fc`; the Rust core and Node product are now the active slice.
+- The staged implementation now contains the Rust HTTP/Nexacro core, Node-API
+  binding, thin candidate CLI/toolset, generated five-target native package
+  set, and candidate CI matrix. The expanded public judge passes 67 scenarios,
+  including kind 80 and the live-observed optional `ColumnInfo` response
+  metadata.
+- Hermetic Rust tests exercise strict XML/profile parsing, OpenAPI request
+  conformance, exact HTTP 200, redirect refusal, required headers,
+  decompressed-size bounds, and in-flight cancellation. Rust formatting,
+  Clippy, tests, advisory audit, license/source policy, and dependency policy
+  pass locally.
+- A production binding smoke on 2026-08-20 completed both live operations
+  without the judge transport and retained sanitized counts and timing only.
+  The macOS ARM64 release package also passed a clean npm consumer install on
+  Node 26. Full five-runner Node 22/24/26 validation remains a delivery check,
+  so selected targets are not yet claimed as supported.
 
 ## Decisions
 
@@ -218,6 +233,5 @@ Node or Python implementations.
 
 ## Next action
 
-Implement the Rust core, Node-API binding, and thin Node product against the
-frozen OpenAPI and judge boundary, then complete parity, native packaging, and
-kind-80 acceptance before the atomic cutover.
+Deliver the staged Rust/Node implementation through review and the complete
+native CI matrix, then perform the atomic Node cutover and legacy retirement.
