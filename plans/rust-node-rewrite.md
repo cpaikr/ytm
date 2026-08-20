@@ -86,9 +86,10 @@ current cutover state that follows.
 - `codex/rewrite-cutover` promotes the reviewed Rust-backed product to
   `packages/node` and `packages/native`, then removes the legacy JavaScript
   HTTP/XML implementation, Python product/release paths, Release Please, and
-  candidate-only staging paths atomically. PR #11 is open against the rewrite
-  integration branch; its initial `validate` job and all 12 native-consumer
-  contexts passed on Blacksmith.
+  candidate-only staging paths atomically. PR #11 merged to the rewrite
+  integration branch as `e858f5f`; its final `validate` job and all 12
+  native-consumer contexts passed on Blacksmith, all review threads are
+  resolved, and Codex completed review without findings.
 - The active judge freezes the reviewed PR #10 public projections plus the
   explicit kind-80 fallback acceptance case as 77 golden results and
   deep-compares every CLI/toolset outcome, including source metadata. A
@@ -105,7 +106,7 @@ current cutover state that follows.
   formatting/Clippy/19 tests, RustSec and dependency policy, native licenses,
   root package contents, macOS ARM64 clean install on Node 26, workflow parsing,
   diff checks, and a metadata-only production live lookup. PR feedback
-  hardening is implemented locally and awaits the follow-up remote run.
+  hardening is integrated and passed the follow-up remote run.
 
 ## Decisions
 
@@ -294,6 +295,5 @@ current cutover state that follows.
 
 ## Next action
 
-Finish PR #11's feedback lifecycle and merge it to `codex/rewrite-vnext`, then
-open the reviewed integration-to-`main` PR and leave its final merge
-unperformed.
+Open the integration-to-`main` promotion PR, complete its CI and feedback
+lifecycle, and leave its final merge unperformed.

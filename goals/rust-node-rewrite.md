@@ -49,12 +49,16 @@ Goal contract
 - Repository transfer — GitHub repository ID `1264066471`, PRs, issue #7,
   branches, and Actions now live at `cpaikr/ytm`; the local remote is canonical.
   Release Please is disabled and removed.
+- Node cutover and legacy retirement — PR #11 merged to
+  `codex/rewrite-vnext` as `e858f5f`. Its final run passed `validate` and all 12
+  supported-target/Node consumers, every CodeRabbit thread is resolved, and
+  Codex completed review without findings.
 
 ### Current result
 
-Node cutover and legacy retirement — PR #11 is open from
-`codex/rewrite-cutover` to `codex/rewrite-vnext`. Its initial Blacksmith run is
-green; review-feedback hardening is implemented locally for the follow-up run.
+Delivery — the complete Node-only rewrite is integrated on
+`codex/rewrite-vnext` and ready for its final reviewable promotion PR to
+`main`. The final merge remains explicitly excluded.
 
 ### Current evidence
 
@@ -75,8 +79,8 @@ green; review-feedback hardening is implemented locally for the follow-up run.
   formatting/Clippy/19 tests, RustSec and dependency policy, native licenses,
   root package contents, macOS ARM64 clean install on Node 26, workflow parsing,
   diff checks, and a metadata-only production live lookup.
-- PR #11's initial remote run passed `validate` and all 12 supported-target
-  consumers. Feedback hardening now rejects duplicate golden keys and malformed
+- PR #11's final remote run passed `validate` and all 12 supported-target
+  consumers. Feedback hardening rejects duplicate golden keys and malformed
   successful JSON, guarantees temporary cleanup, normalizes nondeterministic
   stderr evidence, validates required root-tarball entries and the scoped Node
   lock entry, bounds CI, and decodes live-smoke stdin as UTF-8.
@@ -87,10 +91,8 @@ green; review-feedback hardening is implemented locally for the follow-up run.
 
 ### Next action
 
-Push and validate the PR #11 feedback commit, finish every review thread, and
-merge the completed cutover into `codex/rewrite-vnext`. Then open the reviewed
-integration-to-`main` PR and leave that final main merge unperformed as
-required.
+Open the integration-to-`main` promotion PR, complete its CI and feedback
+lifecycle, and leave that final main merge unperformed as required.
 
 ### Blockers
 
