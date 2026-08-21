@@ -1,128 +1,70 @@
 # Release
 
-Release Please is the only version authority for `@sjunepark/ytm` and
-`kisnet-ytm`. It owns their linked versions and generates package versions,
-changelogs, lock versions, the manifest, component tags, and release notes.
+Release creation is disabled. The repository has no Release Please workflow,
+configuration, or manifest, and no workflow creates release PRs, tags, or
+GitHub Releases. The current `0.2.0` package version is historical; selecting a
+new version, creating a tag, and publishing require separate authorization.
 
-For every release, confirm the exact version for both components and obtain
-explicit approval before merging the combined release PR. Do not manually edit
-Release Please-owned output as a fallback.
+## Node package assembly
 
-## Repository release model
+[`native-targets.json`](../native-targets.json) owns the supported matrix:
+Linux GNU x64/ARM64, macOS ARM64, and Windows x64. The root package and all four
+native packages share one version.
 
-`release-please-config.json` owns two components in one linked-version group:
+CI builds every target on the lowest suitable Blacksmith image and
+clean-installs the packed root and native packages under Node 22, 24, and 26.
+The root artifact contains no `.node` binary. Each platform package contains
+exactly one native artifact, and platform packages publish before the root.
 
-- `packages/node` → component `node` → tag `node-vX.Y.Z`
-- `packages/python` → component `python` → tag `python-vX.Y.Z`
+The retained [`release.yml`](../.github/workflows/release.yml) consumes only an
+existing `node-vX.Y.Z` tag. It does not choose a version or create the tag. Its
+build and validation jobs use Blacksmith; the final npm OIDC job uses
+`ubuntu-latest` because npm Trusted Publishing does not support self-hosted
+runners.
 
-A releasable change to either package advances both components to the same
-version in one combined release PR. The bootstrap SHA is the historical
-`v0.1.1` release commit; the old unprefixed tags remain historical only.
+## Prerequisites for a future release
 
-Shared source-contract changes must update both package attribution hashes in
-the same releasable commit. Run this before committing a change under
-`contracts/kisnet`:
+Before creating any tag:
 
-```sh
-bun run contracts:sync
-bun run contracts:check
-```
+1. Explicitly approve the version and update `packages/node/package.json`.
+   Regenerate native package manifests and the Bun lock, then review the exact
+   artifacts.
+2. Configure npm Trusted Publishing for `@sjunepark/ytm` and each of its four
+   `@sjunepark/ytm-*` native packages with owner `cpaikr`, repository `ytm`,
+   workflow `release.yml`, and environment `npm`.
+3. Confirm the `npm` GitHub environment protections and current `main` branch
+   protection. No long-lived npm token is required.
+4. Pass the repository validation and supported-target native consumer matrix
+   on the exact release commit.
+5. Create the immutable `node-vX.Y.Z` tag only after the release action is
+   separately authorized.
 
-Prefer a squash merge or another merge mode that keeps the shared fixture and
-both generated hash paths in the same Conventional Commit. Release Please
-splits commits by package path; a separate non-releasable hash-only commit does
-not attribute an earlier root-only contract commit to either component.
+The tag workflow validates the tag against the root version, rebuilds the four
+native artifacts from the immutable tag commit, validates and packs the root,
+and publishes all native packages before the root package. It refuses to start
+publishing if any package already exists at that version. Repair a partial
+publish with a newly approved version; never move a tag or replace an immutable
+registry version.
 
-While the product remains pre-1.0, the configured Release Please policy treats
-ordinary `feat:` and `fix:` commits as patch releases and reserves a minor bump
-for breaking changes. Mark breaking changes with `!` or a `BREAKING CHANGE:`
-footer. The linked group then applies the highest required bump to both
-packages.
+## Historical Python release
 
-## Release hold
-
-The Release Please job runs only when the Actions repository variable
-`RELEASE_PLEASE_ENABLED` is exactly `true`. Set it to false to pause release-PR
-creation. Changing the variable does not publish or merge anything; the
-generated release PR remains the review gate.
-
-## External publisher configuration
-
-These administrator-owned settings must remain aligned with the workflows:
-
-1. Keep `RELEASE_PLEASE_TOKEN` configured with Contents and Pull requests
-   read/write access. Release Please-created component tags must be able to
-   trigger the publishing workflows.
-2. Keep GitHub environments named `npm` and `pypi`. Review their protection
-   rules before merging; without an approval rule, publication starts
-   immediately after Release Please creates the component tags.
-3. Configure the npm package `@sjunepark/ytm` with this trusted publisher:
-   - provider: GitHub Actions
-   - owner: `sjunepark`
-   - repository: `ytm`
-   - workflow: `release.yml`
-   - environment: `npm`
-   - permission: publish
-4. Configure the PyPI project `kisnet-ytm` with this trusted publisher:
-   - owner: `sjunepark`
-   - repository: `ytm`
-   - workflow: `release-python.yml`
-   - environment: `pypi`
-5. Protect `main` with the Node validation check, Python quality check, all
-   supported-version Python test jobs, and the Python package-build check.
-   Include administrators, require conversation resolution, and disable force
-   pushes and deletion. Update required check names if workflow job names
-   change.
-
-Both publisher workflows use OIDC and require no long-lived npm or PyPI publish
-token. The npm workflow filename stays `release.yml` to preserve the existing
-publisher identity; the PyPI identity is bound to `release-python.yml`.
-
-## Automated flow
-
-1. Land releasable work on `main` with an accurate Conventional Commit.
-2. With `RELEASE_PLEASE_ENABLED=true`, `.github/workflows/release-please.yml`
-   opens or updates one combined release PR. Review both package versions, both
-   changelogs, the manifest, `bun.lock`, and `packages/python/uv.lock`.
-3. Confirm the exact shared version explicitly before merging that specific
-   release PR.
-4. After merge, Release Please creates `node-vX.Y.Z` and `python-vX.Y.Z` plus
-   their GitHub Releases.
-5. `release.yml` validates the Node tag and cross-package version equality,
-   rebuilds and checks the npm package, then publishes `@sjunepark/ytm`.
-6. `release-python.yml` validates the Python tag and version equality, runs the
-   locked Python gates, builds and clean-installs the wheel, promotes those exact
-   artifacts, then publishes `kisnet-ytm` with uv.
-
-The tag workflows publish only their own registry package, avoiding duplicate
-cross-tag races. Both are version-scoped and idempotent: npm checks the registry
-before publishing, and uv uses PyPI's simple index to skip files that already
-exist.
-
-Before confirming a future release that changes Python support or curl-cffi,
-verify wheel availability for every advertised Python and operating-system
-target. Keep both trusted publisher identities synchronized with workflow,
-repository, and environment renames.
+Python source, CI, smoke, and PyPI publishing are absent from the active
+repository. Existing PyPI artifacts and `python-v*` tags remain historical and
+unchanged. Deprecating the PyPI project is outside this cutover.
 
 ## Read-only validation
 
 ```sh
 bun install --frozen-lockfile
-uv sync --locked --project packages/python
 bun run validate
+cargo fmt --all --check
+cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
+cargo test --locked --workspace --all-targets --all-features
 bun run test
-bun run build
 bun run pack:node
-bun run pack:python
 ```
 
-`bun run release:check` asserts package/manifest/lock version equality, linked
-component names, baseline bootstrap, package-local changelogs, lock updater
-paths, tag routing, environment gates, artifact promotion, and OIDC publishing.
-
-To retry publication for an existing component tag without moving it, manually
-dispatch the corresponding workflow with that exact tag. Never create or move a
-tag by hand to repair a failed publication; fix the workflow and rerun the
-existing tag instead. Manual dispatch resolves only the `refs/tags/` namespace,
-and every downstream validation or publication job uses the commit resolved by
-the metadata job rather than resolving the tag again.
+`bun run release:check` enforces the absence of Release Please and Python
+release machinery, version alignment across native packages, immutable tag
+checkout, native-before-root assembly, Blacksmith runner selection, and npm's
+GitHub-hosted OIDC boundary.

@@ -1,0 +1,28 @@
+{
+  "name": "@sjunepark/ytm-darwin-arm64",
+  "version": "0.2.0",
+  "description": "Native Node-API binary for @sjunepark/ytm on darwin-arm64.",
+  "main": "ytm.darwin-arm64.node",
+  "files": [
+    "ytm.darwin-arm64.node",
+    "LICENSE.md"
+  ],
+  "os": [
+    "darwin"
+  ],
+  "cpu": [
+    "arm64"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cpaikr/ytm.git",
+    "directory": "packages/native/darwin-arm64"
+  },
+  "license": "MIT"
+}

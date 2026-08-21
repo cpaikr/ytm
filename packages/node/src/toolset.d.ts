@@ -1,6 +1,5 @@
 export interface ToolRunContext {
   signal?: AbortSignal;
-  fetch?: typeof fetch;
 }
 
 export interface OperationSpec {
@@ -17,7 +16,7 @@ export interface OperationSpec {
 
 export interface ValidationErrorDetails {
   ok: false;
-  code: "missing_parameter" | "invalid_parameter" | "unknown_parameter" | "invalid_request" | "source_data_unavailable" | "source_transport_error" | "source_protocol_error" | "source_format_error";
+  code: "missing_parameter" | "invalid_parameter" | "unknown_parameter" | "invalid_request" | "source_data_unavailable" | "source_transport_error" | "source_protocol_error" | "source_format_error" | "internal_error";
   operationName?: string;
   parameter?: string;
   reason: string;
@@ -26,8 +25,11 @@ export interface ValidationErrorDetails {
   exampleInput?: unknown;
   sourceErrorCode?: string;
   sourceErrorMessage?: string;
+  attemptedDates?: string[];
+  lookbackDays?: number;
+  cause?: string;
   recoveryHint: string;
-  recoveryAction: "inspect_tool_help" | "inspect_command_help" | "use_previous_available_fallback" | "try_nearby_business_day";
+  recoveryAction: "inspect_tool_help" | "inspect_command_help" | "use_previous_available_fallback" | "try_nearby_business_day" | "update_package";
   recoverable: boolean;
   retryable?: boolean;
 }
@@ -95,5 +97,5 @@ export class KisnetYtmError extends Error {
   constructor(details: ValidationErrorDetails | Record<string, unknown>);
 }
 
-export function createKisnetYtmToolset(options?: Partial<ToolRunContext>): KisnetYtmToolset;
+export function createKisnetYtmToolset(): KisnetYtmToolset;
 export function validateInput(operationName: string, input: unknown): ValidationResult;

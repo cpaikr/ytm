@@ -1,6 +1,6 @@
 # Goal: Deliver cutover-ready Node-only ytm
 
-Status: active
+Status: delivery complete; final main merge excluded
 Planning scope: ROADMAP.md
 
 ## Original contract
@@ -24,26 +24,84 @@ Goal contract
 
 ## Authorized amendments
 
-_None._
+- 2026-08-20 — Transfer GitHub repository `sjunepark/ytm` to `cpaikr/ytm`
+  and use the lowest suitable Blacksmith runner for compatible Actions jobs.
+- 2026-08-20 — Keep the native matrix simple: Linux GNU x64/ARM64, macOS
+  ARM64, and Windows x64. Do not claim Intel macOS or add Rosetta emulation.
+- 2026-08-20 — Remove Release Please. Release-PR/tag creation stays disabled;
+  future version selection, tagging, and publication require separate authority.
 
 ## Execution status
 
-### Completed included results
+### Completed results
 
-_None._
+- Baseline/workspace — PR #8 merged to `main` as `81a60e0`; the validated
+  baseline is preserved at `archive/pre-rewrite-2026-08-20`.
+- Judge/feasibility and wire/architecture/provider foundation — PR #9 merged
+  to `codex/rewrite-vnext` as `63282fc`. The disposable rustls probe reproduced
+  both live operations, OpenAPI became the enforced sole wire authority, and
+  the source was classified protocol-feasible but not production-qualified.
+- Rust core, Node product, parity, packaging, and kind 80 — PR #10 merged to
+  `codex/rewrite-vnext` as `63c344f`. Its final head passed all 12 clean native
+  consumers on the four Blacksmith targets under Node 22/24/26, the 76-scenario
+  public judge, 19 Rust tests, security/dependency gates, production live smoke,
+  and the full PR feedback lifecycle.
+- Repository transfer — GitHub repository ID `1264066471`, PRs, issue #7,
+  branches, and Actions now live at `cpaikr/ytm`; the local remote is canonical.
+  Release Please is disabled and removed.
+- Node cutover and legacy retirement — PR #11 merged to
+  `codex/rewrite-vnext` as `e858f5f`. Its final run passed `validate` and all 12
+  supported-target/Node consumers, every CodeRabbit thread is resolved, and
+  Codex completed review without findings.
 
-### Current in-scope result
+### Current result
 
-Baseline/workspace
+Delivery — PR #12 is open from `codex/rewrite-vnext` to `main` and intentionally
+unmerged. Its feedback head `b41e98c` passed both the pull-request and duplicate
+push matrices: `validate` plus all 12 native-consumer contexts. Every one of the
+20 Codex/CodeRabbit review threads has an evidence-backed reply and is resolved;
+a fresh feedback collection found no unresolved thread.
 
-### Next in-scope action
+### Current evidence
 
-Open the validated documentation-only `dev` baseline PR to `main` and complete its review-feedback lifecycle before creating the rewrite branch.
+- The Rust-backed Node package is promoted to `packages/node`; its four native
+  packages are under `packages/native`. Legacy Node HTTP/XML code, Python
+  source/package/tests, linked Python workflow, Release Please metadata, and
+  obsolete migration documents are removed in the same cutover slice.
+- CI and live smoke are Node/Rust-only on the lowest suitable Blacksmith images.
+  The retained tag-only npm workflow builds and clean-installs every native
+  artifact before root assembly; publication remains excluded and uses the
+  required GitHub-hosted OIDC runner only if separately authorized.
+- The approved PR #10 public projections plus the explicit kind-80 fallback
+  acceptance case are frozen as 77 full golden results.
+  The active single-product judge verifies every public CLI/toolset outcome,
+  including `source`, and rejects a deliberate source-envelope corruption.
+- The current local pass covers frozen Bun state, contract/release/build
+  freshness, 77 public scenarios, deliberate oracle corruption, Rust
+  formatting/Clippy/24 tests, RustSec and dependency policy, native licenses,
+  root package contents, macOS ARM64 clean install on Node 26, workflow parsing,
+  diff checks, and the earlier metadata-only production live lookup.
+- PR #12 review feedback hardening rejects non-contract decimal spellings and
+  padded yield cells, forbidden XML 1.0 characters, ambient proxies, and
+  whitespace-altered protocol identifiers; it also makes fixture assertions,
+  build/package freshness, release metadata, and consumer diagnostics fail
+  closed. The production HTTP client is reused while fixture transports remain
+  isolated per invocation.
+- PR #11's final remote run passed `validate` and all 12 supported-target
+  consumers. Feedback hardening rejects duplicate golden keys and malformed
+  successful JSON, guarantees temporary cleanup, normalizes nondeterministic
+  stderr evidence, validates required root-tarball entries and the scoped Node
+  lock entry, bounds CI, and decodes live-smoke stdin as UTF-8.
+- `main` branch protection now requires the app-pinned `validate` context and
+  all 12 supported-target/Node consumer contexts; retired Python checks are
+  removed while strict checks, administrator enforcement, conversation
+  resolution, and force-push/deletion bans remain.
 
-### Evidence and blockers
+### Next action
 
-- Boundary check: `Baseline/workspace` is included by the original contract; proceed.
-- Delivery base: `dev` is the established non-production integration branch. GitHub reports it is unprotected and has no branch rules, so direct initialization and terminal metadata pushes are permitted.
-- Baseline plan commit `ec40038` is present locally on `dev` and precedes this goal initialization.
-- Baseline validation passed on 2026-08-20: frozen Bun and uv dependency sync, `bun run validate`, `bun run test` (90 Python tests passed; 3 opt-in live tests skipped), `bun run build`, `bun run pack:node`, `bun run pack:python`, and `git diff --check`.
-- Blockers: none.
+No in-scope delivery work remains. Await separate authorization for the final
+main merge; publication and PyPI deprecation remain excluded.
+
+### Blockers
+
+None.

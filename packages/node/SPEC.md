@@ -1,68 +1,11 @@
-# KIS-NET YTM Matrix Tool Surface Spec
+# Node package boundary
 
-## Capability
+The public toolset and CLI contract is defined by the repository
+[`SPEC.md`](https://github.com/cpaikr/ytm/blob/main/SPEC.md). External HTTP
+and Nexacro details are owned only by
+[`contracts/kisnet/openapi.yaml`](https://github.com/cpaikr/ytm/blob/main/contracts/kisnet/openapi.yaml).
 
-Lookup KIS-NET YTM Matrix rows from the mobile Nexacro source at <https://kis-net.kr/kisnet_mobile/index.html> using:
-
-- `baseDate` (`기준일`): accepted as `YYYY-MM-DD`, `YYYY.MM.DD`, or `YYYYMMDD`; sent as `calBaseDt=YYYYMMDD`.
-- `kind` (`종류`): accepted as a source code or Korean label; sent as `cboYtmSort=<code>`.
-
-## Source request contract
-
-The inspected form is `rateinfo::YtmMatrix.xfdl`.
-
-### Initial load / 종류 discovery
-
-- Endpoint: `POST https://kis-net.kr/rateInfo/ytmMatrixMobileInitList.do`
-- Body format: Nexacro XML PlatformData
-- Input dataset: `ds_search=ds_search`
-- Output datasets: `ds_tymSort=output1 ds_list=output2`
-- Parameters in `ds_search`: `pageIndex=1`, `pageSize=10`, `pageUnit=10`, `calBaseDt`, `cboYtmSort=10`
-
-### `검색` click / matrix lookup
-
-- Endpoint: `POST https://kis-net.kr/rateInfo/ytmMatrixMobileList.do`
-- Body format: Nexacro XML PlatformData
-- Input dataset: `ds_search=ds_search`
-- Output dataset: `ds_list=output1`
-- Parameters in `ds_search`: `pageIndex=1`, `pageSize=10`, `pageUnit=10`, `calBaseDt`, `cboYtmSort`
-
-## Public surfaces
-
-### CLI
-
-```sh
-ytm matrix --base-date <기준일> --kind <종류> [--fallback previous-available] [--lookback-days <days>] [--format json|csv|tsv] [--pretty]
-ytm kinds [--base-date <기준일>] [--format json|csv|tsv] [--pretty]
-```
-
-- `json` is default and prints one JSON object.
-- Successful `csv` and `tsv` output is tabular.
-- Failures always print one JSON object and exit non-zero.
-- By default, `matrix` is exact-date: it tries the requested `baseDate` once and fails with `source_data_unavailable` if KIS-NET returns no rows.
-- With `--fallback previous-available`, `matrix` still tries the requested date first, then probes prior calendar dates up to `--lookback-days` until KIS-NET returns rows.
-
-### Toolset SDK
-
-`@sjunepark/ytm/toolset` exports `createKisnetYtmToolset()` with `help`, `listOperations`, `getOperation`, `getCommandHelp`, `validateInput`, `execute`, and `serializeError`.
-
-## Result shape
-
-`matrix` returns:
-
-- `baseDate`: normalized `YYYY-MM-DD` that produced rows
-- `requestedBaseDate`: normalized requested `YYYY-MM-DD`
-- `dateResolution`: fallback policy, attempted dates, resolved date, and whether fallback was used
-- `kind`: `{ code, name }`
-- `tenors`: `3M`, `6M`, `9M`, `1Y`, `1.5Y`, `2Y`, `2.5Y`, `3Y`, `5Y`, `7Y`, `10Y`, `15Y`, `20Y`, `30Y`, `50Y`
-- `rows`: one per `적용대상채권`, with `pricingGroupCode`, `pricingGroupName`, numeric `yields`, raw `yieldText`, and raw source columns
-- `source`: endpoint and request metadata
-
-`-` or empty yield cells are represented as `null` in `yields` and preserved in `yieldText`.
-
-Successful matrices contain at least one row. Missing required columns and
-invalid numeric cells are `source_format_error`; network and HTTP failures are
-`source_transport_error`; nonzero Nexacro statuses, including positive
-warnings, are `source_protocol_error` and preserve `sourceErrorCode` and
-`sourceErrorMessage`; confirmed empty matrices are `source_data_unavailable`.
-Previous-available probing continues only for `source_data_unavailable`.
+The package requires Node.js 22 or newer and supports Linux GNU x64/ARM64,
+macOS ARM64, and Windows x64 through exact-version optional native packages.
+Run `ytm --help` or use toolset discovery methods for the current public
+operation contract.

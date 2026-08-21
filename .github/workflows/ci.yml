@@ -5,17 +5,25 @@ on:
   push:
     branches:
       - main
+      - codex/rewrite-vnext
 
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   validate:
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-2vcpu-ubuntu-2404
+    timeout-minutes: 20
 
     steps:
       - name: Check out source
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
+        with:
+          persist-credentials: false
 
       - name: Set up Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
@@ -26,118 +34,92 @@ jobs:
           node-version: 24
           package-manager-cache: false
 
-      - name: Install dependencies
+      - name: Install frozen JavaScript dependencies
         run: bun install --frozen-lockfile
 
-      - name: Build npm CLI bundle
-        run: bun run build:node
+      - name: Validate contracts, generated artifacts, and release configuration
+        run: bun run contracts:check && bun run release:check && bun run build:check
 
-      - name: Validate tool surface
-        run: bun run validate:node
+      - name: Check Rust formatting
+        run: cargo fmt --all --check
 
-      - name: Validate shared contract and release configuration
-        run: bun run contracts:check && bun run release:check
+      - name: Lint Rust workspace
+        run: cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
+
+      - name: Test Rust workspace
+        run: cargo test --locked --workspace --all-targets --all-features
+
+      - name: Prove release builds reject judge fixtures
+        run: bun run rust:fixture-guard
+
+      - name: Install pinned Rust security checks
+        run: |
+          cargo install --locked cargo-audit --version 0.22.2
+          cargo install --locked cargo-deny --version 0.19.0
+
+      - name: Audit Rust dependencies and policy
+        run: |
+          cargo audit
+          cargo deny check
+
+      - name: Build fixture-enabled product
+        run: bun run build:judge
+
+      - name: Run product conformance and kind 80 judge
+        run: bun run judge
+
+      - name: Prove judge sensitivity
+        run: bun run judge:broken
 
       - name: Check npm package contents
         run: bun run pack:node
 
-  python-quality:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Check out source
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
-
-      - name: Set up Python
-        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
-        with:
-          python-version: "3.11"
-
-      - name: Set up uv
-        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
-        with:
-          version: "0.11.21"
-          enable-cache: true
-          cache-dependency-glob: packages/python/uv.lock
-
-      - name: Install locked Python environment
-        run: uv sync --locked
-        working-directory: packages/python
-
-      - name: Check Python formatting
-        run: uv run --locked ruff format --check .
-        working-directory: packages/python
-
-      - name: Lint Python package
-        run: uv run --locked ruff check .
-        working-directory: packages/python
-
-      - name: Type-check Python package
-        run: uv run --locked ty check
-        working-directory: packages/python
-
-  python-tests:
-    runs-on: ubuntu-latest
+  native-consumer:
+    name: Native consumer (${{ matrix.target.rust }} / Node ${{ matrix.node }})
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.11", "3.12", "3.13", "3.14"]
+        node: [22, 24, 26]
+        target:
+          - rust: x86_64-unknown-linux-gnu
+            runner: blacksmith-2vcpu-ubuntu-2404
+            arch: x64
+          - rust: aarch64-unknown-linux-gnu
+            runner: blacksmith-2vcpu-ubuntu-2404-arm
+            arch: arm64
+          - rust: aarch64-apple-darwin
+            runner: blacksmith-6vcpu-macos-15
+            arch: arm64
+          - rust: x86_64-pc-windows-msvc
+            runner: blacksmith-2vcpu-windows-2025
+            arch: x64
+    runs-on: ${{ matrix.target.runner }}
 
     steps:
       - name: Check out source
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
-
-      - name: Set up Python
-        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
         with:
-          python-version: ${{ matrix.python-version }}
+          persist-credentials: false
 
-      - name: Set up uv
-        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+      - name: Set up Node
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
         with:
-          version: "0.11.21"
-          enable-cache: true
-          cache-dependency-glob: packages/python/uv.lock
-          cache-suffix: py${{ matrix.python-version }}
+          node-version: ${{ matrix.node }}
+          architecture: ${{ matrix.target.arch }}
+          package-manager-cache: false
 
-      - name: Install locked Python environment
-        run: uv sync --locked --python ${{ matrix.python-version }}
-        working-directory: packages/python
+      - name: Install Rust target
+        run: rustup target add ${{ matrix.target.rust }}
 
-      - name: Run Python contract tests
-        run: uv run --locked --python ${{ matrix.python-version }} pytest
-        working-directory: packages/python
+      - name: Build production native artifact
+        run: cargo build --locked --release --target ${{ matrix.target.rust }} -p ytm-node
 
-  python-package:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Check out source
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
-
-      - name: Set up Python
-        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
-        with:
-          python-version: "3.11"
-
-      - name: Set up uv
-        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
-        with:
-          version: "0.11.21"
-          enable-cache: true
-          cache-dependency-glob: packages/python/uv.lock
-
-      - name: Build wheel and source distribution
-        run: uv build
-        working-directory: packages/python
-
-      - name: Validate wheel and extracted source distribution
-        run: uv run --locked --python 3.11 python scripts/validate_dist.py --python-version 3.11
-        working-directory: packages/python
-
-      - name: Install and import the built wheel
-        shell: bash
+      - name: Assemble product packages
         run: |
-          uv venv --python 3.11 .tmp/wheel-venv
-          uv pip install --python .tmp/wheel-venv/bin/python packages/python/dist/*.whl
-          .tmp/wheel-venv/bin/python -I -c 'import kisnet_ytm; assert kisnet_ytm.list_kinds()[0].name == "국채"'
+          node scripts/generate-native-packages.mjs
+          node packages/node/scripts/build.mjs --facade-only
+          node scripts/assemble-native-package.mjs ${{ matrix.target.rust }}
+
+      - name: Test clean installed CLI and toolset
+        run: node scripts/test-native-consumer.mjs ${{ matrix.target.rust }}

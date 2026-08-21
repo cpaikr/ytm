@@ -1,0 +1,453 @@
+openapi: 3.1.0
+info:
+  title: KIS-NET YTM Matrix HTTP Contract
+  version: 1.0.0
+  description: >-
+    Repository authority for the external HTTP and serialized Nexacro
+    PlatformData boundary used by ytm. Product behavior, normalized results,
+    and public JavaScript APIs are deliberately outside this contract.
+servers:
+  - url: https://kis-net.kr
+    description: Observed KIS-NET mobile source origin
+security: []
+tags:
+  - name: YTM Matrix
+
+x-ytm-authority:
+  role: sole-external-http-wire-authority
+  evidenceCorpus: contracts/kisnet/cases.json
+  generatedConsumers: []
+  handwrittenConformer: crates/ytm-core
+  knownBoundary:
+    closed:
+      - origin
+      - paths
+      - method
+      - request media type
+      - request datasets and columns
+      - response HTTP status
+      - Nexacro structural profile
+      - required matrix columns
+    open:
+      - kind codes and labels
+      - pricing group codes and labels
+      - unknown response attributes
+      - unknown protocol parameters
+      - unrelated response datasets
+      - unknown row columns
+
+x-ytm-nexacro-profile:
+  version: 1
+  namespace: http://www.nexacroplatform.com/platform/dataset
+  request:
+    xmlVersion: "1.0"
+    encoding: UTF-8
+    declaration: required
+    bom: forbidden
+    rootElement: Root
+    parametersElement: Parameters
+    scalarEncoding: escaped-text
+    orderedDatasets:
+      - ds_search
+      - gds_tranInfo
+    inDatasets: ds_search=ds_search gds_tranInfo=gds_tranInfo
+    directChildRules:
+      parameters: exactly-one-empty
+      datasets: exact-order
+      columnInfo: exactly-one-per-dataset
+      rowsContainer: exactly-one-per-dataset
+      rows: exactly-one-per-dataset
+      columns: exact-order-matching-column-info
+  response:
+    xmlVersion: "1.0"
+    encoding: UTF-8
+    declaration: optional
+    bom: optional-single-utf8
+    namespaceBindings: default-or-prefixed
+    doctype: forbidden
+    entityDeclarations: forbidden
+    externalResourceResolution: forbidden
+    characterReferences: built-in-and-numeric
+    maxDecompressedBodyBytes: 1048576
+    maxElementDepth: 64
+    rootDepth: 1
+    rootElement: Root
+    interpretationOrder:
+      - transport-and-body-bounds
+      - xml-well-formedness-and-profile
+      - protocol-status
+      - selected-dataset
+    directChildRules:
+      parameters: exactly-one
+      selectedDataset: exactly-one
+      columnInfo: allowed-and-ignored
+      rowsContainer: exactly-one
+      rows: direct-only
+      columns: direct-only
+    parameters:
+      ErrorCode:
+        cardinality: exactly-one
+        pattern: '^[+-]?[0-9]+$'
+        successPattern: '^[+-]?0+$'
+      ErrorMsg:
+        cardinality: zero-or-one
+        precedence: 1
+      ErrorMessage:
+        cardinality: zero-or-one
+        precedence: 2
+    scalarContent:
+      accepted:
+        - text
+        - cdata
+        - self-closing-as-empty-string
+      nestedElements: forbidden
+    rowColumns:
+      id: required-nonempty-and-unique-per-row
+    extensions:
+      attributes: allowed
+      parameters: allowed
+      unrelatedDatasets: allowed
+      rowColumns: allowed
+  transport:
+    requestHeaders:
+      Accept: text/xml, */*
+    requestDeadlineMilliseconds: 20000
+    deadlineScope: dns-tls-headers-and-decompressed-body
+    redirects: forbidden
+    automaticRetries: 0
+    concurrency: sequential
+
+paths:
+  /rateInfo/ytmMatrixMobileInitList.do:
+    post:
+      operationId: initializeYtmMatrix
+      summary: Initialize the YTM Matrix view and discover source kinds
+      tags: [YTM Matrix]
+      security: []
+      x-ytm-nexacro-request:
+        serviceId: search
+        endpoint: /rateInfo/ytmMatrixMobileInitList.do
+        inDatasets: ds_search=ds_search gds_tranInfo=gds_tranInfo
+        outDatasets: ds_tymSort=output1 ds_list=output2
+        search:
+          dataset: ds_search
+          schema: '#/components/schemas/SearchRow'
+          cboYtmSort: "10"
+          orderedColumns:
+            - { id: pageIndex, type: STRING, size: 256, value: "1" }
+            - { id: pageSize, type: STRING, size: 256, value: "10" }
+            - { id: pageUnit, type: STRING, size: 256, value: "10" }
+            - { id: calBaseDt, type: STRING, size: 256, valueFrom: baseDateCompact }
+            - { id: cboYtmSort, type: STRING, size: 256, value: "10" }
+        transaction:
+          dataset: gds_tranInfo
+          schema: '#/components/schemas/TransactionInfoRow'
+          orderedColumns:
+            - { id: svcID, type: STRING, size: 32, value: search }
+            - { id: URL, type: STRING, size: 32, value: /rateInfo/ytmMatrixMobileInitList.do }
+            - { id: inDatasets, type: STRING, size: 32, value: ds_search=ds_search gds_tranInfo=gds_tranInfo }
+            - { id: outDatasets, type: STRING, size: 32, value: ds_tymSort=output1 ds_list=output2 }
+            - { id: browserType, type: STRING, size: 32, value: Chrome }
+      x-ytm-nexacro-response:
+        selectedDataset: output1
+        rowSchema: '#/components/schemas/KindRow'
+        emptyRows: source-data-unavailable
+        unrelatedDatasets: allowed
+      requestBody:
+        required: true
+        content:
+          text/xml; charset=UTF-8:
+            schema:
+              $ref: '#/components/schemas/NexacroPlatformDataRequest'
+            example: |-
+              <?xml version="1.0" encoding="UTF-8"?>
+              <Root xmlns="http://www.nexacroplatform.com/platform/dataset">
+                <Parameters/>
+                <Dataset id="ds_search">
+                  <ColumnInfo>
+                    <Column id="pageIndex" type="STRING" size="256"/>
+                    <Column id="pageSize" type="STRING" size="256"/>
+                    <Column id="pageUnit" type="STRING" size="256"/>
+                    <Column id="calBaseDt" type="STRING" size="256"/>
+                    <Column id="cboYtmSort" type="STRING" size="256"/>
+                  </ColumnInfo>
+                  <Rows><Row>
+                    <Col id="pageIndex">1</Col>
+                    <Col id="pageSize">10</Col>
+                    <Col id="pageUnit">10</Col>
+                    <Col id="calBaseDt">20260608</Col>
+                    <Col id="cboYtmSort">10</Col>
+                  </Row></Rows>
+                </Dataset>
+                <Dataset id="gds_tranInfo">
+                  <ColumnInfo>
+                    <Column id="svcID" type="STRING" size="32"/>
+                    <Column id="URL" type="STRING" size="32"/>
+                    <Column id="inDatasets" type="STRING" size="32"/>
+                    <Column id="outDatasets" type="STRING" size="32"/>
+                    <Column id="browserType" type="STRING" size="32"/>
+                  </ColumnInfo>
+                  <Rows><Row>
+                    <Col id="svcID">search</Col>
+                    <Col id="URL">/rateInfo/ytmMatrixMobileInitList.do</Col>
+                    <Col id="inDatasets">ds_search=ds_search gds_tranInfo=gds_tranInfo</Col>
+                    <Col id="outDatasets">ds_tymSort=output1 ds_list=output2</Col>
+                    <Col id="browserType">Chrome</Col>
+                  </Row></Rows>
+                </Dataset>
+              </Root>
+      responses:
+        '200':
+          $ref: '#/components/responses/NexacroResponse'
+        default:
+          $ref: '#/components/responses/TransportFailure'
+
+  /rateInfo/ytmMatrixMobileList.do:
+    post:
+      operationId: listYtmMatrix
+      summary: Retrieve YTM Matrix rows for one date and kind code
+      tags: [YTM Matrix]
+      security: []
+      x-ytm-nexacro-request:
+        serviceId: search1
+        endpoint: /rateInfo/ytmMatrixMobileList.do
+        inDatasets: ds_search=ds_search gds_tranInfo=gds_tranInfo
+        outDatasets: ds_list=output1
+        search:
+          dataset: ds_search
+          schema: '#/components/schemas/SearchRow'
+          cboYtmSort: source-kind-code
+          orderedColumns:
+            - { id: pageIndex, type: STRING, size: 256, value: "1" }
+            - { id: pageSize, type: STRING, size: 256, value: "10" }
+            - { id: pageUnit, type: STRING, size: 256, value: "10" }
+            - { id: calBaseDt, type: STRING, size: 256, valueFrom: baseDateCompact }
+            - { id: cboYtmSort, type: STRING, size: 256, valueFrom: sourceKindCode }
+        transaction:
+          dataset: gds_tranInfo
+          schema: '#/components/schemas/TransactionInfoRow'
+          orderedColumns:
+            - { id: svcID, type: STRING, size: 32, value: search1 }
+            - { id: URL, type: STRING, size: 32, value: /rateInfo/ytmMatrixMobileList.do }
+            - { id: inDatasets, type: STRING, size: 32, value: ds_search=ds_search gds_tranInfo=gds_tranInfo }
+            - { id: outDatasets, type: STRING, size: 32, value: ds_list=output1 }
+            - { id: browserType, type: STRING, size: 32, value: Chrome }
+      x-ytm-nexacro-response:
+        selectedDataset: output1
+        rowSchema: '#/components/schemas/MatrixRow'
+        emptyRows: source-data-unavailable
+        unrelatedDatasets: allowed
+      requestBody:
+        required: true
+        content:
+          text/xml; charset=UTF-8:
+            schema:
+              $ref: '#/components/schemas/NexacroPlatformDataRequest'
+            example: |-
+              <?xml version="1.0" encoding="UTF-8"?>
+              <Root xmlns="http://www.nexacroplatform.com/platform/dataset">
+                <Parameters/>
+                <Dataset id="ds_search">
+                  <ColumnInfo>
+                    <Column id="pageIndex" type="STRING" size="256"/>
+                    <Column id="pageSize" type="STRING" size="256"/>
+                    <Column id="pageUnit" type="STRING" size="256"/>
+                    <Column id="calBaseDt" type="STRING" size="256"/>
+                    <Column id="cboYtmSort" type="STRING" size="256"/>
+                  </ColumnInfo>
+                  <Rows><Row>
+                    <Col id="pageIndex">1</Col>
+                    <Col id="pageSize">10</Col>
+                    <Col id="pageUnit">10</Col>
+                    <Col id="calBaseDt">20260608</Col>
+                    <Col id="cboYtmSort">10</Col>
+                  </Row></Rows>
+                </Dataset>
+                <Dataset id="gds_tranInfo">
+                  <ColumnInfo>
+                    <Column id="svcID" type="STRING" size="32"/>
+                    <Column id="URL" type="STRING" size="32"/>
+                    <Column id="inDatasets" type="STRING" size="32"/>
+                    <Column id="outDatasets" type="STRING" size="32"/>
+                    <Column id="browserType" type="STRING" size="32"/>
+                  </ColumnInfo>
+                  <Rows><Row>
+                    <Col id="svcID">search1</Col>
+                    <Col id="URL">/rateInfo/ytmMatrixMobileList.do</Col>
+                    <Col id="inDatasets">ds_search=ds_search gds_tranInfo=gds_tranInfo</Col>
+                    <Col id="outDatasets">ds_list=output1</Col>
+                    <Col id="browserType">Chrome</Col>
+                  </Row></Rows>
+                </Dataset>
+              </Root>
+      responses:
+        '200':
+          $ref: '#/components/responses/NexacroResponse'
+        default:
+          $ref: '#/components/responses/TransportFailure'
+
+components:
+  responses:
+    NexacroResponse:
+      description: >-
+        A bounded Nexacro PlatformData document. ErrorCode zero carries data;
+        any textual nonzero integer is a protocol failure in the same HTTP 200
+        response. An empty selected dataset is valid on the wire and maps to a
+        product-level source_data_unavailable result.
+      headers:
+        Content-Type:
+          description: Observed as XML with UTF-8 charset; parameter spacing is not significant.
+          schema:
+            type: string
+            pattern: '^text/xml\s*;\s*charset=UTF-8$'
+      content:
+        text/xml:
+          schema:
+            $ref: '#/components/schemas/NexacroPlatformDataResponse'
+    TransportFailure:
+      description: >-
+        Any non-200 status is a transport failure. The response body is never
+        interpreted as a Nexacro protocol document.
+
+  schemas:
+    NexacroPlatformDataRequest:
+      type: string
+      contentMediaType: text/xml
+      description: >-
+        Serialized Nexacro PlatformData. The operation's
+        x-ytm-nexacro-request projection and the root
+        x-ytm-nexacro-profile are normative because OpenAPI XML object mapping
+        cannot express the required dataset order and scalar rules.
+
+    NexacroPlatformDataResponse:
+      type: string
+      contentMediaType: text/xml
+      description: >-
+        Serialized Nexacro PlatformData, bounded in decompressed bytes before
+        UTF-8 decoding. The root x-ytm-nexacro-profile is normative.
+
+    SearchRow:
+      type: object
+      additionalProperties: false
+      required: [pageIndex, pageSize, pageUnit, calBaseDt, cboYtmSort]
+      properties:
+        pageIndex:
+          type: string
+          const: "1"
+        pageSize:
+          type: string
+          const: "10"
+        pageUnit:
+          type: string
+          const: "10"
+        calBaseDt:
+          type: string
+          pattern: '^\d{8}$'
+          examples: ["20260608"]
+        cboYtmSort:
+          type: string
+          minLength: 1
+          examples: ["10", "80"]
+
+    TransactionInfoRow:
+      type: object
+      additionalProperties: false
+      required: [svcID, URL, inDatasets, outDatasets, browserType]
+      properties:
+        svcID:
+          type: string
+          enum: [search, search1]
+        URL:
+          type: string
+          enum:
+            - /rateInfo/ytmMatrixMobileInitList.do
+            - /rateInfo/ytmMatrixMobileList.do
+        inDatasets:
+          type: string
+          const: ds_search=ds_search gds_tranInfo=gds_tranInfo
+        outDatasets:
+          type: string
+          enum:
+            - ds_tymSort=output1 ds_list=output2
+            - ds_list=output1
+        browserType:
+          type: string
+          const: Chrome
+
+    NexacroParameters:
+      type: object
+      additionalProperties: true
+      required: [ErrorCode]
+      properties:
+        ErrorCode:
+          type: string
+          pattern: '^[+-]?[0-9]+$'
+        ErrorMsg:
+          type: string
+        ErrorMessage:
+          type: string
+
+    KindRow:
+      type: object
+      additionalProperties:
+        type: string
+      required: [divCode, divName]
+      properties:
+        divCode:
+          type: string
+          minLength: 1
+          examples: ["10", "80"]
+        divName:
+          type: string
+          minLength: 1
+          examples: [국채, 회사채(사모)]
+
+    MatrixRow:
+      type: object
+      additionalProperties:
+        type: string
+      required:
+        - pricingGroupCode
+        - pricingGroupName
+        - m3
+        - m6
+        - m9
+        - y1
+        - y15a
+        - y2
+        - y25
+        - y3
+        - y5
+        - y7
+        - y10
+        - y15
+        - y20
+        - y30
+        - y50
+      properties:
+        pricingGroupCode:
+          type: string
+          minLength: 1
+        pricingGroupName:
+          type: string
+          minLength: 1
+        m3: { $ref: '#/components/schemas/YieldCell' }
+        m6: { $ref: '#/components/schemas/YieldCell' }
+        m9: { $ref: '#/components/schemas/YieldCell' }
+        y1: { $ref: '#/components/schemas/YieldCell' }
+        y15a: { $ref: '#/components/schemas/YieldCell' }
+        y2: { $ref: '#/components/schemas/YieldCell' }
+        y25: { $ref: '#/components/schemas/YieldCell' }
+        y3: { $ref: '#/components/schemas/YieldCell' }
+        y5: { $ref: '#/components/schemas/YieldCell' }
+        y7: { $ref: '#/components/schemas/YieldCell' }
+        y10: { $ref: '#/components/schemas/YieldCell' }
+        y15: { $ref: '#/components/schemas/YieldCell' }
+        y20: { $ref: '#/components/schemas/YieldCell' }
+        y30: { $ref: '#/components/schemas/YieldCell' }
+        y50: { $ref: '#/components/schemas/YieldCell' }
+
+    YieldCell:
+      type: string
+      pattern: '^(?:[+-]?(?:\d+(?:\.\d*)?|\.\d+)|-|)$'
+      examples: ["2.500", "-", ""]

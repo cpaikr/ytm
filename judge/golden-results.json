@@ -1,0 +1,2938 @@
+{
+  "binding:native-binding:preaborted-signal": {
+    "status": 0,
+    "envelope": {
+      "ok": false,
+      "error": {
+        "ok": false,
+        "code": "source_transport_error",
+        "reason": "KIS-NET request was cancelled.",
+        "expected": "A successful HTTP response from KIS-NET",
+        "recoveryHint": "Retry later or inspect whether KIS-NET is available.",
+        "recoveryAction": "inspect_tool_help",
+        "recoverable": true,
+        "retryable": true,
+        "cause": "AbortError"
+      }
+    },
+    "stderr": "empty"
+  },
+  "cli:cli-machine-contract:aliases": {
+    "status": 0,
+    "signal": null,
+    "stdout": "{\"ok\":true,\"operation\":\"matrix\",\"result\":{\"baseDate\":\"2026-06-08\",\"kind\":{\"code\":\"10\",\"name\":\"국채\"},\"tenors\":[\"3M\",\"6M\",\"9M\",\"1Y\",\"1.5Y\",\"2Y\",\"2.5Y\",\"3Y\",\"5Y\",\"7Y\",\"10Y\",\"15Y\",\"20Y\",\"30Y\",\"50Y\"],\"rows\":[{\"groupName\":\"국채\",\"pricingGroupCode\":\"100\",\"pricingGroupName\":\"국고채권\",\"yields\":{\"3M\":2.5,\"6M\":2.51,\"9M\":2.52,\"1Y\":2.53,\"1.5Y\":2.54,\"2Y\":2.55,\"2.5Y\":2.56,\"3Y\":2.57,\"5Y\":2.6,\"7Y\":2.7,\"10Y\":2.8,\"15Y\":2.9,\"20Y\":3,\"30Y\":3.1,\"50Y\":3.2},\"yieldText\":{\"3M\":\"2.500\",\"6M\":\"2.510\",\"9M\":\"2.520\",\"1Y\":\"2.530\",\"1.5Y\":\"2.540\",\"2Y\":\"2.550\",\"2.5Y\":\"2.560\",\"3Y\":\"2.570\",\"5Y\":\"2.600\",\"7Y\":\"2.700\",\"10Y\":\"2.800\",\"15Y\":\"2.900\",\"20Y\":\"3.000\",\"30Y\":\"3.100\",\"50Y\":\"3.200\"},\"raw\":{\"pricingGroupCode\":\"100\",\"pricingGroupName\":\"국고채권\",\"m3\":\"2.500\",\"m6\":\"2.510\",\"m9\":\"2.520\",\"y1\":\"2.530\",\"y15a\":\"2.540\",\"y2\":\"2.550\",\"y25\":\"2.560\",\"y3\":\"2.570\",\"y5\":\"2.600\",\"y7\":\"2.700\",\"y10\":\"2.800\",\"y15\":\"2.900\",\"y20\":\"3.000\",\"y30\":\"3.100\",\"y50\":\"3.200\"}}],\"source\":{\"pageUrl\":\"https://kis-net.kr/kisnet_mobile/index.html\",\"endpoint\":\"https://kis-net.kr/rateInfo/ytmMatrixMobileList.do\",\"method\":\"POST\",\"request\":{\"format\":\"Nexacro XML PlatformData\",\"inDatasets\":\"ds_search=ds_search gds_tranInfo=gds_tranInfo\",\"outDatasets\":\"ds_list=output1\",\"parameters\":{\"calBaseDt\":\"20260608\",\"cboYtmSort\":\"10\"}},\"inspectedWorkflow\":\"The mobile page posts ds_search to /rateInfo/ytmMatrixMobileList.do when 검색 is clicked.\"},\"requestedBaseDate\":\"2026-06-08\",\"dateResolution\":{\"mode\":\"previous-available\",\"requestedBaseDate\":\"2026-06-08\",\"resolvedBaseDate\":\"2026-06-08\",\"usedFallback\":false,\"attemptedDates\":[\"2026-06-08\"],\"lookbackDays\":2}}}\n",
+    "stderr": ""
+  },
+  "cli:cli-machine-contract:command-help": {
+    "status": 0,
+    "signal": null,
+    "stdout": "matrix\n  Input JSON: { \"baseDate\": \"2026-06-08\", \"kind\": \"국채\" }\n  Optional fallback: { \"fallback\": \"previous-available\", \"lookbackDays\": 10 }\n  baseDate maps to 기준일 and accepts YYYY-MM-DD, YYYY.MM.DD, or YYYYMMDD.\n  kind maps to 종류 and accepts one of these Korean labels or source codes:\n    10 = 국채\n    20 = 지방채\n    30 = 특수채\n    40 = 통안채\n    50 = 은행채\n    60 = 기타금융채\n    70 = 회사채(무보증)\n    80 = 회사채(사모)\n  fallback=previous-available tries the requested date once, then walks backward until rows are found.\n  lookbackDays defaults to 10 and may not exceed 31.\n  Run kinds to print this list as JSON, CSV, or TSV.\n  Result rows include 적용대상채권, tenors 3M through 50Y, and dateResolution metadata.\n\nCLI example:\n  ytm matrix --base-date 2026-06-08 --kind 국채 --format json\n",
+    "stderr": ""
+  },
+  "cli:cli-machine-contract:csv": {
+    "status": 0,
+    "signal": null,
+    "stdout": "requestedBaseDate,baseDate,usedFallback,kindCode,kindName,pricingGroupCode,pricingGroupName,3M,6M,9M,1Y,1.5Y,2Y,2.5Y,3Y,5Y,7Y,10Y,15Y,20Y,30Y,50Y\n2026-06-08,2026-06-08,false,10,국채,100,국고채권,2.5,2.51,2.52,2.53,2.54,2.55,2.56,2.57,2.6,2.7,2.8,2.9,3,3.1,3.2\n",
+    "stderr": ""
+  },
+  "cli:cli-machine-contract:formula-safe-csv": {
+    "status": 0,
+    "signal": null,
+    "stdout": "requestedBaseDate,baseDate,usedFallback,kindCode,kindName,pricingGroupCode,pricingGroupName,3M,6M,9M,1Y,1.5Y,2Y,2.5Y,3Y,5Y,7Y,10Y,15Y,20Y,30Y,50Y\n2026-06-08,2026-06-08,false,10,국채,100,'=1+1,-4.455,2.51,2.52,2.53,2.54,2.55,2.56,2.57,2.6,2.7,2.8,2.9,3,3.1,3.2\n",
+    "stderr": ""
+  },
+  "cli:cli-machine-contract:help": {
+    "status": 0,
+    "signal": null,
+    "stdout": "KIS-NET YTM Matrix toolset\n\nOperations:\n  matrix: fetch YTM Matrix rows for a 기준일 and 종류.\n  kinds: list accepted 종류 codes and Korean labels.\n\nAccepted 종류 values:\n  10 = 국채\n  20 = 지방채\n  30 = 특수채\n  40 = 통안채\n  50 = 은행채\n  60 = 기타금융채\n  70 = 회사채(무보증)\n  80 = 회사채(사모)\n\nSource terms are preserved where official: 기준일, 종류, and 적용대상채권.\nUse validateInput(operationName, input) before execute when integrating in-process.\n\nCLI usage:\n  ytm matrix --base-date <기준일> --kind <종류> [--fallback previous-available] [--lookback-days <days>] [--format json|csv|tsv] [--pretty]\n  ytm kinds [--base-date <기준일>] [--format json|csv|tsv] [--pretty]\n  ytm help <command>\n\nOutput:\n  json is the default and prints one JSON object. csv and tsv print tabular success rows. Failures always print one JSON object to stdout and exit non-zero. Help diagnostics for invalid invocations are written to stderr.\n",
+    "stderr": ""
+  },
+  "cli:cli-machine-contract:input-json": {
+    "status": 0,
+    "signal": null,
+    "stdout": "{\"ok\":true,\"operation\":\"matrix\",\"result\":{\"baseDate\":\"2026-06-08\",\"kind\":{\"code\":\"10\",\"name\":\"국채\"},\"tenors\":[\"3M\",\"6M\",\"9M\",\"1Y\",\"1.5Y\",\"2Y\",\"2.5Y\",\"3Y\",\"5Y\",\"7Y\",\"10Y\",\"15Y\",\"20Y\",\"30Y\",\"50Y\"],\"rows\":[{\"groupName\":\"국채\",\"pricingGroupCode\":\"100\",\"pricingGroupName\":\"국고채권\",\"yields\":{\"3M\":2.5,\"6M\":2.51,\"9M\":2.52,\"1Y\":2.53,\"1.5Y\":2.54,\"2Y\":2.55,\"2.5Y\":2.56,\"3Y\":2.57,\"5Y\":2.6,\"7Y\":2.7,\"10Y\":2.8,\"15Y\":2.9,\"20Y\":3,\"30Y\":3.1,\"50Y\":3.2},\"yieldText\":{\"3M\":\"2.500\",\"6M\":\"2.510\",\"9M\":\"2.520\",\"1Y\":\"2.530\",\"1.5Y\":\"2.540\",\"2Y\":\"2.550\",\"2.5Y\":\"2.560\",\"3Y\":\"2.570\",\"5Y\":\"2.600\",\"7Y\":\"2.700\",\"10Y\":\"2.800\",\"15Y\":\"2.900\",\"20Y\":\"3.000\",\"30Y\":\"3.100\",\"50Y\":\"3.200\"},\"raw\":{\"pricingGroupCode\":\"100\",\"pricingGroupName\":\"국고채권\",\"m3\":\"2.500\",\"m6\":\"2.510\",\"m9\":\"2.520\",\"y1\":\"2.530\",\"y15a\":\"2.540\",\"y2\":\"2.550\",\"y25\":\"2.560\",\"y3\":\"2.570\",\"y5\":\"2.600\",\"y7\":\"2.700\",\"y10\":\"2.800\",\"y15\":\"2.900\",\"y20\":\"3.000\",\"y30\":\"3.100\",\"y50\":\"3.200\"}}],\"source\":{\"pageUrl\":\"https://kis-net.kr/kisnet_mobile/index.html\",\"endpoint\":\"https://kis-net.kr/rateInfo/ytmMatrixMobileList.do\",\"method\":\"POST\",\"request\":{\"format\":\"Nexacro XML PlatformData\",\"inDatasets\":\"ds_search=ds_search gds_tranInfo=gds_tranInfo\",\"outDatasets\":\"ds_list=output1\",\"parameters\":{\"calBaseDt\":\"20260608\",\"cboYtmSort\":\"10\"}},\"inspectedWorkflow\":\"The mobile page posts ds_search to /rateInfo/ytmMatrixMobileList.do when 검색 is clicked.\"},\"requestedBaseDate\":\"2026-06-08\",\"dateResolution\":{\"mode\":\"exact\",\"requestedBaseDate\":\"2026-06-08\",\"resolvedBaseDate\":\"2026-06-08\",\"usedFallback\":false,\"attemptedDates\":[\"2026-06-08\"],\"lookbackDays\":0}}}\n",
+    "stderr": ""
+  },
+  "cli:cli-machine-contract:json": {
+    "status": 0,
+    "signal": null,
+    "stdout": "{\"ok\":true,\"operation\":\"matrix\",\"result\":{\"baseDate\":\"2026-06-08\",\"kind\":{\"code\":\"10\",\"name\":\"국채\"},\"tenors\":[\"3M\",\"6M\",\"9M\",\"1Y\",\"1.5Y\",\"2Y\",\"2.5Y\",\"3Y\",\"5Y\",\"7Y\",\"10Y\",\"15Y\",\"20Y\",\"30Y\",\"50Y\"],\"rows\":[{\"groupName\":\"국채\",\"pricingGroupCode\":\"100\",\"pricingGroupName\":\"국고채권\",\"yields\":{\"3M\":2.5,\"6M\":2.51,\"9M\":2.52,\"1Y\":2.53,\"1.5Y\":2.54,\"2Y\":2.55,\"2.5Y\":2.56,\"3Y\":2.57,\"5Y\":2.6,\"7Y\":2.7,\"10Y\":2.8,\"15Y\":2.9,\"20Y\":3,\"30Y\":3.1,\"50Y\":3.2},\"yieldText\":{\"3M\":\"2.500\",\"6M\":\"2.510\",\"9M\":\"2.520\",\"1Y\":\"2.530\",\"1.5Y\":\"2.540\",\"2Y\":\"2.550\",\"2.5Y\":\"2.560\",\"3Y\":\"2.570\",\"5Y\":\"2.600\",\"7Y\":\"2.700\",\"10Y\":\"2.800\",\"15Y\":\"2.900\",\"20Y\":\"3.000\",\"30Y\":\"3.100\",\"50Y\":\"3.200\"},\"raw\":{\"pricingGroupCode\":\"100\",\"pricingGroupName\":\"국고채권\",\"m3\":\"2.500\",\"m6\":\"2.510\",\"m9\":\"2.520\",\"y1\":\"2.530\",\"y15a\":\"2.540\",\"y2\":\"2.550\",\"y25\":\"2.560\",\"y3\":\"2.570\",\"y5\":\"2.600\",\"y7\":\"2.700\",\"y10\":\"2.800\",\"y15\":\"2.900\",\"y20\":\"3.000\",\"y30\":\"3.100\",\"y50\":\"3.200\"}}],\"source\":{\"pageUrl\":\"https://kis-net.kr/kisnet_mobile/index.html\",\"endpoint\":\"https://kis-net.kr/rateInfo/ytmMatrixMobileList.do\",\"method\":\"POST\",\"request\":{\"format\":\"Nexacro XML PlatformData\",\"inDatasets\":\"ds_search=ds_search gds_tranInfo=gds_tranInfo\",\"outDatasets\":\"ds_list=output1\",\"parameters\":{\"calBaseDt\":\"20260608\",\"cboYtmSort\":\"10\"}},\"inspectedWorkflow\":\"The mobile page posts ds_search to /rateInfo/ytmMatrixMobileList.do when 검색 is clicked.\"},\"requestedBaseDate\":\"2026-06-08\",\"dateResolution\":{\"mode\":\"exact\",\"requestedBaseDate\":\"2026-06-08\",\"resolvedBaseDate\":\"2026-06-08\",\"usedFallback\":false,\"attemptedDates\":[\"2026-06-08\"],\"lookbackDays\":0}}}\n",
+    "stderr": ""
+  },
+  "cli:cli-machine-contract:pretty": {
+    "status": 0,
+    "signal": null,
+    "stdout": "{\n  \"ok\": true,\n  \"operation\": \"matrix\",\n  \"result\": {\n    \"baseDate\": \"2026-06-08\",\n    \"kind\": {\n      \"code\": \"10\",\n      \"name\": \"국채\"\n    },\n    \"tenors\": [\n      \"3M\",\n      \"6M\",\n      \"9M\",\n      \"1Y\",\n      \"1.5Y\",\n      \"2Y\",\n      \"2.5Y\",\n      \"3Y\",\n      \"5Y\",\n      \"7Y\",\n      \"10Y\",\n      \"15Y\",\n      \"20Y\",\n      \"30Y\",\n      \"50Y\"\n    ],\n    \"rows\": [\n      {\n        \"groupName\": \"국채\",\n        \"pricingGroupCode\": \"100\",\n        \"pricingGroupName\": \"국고채권\",\n        \"yields\": {\n          \"3M\": 2.5,\n          \"6M\": 2.51,\n          \"9M\": 2.52,\n          \"1Y\": 2.53,\n          \"1.5Y\": 2.54,\n          \"2Y\": 2.55,\n          \"2.5Y\": 2.56,\n          \"3Y\": 2.57,\n          \"5Y\": 2.6,\n          \"7Y\": 2.7,\n          \"10Y\": 2.8,\n          \"15Y\": 2.9,\n          \"20Y\": 3,\n          \"30Y\": 3.1,\n          \"50Y\": 3.2\n        },\n        \"yieldText\": {\n          \"3M\": \"2.500\",\n          \"6M\": \"2.510\",\n          \"9M\": \"2.520\",\n          \"1Y\": \"2.530\",\n          \"1.5Y\": \"2.540\",\n          \"2Y\": \"2.550\",\n          \"2.5Y\": \"2.560\",\n          \"3Y\": \"2.570\",\n          \"5Y\": \"2.600\",\n          \"7Y\": \"2.700\",\n          \"10Y\": \"2.800\",\n          \"15Y\": \"2.900\",\n          \"20Y\": \"3.000\",\n          \"30Y\": \"3.100\",\n          \"50Y\": \"3.200\"\n        },\n        \"raw\": {\n          \"pricingGroupCode\": \"100\",\n          \"pricingGroupName\": \"국고채권\",\n          \"m3\": \"2.500\",\n          \"m6\": \"2.510\",\n          \"m9\": \"2.520\",\n          \"y1\": \"2.530\",\n          \"y15a\": \"2.540\",\n          \"y2\": \"2.550\",\n          \"y25\": \"2.560\",\n          \"y3\": \"2.570\",\n          \"y5\": \"2.600\",\n          \"y7\": \"2.700\",\n          \"y10\": \"2.800\",\n          \"y15\": \"2.900\",\n          \"y20\": \"3.000\",\n          \"y30\": \"3.100\",\n          \"y50\": \"3.200\"\n        }\n      }\n    ],\n    \"source\": {\n      \"pageUrl\": \"https://kis-net.kr/kisnet_mobile/index.html\",\n      \"endpoint\": \"https://kis-net.kr/rateInfo/ytmMatrixMobileList.do\",\n      \"method\": \"POST\",\n      \"request\": {\n        \"format\": \"Nexacro XML PlatformData\",\n        \"inDatasets\": \"ds_search=ds_search gds_tranInfo=gds_tranInfo\",\n        \"outDatasets\": \"ds_list=output1\",\n        \"parameters\": {\n          \"calBaseDt\": \"20260608\",\n          \"cboYtmSort\": \"10\"\n        }\n      },\n      \"inspectedWorkflow\": \"The mobile page posts ds_search to /rateInfo/ytmMatrixMobileList.do when 검색 is clicked.\"\n    },\n    \"requestedBaseDate\": \"2026-06-08\",\n    \"dateResolution\": {\n      \"mode\": \"exact\",\n      \"requestedBaseDate\": \"2026-06-08\",\n      \"resolvedBaseDate\": \"2026-06-08\",\n      \"usedFallback\": false,\n      \"attemptedDates\": [\n        \"2026-06-08\"\n      ],\n      \"lookbackDays\": 0\n    }\n  }\n}\n",
+    "stderr": ""
+  },
+  "cli:cli-machine-contract:transport-exit-one": {
+    "status": 1,
+    "signal": null,
+    "stdout": "{\"ok\":false,\"error\":{\"ok\":false,\"code\":\"source_transport_error\",\"reason\":\"KIS-NET request failed before a response was received.\",\"expected\":\"A successful HTTP response from KIS-NET\",\"recoveryHint\":\"Retry later or inspect whether KIS-NET is available.\",\"recoveryAction\":\"inspect_tool_help\",\"recoverable\":true,\"retryable\":true,\"cause\":\"TypeError\"}}\n",
+    "stderr": ""
+  },
+  "cli:cli-machine-contract:tsv": {
+    "status": 0,
+    "signal": null,
+    "stdout": "code\tname\n10\t국채\n20\t지방채\n30\t특수채\n40\t통안채\n50\t은행채\n60\t기타금융채\n70\t회사채(무보증)\n80\t회사채(사모)\n",
+    "stderr": ""
+  },
+  "cli:cli-machine-contract:validation": {
+    "status": 2,
+    "signal": null,
+    "stdout": "{\"ok\":false,\"error\":{\"ok\":false,\"code\":\"missing_parameter\",\"operationName\":\"matrix\",\"parameter\":\"baseDate\",\"reason\":\"Missing required parameter: baseDate.\",\"expected\":{\"type\":\"string\",\"description\":\"기준일. Accepted forms: YYYY-MM-DD, YYYY.MM.DD, or YYYYMMDD.\"},\"actual\":\"[missing]\",\"exampleInput\":{\"baseDate\":\"2026-06-08\",\"kind\":\"국채\"},\"recoveryHint\":\"Provide baseDate.\",\"recoveryAction\":\"inspect_command_help\",\"recoverable\":true,\"retryable\":false}}\n",
+    "stderr": "\nmatrix\n  Input JSON: { \"baseDate\": \"2026-06-08\", \"kind\": \"국채\" }\n  Optional fallback: { \"fallback\": \"previous-available\", \"lookbackDays\": 10 }\n  baseDate maps to 기준일 and accepts YYYY-MM-DD, YYYY.MM.DD, or YYYYMMDD.\n  kind maps to 종류 and accepts one of these Korean labels or source codes:\n    10 = 국채\n    20 = 지방채\n    30 = 특수채\n    40 = 통안채\n    50 = 은행채\n    60 = 기타금융채\n    70 = 회사채(무보증)\n    80 = 회사채(사모)\n  fallback=previous-available tries the requested date once, then walks backward until rows are found.\n  lookbackDays defaults to 10 and may not exceed 31.\n  Run kinds to print this list as JSON, CSV, or TSV.\n  Result rows include 적용대상채권, tenors 3M through 50Y, and dateResolution metadata.\n\nCLI example:\n  ytm matrix --base-date 2026-06-08 --kind 국채 --format json\n"
+  },
+  "cli:kind-80:cli-code": {
+    "status": 0,
+    "signal": null,
+    "stdout": "{\"ok\":true,\"operation\":\"matrix\",\"result\":{\"baseDate\":\"2026-06-08\",\"kind\":{\"code\":\"80\",\"name\":\"회사채(사모)\"},\"tenors\":[\"3M\",\"6M\",\"9M\",\"1Y\",\"1.5Y\",\"2Y\",\"2.5Y\",\"3Y\",\"5Y\",\"7Y\",\"10Y\",\"15Y\",\"20Y\",\"30Y\",\"50Y\"],\"rows\":[{\"groupName\":\"회사채(사모)\",\"pricingGroupCode\":\"100\",\"pricingGroupName\":\"국고채권\",\"yields\":{\"3M\":2.5,\"6M\":2.51,\"9M\":2.52,\"1Y\":2.53,\"1.5Y\":2.54,\"2Y\":2.55,\"2.5Y\":2.56,\"3Y\":2.57,\"5Y\":2.6,\"7Y\":2.7,\"10Y\":2.8,\"15Y\":2.9,\"20Y\":3,\"30Y\":3.1,\"50Y\":3.2},\"yieldText\":{\"3M\":\"2.500\",\"6M\":\"2.510\",\"9M\":\"2.520\",\"1Y\":\"2.530\",\"1.5Y\":\"2.540\",\"2Y\":\"2.550\",\"2.5Y\":\"2.560\",\"3Y\":\"2.570\",\"5Y\":\"2.600\",\"7Y\":\"2.700\",\"10Y\":\"2.800\",\"15Y\":\"2.900\",\"20Y\":\"3.000\",\"30Y\":\"3.100\",\"50Y\":\"3.200\"},\"raw\":{\"pricingGroupCode\":\"100\",\"pricingGroupName\":\"국고채권\",\"m3\":\"2.500\",\"m6\":\"2.510\",\"m9\":\"2.520\",\"y1\":\"2.530\",\"y15a\":\"2.540\",\"y2\":\"2.550\",\"y25\":\"2.560\",\"y3\":\"2.570\",\"y5\":\"2.600\",\"y7\":\"2.700\",\"y10\":\"2.800\",\"y15\":\"2.900\",\"y20\":\"3.000\",\"y30\":\"3.100\",\"y50\":\"3.200\"}}],\"source\":{\"pageUrl\":\"https://kis-net.kr/kisnet_mobile/index.html\",\"endpoint\":\"https://kis-net.kr/rateInfo/ytmMatrixMobileList.do\",\"method\":\"POST\",\"request\":{\"format\":\"Nexacro XML PlatformData\",\"inDatasets\":\"ds_search=ds_search gds_tranInfo=gds_tranInfo\",\"outDatasets\":\"ds_list=output1\",\"parameters\":{\"calBaseDt\":\"20260608\",\"cboYtmSort\":\"80\"}},\"inspectedWorkflow\":\"The mobile page posts ds_search to /rateInfo/ytmMatrixMobileList.do when 검색 is clicked.\"},\"requestedBaseDate\":\"2026-06-08\",\"dateResolution\":{\"mode\":\"exact\",\"requestedBaseDate\":\"2026-06-08\",\"resolvedBaseDate\":\"2026-06-08\",\"usedFallback\":false,\"attemptedDates\":[\"2026-06-08\"],\"lookbackDays\":0}}}\n",
+    "stderr": ""
+  },
+  "cli:kind-80:cli-label": {
+    "status": 0,
+    "signal": null,
+    "stdout": "{\"ok\":true,\"operation\":\"matrix\",\"result\":{\"baseDate\":\"2026-06-08\",\"kind\":{\"code\":\"80\",\"name\":\"회사채(사모)\"},\"tenors\":[\"3M\",\"6M\",\"9M\",\"1Y\",\"1.5Y\",\"2Y\",\"2.5Y\",\"3Y\",\"5Y\",\"7Y\",\"10Y\",\"15Y\",\"20Y\",\"30Y\",\"50Y\"],\"rows\":[{\"groupName\":\"회사채(사모)\",\"pricingGroupCode\":\"100\",\"pricingGroupName\":\"국고채권\",\"yields\":{\"3M\":2.5,\"6M\":2.51,\"9M\":2.52,\"1Y\":2.53,\"1.5Y\":2.54,\"2Y\":2.55,\"2.5Y\":2.56,\"3Y\":2.57,\"5Y\":2.6,\"7Y\":2.7,\"10Y\":2.8,\"15Y\":2.9,\"20Y\":3,\"30Y\":3.1,\"50Y\":3.2},\"yieldText\":{\"3M\":\"2.500\",\"6M\":\"2.510\",\"9M\":\"2.520\",\"1Y\":\"2.530\",\"1.5Y\":\"2.540\",\"2Y\":\"2.550\",\"2.5Y\":\"2.560\",\"3Y\":\"2.570\",\"5Y\":\"2.600\",\"7Y\":\"2.700\",\"10Y\":\"2.800\",\"15Y\":\"2.900\",\"20Y\":\"3.000\",\"30Y\":\"3.100\",\"50Y\":\"3.200\"},\"raw\":{\"pricingGroupCode\":\"100\",\"pricingGroupName\":\"국고채권\",\"m3\":\"2.500\",\"m6\":\"2.510\",\"m9\":\"2.520\",\"y1\":\"2.530\",\"y15a\":\"2.540\",\"y2\":\"2.550\",\"y25\":\"2.560\",\"y3\":\"2.570\",\"y5\":\"2.600\",\"y7\":\"2.700\",\"y10\":\"2.800\",\"y15\":\"2.900\",\"y20\":\"3.000\",\"y30\":\"3.100\",\"y50\":\"3.200\"}}],\"source\":{\"pageUrl\":\"https://kis-net.kr/kisnet_mobile/index.html\",\"endpoint\":\"https://kis-net.kr/rateInfo/ytmMatrixMobileList.do\",\"method\":\"POST\",\"request\":{\"format\":\"Nexacro XML PlatformData\",\"inDatasets\":\"ds_search=ds_search gds_tranInfo=gds_tranInfo\",\"outDatasets\":\"ds_list=output1\",\"parameters\":{\"calBaseDt\":\"20260608\",\"cboYtmSort\":\"80\"}},\"inspectedWorkflow\":\"The mobile page posts ds_search to /rateInfo/ytmMatrixMobileList.do when 검색 is clicked.\"},\"requestedBaseDate\":\"2026-06-08\",\"dateResolution\":{\"mode\":\"exact\",\"requestedBaseDate\":\"2026-06-08\",\"resolvedBaseDate\":\"2026-06-08\",\"usedFallback\":false,\"attemptedDates\":[\"2026-06-08\"],\"lookbackDays\":0}}}\n",
+    "stderr": ""
+  },
+  "package:package-surface": {
+    "name": "@sjunepark/ytm",
+    "bin": "dist/cli.js",
+    "toolset": "./dist/toolset.js",
+    "types": "./dist/toolset.d.ts",
+    "packageJsonExport": "./package.json",
+    "engine": ">=22",
+    "files": [
+      {
+        "path": "dist/cli.js",
+        "exists": true
+      },
+      {
+        "path": "./dist/toolset.js",
+        "exists": true
+      },
+      {
+        "path": "./dist/toolset.d.ts",
+        "exists": true
+      },
+      {
+        "path": "README.md",
+        "exists": true
+      },
+      {
+        "path": "SPEC.md",
+        "exists": true
+      },
+      {
+        "path": "LICENSE.md",
+        "exists": true
+      },
+      {
+        "path": "skills/kisnet-ytm/SKILL.md",
+        "exists": true
+      }
+    ]
+  },
+  "toolset:cancellation": {
+    "ok": false,
+    "error": {
+      "ok": false,
+      "code": "source_transport_error",
+      "reason": "KIS-NET request was cancelled.",
+      "expected": "A successful HTTP response from KIS-NET",
+      "recoveryHint": "Retry later or inspect whether KIS-NET is available.",
+      "recoveryAction": "inspect_tool_help",
+      "recoverable": true,
+      "retryable": true,
+      "cause": "AbortError"
+    }
+  },
+  "toolset:fallback-order": {
+    "ok": true,
+    "value": {
+      "baseDate": "2026-06-05",
+      "kind": {
+        "code": "10",
+        "name": "국채"
+      },
+      "tenors": [
+        "3M",
+        "6M",
+        "9M",
+        "1Y",
+        "1.5Y",
+        "2Y",
+        "2.5Y",
+        "3Y",
+        "5Y",
+        "7Y",
+        "10Y",
+        "15Y",
+        "20Y",
+        "30Y",
+        "50Y"
+      ],
+      "rows": [
+        {
+          "groupName": "국채",
+          "pricingGroupCode": "100",
+          "pricingGroupName": "국고채권",
+          "yields": {
+            "3M": 2.5,
+            "6M": 2.51,
+            "9M": 2.52,
+            "1Y": 2.53,
+            "1.5Y": 2.54,
+            "2Y": 2.55,
+            "2.5Y": 2.56,
+            "3Y": 2.57,
+            "5Y": 2.6,
+            "7Y": 2.7,
+            "10Y": 2.8,
+            "15Y": 2.9,
+            "20Y": 3,
+            "30Y": 3.1,
+            "50Y": 3.2
+          },
+          "yieldText": {
+            "3M": "2.500",
+            "6M": "2.510",
+            "9M": "2.520",
+            "1Y": "2.530",
+            "1.5Y": "2.540",
+            "2Y": "2.550",
+            "2.5Y": "2.560",
+            "3Y": "2.570",
+            "5Y": "2.600",
+            "7Y": "2.700",
+            "10Y": "2.800",
+            "15Y": "2.900",
+            "20Y": "3.000",
+            "30Y": "3.100",
+            "50Y": "3.200"
+          },
+          "raw": {
+            "pricingGroupCode": "100",
+            "pricingGroupName": "국고채권",
+            "m3": "2.500",
+            "m6": "2.510",
+            "m9": "2.520",
+            "y1": "2.530",
+            "y15a": "2.540",
+            "y2": "2.550",
+            "y25": "2.560",
+            "y3": "2.570",
+            "y5": "2.600",
+            "y7": "2.700",
+            "y10": "2.800",
+            "y15": "2.900",
+            "y20": "3.000",
+            "y30": "3.100",
+            "y50": "3.200"
+          }
+        }
+      ],
+      "source": {
+        "pageUrl": "https://kis-net.kr/kisnet_mobile/index.html",
+        "endpoint": "https://kis-net.kr/rateInfo/ytmMatrixMobileList.do",
+        "method": "POST",
+        "request": {
+          "format": "Nexacro XML PlatformData",
+          "inDatasets": "ds_search=ds_search gds_tranInfo=gds_tranInfo",
+          "outDatasets": "ds_list=output1",
+          "parameters": {
+            "calBaseDt": "20260605",
+            "cboYtmSort": "10"
+          }
+        },
+        "inspectedWorkflow": "The mobile page posts ds_search to /rateInfo/ytmMatrixMobileList.do when 검색 is clicked."
+      },
+      "requestedBaseDate": "2026-06-07",
+      "dateResolution": {
+        "mode": "previous-available",
+        "requestedBaseDate": "2026-06-07",
+        "resolvedBaseDate": "2026-06-05",
+        "usedFallback": true,
+        "attemptedDates": [
+          "2026-06-07",
+          "2026-06-06",
+          "2026-06-05"
+        ],
+        "lookbackDays": 2
+      }
+    }
+  },
+  "toolset:format-error": {
+    "ok": false,
+    "error": {
+      "ok": false,
+      "code": "source_format_error",
+      "reason": "KIS-NET response root or namespace is invalid.",
+      "expected": "A valid KIS-NET Nexacro response matching the documented YTM Matrix schema",
+      "recoveryHint": "The KIS-NET source format may have changed; update the package before retrying.",
+      "recoveryAction": "inspect_tool_help",
+      "recoverable": false,
+      "retryable": false
+    }
+  },
+  "toolset:kind-80:dated-catalog": {
+    "ok": true,
+    "value": {
+      "baseDate": "2026-06-08",
+      "kinds": [
+        {
+          "code": "10",
+          "name": "국채"
+        },
+        {
+          "code": "20",
+          "name": "지방채"
+        },
+        {
+          "code": "30",
+          "name": "특수채"
+        },
+        {
+          "code": "40",
+          "name": "통안채"
+        },
+        {
+          "code": "50",
+          "name": "은행채"
+        },
+        {
+          "code": "60",
+          "name": "기타금융채"
+        },
+        {
+          "code": "70",
+          "name": "회사채(무보증)"
+        },
+        {
+          "code": "80",
+          "name": "회사채(사모)"
+        }
+      ],
+      "source": {
+        "pageUrl": "https://kis-net.kr/kisnet_mobile/index.html",
+        "endpoint": "https://kis-net.kr/rateInfo/ytmMatrixMobileInitList.do",
+        "method": "POST",
+        "request": {
+          "format": "Nexacro XML PlatformData",
+          "inDatasets": "ds_search=ds_search gds_tranInfo=gds_tranInfo",
+          "outDatasets": "ds_tymSort=output1 ds_list=output2",
+          "parameters": {
+            "calBaseDt": "20260608",
+            "cboYtmSort": "10"
+          }
+        },
+        "inspectedWorkflow": "The mobile page posts ds_search to /rateInfo/ytmMatrixMobileInitList.do on initial YTM Matrix load."
+      }
+    }
+  },
+  "toolset:kind-80:discovery-conflict": {
+    "ok": false,
+    "error": {
+      "ok": false,
+      "code": "source_format_error",
+      "reason": "KIS-NET discovery assigned canonical label 회사채(무보증) to conflicting code 80 instead of 70.",
+      "expected": "A valid KIS-NET Nexacro response matching the documented YTM Matrix schema",
+      "recoveryHint": "The KIS-NET source format may have changed; update the package before retrying.",
+      "recoveryAction": "inspect_tool_help",
+      "recoverable": false,
+      "retryable": false
+    }
+  },
+  "toolset:kind-80:fallback-preserves-kind": {
+    "ok": true,
+    "value": {
+      "baseDate": "2026-06-07",
+      "kind": {
+        "code": "80",
+        "name": "회사채(사모)"
+      },
+      "tenors": [
+        "3M",
+        "6M",
+        "9M",
+        "1Y",
+        "1.5Y",
+        "2Y",
+        "2.5Y",
+        "3Y",
+        "5Y",
+        "7Y",
+        "10Y",
+        "15Y",
+        "20Y",
+        "30Y",
+        "50Y"
+      ],
+      "rows": [
+        {
+          "groupName": "회사채(사모)",
+          "pricingGroupCode": "100",
+          "pricingGroupName": "국고채권",
+          "yields": {
+            "3M": 2.5,
+            "6M": null,
+            "9M": 2.52,
+            "1Y": 2.53,
+            "1.5Y": 2.54,
+            "2Y": null,
+            "2.5Y": 2.56,
+            "3Y": 2.57,
+            "5Y": 2.6,
+            "7Y": 2.7,
+            "10Y": 2.8,
+            "15Y": 2.9,
+            "20Y": 3,
+            "30Y": 3.1,
+            "50Y": 3.2
+          },
+          "yieldText": {
+            "3M": "2.500",
+            "6M": "-",
+            "9M": "2.520",
+            "1Y": "2.530",
+            "1.5Y": "2.540",
+            "2Y": "",
+            "2.5Y": "2.560",
+            "3Y": "2.570",
+            "5Y": "2.600",
+            "7Y": "2.700",
+            "10Y": "2.800",
+            "15Y": "2.900",
+            "20Y": "3.000",
+            "30Y": "3.100",
+            "50Y": "3.200"
+          },
+          "raw": {
+            "pricingGroupCode": "100",
+            "pricingGroupName": "국고채권",
+            "m3": "2.500",
+            "m6": "-",
+            "m9": "2.520",
+            "y1": "2.530",
+            "y15a": "2.540",
+            "y2": "",
+            "y25": "2.560",
+            "y3": "2.570",
+            "y5": "2.600",
+            "y7": "2.700",
+            "y10": "2.800",
+            "y15": "2.900",
+            "y20": "3.000",
+            "y30": "3.100",
+            "y50": "3.200"
+          }
+        }
+      ],
+      "source": {
+        "pageUrl": "https://kis-net.kr/kisnet_mobile/index.html",
+        "endpoint": "https://kis-net.kr/rateInfo/ytmMatrixMobileList.do",
+        "method": "POST",
+        "request": {
+          "format": "Nexacro XML PlatformData",
+          "inDatasets": "ds_search=ds_search gds_tranInfo=gds_tranInfo",
+          "outDatasets": "ds_list=output1",
+          "parameters": {
+            "calBaseDt": "20260607",
+            "cboYtmSort": "80"
+          }
+        },
+        "inspectedWorkflow": "The mobile page posts ds_search to /rateInfo/ytmMatrixMobileList.do when 검색 is clicked."
+      },
+      "requestedBaseDate": "2026-06-08",
+      "dateResolution": {
+        "mode": "previous-available",
+        "requestedBaseDate": "2026-06-08",
+        "resolvedBaseDate": "2026-06-07",
+        "usedFallback": true,
+        "attemptedDates": [
+          "2026-06-08",
+          "2026-06-07"
+        ],
+        "lookbackDays": 1
+      }
+    }
+  },
+  "toolset:kind-80:matrix-code": {
+    "ok": true,
+    "value": {
+      "baseDate": "2026-06-08",
+      "kind": {
+        "code": "80",
+        "name": "회사채(사모)"
+      },
+      "tenors": [
+        "3M",
+        "6M",
+        "9M",
+        "1Y",
+        "1.5Y",
+        "2Y",
+        "2.5Y",
+        "3Y",
+        "5Y",
+        "7Y",
+        "10Y",
+        "15Y",
+        "20Y",
+        "30Y",
+        "50Y"
+      ],
+      "rows": [
+        {
+          "groupName": "회사채(사모)",
+          "pricingGroupCode": "100",
+          "pricingGroupName": "국고채권",
+          "yields": {
+            "3M": 2.5,
+            "6M": null,
+            "9M": 2.52,
+            "1Y": 2.53,
+            "1.5Y": 2.54,
+            "2Y": null,
+            "2.5Y": 2.56,
+            "3Y": 2.57,
+            "5Y": 2.6,
+            "7Y": 2.7,
+            "10Y": 2.8,
+            "15Y": 2.9,
+            "20Y": 3,
+            "30Y": 3.1,
+            "50Y": 3.2
+          },
+          "yieldText": {
+            "3M": "2.500",
+            "6M": "-",
+            "9M": "2.520",
+            "1Y": "2.530",
+            "1.5Y": "2.540",
+            "2Y": "",
+            "2.5Y": "2.560",
+            "3Y": "2.570",
+            "5Y": "2.600",
+            "7Y": "2.700",
+            "10Y": "2.800",
+            "15Y": "2.900",
+            "20Y": "3.000",
+            "30Y": "3.100",
+            "50Y": "3.200"
+          },
+          "raw": {
+            "pricingGroupCode": "100",
+            "pricingGroupName": "국고채권",
+            "m3": "2.500",
+            "m6": "-",
+            "m9": "2.520",
+            "y1": "2.530",
+            "y15a": "2.540",
+            "y2": "",
+            "y25": "2.560",
+            "y3": "2.570",
+            "y5": "2.600",
+            "y7": "2.700",
+            "y10": "2.800",
+            "y15": "2.900",
+            "y20": "3.000",
+            "y30": "3.100",
+            "y50": "3.200"
+          }
+        }
+      ],
+      "source": {
+        "pageUrl": "https://kis-net.kr/kisnet_mobile/index.html",
+        "endpoint": "https://kis-net.kr/rateInfo/ytmMatrixMobileList.do",
+        "method": "POST",
+        "request": {
+          "format": "Nexacro XML PlatformData",
+          "inDatasets": "ds_search=ds_search gds_tranInfo=gds_tranInfo",
+          "outDatasets": "ds_list=output1",
+          "parameters": {
+            "calBaseDt": "20260608",
+            "cboYtmSort": "80"
+          }
+        },
+        "inspectedWorkflow": "The mobile page posts ds_search to /rateInfo/ytmMatrixMobileList.do when 검색 is clicked."
+      },
+      "requestedBaseDate": "2026-06-08",
+      "dateResolution": {
+        "mode": "exact",
+        "requestedBaseDate": "2026-06-08",
+        "resolvedBaseDate": "2026-06-08",
+        "usedFallback": false,
+        "attemptedDates": [
+          "2026-06-08"
+        ],
+        "lookbackDays": 0
+      }
+    }
+  },
+  "toolset:kind-80:matrix-label": {
+    "ok": true,
+    "value": {
+      "baseDate": "2026-06-08",
+      "kind": {
+        "code": "80",
+        "name": "회사채(사모)"
+      },
+      "tenors": [
+        "3M",
+        "6M",
+        "9M",
+        "1Y",
+        "1.5Y",
+        "2Y",
+        "2.5Y",
+        "3Y",
+        "5Y",
+        "7Y",
+        "10Y",
+        "15Y",
+        "20Y",
+        "30Y",
+        "50Y"
+      ],
+      "rows": [
+        {
+          "groupName": "회사채(사모)",
+          "pricingGroupCode": "100",
+          "pricingGroupName": "국고채권",
+          "yields": {
+            "3M": 2.5,
+            "6M": null,
+            "9M": 2.52,
+            "1Y": 2.53,
+            "1.5Y": 2.54,
+            "2Y": null,
+            "2.5Y": 2.56,
+            "3Y": 2.57,
+            "5Y": 2.6,
+            "7Y": 2.7,
+            "10Y": 2.8,
+            "15Y": 2.9,
+            "20Y": 3,
+            "30Y": 3.1,
+            "50Y": 3.2
+          },
+          "yieldText": {
+            "3M": "2.500",
+            "6M": "-",
+            "9M": "2.520",
+            "1Y": "2.530",
+            "1.5Y": "2.540",
+            "2Y": "",
+            "2.5Y": "2.560",
+            "3Y": "2.570",
+            "5Y": "2.600",
+            "7Y": "2.700",
+            "10Y": "2.800",
+            "15Y": "2.900",
+            "20Y": "3.000",
+            "30Y": "3.100",
+            "50Y": "3.200"
+          },
+          "raw": {
+            "pricingGroupCode": "100",
+            "pricingGroupName": "국고채권",
+            "m3": "2.500",
+            "m6": "-",
+            "m9": "2.520",
+            "y1": "2.530",
+            "y15a": "2.540",
+            "y2": "",
+            "y25": "2.560",
+            "y3": "2.570",
+            "y5": "2.600",
+            "y7": "2.700",
+            "y10": "2.800",
+            "y15": "2.900",
+            "y20": "3.000",
+            "y30": "3.100",
+            "y50": "3.200"
+          }
+        }
+      ],
+      "source": {
+        "pageUrl": "https://kis-net.kr/kisnet_mobile/index.html",
+        "endpoint": "https://kis-net.kr/rateInfo/ytmMatrixMobileList.do",
+        "method": "POST",
+        "request": {
+          "format": "Nexacro XML PlatformData",
+          "inDatasets": "ds_search=ds_search gds_tranInfo=gds_tranInfo",
+          "outDatasets": "ds_list=output1",
+          "parameters": {
+            "calBaseDt": "20260608",
+            "cboYtmSort": "80"
+          }
+        },
+        "inspectedWorkflow": "The mobile page posts ds_search to /rateInfo/ytmMatrixMobileList.do when 검색 is clicked."
+      },
+      "requestedBaseDate": "2026-06-08",
+      "dateResolution": {
+        "mode": "exact",
+        "requestedBaseDate": "2026-06-08",
+        "resolvedBaseDate": "2026-06-08",
+        "usedFallback": false,
+        "attemptedDates": [
+          "2026-06-08"
+        ],
+        "lookbackDays": 0
+      }
+    }
+  },
+  "toolset:kind-80:matrix-normalized-label": {
+    "ok": true,
+    "value": {
+      "baseDate": "2026-06-08",
+      "kind": {
+        "code": "80",
+        "name": "회사채(사모)"
+      },
+      "tenors": [
+        "3M",
+        "6M",
+        "9M",
+        "1Y",
+        "1.5Y",
+        "2Y",
+        "2.5Y",
+        "3Y",
+        "5Y",
+        "7Y",
+        "10Y",
+        "15Y",
+        "20Y",
+        "30Y",
+        "50Y"
+      ],
+      "rows": [
+        {
+          "groupName": "회사채(사모)",
+          "pricingGroupCode": "100",
+          "pricingGroupName": "국고채권",
+          "yields": {
+            "3M": 2.5,
+            "6M": null,
+            "9M": 2.52,
+            "1Y": 2.53,
+            "1.5Y": 2.54,
+            "2Y": null,
+            "2.5Y": 2.56,
+            "3Y": 2.57,
+            "5Y": 2.6,
+            "7Y": 2.7,
+            "10Y": 2.8,
+            "15Y": 2.9,
+            "20Y": 3,
+            "30Y": 3.1,
+            "50Y": 3.2
+          },
+          "yieldText": {
+            "3M": "2.500",
+            "6M": "-",
+            "9M": "2.520",
+            "1Y": "2.530",
+            "1.5Y": "2.540",
+            "2Y": "",
+            "2.5Y": "2.560",
+            "3Y": "2.570",
+            "5Y": "2.600",
+            "7Y": "2.700",
+            "10Y": "2.800",
+            "15Y": "2.900",
+            "20Y": "3.000",
+            "30Y": "3.100",
+            "50Y": "3.200"
+          },
+          "raw": {
+            "pricingGroupCode": "100",
+            "pricingGroupName": "국고채권",
+            "m3": "2.500",
+            "m6": "-",
+            "m9": "2.520",
+            "y1": "2.530",
+            "y15a": "2.540",
+            "y2": "",
+            "y25": "2.560",
+            "y3": "2.570",
+            "y5": "2.600",
+            "y7": "2.700",
+            "y10": "2.800",
+            "y15": "2.900",
+            "y20": "3.000",
+            "y30": "3.100",
+            "y50": "3.200"
+          }
+        }
+      ],
+      "source": {
+        "pageUrl": "https://kis-net.kr/kisnet_mobile/index.html",
+        "endpoint": "https://kis-net.kr/rateInfo/ytmMatrixMobileList.do",
+        "method": "POST",
+        "request": {
+          "format": "Nexacro XML PlatformData",
+          "inDatasets": "ds_search=ds_search gds_tranInfo=gds_tranInfo",
+          "outDatasets": "ds_list=output1",
+          "parameters": {
+            "calBaseDt": "20260608",
+            "cboYtmSort": "80"
+          }
+        },
+        "inspectedWorkflow": "The mobile page posts ds_search to /rateInfo/ytmMatrixMobileList.do when 검색 is clicked."
+      },
+      "requestedBaseDate": "2026-06-08",
+      "dateResolution": {
+        "mode": "exact",
+        "requestedBaseDate": "2026-06-08",
+        "resolvedBaseDate": "2026-06-08",
+        "usedFallback": false,
+        "attemptedDates": [
+          "2026-06-08"
+        ],
+        "lookbackDays": 0
+      }
+    }
+  },
+  "toolset:kind-80:matrix-number": {
+    "ok": true,
+    "value": {
+      "baseDate": "2026-06-08",
+      "kind": {
+        "code": "80",
+        "name": "회사채(사모)"
+      },
+      "tenors": [
+        "3M",
+        "6M",
+        "9M",
+        "1Y",
+        "1.5Y",
+        "2Y",
+        "2.5Y",
+        "3Y",
+        "5Y",
+        "7Y",
+        "10Y",
+        "15Y",
+        "20Y",
+        "30Y",
+        "50Y"
+      ],
+      "rows": [
+        {
+          "groupName": "회사채(사모)",
+          "pricingGroupCode": "100",
+          "pricingGroupName": "국고채권",
+          "yields": {
+            "3M": 2.5,
+            "6M": null,
+            "9M": 2.52,
+            "1Y": 2.53,
+            "1.5Y": 2.54,
+            "2Y": null,
+            "2.5Y": 2.56,
+            "3Y": 2.57,
+            "5Y": 2.6,
+            "7Y": 2.7,
+            "10Y": 2.8,
+            "15Y": 2.9,
+            "20Y": 3,
+            "30Y": 3.1,
+            "50Y": 3.2
+          },
+          "yieldText": {
+            "3M": "2.500",
+            "6M": "-",
+            "9M": "2.520",
+            "1Y": "2.530",
+            "1.5Y": "2.540",
+            "2Y": "",
+            "2.5Y": "2.560",
+            "3Y": "2.570",
+            "5Y": "2.600",
+            "7Y": "2.700",
+            "10Y": "2.800",
+            "15Y": "2.900",
+            "20Y": "3.000",
+            "30Y": "3.100",
+            "50Y": "3.200"
+          },
+          "raw": {
+            "pricingGroupCode": "100",
+            "pricingGroupName": "국고채권",
+            "m3": "2.500",
+            "m6": "-",
+            "m9": "2.520",
+            "y1": "2.530",
+            "y15a": "2.540",
+            "y2": "",
+            "y25": "2.560",
+            "y3": "2.570",
+            "y5": "2.600",
+            "y7": "2.700",
+            "y10": "2.800",
+            "y15": "2.900",
+            "y20": "3.000",
+            "y30": "3.100",
+            "y50": "3.200"
+          }
+        }
+      ],
+      "source": {
+        "pageUrl": "https://kis-net.kr/kisnet_mobile/index.html",
+        "endpoint": "https://kis-net.kr/rateInfo/ytmMatrixMobileList.do",
+        "method": "POST",
+        "request": {
+          "format": "Nexacro XML PlatformData",
+          "inDatasets": "ds_search=ds_search gds_tranInfo=gds_tranInfo",
+          "outDatasets": "ds_list=output1",
+          "parameters": {
+            "calBaseDt": "20260608",
+            "cboYtmSort": "80"
+          }
+        },
+        "inspectedWorkflow": "The mobile page posts ds_search to /rateInfo/ytmMatrixMobileList.do when 검색 is clicked."
+      },
+      "requestedBaseDate": "2026-06-08",
+      "dateResolution": {
+        "mode": "exact",
+        "requestedBaseDate": "2026-06-08",
+        "resolvedBaseDate": "2026-06-08",
+        "usedFallback": false,
+        "attemptedDates": [
+          "2026-06-08"
+        ],
+        "lookbackDays": 0
+      }
+    }
+  },
+  "toolset:kind-80:offline-catalog": {
+    "ok": true,
+    "value": {
+      "baseDate": null,
+      "kinds": [
+        {
+          "code": "10",
+          "name": "국채"
+        },
+        {
+          "code": "20",
+          "name": "지방채"
+        },
+        {
+          "code": "30",
+          "name": "특수채"
+        },
+        {
+          "code": "40",
+          "name": "통안채"
+        },
+        {
+          "code": "50",
+          "name": "은행채"
+        },
+        {
+          "code": "60",
+          "name": "기타금융채"
+        },
+        {
+          "code": "70",
+          "name": "회사채(무보증)"
+        },
+        {
+          "code": "80",
+          "name": "회사채(사모)"
+        }
+      ],
+      "source": {
+        "pageUrl": "https://kis-net.kr/kisnet_mobile/index.html",
+        "endpoint": null,
+        "method": null,
+        "note": "Canonical 종류 catalog owned by the Rust ytm core. Provide baseDate to merge live discovery."
+      }
+    }
+  },
+  "toolset:kind-80:unavailable": {
+    "ok": false,
+    "error": {
+      "ok": false,
+      "code": "source_data_unavailable",
+      "operationName": "matrix",
+      "parameter": "baseDate",
+      "reason": "KIS-NET returned no YTM Matrix rows for 2026-06-08. It may be a weekend, holiday, or unavailable source date.",
+      "expected": "KIS-NET data for an available business 기준일",
+      "actual": "2026-06-08",
+      "exampleInput": {
+        "baseDate": "2026-06-08",
+        "kind": "80",
+        "fallback": "previous-available",
+        "lookbackDays": 10
+      },
+      "recoveryHint": "Try a nearby business day, or rerun matrix with fallback=previous-available.",
+      "recoveryAction": "use_previous_available_fallback",
+      "recoverable": true,
+      "retryable": false,
+      "attemptedDates": [
+        "2026-06-08"
+      ],
+      "lookbackDays": 0
+    }
+  },
+  "toolset:matrix-success": {
+    "ok": true,
+    "value": {
+      "baseDate": "2026-06-08",
+      "kind": {
+        "code": "10",
+        "name": "국채"
+      },
+      "tenors": [
+        "3M",
+        "6M",
+        "9M",
+        "1Y",
+        "1.5Y",
+        "2Y",
+        "2.5Y",
+        "3Y",
+        "5Y",
+        "7Y",
+        "10Y",
+        "15Y",
+        "20Y",
+        "30Y",
+        "50Y"
+      ],
+      "rows": [
+        {
+          "groupName": "국채",
+          "pricingGroupCode": "100",
+          "pricingGroupName": "국고채권",
+          "yields": {
+            "3M": 2.5,
+            "6M": 2.51,
+            "9M": 2.52,
+            "1Y": 2.53,
+            "1.5Y": 2.54,
+            "2Y": 2.55,
+            "2.5Y": 2.56,
+            "3Y": 2.57,
+            "5Y": 2.6,
+            "7Y": 2.7,
+            "10Y": 2.8,
+            "15Y": 2.9,
+            "20Y": 3,
+            "30Y": 3.1,
+            "50Y": 3.2
+          },
+          "yieldText": {
+            "3M": "2.500",
+            "6M": "2.510",
+            "9M": "2.520",
+            "1Y": "2.530",
+            "1.5Y": "2.540",
+            "2Y": "2.550",
+            "2.5Y": "2.560",
+            "3Y": "2.570",
+            "5Y": "2.600",
+            "7Y": "2.700",
+            "10Y": "2.800",
+            "15Y": "2.900",
+            "20Y": "3.000",
+            "30Y": "3.100",
+            "50Y": "3.200"
+          },
+          "raw": {
+            "pricingGroupCode": "100",
+            "pricingGroupName": "국고채권",
+            "m3": "2.500",
+            "m6": "2.510",
+            "m9": "2.520",
+            "y1": "2.530",
+            "y15a": "2.540",
+            "y2": "2.550",
+            "y25": "2.560",
+            "y3": "2.570",
+            "y5": "2.600",
+            "y7": "2.700",
+            "y10": "2.800",
+            "y15": "2.900",
+            "y20": "3.000",
+            "y30": "3.100",
+            "y50": "3.200"
+          }
+        }
+      ],
+      "source": {
+        "pageUrl": "https://kis-net.kr/kisnet_mobile/index.html",
+        "endpoint": "https://kis-net.kr/rateInfo/ytmMatrixMobileList.do",
+        "method": "POST",
+        "request": {
+          "format": "Nexacro XML PlatformData",
+          "inDatasets": "ds_search=ds_search gds_tranInfo=gds_tranInfo",
+          "outDatasets": "ds_list=output1",
+          "parameters": {
+            "calBaseDt": "20260608",
+            "cboYtmSort": "10"
+          }
+        },
+        "inspectedWorkflow": "The mobile page posts ds_search to /rateInfo/ytmMatrixMobileList.do when 검색 is clicked."
+      },
+      "requestedBaseDate": "2026-06-08",
+      "dateResolution": {
+        "mode": "exact",
+        "requestedBaseDate": "2026-06-08",
+        "resolvedBaseDate": "2026-06-08",
+        "usedFallback": false,
+        "attemptedDates": [
+          "2026-06-08"
+        ],
+        "lookbackDays": 0
+      }
+    }
+  },
+  "toolset:missing-values": {
+    "ok": true,
+    "value": {
+      "baseDate": "2026-06-08",
+      "kind": {
+        "code": "10",
+        "name": "국채"
+      },
+      "tenors": [
+        "3M",
+        "6M",
+        "9M",
+        "1Y",
+        "1.5Y",
+        "2Y",
+        "2.5Y",
+        "3Y",
+        "5Y",
+        "7Y",
+        "10Y",
+        "15Y",
+        "20Y",
+        "30Y",
+        "50Y"
+      ],
+      "rows": [
+        {
+          "groupName": "국채",
+          "pricingGroupCode": "100",
+          "pricingGroupName": "국고채권",
+          "yields": {
+            "3M": 2.5,
+            "6M": null,
+            "9M": 2.52,
+            "1Y": 2.53,
+            "1.5Y": 2.54,
+            "2Y": null,
+            "2.5Y": 2.56,
+            "3Y": 2.57,
+            "5Y": 2.6,
+            "7Y": 2.7,
+            "10Y": 2.8,
+            "15Y": 2.9,
+            "20Y": 3,
+            "30Y": 3.1,
+            "50Y": 3.2
+          },
+          "yieldText": {
+            "3M": "2.500",
+            "6M": "-",
+            "9M": "2.520",
+            "1Y": "2.530",
+            "1.5Y": "2.540",
+            "2Y": "",
+            "2.5Y": "2.560",
+            "3Y": "2.570",
+            "5Y": "2.600",
+            "7Y": "2.700",
+            "10Y": "2.800",
+            "15Y": "2.900",
+            "20Y": "3.000",
+            "30Y": "3.100",
+            "50Y": "3.200"
+          },
+          "raw": {
+            "pricingGroupCode": "100",
+            "pricingGroupName": "국고채권",
+            "m3": "2.500",
+            "m6": "-",
+            "m9": "2.520",
+            "y1": "2.530",
+            "y15a": "2.540",
+            "y2": "",
+            "y25": "2.560",
+            "y3": "2.570",
+            "y5": "2.600",
+            "y7": "2.700",
+            "y10": "2.800",
+            "y15": "2.900",
+            "y20": "3.000",
+            "y30": "3.100",
+            "y50": "3.200"
+          }
+        }
+      ],
+      "source": {
+        "pageUrl": "https://kis-net.kr/kisnet_mobile/index.html",
+        "endpoint": "https://kis-net.kr/rateInfo/ytmMatrixMobileList.do",
+        "method": "POST",
+        "request": {
+          "format": "Nexacro XML PlatformData",
+          "inDatasets": "ds_search=ds_search gds_tranInfo=gds_tranInfo",
+          "outDatasets": "ds_list=output1",
+          "parameters": {
+            "calBaseDt": "20260608",
+            "cboYtmSort": "10"
+          }
+        },
+        "inspectedWorkflow": "The mobile page posts ds_search to /rateInfo/ytmMatrixMobileList.do when 검색 is clicked."
+      },
+      "requestedBaseDate": "2026-06-08",
+      "dateResolution": {
+        "mode": "exact",
+        "requestedBaseDate": "2026-06-08",
+        "resolvedBaseDate": "2026-06-08",
+        "usedFallback": false,
+        "attemptedDates": [
+          "2026-06-08"
+        ],
+        "lookbackDays": 0
+      }
+    }
+  },
+  "toolset:node-adapter:missing-native": {
+    "status": 0,
+    "value": {
+      "help": "KIS-NET YTM Matrix toolset\n\nOperations:\n  matrix: fetch YTM Matrix rows for a 기준일 and 종류.\n  kinds: list accepted 종류 codes and Korean labels.\n\nAccepted 종류 values:\n  Native capabilities unavailable; reinstall @sjunepark/ytm for this platform.\n\nSource terms are preserved where official: 기준일, 종류, and 적용대상채권.\nUse validateInput(operationName, input) before execute when integrating in-process.",
+      "validation": {
+        "valid": true,
+        "normalizedInput": {
+          "baseDate": "2026-08-20",
+          "kind": "80"
+        }
+      },
+      "failure": {
+        "ok": false,
+        "code": "internal_error",
+        "reason": "The Node adapter encountered an internal error.",
+        "recoveryHint": "Reinstall or update the package for this platform, then report the failure if it persists.",
+        "recoveryAction": "update_package",
+        "recoverable": false,
+        "retryable": false,
+        "cause": "Error"
+      }
+    },
+    "stderr": "empty"
+  },
+  "toolset:protocol-error": {
+    "ok": false,
+    "error": {
+      "ok": false,
+      "code": "source_protocol_error",
+      "reason": "KIS-NET returned nonzero Nexacro ErrorCode -1 (Request rejected).",
+      "expected": "Nexacro ErrorCode 0",
+      "actual": "-1",
+      "recoveryHint": "Inspect the preserved KIS-NET status before deciding whether the request can be retried.",
+      "recoveryAction": "inspect_tool_help",
+      "recoverable": false,
+      "retryable": false,
+      "sourceErrorCode": "-1",
+      "sourceErrorMessage": "Request rejected"
+    }
+  },
+  "toolset:toolset-discovery": {
+    "ok": true,
+    "value": {
+      "id": "ytm",
+      "label": "KIS-NET YTM Matrix",
+      "description": "Deterministic lookup tool for KIS-NET YTM Matrix data using 기준일 and 종류.",
+      "methods": [
+        "help",
+        "listOperations",
+        "getOperation",
+        "getCommandHelp",
+        "validateInput",
+        "execute",
+        "serializeError"
+      ],
+      "help": "KIS-NET YTM Matrix toolset\n\nOperations:\n  matrix: fetch YTM Matrix rows for a 기준일 and 종류.\n  kinds: list accepted 종류 codes and Korean labels.\n\nAccepted 종류 values:\n  10 = 국채\n  20 = 지방채\n  30 = 특수채\n  40 = 통안채\n  50 = 은행채\n  60 = 기타금융채\n  70 = 회사채(무보증)\n  80 = 회사채(사모)\n\nSource terms are preserved where official: 기준일, 종류, and 적용대상채권.\nUse validateInput(operationName, input) before execute when integrating in-process.",
+      "operations": [
+        {
+          "name": "matrix",
+          "label": "Lookup KIS-NET YTM Matrix",
+          "description": "Fetch YTM Matrix rows from KIS-NET for a 기준일 and 종류. The source-native 종류 may be a Korean label such as 국채 or a source code such as 10.",
+          "requiredInputKeys": [
+            "baseDate",
+            "kind"
+          ],
+          "inputJsonSchema": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "baseDate",
+              "kind"
+            ],
+            "properties": {
+              "baseDate": {
+                "type": "string",
+                "description": "기준일. Accepted forms: YYYY-MM-DD, YYYY.MM.DD, or YYYYMMDD."
+              },
+              "kind": {
+                "type": [
+                  "string",
+                  "number"
+                ],
+                "description": "종류. Use a Korean source label such as 국채 or a source code such as 10."
+              },
+              "fallback": {
+                "type": "string",
+                "enum": [
+                  "previous-available"
+                ],
+                "description": "Optional unavailable-date policy. Use previous-available to try the requested 기준일 once, then walk backward until KIS-NET returns matrix rows."
+              },
+              "lookbackDays": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 31,
+                "description": "Maximum prior calendar days to try when fallback is previous-available. Defaults to 10."
+              }
+            }
+          },
+          "resultJsonSchema": {
+            "type": "object",
+            "required": [
+              "baseDate",
+              "kind",
+              "tenors",
+              "rows",
+              "source",
+              "requestedBaseDate",
+              "dateResolution"
+            ],
+            "properties": {
+              "baseDate": {
+                "type": "string"
+              },
+              "requestedBaseDate": {
+                "type": "string"
+              },
+              "dateResolution": {
+                "type": "object"
+              },
+              "kind": {
+                "type": "object"
+              },
+              "tenors": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "rows": {
+                "type": "array"
+              },
+              "source": {
+                "type": "object"
+              }
+            }
+          },
+          "examples": [
+            {
+              "input": {
+                "baseDate": "2026-06-08",
+                "kind": "국채"
+              }
+            },
+            {
+              "input": {
+                "baseDate": "20260608",
+                "kind": "10"
+              }
+            },
+            {
+              "input": {
+                "baseDate": "2026-06-07",
+                "kind": "국채",
+                "fallback": "previous-available",
+                "lookbackDays": 10
+              }
+            }
+          ],
+          "limitations": [
+            "KIS-NET decides available 기준일 data and may return an empty matrix for non-business days, holidays, or unavailable dates.",
+            "With fallback=previous-available, the requested 기준일 is still tried first; previous dates are probed only after KIS-NET returns no rows.",
+            "Yield cells containing '-' are returned as null while preserving the raw cell text."
+          ],
+          "resultSummary": "Returns the resolved 종류, tenor labels, one row per 적용대상채권, numeric yield values, raw source cells, source request metadata, and date-resolution metadata."
+        },
+        {
+          "name": "kinds",
+          "label": "List KIS-NET YTM 종류 values",
+          "description": "List source 종류 codes and Korean labels for the KIS-NET YTM Matrix. When baseDate is supplied, values are refreshed from KIS-NET's init endpoint; otherwise the inspected source list is returned without a network request.",
+          "requiredInputKeys": [],
+          "inputJsonSchema": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "baseDate": {
+                "type": "string",
+                "description": "Optional 기준일 used to refresh 종류 values from KIS-NET. Accepted forms: YYYY-MM-DD, YYYY.MM.DD, or YYYYMMDD."
+              }
+            }
+          },
+          "resultJsonSchema": {
+            "type": "object",
+            "required": [
+              "kinds",
+              "source"
+            ],
+            "properties": {
+              "baseDate": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "kinds": {
+                "type": "array"
+              },
+              "source": {
+                "type": "object"
+              }
+            }
+          },
+          "examples": [
+            {
+              "input": {}
+            },
+            {
+              "input": {
+                "baseDate": "2026-06-08"
+              }
+            }
+          ],
+          "limitations": [
+            "Without baseDate this command returns the source list observed during tool inspection instead of performing a live request."
+          ],
+          "resultSummary": "Returns accepted 종류 codes and labels."
+        }
+      ],
+      "commandHelp": {
+        "matrix": "matrix\n  Input JSON: { \"baseDate\": \"2026-06-08\", \"kind\": \"국채\" }\n  Optional fallback: { \"fallback\": \"previous-available\", \"lookbackDays\": 10 }\n  baseDate maps to 기준일 and accepts YYYY-MM-DD, YYYY.MM.DD, or YYYYMMDD.\n  kind maps to 종류 and accepts one of these Korean labels or source codes:\n    10 = 국채\n    20 = 지방채\n    30 = 특수채\n    40 = 통안채\n    50 = 은행채\n    60 = 기타금융채\n    70 = 회사채(무보증)\n    80 = 회사채(사모)\n  fallback=previous-available tries the requested date once, then walks backward until rows are found.\n  lookbackDays defaults to 10 and may not exceed 31.\n  Run kinds to print this list as JSON, CSV, or TSV.\n  Result rows include 적용대상채권, tenors 3M through 50Y, and dateResolution metadata.",
+        "kinds": "kinds\n  Input JSON: {} or { \"baseDate\": \"2026-06-08\" }\n  Returns accepted 종류 source codes and Korean labels."
+      }
+    }
+  },
+  "toolset:toolset-operation-immutability": {
+    "ok": true,
+    "value": {
+      "operation": {
+        "name": "matrix",
+        "label": "Lookup KIS-NET YTM Matrix",
+        "description": "Fetch YTM Matrix rows from KIS-NET for a 기준일 and 종류. The source-native 종류 may be a Korean label such as 국채 or a source code such as 10.",
+        "requiredInputKeys": [
+          "baseDate",
+          "kind"
+        ],
+        "inputJsonSchema": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "baseDate",
+            "kind"
+          ],
+          "properties": {
+            "baseDate": {
+              "type": "string",
+              "description": "기준일. Accepted forms: YYYY-MM-DD, YYYY.MM.DD, or YYYYMMDD."
+            },
+            "kind": {
+              "type": [
+                "string",
+                "number"
+              ],
+              "description": "종류. Use a Korean source label such as 국채 or a source code such as 10."
+            },
+            "fallback": {
+              "type": "string",
+              "enum": [
+                "previous-available"
+              ],
+              "description": "Optional unavailable-date policy. Use previous-available to try the requested 기준일 once, then walk backward until KIS-NET returns matrix rows."
+            },
+            "lookbackDays": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 31,
+              "description": "Maximum prior calendar days to try when fallback is previous-available. Defaults to 10."
+            }
+          }
+        },
+        "resultJsonSchema": {
+          "type": "object",
+          "required": [
+            "baseDate",
+            "kind",
+            "tenors",
+            "rows",
+            "source",
+            "requestedBaseDate",
+            "dateResolution"
+          ],
+          "properties": {
+            "baseDate": {
+              "type": "string"
+            },
+            "requestedBaseDate": {
+              "type": "string"
+            },
+            "dateResolution": {
+              "type": "object"
+            },
+            "kind": {
+              "type": "object"
+            },
+            "tenors": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "rows": {
+              "type": "array"
+            },
+            "source": {
+              "type": "object"
+            }
+          }
+        },
+        "examples": [
+          {
+            "input": {
+              "baseDate": "2026-06-08",
+              "kind": "국채"
+            }
+          },
+          {
+            "input": {
+              "baseDate": "20260608",
+              "kind": "10"
+            }
+          },
+          {
+            "input": {
+              "baseDate": "2026-06-07",
+              "kind": "국채",
+              "fallback": "previous-available",
+              "lookbackDays": 10
+            }
+          }
+        ],
+        "limitations": [
+          "KIS-NET decides available 기준일 data and may return an empty matrix for non-business days, holidays, or unavailable dates.",
+          "With fallback=previous-available, the requested 기준일 is still tried first; previous dates are probed only after KIS-NET returns no rows.",
+          "Yield cells containing '-' are returned as null while preserving the raw cell text."
+        ],
+        "resultSummary": "Returns the resolved 종류, tenor labels, one row per 적용대상채권, numeric yield values, raw source cells, source request metadata, and date-resolution metadata."
+      },
+      "listed": {
+        "name": "matrix",
+        "label": "Lookup KIS-NET YTM Matrix",
+        "description": "Fetch YTM Matrix rows from KIS-NET for a 기준일 and 종류. The source-native 종류 may be a Korean label such as 국채 or a source code such as 10.",
+        "requiredInputKeys": [
+          "baseDate",
+          "kind"
+        ],
+        "inputJsonSchema": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "baseDate",
+            "kind"
+          ],
+          "properties": {
+            "baseDate": {
+              "type": "string",
+              "description": "기준일. Accepted forms: YYYY-MM-DD, YYYY.MM.DD, or YYYYMMDD."
+            },
+            "kind": {
+              "type": [
+                "string",
+                "number"
+              ],
+              "description": "종류. Use a Korean source label such as 국채 or a source code such as 10."
+            },
+            "fallback": {
+              "type": "string",
+              "enum": [
+                "previous-available"
+              ],
+              "description": "Optional unavailable-date policy. Use previous-available to try the requested 기준일 once, then walk backward until KIS-NET returns matrix rows."
+            },
+            "lookbackDays": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 31,
+              "description": "Maximum prior calendar days to try when fallback is previous-available. Defaults to 10."
+            }
+          }
+        },
+        "resultJsonSchema": {
+          "type": "object",
+          "required": [
+            "baseDate",
+            "kind",
+            "tenors",
+            "rows",
+            "source",
+            "requestedBaseDate",
+            "dateResolution"
+          ],
+          "properties": {
+            "baseDate": {
+              "type": "string"
+            },
+            "requestedBaseDate": {
+              "type": "string"
+            },
+            "dateResolution": {
+              "type": "object"
+            },
+            "kind": {
+              "type": "object"
+            },
+            "tenors": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "rows": {
+              "type": "array"
+            },
+            "source": {
+              "type": "object"
+            }
+          }
+        },
+        "examples": [
+          {
+            "input": {
+              "baseDate": "2026-06-08",
+              "kind": "국채"
+            }
+          },
+          {
+            "input": {
+              "baseDate": "20260608",
+              "kind": "10"
+            }
+          },
+          {
+            "input": {
+              "baseDate": "2026-06-07",
+              "kind": "국채",
+              "fallback": "previous-available",
+              "lookbackDays": 10
+            }
+          }
+        ],
+        "limitations": [
+          "KIS-NET decides available 기준일 data and may return an empty matrix for non-business days, holidays, or unavailable dates.",
+          "With fallback=previous-available, the requested 기준일 is still tried first; previous dates are probed only after KIS-NET returns no rows.",
+          "Yield cells containing '-' are returned as null while preserving the raw cell text."
+        ],
+        "resultSummary": "Returns the resolved 종류, tenor labels, one row per 적용대상채권, numeric yield values, raw source cells, source request metadata, and date-resolution metadata."
+      }
+    }
+  },
+  "toolset:transport-error": {
+    "ok": false,
+    "error": {
+      "ok": false,
+      "code": "source_transport_error",
+      "reason": "KIS-NET request failed before a response was received.",
+      "expected": "A successful HTTP response from KIS-NET",
+      "recoveryHint": "Retry later or inspect whether KIS-NET is available.",
+      "recoveryAction": "inspect_tool_help",
+      "recoverable": true,
+      "retryable": true,
+      "cause": "TypeError"
+    }
+  },
+  "toolset:unavailable-data": {
+    "ok": false,
+    "error": {
+      "ok": false,
+      "code": "source_data_unavailable",
+      "operationName": "matrix",
+      "parameter": "baseDate",
+      "reason": "KIS-NET returned no YTM Matrix rows for 2026-06-08. It may be a weekend, holiday, or unavailable source date.",
+      "expected": "KIS-NET data for an available business 기준일",
+      "actual": "2026-06-08",
+      "exampleInput": {
+        "baseDate": "2026-06-08",
+        "kind": "국채",
+        "fallback": "previous-available",
+        "lookbackDays": 10
+      },
+      "recoveryHint": "Try a nearby business day, or rerun matrix with fallback=previous-available.",
+      "recoveryAction": "use_previous_available_fallback",
+      "recoverable": true,
+      "retryable": false,
+      "attemptedDates": [
+        "2026-06-08"
+      ],
+      "lookbackDays": 0
+    }
+  },
+  "toolset:unknown-kind-recovery": {
+    "ok": false,
+    "error": {
+      "ok": false,
+      "code": "invalid_parameter",
+      "operationName": "matrix",
+      "parameter": "kind",
+      "reason": "Unknown 종류: not-a-kind.",
+      "expected": [
+        {
+          "code": "10",
+          "name": "국채"
+        },
+        {
+          "code": "20",
+          "name": "지방채"
+        },
+        {
+          "code": "30",
+          "name": "특수채"
+        },
+        {
+          "code": "40",
+          "name": "통안채"
+        },
+        {
+          "code": "50",
+          "name": "은행채"
+        },
+        {
+          "code": "60",
+          "name": "기타금융채"
+        },
+        {
+          "code": "70",
+          "name": "회사채(무보증)"
+        },
+        {
+          "code": "80",
+          "name": "회사채(사모)"
+        }
+      ],
+      "actual": "not-a-kind",
+      "exampleInput": {
+        "baseDate": "2026-06-08",
+        "kind": "국채"
+      },
+      "recoveryHint": "Use kinds to inspect accepted 종류 values, then retry with a listed code or label.",
+      "recoveryAction": "inspect_command_help",
+      "recoverable": true,
+      "retryable": false
+    }
+  },
+  "toolset:validation-recovery:date-2026-06-08": {
+    "ok": true,
+    "value": {
+      "valid": true,
+      "normalizedInput": {
+        "baseDate": "2026-06-08",
+        "kind": "10"
+      }
+    }
+  },
+  "toolset:validation-recovery:date-2026.06.08": {
+    "ok": true,
+    "value": {
+      "valid": true,
+      "normalizedInput": {
+        "baseDate": "2026-06-08",
+        "kind": "10"
+      }
+    }
+  },
+  "toolset:validation-recovery:date-20260608": {
+    "ok": true,
+    "value": {
+      "valid": true,
+      "normalizedInput": {
+        "baseDate": "2026-06-08",
+        "kind": "10"
+      }
+    }
+  },
+  "toolset:validation-recovery:invalid-date": {
+    "ok": true,
+    "value": {
+      "valid": false,
+      "error": {
+        "ok": false,
+        "code": "invalid_parameter",
+        "operationName": "matrix",
+        "parameter": "baseDate",
+        "reason": "baseDate must be a valid 기준일 in YYYY-MM-DD, YYYY.MM.DD, or YYYYMMDD form.",
+        "expected": "YYYY-MM-DD, YYYY.MM.DD, or YYYYMMDD",
+        "actual": "2026-99-99",
+        "exampleInput": {
+          "baseDate": "2026-06-08",
+          "kind": "국채"
+        },
+        "recoveryHint": "Use the official 기준일 date shown by KIS-NET, for example 2026-06-08.",
+        "recoveryAction": "inspect_command_help",
+        "recoverable": true,
+        "retryable": false
+      }
+    }
+  },
+  "toolset:validation-recovery:missing-base-date": {
+    "ok": true,
+    "value": {
+      "valid": false,
+      "error": {
+        "ok": false,
+        "code": "missing_parameter",
+        "operationName": "matrix",
+        "parameter": "baseDate",
+        "reason": "Missing required parameter: baseDate.",
+        "expected": {
+          "type": "string",
+          "description": "기준일. Accepted forms: YYYY-MM-DD, YYYY.MM.DD, or YYYYMMDD."
+        },
+        "actual": "[missing]",
+        "exampleInput": {
+          "baseDate": "2026-06-08",
+          "kind": "국채"
+        },
+        "recoveryHint": "Provide baseDate.",
+        "recoveryAction": "inspect_command_help",
+        "recoverable": true,
+        "retryable": false
+      }
+    }
+  },
+  "toolset:validation-recovery:reject-date-2026-0608": {
+    "ok": true,
+    "value": {
+      "valid": false,
+      "error": {
+        "ok": false,
+        "code": "invalid_parameter",
+        "operationName": "matrix",
+        "parameter": "baseDate",
+        "reason": "baseDate must be a valid 기준일 in YYYY-MM-DD, YYYY.MM.DD, or YYYYMMDD form.",
+        "expected": "YYYY-MM-DD, YYYY.MM.DD, or YYYYMMDD",
+        "actual": "2026-0608",
+        "exampleInput": {
+          "baseDate": "2026-06-08",
+          "kind": "국채"
+        },
+        "recoveryHint": "Use the official 기준일 date shown by KIS-NET, for example 2026-06-08.",
+        "recoveryAction": "inspect_command_help",
+        "recoverable": true,
+        "retryable": false
+      }
+    }
+  },
+  "toolset:validation-recovery:reject-date-2026..06.08": {
+    "ok": true,
+    "value": {
+      "valid": false,
+      "error": {
+        "ok": false,
+        "code": "invalid_parameter",
+        "operationName": "matrix",
+        "parameter": "baseDate",
+        "reason": "baseDate must be a valid 기준일 in YYYY-MM-DD, YYYY.MM.DD, or YYYYMMDD form.",
+        "expected": "YYYY-MM-DD, YYYY.MM.DD, or YYYYMMDD",
+        "actual": "2026..06.08",
+        "exampleInput": {
+          "baseDate": "2026-06-08",
+          "kind": "국채"
+        },
+        "recoveryHint": "Use the official 기준일 date shown by KIS-NET, for example 2026-06-08.",
+        "recoveryAction": "inspect_command_help",
+        "recoverable": true,
+        "retryable": false
+      }
+    }
+  },
+  "toolset:validation-recovery:reject-date-2026.06-08": {
+    "ok": true,
+    "value": {
+      "valid": false,
+      "error": {
+        "ok": false,
+        "code": "invalid_parameter",
+        "operationName": "matrix",
+        "parameter": "baseDate",
+        "reason": "baseDate must be a valid 기준일 in YYYY-MM-DD, YYYY.MM.DD, or YYYYMMDD form.",
+        "expected": "YYYY-MM-DD, YYYY.MM.DD, or YYYYMMDD",
+        "actual": "2026.06-08",
+        "exampleInput": {
+          "baseDate": "2026-06-08",
+          "kind": "국채"
+        },
+        "recoveryHint": "Use the official 기준일 date shown by KIS-NET, for example 2026-06-08.",
+        "recoveryAction": "inspect_command_help",
+        "recoverable": true,
+        "retryable": false
+      }
+    }
+  },
+  "toolset:validation-recovery:reject-date-202606-08": {
+    "ok": true,
+    "value": {
+      "valid": false,
+      "error": {
+        "ok": false,
+        "code": "invalid_parameter",
+        "operationName": "matrix",
+        "parameter": "baseDate",
+        "reason": "baseDate must be a valid 기준일 in YYYY-MM-DD, YYYY.MM.DD, or YYYYMMDD form.",
+        "expected": "YYYY-MM-DD, YYYY.MM.DD, or YYYYMMDD",
+        "actual": "202606-08",
+        "exampleInput": {
+          "baseDate": "2026-06-08",
+          "kind": "국채"
+        },
+        "recoveryHint": "Use the official 기준일 date shown by KIS-NET, for example 2026-06-08.",
+        "recoveryAction": "inspect_command_help",
+        "recoverable": true,
+        "retryable": false
+      }
+    }
+  },
+  "toolset:validation-recovery:unknown-operation": {
+    "ok": true,
+    "value": {
+      "valid": false,
+      "error": {
+        "ok": false,
+        "code": "invalid_request",
+        "operationName": "unknown",
+        "reason": "Unknown operation: unknown.",
+        "expected": [
+          "matrix",
+          "kinds"
+        ],
+        "actual": "unknown",
+        "exampleInput": {
+          "operationName": "matrix",
+          "input": {
+            "baseDate": "2026-06-08",
+            "kind": "국채"
+          }
+        },
+        "recoveryHint": "Inspect tool help and retry with a listed operation name.",
+        "recoveryAction": "inspect_tool_help",
+        "recoverable": true,
+        "retryable": false
+      }
+    }
+  },
+  "toolset:validation-recovery:unknown-parameter": {
+    "ok": true,
+    "value": {
+      "valid": false,
+      "error": {
+        "ok": false,
+        "code": "unknown_parameter",
+        "operationName": "matrix",
+        "parameter": "extra",
+        "reason": "Unknown parameter: extra.",
+        "expected": [
+          "baseDate",
+          "kind",
+          "fallback",
+          "lookbackDays"
+        ],
+        "actual": "extra",
+        "exampleInput": {
+          "baseDate": "2026-06-08",
+          "kind": "국채"
+        },
+        "recoveryHint": "Remove extra or inspect command help for supported parameters.",
+        "recoveryAction": "inspect_command_help",
+        "recoverable": true,
+        "retryable": false
+      }
+    }
+  },
+  "toolset:xml-fixture-corpus:invalid-xmlDeclarationDuplicateEncoding": {
+    "ok": false,
+    "error": {
+      "ok": false,
+      "code": "source_format_error",
+      "reason": "KIS-NET XML declaration attributes are duplicated, unknown, or out of order.",
+      "expected": "A valid KIS-NET Nexacro response matching the documented YTM Matrix schema",
+      "recoveryHint": "The KIS-NET source format may have changed; update the package before retrying.",
+      "recoveryAction": "inspect_tool_help",
+      "recoverable": false,
+      "retryable": false
+    }
+  },
+  "toolset:xml-fixture-corpus:invalid-xmlDeclarationNonXmlWhitespace": {
+    "ok": false,
+    "error": {
+      "ok": false,
+      "code": "source_format_error",
+      "reason": "KIS-NET XML declaration attributes are duplicated, unknown, or out of order.",
+      "expected": "A valid KIS-NET Nexacro response matching the documented YTM Matrix schema",
+      "recoveryHint": "The KIS-NET source format may have changed; update the package before retrying.",
+      "recoveryAction": "inspect_tool_help",
+      "recoverable": false,
+      "retryable": false
+    }
+  },
+  "toolset:xml-fixture-corpus:invalid-xmlDeclarationUnknownAttribute": {
+    "ok": false,
+    "error": {
+      "ok": false,
+      "code": "source_format_error",
+      "reason": "KIS-NET XML declaration attributes are duplicated, unknown, or out of order.",
+      "expected": "A valid KIS-NET Nexacro response matching the documented YTM Matrix schema",
+      "recoveryHint": "The KIS-NET source format may have changed; update the package before retrying.",
+      "recoveryAction": "inspect_tool_help",
+      "recoverable": false,
+      "retryable": false
+    }
+  },
+  "toolset:xml-fixture-corpus:invalid-xmlDeclarationWrongOrder": {
+    "ok": false,
+    "error": {
+      "ok": false,
+      "code": "source_format_error",
+      "reason": "KIS-NET XML declaration must contain version in the required order.",
+      "expected": "A valid KIS-NET Nexacro response matching the documented YTM Matrix schema",
+      "recoveryHint": "The KIS-NET source format may have changed; update the package before retrying.",
+      "recoveryAction": "inspect_tool_help",
+      "recoverable": false,
+      "retryable": false
+    }
+  },
+  "toolset:xml-fixture-corpus:invalid-xmlDoctypeEntity": {
+    "ok": false,
+    "error": {
+      "ok": false,
+      "code": "source_format_error",
+      "reason": "KIS-NET response must not contain a DOCTYPE declaration.",
+      "expected": "A valid KIS-NET Nexacro response matching the documented YTM Matrix schema",
+      "recoveryHint": "The KIS-NET source format may have changed; update the package before retrying.",
+      "recoveryAction": "inspect_tool_help",
+      "recoverable": false,
+      "retryable": false
+    }
+  },
+  "toolset:xml-fixture-corpus:invalid-xmlDuplicateColumn": {
+    "ok": false,
+    "error": {
+      "ok": false,
+      "code": "source_format_error",
+      "reason": "KIS-NET row contains duplicate column divCode.",
+      "expected": "A valid KIS-NET Nexacro response matching the documented YTM Matrix schema",
+      "recoveryHint": "The KIS-NET source format may have changed; update the package before retrying.",
+      "recoveryAction": "inspect_tool_help",
+      "recoverable": false,
+      "retryable": false
+    }
+  },
+  "toolset:xml-fixture-corpus:invalid-xmlDuplicateDataset": {
+    "ok": false,
+    "error": {
+      "ok": false,
+      "code": "source_format_error",
+      "reason": "KIS-NET response must contain exactly one direct Dataset named output1.",
+      "expected": "A valid KIS-NET Nexacro response matching the documented YTM Matrix schema",
+      "recoveryHint": "The KIS-NET source format may have changed; update the package before retrying.",
+      "recoveryAction": "inspect_tool_help",
+      "recoverable": false,
+      "retryable": false
+    }
+  },
+  "toolset:xml-fixture-corpus:invalid-xmlDuplicateErrorCode": {
+    "ok": false,
+    "error": {
+      "ok": false,
+      "code": "source_format_error",
+      "reason": "KIS-NET response contains duplicate ErrorCode.",
+      "expected": "A valid KIS-NET Nexacro response matching the documented YTM Matrix schema",
+      "recoveryHint": "The KIS-NET source format may have changed; update the package before retrying.",
+      "recoveryAction": "inspect_tool_help",
+      "recoverable": false,
+      "retryable": false
+    }
+  },
+  "toolset:xml-fixture-corpus:invalid-xmlDuplicateErrorMessage": {
+    "ok": false,
+    "error": {
+      "ok": false,
+      "code": "source_format_error",
+      "reason": "KIS-NET response contains duplicate ErrorMsg.",
+      "expected": "A valid KIS-NET Nexacro response matching the documented YTM Matrix schema",
+      "recoveryHint": "The KIS-NET source format may have changed; update the package before retrying.",
+      "recoveryAction": "inspect_tool_help",
+      "recoverable": false,
+      "retryable": false
+    }
+  },
+  "toolset:xml-fixture-corpus:invalid-xmlMalformedNesting": {
+    "ok": false,
+    "error": {
+      "ok": false,
+      "code": "source_format_error",
+      "reason": "KIS-NET returned malformed Nexacro XML: ill-formed document: expected `</Root>`, but `</Unexpected>` was found.",
+      "expected": "A valid KIS-NET Nexacro response matching the documented YTM Matrix schema",
+      "recoveryHint": "The KIS-NET source format may have changed; update the package before retrying.",
+      "recoveryAction": "inspect_tool_help",
+      "recoverable": false,
+      "retryable": false
+    }
+  },
+  "toolset:xml-fixture-corpus:invalid-xmlMissingNamespace": {
+    "ok": false,
+    "error": {
+      "ok": false,
+      "code": "source_format_error",
+      "reason": "KIS-NET response root or namespace is invalid.",
+      "expected": "A valid KIS-NET Nexacro response matching the documented YTM Matrix schema",
+      "recoveryHint": "The KIS-NET source format may have changed; update the package before retrying.",
+      "recoveryAction": "inspect_tool_help",
+      "recoverable": false,
+      "retryable": false
+    }
+  },
+  "toolset:xml-fixture-corpus:invalid-xmlNestedColumn": {
+    "ok": false,
+    "error": {
+      "ok": false,
+      "code": "source_format_error",
+      "reason": "KIS-NET scalar elements must not contain nested elements.",
+      "expected": "A valid KIS-NET Nexacro response matching the documented YTM Matrix schema",
+      "recoveryHint": "The KIS-NET source format may have changed; update the package before retrying.",
+      "recoveryAction": "inspect_tool_help",
+      "recoverable": false,
+      "retryable": false
+    }
+  },
+  "toolset:xml-fixture-corpus:invalid-xmlNestedErrorMessage": {
+    "ok": false,
+    "error": {
+      "ok": false,
+      "code": "source_format_error",
+      "reason": "KIS-NET scalar elements must not contain nested elements.",
+      "expected": "A valid KIS-NET Nexacro response matching the documented YTM Matrix schema",
+      "recoveryHint": "The KIS-NET source format may have changed; update the package before retrying.",
+      "recoveryAction": "inspect_tool_help",
+      "recoverable": false,
+      "retryable": false
+    }
+  },
+  "toolset:xml-fixture-corpus:invalid-xmlWrongNamespace": {
+    "ok": false,
+    "error": {
+      "ok": false,
+      "code": "source_format_error",
+      "reason": "KIS-NET response root or namespace is invalid.",
+      "expected": "A valid KIS-NET Nexacro response matching the documented YTM Matrix schema",
+      "recoveryHint": "The KIS-NET source format may have changed; update the package before retrying.",
+      "recoveryAction": "inspect_tool_help",
+      "recoverable": false,
+      "retryable": false
+    }
+  },
+  "toolset:xml-fixture-corpus:valid-xmlAstralEntity": {
+    "ok": true,
+    "value": {
+      "baseDate": "2026-06-08",
+      "kinds": [
+        {
+          "code": "10",
+          "name": "국채"
+        },
+        {
+          "code": "20",
+          "name": "지방채"
+        },
+        {
+          "code": "30",
+          "name": "특수채"
+        },
+        {
+          "code": "40",
+          "name": "통안채"
+        },
+        {
+          "code": "50",
+          "name": "은행채"
+        },
+        {
+          "code": "60",
+          "name": "기타금융채"
+        },
+        {
+          "code": "70",
+          "name": "회사채(무보증)"
+        },
+        {
+          "code": "80",
+          "name": "회사채(사모)"
+        },
+        {
+          "code": "90",
+          "name": "국채📈"
+        }
+      ],
+      "source": {
+        "pageUrl": "https://kis-net.kr/kisnet_mobile/index.html",
+        "endpoint": "https://kis-net.kr/rateInfo/ytmMatrixMobileInitList.do",
+        "method": "POST",
+        "request": {
+          "format": "Nexacro XML PlatformData",
+          "inDatasets": "ds_search=ds_search gds_tranInfo=gds_tranInfo",
+          "outDatasets": "ds_tymSort=output1 ds_list=output2",
+          "parameters": {
+            "calBaseDt": "20260608",
+            "cboYtmSort": "10"
+          }
+        },
+        "inspectedWorkflow": "The mobile page posts ds_search to /rateInfo/ytmMatrixMobileInitList.do on initial YTM Matrix load."
+      }
+    }
+  },
+  "toolset:xml-fixture-corpus:valid-xmlAttributeOrder": {
+    "ok": true,
+    "value": {
+      "baseDate": "2026-06-08",
+      "kinds": [
+        {
+          "code": "10",
+          "name": "국채"
+        },
+        {
+          "code": "20",
+          "name": "지방채"
+        },
+        {
+          "code": "30",
+          "name": "특수채"
+        },
+        {
+          "code": "40",
+          "name": "통안채"
+        },
+        {
+          "code": "50",
+          "name": "은행채"
+        },
+        {
+          "code": "60",
+          "name": "기타금융채"
+        },
+        {
+          "code": "70",
+          "name": "회사채(무보증)"
+        },
+        {
+          "code": "80",
+          "name": "회사채(사모)"
+        }
+      ],
+      "source": {
+        "pageUrl": "https://kis-net.kr/kisnet_mobile/index.html",
+        "endpoint": "https://kis-net.kr/rateInfo/ytmMatrixMobileInitList.do",
+        "method": "POST",
+        "request": {
+          "format": "Nexacro XML PlatformData",
+          "inDatasets": "ds_search=ds_search gds_tranInfo=gds_tranInfo",
+          "outDatasets": "ds_tymSort=output1 ds_list=output2",
+          "parameters": {
+            "calBaseDt": "20260608",
+            "cboYtmSort": "10"
+          }
+        },
+        "inspectedWorkflow": "The mobile page posts ds_search to /rateInfo/ytmMatrixMobileInitList.do on initial YTM Matrix load."
+      }
+    }
+  },
+  "toolset:xml-fixture-corpus:valid-xmlCdata": {
+    "ok": true,
+    "value": {
+      "baseDate": "2026-06-08",
+      "kinds": [
+        {
+          "code": "10",
+          "name": "국채"
+        },
+        {
+          "code": "20",
+          "name": "지방채"
+        },
+        {
+          "code": "30",
+          "name": "특수채"
+        },
+        {
+          "code": "40",
+          "name": "통안채"
+        },
+        {
+          "code": "50",
+          "name": "은행채"
+        },
+        {
+          "code": "60",
+          "name": "기타금융채"
+        },
+        {
+          "code": "70",
+          "name": "회사채(무보증)"
+        },
+        {
+          "code": "80",
+          "name": "회사채(사모)"
+        }
+      ],
+      "source": {
+        "pageUrl": "https://kis-net.kr/kisnet_mobile/index.html",
+        "endpoint": "https://kis-net.kr/rateInfo/ytmMatrixMobileInitList.do",
+        "method": "POST",
+        "request": {
+          "format": "Nexacro XML PlatformData",
+          "inDatasets": "ds_search=ds_search gds_tranInfo=gds_tranInfo",
+          "outDatasets": "ds_tymSort=output1 ds_list=output2",
+          "parameters": {
+            "calBaseDt": "20260608",
+            "cboYtmSort": "10"
+          }
+        },
+        "inspectedWorkflow": "The mobile page posts ds_search to /rateInfo/ytmMatrixMobileInitList.do on initial YTM Matrix load."
+      }
+    }
+  },
+  "toolset:xml-fixture-corpus:valid-xmlColumnInfo": {
+    "ok": true,
+    "value": {
+      "baseDate": "2026-06-08",
+      "kinds": [
+        {
+          "code": "10",
+          "name": "국채"
+        },
+        {
+          "code": "20",
+          "name": "지방채"
+        },
+        {
+          "code": "30",
+          "name": "특수채"
+        },
+        {
+          "code": "40",
+          "name": "통안채"
+        },
+        {
+          "code": "50",
+          "name": "은행채"
+        },
+        {
+          "code": "60",
+          "name": "기타금융채"
+        },
+        {
+          "code": "70",
+          "name": "회사채(무보증)"
+        },
+        {
+          "code": "80",
+          "name": "회사채(사모)"
+        }
+      ],
+      "source": {
+        "pageUrl": "https://kis-net.kr/kisnet_mobile/index.html",
+        "endpoint": "https://kis-net.kr/rateInfo/ytmMatrixMobileInitList.do",
+        "method": "POST",
+        "request": {
+          "format": "Nexacro XML PlatformData",
+          "inDatasets": "ds_search=ds_search gds_tranInfo=gds_tranInfo",
+          "outDatasets": "ds_tymSort=output1 ds_list=output2",
+          "parameters": {
+            "calBaseDt": "20260608",
+            "cboYtmSort": "10"
+          }
+        },
+        "inspectedWorkflow": "The mobile page posts ds_search to /rateInfo/ytmMatrixMobileInitList.do on initial YTM Matrix load."
+      }
+    }
+  },
+  "toolset:xml-fixture-corpus:valid-xmlEpilogComment": {
+    "ok": true,
+    "value": {
+      "baseDate": "2026-06-08",
+      "kinds": [
+        {
+          "code": "10",
+          "name": "국채"
+        },
+        {
+          "code": "20",
+          "name": "지방채"
+        },
+        {
+          "code": "30",
+          "name": "특수채"
+        },
+        {
+          "code": "40",
+          "name": "통안채"
+        },
+        {
+          "code": "50",
+          "name": "은행채"
+        },
+        {
+          "code": "60",
+          "name": "기타금융채"
+        },
+        {
+          "code": "70",
+          "name": "회사채(무보증)"
+        },
+        {
+          "code": "80",
+          "name": "회사채(사모)"
+        }
+      ],
+      "source": {
+        "pageUrl": "https://kis-net.kr/kisnet_mobile/index.html",
+        "endpoint": "https://kis-net.kr/rateInfo/ytmMatrixMobileInitList.do",
+        "method": "POST",
+        "request": {
+          "format": "Nexacro XML PlatformData",
+          "inDatasets": "ds_search=ds_search gds_tranInfo=gds_tranInfo",
+          "outDatasets": "ds_tymSort=output1 ds_list=output2",
+          "parameters": {
+            "calBaseDt": "20260608",
+            "cboYtmSort": "10"
+          }
+        },
+        "inspectedWorkflow": "The mobile page posts ds_search to /rateInfo/ytmMatrixMobileInitList.do on initial YTM Matrix load."
+      }
+    }
+  },
+  "toolset:xml-fixture-corpus:valid-xmlNonrecursiveEntity": {
+    "ok": true,
+    "value": {
+      "baseDate": "2026-06-08",
+      "kinds": [
+        {
+          "code": "10",
+          "name": "국채"
+        },
+        {
+          "code": "20",
+          "name": "지방채"
+        },
+        {
+          "code": "30",
+          "name": "특수채"
+        },
+        {
+          "code": "40",
+          "name": "통안채"
+        },
+        {
+          "code": "50",
+          "name": "은행채"
+        },
+        {
+          "code": "60",
+          "name": "기타금융채"
+        },
+        {
+          "code": "70",
+          "name": "회사채(무보증)"
+        },
+        {
+          "code": "80",
+          "name": "회사채(사모)"
+        },
+        {
+          "code": "90",
+          "name": "&lt;"
+        }
+      ],
+      "source": {
+        "pageUrl": "https://kis-net.kr/kisnet_mobile/index.html",
+        "endpoint": "https://kis-net.kr/rateInfo/ytmMatrixMobileInitList.do",
+        "method": "POST",
+        "request": {
+          "format": "Nexacro XML PlatformData",
+          "inDatasets": "ds_search=ds_search gds_tranInfo=gds_tranInfo",
+          "outDatasets": "ds_tymSort=output1 ds_list=output2",
+          "parameters": {
+            "calBaseDt": "20260608",
+            "cboYtmSort": "10"
+          }
+        },
+        "inspectedWorkflow": "The mobile page posts ds_search to /rateInfo/ytmMatrixMobileInitList.do on initial YTM Matrix load."
+      }
+    }
+  },
+  "toolset:xml-fixture-corpus:valid-xmlPrefixedNamespace": {
+    "ok": true,
+    "value": {
+      "baseDate": "2026-06-08",
+      "kinds": [
+        {
+          "code": "10",
+          "name": "국채"
+        },
+        {
+          "code": "20",
+          "name": "지방채"
+        },
+        {
+          "code": "30",
+          "name": "특수채"
+        },
+        {
+          "code": "40",
+          "name": "통안채"
+        },
+        {
+          "code": "50",
+          "name": "은행채"
+        },
+        {
+          "code": "60",
+          "name": "기타금융채"
+        },
+        {
+          "code": "70",
+          "name": "회사채(무보증)"
+        },
+        {
+          "code": "80",
+          "name": "회사채(사모)"
+        }
+      ],
+      "source": {
+        "pageUrl": "https://kis-net.kr/kisnet_mobile/index.html",
+        "endpoint": "https://kis-net.kr/rateInfo/ytmMatrixMobileInitList.do",
+        "method": "POST",
+        "request": {
+          "format": "Nexacro XML PlatformData",
+          "inDatasets": "ds_search=ds_search gds_tranInfo=gds_tranInfo",
+          "outDatasets": "ds_tymSort=output1 ds_list=output2",
+          "parameters": {
+            "calBaseDt": "20260608",
+            "cboYtmSort": "10"
+          }
+        },
+        "inspectedWorkflow": "The mobile page posts ds_search to /rateInfo/ytmMatrixMobileInitList.do on initial YTM Matrix load."
+      }
+    }
+  },
+  "toolset:xml-fixture-corpus:valid-xmlSelfClosingCell": {
+    "ok": true,
+    "value": {
+      "baseDate": "2026-06-08",
+      "kind": {
+        "code": "10",
+        "name": "국채"
+      },
+      "tenors": [
+        "3M",
+        "6M",
+        "9M",
+        "1Y",
+        "1.5Y",
+        "2Y",
+        "2.5Y",
+        "3Y",
+        "5Y",
+        "7Y",
+        "10Y",
+        "15Y",
+        "20Y",
+        "30Y",
+        "50Y"
+      ],
+      "rows": [
+        {
+          "groupName": "국채",
+          "pricingGroupCode": "100",
+          "pricingGroupName": "국고채권",
+          "yields": {
+            "3M": 2.5,
+            "6M": 2.51,
+            "9M": 2.52,
+            "1Y": 2.53,
+            "1.5Y": 2.54,
+            "2Y": null,
+            "2.5Y": 2.56,
+            "3Y": 2.57,
+            "5Y": 2.6,
+            "7Y": 2.7,
+            "10Y": 2.8,
+            "15Y": 2.9,
+            "20Y": 3,
+            "30Y": 3.1,
+            "50Y": 3.2
+          },
+          "yieldText": {
+            "3M": "2.500",
+            "6M": "2.510",
+            "9M": "2.520",
+            "1Y": "2.530",
+            "1.5Y": "2.540",
+            "2Y": "",
+            "2.5Y": "2.560",
+            "3Y": "2.570",
+            "5Y": "2.600",
+            "7Y": "2.700",
+            "10Y": "2.800",
+            "15Y": "2.900",
+            "20Y": "3.000",
+            "30Y": "3.100",
+            "50Y": "3.200"
+          },
+          "raw": {
+            "pricingGroupCode": "100",
+            "pricingGroupName": "국고채권",
+            "m3": "2.500",
+            "m6": "2.510",
+            "m9": "2.520",
+            "y1": "2.530",
+            "y15a": "2.540",
+            "y2": "",
+            "y25": "2.560",
+            "y3": "2.570",
+            "y5": "2.600",
+            "y7": "2.700",
+            "y10": "2.800",
+            "y15": "2.900",
+            "y20": "3.000",
+            "y30": "3.100",
+            "y50": "3.200",
+            "__proto__": "source-compatible"
+          }
+        }
+      ],
+      "source": {
+        "pageUrl": "https://kis-net.kr/kisnet_mobile/index.html",
+        "endpoint": "https://kis-net.kr/rateInfo/ytmMatrixMobileList.do",
+        "method": "POST",
+        "request": {
+          "format": "Nexacro XML PlatformData",
+          "inDatasets": "ds_search=ds_search gds_tranInfo=gds_tranInfo",
+          "outDatasets": "ds_list=output1",
+          "parameters": {
+            "calBaseDt": "20260608",
+            "cboYtmSort": "10"
+          }
+        },
+        "inspectedWorkflow": "The mobile page posts ds_search to /rateInfo/ytmMatrixMobileList.do when 검색 is clicked."
+      },
+      "requestedBaseDate": "2026-06-08",
+      "dateResolution": {
+        "mode": "exact",
+        "requestedBaseDate": "2026-06-08",
+        "resolvedBaseDate": "2026-06-08",
+        "usedFallback": false,
+        "attemptedDates": [
+          "2026-06-08"
+        ],
+        "lookbackDays": 0
+      }
+    }
+  },
+  "toolset:xml-fixture-corpus:valid-xmlStandaloneDeclaration": {
+    "ok": true,
+    "value": {
+      "baseDate": "2026-06-08",
+      "kinds": [
+        {
+          "code": "10",
+          "name": "국채"
+        },
+        {
+          "code": "20",
+          "name": "지방채"
+        },
+        {
+          "code": "30",
+          "name": "특수채"
+        },
+        {
+          "code": "40",
+          "name": "통안채"
+        },
+        {
+          "code": "50",
+          "name": "은행채"
+        },
+        {
+          "code": "60",
+          "name": "기타금융채"
+        },
+        {
+          "code": "70",
+          "name": "회사채(무보증)"
+        },
+        {
+          "code": "80",
+          "name": "회사채(사모)"
+        }
+      ],
+      "source": {
+        "pageUrl": "https://kis-net.kr/kisnet_mobile/index.html",
+        "endpoint": "https://kis-net.kr/rateInfo/ytmMatrixMobileInitList.do",
+        "method": "POST",
+        "request": {
+          "format": "Nexacro XML PlatformData",
+          "inDatasets": "ds_search=ds_search gds_tranInfo=gds_tranInfo",
+          "outDatasets": "ds_tymSort=output1 ds_list=output2",
+          "parameters": {
+            "calBaseDt": "20260608",
+            "cboYtmSort": "10"
+          }
+        },
+        "inspectedWorkflow": "The mobile page posts ds_search to /rateInfo/ytmMatrixMobileInitList.do on initial YTM Matrix load."
+      }
+    }
+  },
+  "toolset:xml-generated-bounds:body-limit-plus-one": {
+    "ok": false,
+    "error": {
+      "ok": false,
+      "code": "source_format_error",
+      "reason": "KIS-NET response exceeds the maximum body size of 1048576 bytes.",
+      "expected": "A valid KIS-NET Nexacro response matching the documented YTM Matrix schema",
+      "recoveryHint": "The KIS-NET source format may have changed; update the package before retrying.",
+      "recoveryAction": "inspect_tool_help",
+      "recoverable": false,
+      "retryable": false
+    }
+  },
+  "toolset:xml-generated-bounds:depth-limit-plus-one": {
+    "ok": false,
+    "error": {
+      "ok": false,
+      "code": "source_format_error",
+      "reason": "KIS-NET response exceeds the maximum XML element depth of 64.",
+      "expected": "A valid KIS-NET Nexacro response matching the documented YTM Matrix schema",
+      "recoveryHint": "The KIS-NET source format may have changed; update the package before retrying.",
+      "recoveryAction": "inspect_tool_help",
+      "recoverable": false,
+      "retryable": false
+    }
+  },
+  "toolset:xml-generated-bounds:double-bom": {
+    "ok": false,
+    "error": {
+      "ok": false,
+      "code": "source_format_error",
+      "reason": "KIS-NET response contains more than one UTF-8 BOM.",
+      "expected": "A valid KIS-NET Nexacro response matching the documented YTM Matrix schema",
+      "recoveryHint": "The KIS-NET source format may have changed; update the package before retrying.",
+      "recoveryAction": "inspect_tool_help",
+      "recoverable": false,
+      "retryable": false
+    }
+  },
+  "toolset:xml-generated-bounds:exact-body-limit": {
+    "ok": true,
+    "value": {
+      "baseDate": "2026-06-08",
+      "kinds": [
+        {
+          "code": "10",
+          "name": "국채"
+        },
+        {
+          "code": "20",
+          "name": "지방채"
+        },
+        {
+          "code": "30",
+          "name": "특수채"
+        },
+        {
+          "code": "40",
+          "name": "통안채"
+        },
+        {
+          "code": "50",
+          "name": "은행채"
+        },
+        {
+          "code": "60",
+          "name": "기타금융채"
+        },
+        {
+          "code": "70",
+          "name": "회사채(무보증)"
+        },
+        {
+          "code": "80",
+          "name": "회사채(사모)"
+        }
+      ],
+      "source": {
+        "pageUrl": "https://kis-net.kr/kisnet_mobile/index.html",
+        "endpoint": "https://kis-net.kr/rateInfo/ytmMatrixMobileInitList.do",
+        "method": "POST",
+        "request": {
+          "format": "Nexacro XML PlatformData",
+          "inDatasets": "ds_search=ds_search gds_tranInfo=gds_tranInfo",
+          "outDatasets": "ds_tymSort=output1 ds_list=output2",
+          "parameters": {
+            "calBaseDt": "20260608",
+            "cboYtmSort": "10"
+          }
+        },
+        "inspectedWorkflow": "The mobile page posts ds_search to /rateInfo/ytmMatrixMobileInitList.do on initial YTM Matrix load."
+      }
+    }
+  },
+  "toolset:xml-generated-bounds:exact-depth-limit": {
+    "ok": true,
+    "value": {
+      "baseDate": "2026-06-08",
+      "kinds": [
+        {
+          "code": "10",
+          "name": "국채"
+        },
+        {
+          "code": "20",
+          "name": "지방채"
+        },
+        {
+          "code": "30",
+          "name": "특수채"
+        },
+        {
+          "code": "40",
+          "name": "통안채"
+        },
+        {
+          "code": "50",
+          "name": "은행채"
+        },
+        {
+          "code": "60",
+          "name": "기타금융채"
+        },
+        {
+          "code": "70",
+          "name": "회사채(무보증)"
+        },
+        {
+          "code": "80",
+          "name": "회사채(사모)"
+        }
+      ],
+      "source": {
+        "pageUrl": "https://kis-net.kr/kisnet_mobile/index.html",
+        "endpoint": "https://kis-net.kr/rateInfo/ytmMatrixMobileInitList.do",
+        "method": "POST",
+        "request": {
+          "format": "Nexacro XML PlatformData",
+          "inDatasets": "ds_search=ds_search gds_tranInfo=gds_tranInfo",
+          "outDatasets": "ds_tymSort=output1 ds_list=output2",
+          "parameters": {
+            "calBaseDt": "20260608",
+            "cboYtmSort": "10"
+          }
+        },
+        "inspectedWorkflow": "The mobile page posts ds_search to /rateInfo/ytmMatrixMobileInitList.do on initial YTM Matrix load."
+      }
+    }
+  },
+  "toolset:xml-generated-bounds:invalid-utf8": {
+    "ok": false,
+    "error": {
+      "ok": false,
+      "code": "source_format_error",
+      "reason": "KIS-NET response is not valid UTF-8.",
+      "expected": "A valid KIS-NET Nexacro response matching the documented YTM Matrix schema",
+      "recoveryHint": "The KIS-NET source format may have changed; update the package before retrying.",
+      "recoveryAction": "inspect_tool_help",
+      "recoverable": false,
+      "retryable": false
+    }
+  },
+  "toolset:xml-generated-bounds:single-bom": {
+    "ok": true,
+    "value": {
+      "baseDate": "2026-06-08",
+      "kinds": [
+        {
+          "code": "10",
+          "name": "국채"
+        },
+        {
+          "code": "20",
+          "name": "지방채"
+        },
+        {
+          "code": "30",
+          "name": "특수채"
+        },
+        {
+          "code": "40",
+          "name": "통안채"
+        },
+        {
+          "code": "50",
+          "name": "은행채"
+        },
+        {
+          "code": "60",
+          "name": "기타금융채"
+        },
+        {
+          "code": "70",
+          "name": "회사채(무보증)"
+        },
+        {
+          "code": "80",
+          "name": "회사채(사모)"
+        }
+      ],
+      "source": {
+        "pageUrl": "https://kis-net.kr/kisnet_mobile/index.html",
+        "endpoint": "https://kis-net.kr/rateInfo/ytmMatrixMobileInitList.do",
+        "method": "POST",
+        "request": {
+          "format": "Nexacro XML PlatformData",
+          "inDatasets": "ds_search=ds_search gds_tranInfo=gds_tranInfo",
+          "outDatasets": "ds_tymSort=output1 ds_list=output2",
+          "parameters": {
+            "calBaseDt": "20260608",
+            "cboYtmSort": "10"
+          }
+        },
+        "inspectedWorkflow": "The mobile page posts ds_search to /rateInfo/ytmMatrixMobileInitList.do on initial YTM Matrix load."
+      }
+    }
+  }
+}
