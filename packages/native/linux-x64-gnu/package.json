@@ -5,7 +5,8 @@
   "main": "ytm.linux-x64-gnu.node",
   "files": [
     "ytm.linux-x64-gnu.node",
-    "LICENSE.md"
+    "LICENSE.md",
+    "THIRD_PARTY_LICENSES.html"
   ],
   "os": [
     "linux"

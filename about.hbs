@@ -1,0 +1,35 @@
+<!-- Generated with cargo-about 0.9.2. Template based on cargo-about's MIT/Apache-2.0 example. -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Third-Party Licenses</title>
+  <style>
+    body { font-family: sans-serif; margin: 2rem auto; max-width: 60rem; padding: 0 1rem; }
+    .license-text { max-height: 20rem; overflow: auto; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Third-Party Licenses</h1>
+    <p>This document contains notices and license texts for Rust dependencies distributed in the native <code>@sjunepark/ytm</code> packages.</p>
+    <h2>Overview</h2>
+    <ul>
+      {{#each overview}}
+      <li><a href="#{{id}}">{{name}}</a> ({{count}})</li>
+      {{/each}}
+    </ul>
+    <h2>License texts</h2>
+    {{#each licenses}}
+      {{#if first_of_kind}}<h3 id="{{id}}">{{name}}</h3>{{/if}}
+      <h4 id="{{id}}-{{@index}}">Used by</h4>
+      <ul>
+        {{#each used_by}}
+        <li><a href="{{#if crate.repository}}{{crate.repository}}{{else}}https://crates.io/crates/{{crate.name}}{{/if}}">{{crate.name}} {{crate.version}}</a></li>
+        {{/each}}
+      </ul>
+      <pre class="license-text">{{text}}</pre>
+    {{/each}}
+  </main>
+</body>
+</html>

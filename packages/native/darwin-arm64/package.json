@@ -5,7 +5,8 @@
   "main": "ytm.darwin-arm64.node",
   "files": [
     "ytm.darwin-arm64.node",
-    "LICENSE.md"
+    "LICENSE.md",
+    "THIRD_PARTY_LICENSES.html"
   ],
   "os": [
     "darwin"

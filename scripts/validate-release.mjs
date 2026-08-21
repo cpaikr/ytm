@@ -73,11 +73,12 @@ for (const target of nativeTargets.targets) {
   check(nativePackage.name === target.packageName, `${target.rustTarget} native package name must match the manifest`);
   check(nativePackage.version === nodePackage.version, `${target.rustTarget} native package version must match the root package`);
   check(nativePackage.main === target.artifactFile, `${target.rustTarget} native package artifact must match the manifest`);
-  equal(nativePackage.files, [target.artifactFile, "LICENSE.md"], `${target.rustTarget} native package files must contain the artifact and license`);
+  equal(nativePackage.files, [target.artifactFile, "LICENSE.md", "THIRD_PARTY_LICENSES.html"], `${target.rustTarget} native package files must contain the artifact and license notices`);
   equal(nativePackage.os, [target.npmPlatform], `${target.rustTarget} native package OS must match the target manifest`);
   equal(nativePackage.cpu, [target.npmArch], `${target.rustTarget} native package CPU must match the target manifest`);
   equal(nativePackage.libc, target.libc ? [target.libc] : undefined, `${target.rustTarget} native package libc must match the target manifest`);
   check(await pathExists(`${nativeTargets.nativePackageRoot}/${target.packageDirectory}/LICENSE.md`), `${target.rustTarget} native package must ship the repository license`);
+  check(await pathExists(`${nativeTargets.nativePackageRoot}/${target.packageDirectory}/THIRD_PARTY_LICENSES.html`), `${target.rustTarget} native package must ship third-party notices`);
 }
 
 check(!releasePleaseWorkflowPresent && !releasePleaseConfigPresent && !releasePleaseManifestPresent, "Release Please workflow and metadata must remain absent");
@@ -85,6 +86,7 @@ check(!pythonPackagePresent && !pythonWorkflowPresent, "Python product and publi
 equal(Object.keys(ciWorkflow.jobs || {}), ["validate", "native-consumer"], "CI must contain only Node/Rust validation and native consumers");
 equal(Object.keys(liveWorkflow.jobs || {}), ["node"], "live smoke must contain only the Node product");
 check(ciWorkflow.jobs?.validate?.["timeout-minutes"] === 20, "CI validation must have a bounded timeout");
+check(activeShell(findNamedStep(ciWorkflow.jobs?.validate, "Validate contracts, generated artifacts, and release configuration")).includes("bun run licenses:check"), "CI validation must check third-party notice freshness");
 check(activeShell(findNamedStep(liveWorkflow.jobs?.node, "Run live smoke")).includes('process.stdin.setEncoding("utf8")'), "live smoke must decode streamed JSON as UTF-8");
 const ciNativeJob = ciWorkflow.jobs?.["native-consumer"];
 check(ciNativeJob?.["timeout-minutes"] === 20, "CI native consumers must have a bounded timeout");
@@ -96,28 +98,34 @@ check(activeShell(findNamedStep(ciNativeJob, "Build production native artifact")
 check(activeShell(findNamedStep(ciNativeJob, "Assemble product packages")).includes("scripts/assemble-native-package.mjs"), "CI native consumers must assemble platform packages");
 check(activeShell(findNamedStep(ciNativeJob, "Test clean installed CLI and toolset")).includes("scripts/test-native-consumer.mjs"), "CI native consumers must exercise clean installs");
 
-equal(npmWorkflow.on?.push?.tags, ["node-v*.*.*"], "npm workflow must trigger only from Node component tags");
-check(!npmWorkflow.on?.workflow_dispatch, "npm publishing must not be manually dispatchable while release creation is disabled");
+check(!npmWorkflow.on?.push, "npm publishing must not trigger automatically from pushed tags");
+check(npmWorkflow.on?.workflow_dispatch?.inputs?.tag?.required === true, "npm publishing must require an explicitly authorized tag input");
 const metadataJob = npmWorkflow.jobs?.metadata;
 const metadataCheckout = findNamedStep(metadataJob, "Check out source");
 const metadataNode = findNamedStep(metadataJob, "Set up Node");
 const metadataStep = findNamedStep(metadataJob, "Validate release metadata");
 check(metadataJob?.["timeout-minutes"] === 30, "release metadata must have a bounded timeout");
-check(metadataCheckout?.with?.ref === "${{ github.sha }}" && metadataCheckout?.with?.["persist-credentials"] === false, "release metadata must check out the immutable tag commit without persisted credentials");
+check(metadataJob?.["runs-on"] === "ubuntu-24.04", "release metadata must run on a GitHub-hosted runner");
+check(metadataCheckout?.with?.ref === "refs/tags/${{ inputs.tag }}" && metadataCheckout?.with?.["fetch-depth"] === 0 && metadataCheckout?.with?.["persist-credentials"] === false, "release metadata must check out the requested immutable tag without persisted credentials");
 check(metadataNode?.with?.["node-version"] === 24 && metadataNode?.with?.["package-manager-cache"] === false, "release metadata must pin Node 24 without package-manager caching");
-check(activeShell(metadataStep).includes('if [ "$GITHUB_REF_NAME" != "node-v$PACKAGE_VERSION" ]; then'), "release metadata must verify the Node tag and package version");
+check(metadataStep?.env?.RELEASE_TAG === "${{ inputs.tag }}", "release metadata must receive the authorized tag as explicit input");
+check(activeShell(metadataStep).includes('if [ "$GITHUB_REF" != "refs/heads/main" ]; then'), "release metadata must require dispatch from main");
+check(activeShell(metadataStep).includes('if [ "$RELEASE_TAG" != "node-v$PACKAGE_VERSION" ]; then'), "release metadata must verify the requested Node tag and package version");
+check(activeShell(metadataStep).includes('git merge-base --is-ancestor "$SOURCE_SHA" refs/remotes/origin/main'), "release metadata must require the tag commit to be on main");
 check(metadataJob?.outputs?.source_sha === "${{ steps.package.outputs.source_sha }}", "release metadata must expose the immutable source commit");
 
 const nativeJob = npmWorkflow.jobs?.native_packages;
 check(nativeJob?.["timeout-minutes"] === 30, "release native packages must have a bounded timeout");
 equal(nativeJob?.strategy?.matrix?.target?.map(({ rust }) => rust), nativeTargets.targets.map(({ rustTarget }) => rustTarget), "release native matrix must match the target manifest");
 equal(nativeJob?.strategy?.matrix?.target?.map(({ runner }) => runner), nativeTargets.targets.map(({ runner }) => runner), "release native matrix must use the manifest runners");
+equal(nativeJob?.strategy?.matrix?.target?.map(({ runner }) => runner), ["ubuntu-24.04", "ubuntu-24.04-arm", "macos-15", "windows-2025"], "release native packages must build on the approved GitHub-hosted runners");
 check(findNamedStep(nativeJob, "Check out immutable release source")?.with?.ref === "${{ needs.metadata.outputs.source_sha }}", "native builds must use the immutable release commit");
 check(activeShell(findNamedStep(nativeJob, "Assemble and pack native package")).includes("scripts/assemble-native-package.mjs"), "native release jobs must assemble generated packages");
 check(activeShell(findNamedStep(nativeJob, "Assemble and pack native package")).includes("scripts/test-native-consumer.mjs"), "native release jobs must clean-install their exact artifacts before upload");
 
 const rootJob = npmWorkflow.jobs?.root_package;
 check(rootJob?.["timeout-minutes"] === 30, "release root package must have a bounded timeout");
+check(rootJob?.["runs-on"] === "ubuntu-24.04", "release root package must build on a GitHub-hosted runner");
 check(findNamedStep(rootJob, "Check out immutable release source")?.with?.ref === "${{ needs.metadata.outputs.source_sha }}", "root package validation must use the immutable release commit");
 check(activeShell(findNamedStep(rootJob, "Pack root package without a native binary")).includes("build:facade"), "root release artifact must be packed without a native binary");
 
