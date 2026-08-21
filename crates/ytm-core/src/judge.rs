@@ -158,7 +158,7 @@ impl Transport for FixtureTransport {
             }
         }
 
-        match tokio::time::timeout(Duration::from_secs(1), cancellation.cancelled()).await {
+        match tokio::time::timeout(Duration::from_secs(5), cancellation.cancelled()).await {
             Ok(()) => Err(YtmError::transport(
                 "KIS-NET request was cancelled.",
                 None,

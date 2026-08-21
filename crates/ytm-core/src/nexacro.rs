@@ -85,7 +85,12 @@ pub fn parse(bytes: &[u8], selected_dataset: &str) -> Result<DatasetResponse, Yt
             ResolveResult::Bound(namespace) => {
                 normalized_namespace(namespace.as_ref(), decoder)? == NAMESPACE
             }
-            ResolveResult::Unbound | ResolveResult::Unknown(_) => false,
+            ResolveResult::Unbound => false,
+            ResolveResult::Unknown(_) => {
+                return Err(YtmError::format(
+                    "KIS-NET response contains malformed Nexacro XML.",
+                ));
+            }
         };
         if matches!(&event, Event::Decl(_)) && !document_start {
             return Err(YtmError::format(
@@ -846,6 +851,20 @@ mod tests {
             namespace = std::str::from_utf8(NAMESPACE).unwrap(),
         );
         assert!(parse(xml.as_bytes(), "output1").is_ok());
+    }
+
+    #[test]
+    fn rejects_undeclared_prefixes_inside_ignored_open_content() {
+        let xml = format!(
+            "<Root xmlns=\"{namespace}\"><Parameters><Parameter id=\"ErrorCode\">0</Parameter></Parameters><Dataset id=\"unrelated\"><vendor:Extension/></Dataset><Dataset id=\"output1\"><Rows/></Dataset></Root>",
+            namespace = std::str::from_utf8(NAMESPACE).unwrap(),
+        );
+        let error = parse(xml.as_bytes(), "output1").unwrap_err();
+        assert_eq!(error.details.code, "source_format_error");
+        assert_eq!(
+            error.details.reason,
+            "KIS-NET response contains malformed Nexacro XML."
+        );
     }
 
     #[test]

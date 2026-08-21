@@ -20,7 +20,7 @@
     "judge": "node judge/run.mjs --product-root packages/node",
     "judge:broken": "node judge/prove-deliberate-failure.mjs",
     "contracts:check": "node scripts/validate-contracts.mjs && node scripts/generate-native-packages.mjs --check && bun run rust:fixture-guard",
-    "licenses:generate": "cargo about generate about.hbs --locked --fail --output-file THIRD_PARTY_LICENSES.html",
+    "licenses:generate": "node scripts/check-third-party-licenses.mjs --write",
     "licenses:check": "node scripts/check-third-party-licenses.mjs",
     "release:check": "node scripts/validate-release.mjs",
     "pack:node": "npm pack --dry-run --workspace packages/node",

@@ -50,17 +50,19 @@ try {
     let handlerCalls = 0;
     const handler = () => { handlerCalls += 1; };
     controller.signal.onabort = handler;
-    const execution = toolset.execute("kinds", request.input, { signal: controller.signal });
+    const execution = toolset
+      .execute("kinds", request.input, { signal: controller.signal })
+      .then(
+        () => ({ ok: true }),
+        (caught) => ({ ok: false, caught })
+      );
     const preservedDuringExecution = controller.signal.onabort === handler;
     const requestAtEntry = await waitForCapturedRequest();
     controller.abort(new Error("judge cancellation"));
-    let cancellation;
-    try {
-      await execution;
-      cancellation = { code: "unexpected_success" };
-    } catch (caught) {
-      cancellation = toolset.serializeError(caught);
-    }
+    const outcome = await execution;
+    const cancellation = outcome.ok
+      ? { code: "unexpected_success" }
+      : toolset.serializeError(outcome.caught);
     value = {
       preservedDuringExecution,
       preservedAfterAbort: controller.signal.onabort === handler,
@@ -96,11 +98,19 @@ async function waitForCapturedRequest() {
   if (!capturePath) throw new Error("Cancellation probe requires a capture path");
   const deadline = Date.now() + 1_000;
   while (Date.now() < deadline) {
+    let raw;
     try {
-      const captures = JSON.parse(await readFile(capturePath, "utf8"));
-      if (captures.length > 0) return captures[0];
+      raw = await readFile(capturePath, "utf8");
     } catch (caught) {
       if (caught?.code !== "ENOENT") throw caught;
+    }
+    if (raw !== undefined) {
+      try {
+        const captures = JSON.parse(raw);
+        if (captures.length > 0) return captures[0];
+      } catch (caught) {
+        if (!(caught instanceof SyntaxError)) throw caught;
+      }
     }
     await new Promise((resolveDelay) => setTimeout(resolveDelay, 5));
   }

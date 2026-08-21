@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -22,7 +22,16 @@ if (generated.status !== 0) {
 }
 
 const expected = await readFile(resolve(repositoryRoot, "THIRD_PARTY_LICENSES.html"), "utf8");
-if (generated.stdout !== `${expected}\n`) {
-  throw new Error("THIRD_PARTY_LICENSES.html is stale; run bun run licenses:generate.");
+const canonicalGenerated = generated.stdout.replaceAll("\r\n", "\n");
+if (!canonicalGenerated.endsWith("\n")) {
+  throw new Error("cargo-about generated an incomplete third-party license notice.");
 }
-console.log("third-party license notices are current");
+const notice = canonicalGenerated.slice(0, -1);
+if (process.argv.includes("--write")) {
+  await writeFile(resolve(repositoryRoot, "THIRD_PARTY_LICENSES.html"), notice, "utf8");
+  console.log("generated THIRD_PARTY_LICENSES.html");
+} else if (notice !== expected.replaceAll("\r\n", "\n")) {
+  throw new Error("THIRD_PARTY_LICENSES.html is stale; run bun run licenses:generate.");
+} else {
+  console.log("third-party license notices are current");
+}
