@@ -5,7 +5,8 @@
   "main": "ytm.win32-x64-msvc.node",
   "files": [
     "ytm.win32-x64-msvc.node",
-    "LICENSE.md"
+    "LICENSE.md",
+    "THIRD_PARTY_LICENSES.html"
   ],
   "os": [
     "win32"

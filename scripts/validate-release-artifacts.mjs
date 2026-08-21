@@ -8,6 +8,8 @@ const nativeDirectory = resolve(repositoryRoot, process.argv[2] || "dist/native"
 const rootDirectory = resolve(repositoryRoot, process.argv[3] || "dist/root");
 const targets = JSON.parse(await readFile(resolve(repositoryRoot, "native-targets.json"), "utf8"));
 const rootSource = JSON.parse(await readFile(resolve(repositoryRoot, targets.rootPackage, "package.json"), "utf8"));
+const expectedLicense = await readFile(resolve(repositoryRoot, "LICENSE.md"), "utf8");
+const expectedThirdPartyLicenses = await readFile(resolve(repositoryRoot, "THIRD_PARTY_LICENSES.html"), "utf8");
 const expectedNative = new Map(targets.targets.map((target) => [target.packageName, target]));
 
 const nativeTarballs = await tarballs(nativeDirectory);
@@ -27,8 +29,8 @@ for (const tarball of nativeTarballs) {
   if (seen.has(pkg.name)) throw new Error(`Duplicate native package ${pkg.name}.`);
   seen.add(pkg.name);
   if (pkg.version !== rootSource.version) throw new Error(`${pkg.name} version ${pkg.version} does not match ${rootSource.version}.`);
-  if (pkg.main !== target.artifactFile || JSON.stringify(pkg.files) !== JSON.stringify([target.artifactFile, "LICENSE.md"])) {
-    throw new Error(`${pkg.name} does not declare its native artifact and license exactly.`);
+  if (pkg.main !== target.artifactFile || JSON.stringify(pkg.files) !== JSON.stringify([target.artifactFile, "LICENSE.md", "THIRD_PARTY_LICENSES.html"])) {
+    throw new Error(`${pkg.name} does not declare its native artifact and license notices exactly.`);
   }
   const entries = listTarball(tarball);
   const nativeEntries = entries.filter((entry) => entry.endsWith(".node"));
@@ -37,6 +39,15 @@ for (const tarball of nativeTarballs) {
   }
   if (!entries.includes("package/LICENSE.md")) {
     throw new Error(`${pkg.name} tarball must contain LICENSE.md.`);
+  }
+  if (!entries.includes("package/THIRD_PARTY_LICENSES.html")) {
+    throw new Error(`${pkg.name} tarball must contain THIRD_PARTY_LICENSES.html.`);
+  }
+  if (tarballEntry(tarball, "package/LICENSE.md") !== expectedLicense) {
+    throw new Error(`${pkg.name} tarball LICENSE.md does not match the immutable source.`);
+  }
+  if (tarballEntry(tarball, "package/THIRD_PARTY_LICENSES.html") !== expectedThirdPartyLicenses) {
+    throw new Error(`${pkg.name} tarball THIRD_PARTY_LICENSES.html does not match the immutable source.`);
   }
 }
 
@@ -81,9 +92,13 @@ async function tarballs(directory) {
 }
 
 function packageJson(tarball) {
-  const result = spawnSync("tar", ["-xOf", tarball, "package/package.json"], { encoding: "utf8" });
-  if (result.status !== 0) throw new Error(`Could not read package.json from ${tarball}: ${result.stderr}`);
-  return JSON.parse(result.stdout);
+  return JSON.parse(tarballEntry(tarball, "package/package.json"));
+}
+
+function tarballEntry(tarball, entry) {
+  const result = spawnSync("tar", ["-xOf", tarball, entry], { encoding: "utf8", maxBuffer: 32 * 1024 * 1024 });
+  if (result.status !== 0) throw new Error(`Could not read ${entry} from ${tarball}: ${result.stderr}`);
+  return result.stdout;
 }
 
 function listTarball(tarball) {

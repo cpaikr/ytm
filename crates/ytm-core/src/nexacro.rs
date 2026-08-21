@@ -1,8 +1,10 @@
+use std::{borrow::Cow, collections::HashSet};
+
 use indexmap::IndexMap;
 use quick_xml::{
     encoding::Decoder,
-    events::{BytesStart, Event},
-    name::ResolveResult,
+    events::{attributes::Attribute, BytesStart, Event},
+    name::{NamespaceResolver, QName, ResolveResult},
     reader::NsReader,
     XmlVersion,
 };
@@ -75,13 +77,21 @@ pub fn parse(bytes: &[u8], selected_dataset: &str) -> Result<DatasetResponse, Yt
     let mut rows = Vec::new();
 
     loop {
-        let (resolution, event) =
-            reader
-                .read_resolved_event_into(&mut buffer)
-                .map_err(|error| {
-                    YtmError::format(format!("KIS-NET returned malformed Nexacro XML: {error}."))
-                })?;
-        let namespace_ok = matches!(resolution, ResolveResult::Bound(namespace) if namespace.as_ref() == NAMESPACE);
+        let decoder = reader.decoder();
+        let (resolution, event) = reader
+            .read_resolved_event_into(&mut buffer)
+            .map_err(|_| YtmError::format("KIS-NET response contains malformed Nexacro XML."))?;
+        let namespace_ok = match resolution {
+            ResolveResult::Bound(namespace) => {
+                normalized_namespace(namespace.as_ref(), decoder)? == NAMESPACE
+            }
+            ResolveResult::Unbound => false,
+            ResolveResult::Unknown(_) => {
+                return Err(YtmError::format(
+                    "KIS-NET response contains malformed Nexacro XML.",
+                ));
+            }
+        };
         if matches!(&event, Event::Decl(_)) && !document_start {
             return Err(YtmError::format(
                 "KIS-NET XML declaration is duplicated or misplaced.",
@@ -96,17 +106,15 @@ pub fn parse(bytes: &[u8], selected_dataset: &str) -> Result<DatasetResponse, Yt
                     ));
                 }
                 declaration_seen = true;
-                let version = declaration.version().map_err(|error| {
-                    YtmError::format(format!("KIS-NET XML declaration is invalid: {error}."))
-                })?;
+                let version = declaration
+                    .version()
+                    .map_err(|_| YtmError::format("KIS-NET XML declaration is invalid."))?;
                 if version.as_ref() != b"1.0" {
                     return Err(YtmError::format("KIS-NET response must use XML 1.0."));
                 }
                 if let Some(encoding) = declaration.encoding() {
-                    let encoding = encoding.map_err(|error| {
-                        YtmError::format(format!(
-                            "KIS-NET XML encoding declaration is invalid: {error}."
-                        ))
+                    let encoding = encoding.map_err(|_| {
+                        YtmError::format("KIS-NET XML encoding declaration is invalid.")
                     })?;
                     if !encoding.as_ref().eq_ignore_ascii_case(b"UTF-8") {
                         return Err(YtmError::format(
@@ -129,6 +137,7 @@ pub fn parse(bytes: &[u8], selected_dataset: &str) -> Result<DatasetResponse, Yt
                 start_node(
                     &element,
                     reader.decoder(),
+                    reader.resolver(),
                     namespace_ok,
                     selected_dataset,
                     &mut structure,
@@ -138,6 +147,7 @@ pub fn parse(bytes: &[u8], selected_dataset: &str) -> Result<DatasetResponse, Yt
                 start_node(
                     &element,
                     reader.decoder(),
+                    reader.resolver(),
                     namespace_ok,
                     selected_dataset,
                     &mut structure,
@@ -149,13 +159,13 @@ pub fn parse(bytes: &[u8], selected_dataset: &str) -> Result<DatasetResponse, Yt
             }
             Event::Text(text) => {
                 let decoded = text
-                    .decode()
+                    .xml10_content()
                     .map_err(|_| YtmError::format("KIS-NET response is not valid UTF-8."))?;
                 append_text(&mut structure, &decoded)?;
             }
             Event::CData(text) => {
                 let decoded = text
-                    .decode()
+                    .xml10_content()
                     .map_err(|_| YtmError::format("KIS-NET response is not valid UTF-8."))?;
                 append_text(&mut structure, &decoded)?;
             }
@@ -211,10 +221,17 @@ pub fn parse(bytes: &[u8], selected_dataset: &str) -> Result<DatasetResponse, Yt
 fn start_node(
     element: &BytesStart<'_>,
     decoder: Decoder,
+    resolver: &NamespaceResolver,
     namespace_ok: bool,
     selected_dataset: &str,
     state: &mut StructureState,
 ) -> Result<(), YtmError> {
+    if !is_xml_qname(element.name().as_ref()) {
+        return Err(YtmError::format(
+            "KIS-NET response contains malformed Nexacro XML.",
+        ));
+    }
+    let id = validated_id(element, decoder, resolver)?;
     let stack = &mut state.stack;
     if stack.len() + 1 > MAX_ELEMENT_DEPTH {
         return Err(YtmError::format(format!(
@@ -245,11 +262,11 @@ fn start_node(
     } else if matches!(stack.last(), Some(Node::Parameters)) && name == b"Parameter" && namespace_ok
     {
         Node::Parameter {
-            id: required_id(element, decoder)?,
+            id: required_id(&id)?,
             text: String::new(),
         }
     } else if matches!(stack.last(), Some(Node::Root)) && name == b"Dataset" && namespace_ok {
-        let id = required_id(element, decoder)?;
+        let id = required_id(&id)?;
         let selected = id == selected_dataset;
         if selected {
             state.selected_count += 1;
@@ -273,10 +290,7 @@ fn start_node(
         } else {
             record_selected_error(
                 &mut state.selected_error,
-                format!(
-                    "KIS-NET selected Dataset has an invalid direct child named {}.",
-                    String::from_utf8_lossy(name)
-                ),
+                "KIS-NET selected Dataset has an invalid direct child.",
             );
             Node::Other
         }
@@ -292,7 +306,7 @@ fn start_node(
         && name == b"Col"
         && namespace_ok
     {
-        match required_id(element, decoder) {
+        match required_id(&id) {
             Ok(id) => Node::Col {
                 selected: true,
                 id,
@@ -388,7 +402,7 @@ fn finish_node(
             };
             if values.insert(id.clone(), text).is_some() {
                 structure.selected_error.get_or_insert_with(|| {
-                    YtmError::format(format!("KIS-NET row contains duplicate column {id}."))
+                    YtmError::format("KIS-NET row contains a duplicate column.")
                 });
             }
         }
@@ -427,32 +441,110 @@ fn append_text(structure: &mut StructureState, value: &str) -> Result<(), YtmErr
     }
 }
 
-fn required_id(element: &BytesStart<'_>, decoder: Decoder) -> Result<String, YtmError> {
+fn validated_id(
+    element: &BytesStart<'_>,
+    decoder: Decoder,
+    resolver: &NamespaceResolver,
+) -> Result<Option<String>, YtmError> {
+    let mut expanded_names = HashSet::new();
     let mut id = None;
     for attribute in element.attributes() {
-        let attribute = attribute.map_err(|error| {
-            YtmError::format(format!(
-                "KIS-NET response contains an invalid attribute: {error}."
-            ))
-        })?;
-        if attribute.key.as_ref() == b"id" {
-            if id.is_some() {
+        let attribute = attribute
+            .map_err(|_| YtmError::format("KIS-NET response contains invalid XML attributes."))?;
+        if !is_xml_qname(attribute.key.as_ref()) || attribute.value.as_ref().contains(&b'<') {
+            return Err(YtmError::format(
+                "KIS-NET response contains invalid XML attributes.",
+            ));
+        }
+        let value = attribute
+            .decoded_and_normalized_value(XmlVersion::Explicit1_0, decoder)
+            .map_err(|_| YtmError::format("KIS-NET response contains invalid XML attributes."))?;
+        let (namespace, local_name) = resolver.resolve_attribute(attribute.key);
+        let namespace = match namespace {
+            ResolveResult::Unbound => None,
+            ResolveResult::Bound(namespace) => {
+                Some(normalized_namespace(namespace.as_ref(), decoder)?)
+            }
+            ResolveResult::Unknown(_) => {
                 return Err(YtmError::format(
-                    "KIS-NET element contains duplicate id attributes.",
+                    "KIS-NET response contains invalid XML attributes.",
                 ));
             }
-            let value = attribute
-                .decoded_and_normalized_value(XmlVersion::Explicit1_0, decoder)
-                .map_err(|error| {
-                    YtmError::format(format!("KIS-NET id attribute is invalid: {error}."))
-                })?;
-            if value.trim().is_empty() {
-                return Err(YtmError::format("KIS-NET element id must be nonempty."));
-            }
+        };
+        if !expanded_names.insert((namespace.clone(), local_name.as_ref().to_vec())) {
+            return Err(YtmError::format(
+                "KIS-NET response contains invalid XML attributes.",
+            ));
+        }
+        if namespace.is_none() && local_name.as_ref() == b"id" {
             id = Some(value.into_owned());
         }
     }
-    id.ok_or_else(|| YtmError::format("KIS-NET element is missing a required id attribute."))
+    Ok(id)
+}
+
+fn normalized_namespace(bytes: &[u8], decoder: Decoder) -> Result<Vec<u8>, YtmError> {
+    Attribute {
+        key: QName(b"xmlns"),
+        value: Cow::Borrowed(bytes),
+    }
+    .decoded_and_normalized_value(XmlVersion::Explicit1_0, decoder)
+    .map(|value| value.into_owned().into_bytes())
+    .map_err(|_| YtmError::format("KIS-NET response contains invalid XML attributes."))
+}
+
+fn required_id(id: &Option<String>) -> Result<String, YtmError> {
+    if id.as_deref().is_some_and(|value| value.trim().is_empty()) {
+        return Err(YtmError::format("KIS-NET element id must be nonempty."));
+    }
+    id.clone()
+        .ok_or_else(|| YtmError::format("KIS-NET element is missing a required id attribute."))
+}
+
+fn is_xml_qname(bytes: &[u8]) -> bool {
+    let Ok(name) = std::str::from_utf8(bytes) else {
+        return false;
+    };
+    let mut parts = name.split(':');
+    let Some(first) = parts.next() else {
+        return false;
+    };
+    is_xml_ncname(first) && parts.next().is_none_or(is_xml_ncname) && parts.next().is_none()
+}
+
+fn is_xml_ncname(name: &str) -> bool {
+    let mut characters = name.chars();
+    characters.next().is_some_and(is_xml_name_start_character)
+        && characters.all(is_xml_name_character)
+}
+
+fn is_xml_name_start_character(character: char) -> bool {
+    matches!(
+        character as u32,
+        0x41..=0x5a
+            | 0x5f
+            | 0x61..=0x7a
+            | 0xc0..=0xd6
+            | 0xd8..=0xf6
+            | 0xf8..=0x2ff
+            | 0x370..=0x37d
+            | 0x37f..=0x1fff
+            | 0x200c..=0x200d
+            | 0x2070..=0x218f
+            | 0x2c00..=0x2fef
+            | 0x3001..=0xd7ff
+            | 0xf900..=0xfdcf
+            | 0xfdf0..=0xfffd
+            | 0x10000..=0xeffff
+    )
+}
+
+fn is_xml_name_character(character: char) -> bool {
+    is_xml_name_start_character(character)
+        || matches!(
+            character as u32,
+            0x2d | 0x2e | 0x30..=0x39 | 0xb7 | 0x300..=0x36f | 0x203f..=0x2040
+        )
 }
 
 fn strip_bom(bytes: &[u8]) -> Result<&[u8], YtmError> {
@@ -648,9 +740,7 @@ fn resolve_reference(reference: &str) -> Result<String, YtmError> {
         matches!(*character as u32, 0x9 | 0xa | 0xd | 0x20..=0xd7ff | 0xe000..=0xfffd | 0x10000..=0x10ffff)
     });
     character.map(|value| value.to_string()).ok_or_else(|| {
-        YtmError::format(format!(
-            "KIS-NET response contains an invalid or unsupported entity reference &{reference};."
-        ))
+        YtmError::format("KIS-NET response contains an invalid or unsupported entity reference.")
     })
 }
 
@@ -764,6 +854,20 @@ mod tests {
     }
 
     #[test]
+    fn rejects_undeclared_prefixes_inside_ignored_open_content() {
+        let xml = format!(
+            "<Root xmlns=\"{namespace}\"><Parameters><Parameter id=\"ErrorCode\">0</Parameter></Parameters><Dataset id=\"unrelated\"><vendor:Extension/></Dataset><Dataset id=\"output1\"><Rows/></Dataset></Root>",
+            namespace = std::str::from_utf8(NAMESPACE).unwrap(),
+        );
+        let error = parse(xml.as_bytes(), "output1").unwrap_err();
+        assert_eq!(error.details.code, "source_format_error");
+        assert_eq!(
+            error.details.reason,
+            "KIS-NET response contains malformed Nexacro XML."
+        );
+    }
+
+    #[test]
     fn rejects_declarations_after_any_document_content() {
         let fixture = include_bytes!("../../../contracts/kisnet/init-success.xml");
         for prefix in [b" \n".as_slice(), b"<!--before-->".as_slice()] {
@@ -785,6 +889,81 @@ mod tests {
         assert_eq!(
             parse(xml.as_bytes(), "output1").unwrap_err().details.code,
             "source_format_error"
+        );
+    }
+
+    #[test]
+    fn validates_attributes_even_when_the_profile_ignores_them() {
+        let namespace = std::str::from_utf8(NAMESPACE).unwrap();
+        for xml in [
+            format!("<Root xmlns=\"{namespace}\" vendor=\"&bogus;\"><Parameters><Parameter id=\"ErrorCode\">0</Parameter></Parameters><Dataset id=\"output1\"><Rows/></Dataset></Root>"),
+            format!("<Root xmlns=\"{namespace}\" vendor=\"a\" vendor=\"b\"><Parameters><Parameter id=\"ErrorCode\">0</Parameter></Parameters><Dataset id=\"output1\"><Rows/></Dataset></Root>"),
+            format!("<Root xmlns=\"{namespace}\" vendor:x=\"a\"><Parameters><Parameter id=\"ErrorCode\">0</Parameter></Parameters><Dataset id=\"output1\"><Rows/></Dataset></Root>"),
+            format!("<Root xmlns=\"{namespace}\" xmlns:a=\"urn:vendor\" xmlns:b=\"urn:vendor\" a:x=\"a\" b:x=\"b\"><Parameters><Parameter id=\"ErrorCode\">0</Parameter></Parameters><Dataset id=\"output1\"><Rows/></Dataset></Root>"),
+            format!("<Root xmlns=\"{namespace}\" xmlns:a=\"urn:x&amp;y\" xmlns:b=\"urn:x&#38;y\" a:z=\"a\" b:z=\"b\"><Parameters><Parameter id=\"ErrorCode\">0</Parameter></Parameters><Dataset id=\"output1\"><Rows/></Dataset></Root>"),
+            format!("<Root xmlns=\"{namespace}\" 1bad=\"x\"><Parameters><Parameter id=\"ErrorCode\">0</Parameter></Parameters><Dataset id=\"output1\"><Rows/></Dataset></Root>"),
+            format!("<Root xmlns=\"{namespace}\" vendor=\"<\"><Parameters><Parameter id=\"ErrorCode\">0</Parameter></Parameters><Dataset id=\"output1\"><Rows/></Dataset></Root>"),
+        ] {
+            let error = parse(xml.as_bytes(), "output1").unwrap_err();
+            assert_eq!(error.details.code, "source_format_error");
+            assert_eq!(
+                error.details.reason,
+                "KIS-NET response contains invalid XML attributes."
+            );
+        }
+    }
+
+    #[test]
+    fn normalizes_namespace_references_before_profile_matching() {
+        let xml = "<Root xmlns=\"http://www.nexacroplatform.com/platform/data&#115;et\"><Parameters><Parameter id=\"ErrorCode\">0</Parameter></Parameters><Dataset id=\"output1\"><Rows/></Dataset></Root>";
+        assert!(parse(xml.as_bytes(), "output1").is_ok());
+    }
+
+    #[test]
+    fn normalizes_xml_1_0_line_endings_in_text_and_cdata() {
+        let namespace = std::str::from_utf8(NAMESPACE).unwrap();
+        let xml = format!("<Root xmlns=\"{namespace}\"><Parameters><Parameter id=\"ErrorCode\">0</Parameter></Parameters><Dataset id=\"output1\"><Rows><Row><Col id=\"text\">A\r\nB\rC</Col><Col id=\"cdata\"><![CDATA[D\r\nE\rF]]></Col></Row></Rows></Dataset></Root>");
+        let response = parse(xml.as_bytes(), "output1").unwrap();
+        assert_eq!(response.rows[0]["text"], "A\nB\nC");
+        assert_eq!(response.rows[0]["cdata"], "D\nE\nF");
+    }
+
+    #[test]
+    fn accepts_unicode_xml_names() {
+        let namespace = std::str::from_utf8(NAMESPACE).unwrap();
+        let xml = format!("<Root xmlns=\"{namespace}\" 한글=\"ok\"><Parameters><Parameter id=\"ErrorCode\">0</Parameter></Parameters><Dataset id=\"unrelated\"><확장/></Dataset><Dataset id=\"output1\"><Rows/></Dataset></Root>");
+        assert!(parse(xml.as_bytes(), "output1").is_ok());
+    }
+
+    #[test]
+    fn maps_parser_diagnostics_to_project_owned_errors() {
+        let error = parse(
+            include_bytes!("../../../contracts/kisnet/xml-invalid-malformed-nesting.xml"),
+            "output1",
+        )
+        .unwrap_err();
+        assert_eq!(
+            error.details.reason,
+            "KIS-NET response contains malformed Nexacro XML."
+        );
+        assert!(!error.details.reason.contains("Unexpected"));
+    }
+
+    #[test]
+    fn keeps_source_identifiers_out_of_public_errors() {
+        let namespace = std::str::from_utf8(NAMESPACE).unwrap();
+        let invalid_child = format!("<Root xmlns=\"{namespace}\"><Parameters><Parameter id=\"ErrorCode\">0</Parameter></Parameters><Dataset id=\"output1\"><VendorSecret/></Dataset></Root>");
+        let error = parse(invalid_child.as_bytes(), "output1").unwrap_err();
+        assert_eq!(
+            error.details.reason,
+            "KIS-NET selected Dataset has an invalid direct child."
+        );
+
+        let duplicate_column = format!("<Root xmlns=\"{namespace}\"><Parameters><Parameter id=\"ErrorCode\">0</Parameter></Parameters><Dataset id=\"output1\"><Rows><Row><Col id=\"SensitiveVendorColumn\">a</Col><Col id=\"SensitiveVendorColumn\">b</Col></Row></Rows></Dataset></Root>");
+        let error = parse(duplicate_column.as_bytes(), "output1").unwrap_err();
+        assert_eq!(
+            error.details.reason,
+            "KIS-NET row contains a duplicate column."
         );
     }
 

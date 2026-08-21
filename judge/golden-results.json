@@ -133,6 +133,16 @@
       }
     ]
   },
+  "toolset:abort-handler-preservation": {
+    "ok": true,
+    "value": {
+      "preservedDuringExecution": true,
+      "preservedAfterAbort": true,
+      "handlerCalls": 1,
+      "signalAbortedAtEntry": false,
+      "cancellationCode": "source_transport_error"
+    }
+  },
   "toolset:cancellation": {
     "ok": false,
     "error": {
@@ -2044,7 +2054,7 @@
     "error": {
       "ok": false,
       "code": "source_format_error",
-      "reason": "KIS-NET row contains duplicate column divCode.",
+      "reason": "KIS-NET row contains a duplicate column.",
       "expected": "A valid KIS-NET Nexacro response matching the documented YTM Matrix schema",
       "recoveryHint": "The KIS-NET source format may have changed; update the package before retrying.",
       "recoveryAction": "inspect_tool_help",
@@ -2096,7 +2106,7 @@
     "error": {
       "ok": false,
       "code": "source_format_error",
-      "reason": "KIS-NET returned malformed Nexacro XML: ill-formed document: expected `</Root>`, but `</Unexpected>` was found.",
+      "reason": "KIS-NET response contains malformed Nexacro XML.",
       "expected": "A valid KIS-NET Nexacro response matching the documented YTM Matrix schema",
       "recoveryHint": "The KIS-NET source format may have changed; update the package before retrying.",
       "recoveryAction": "inspect_tool_help",

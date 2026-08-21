@@ -11,16 +11,17 @@ new version, creating a tag, and publishing require separate authorization.
 Linux GNU x64/ARM64, macOS ARM64, and Windows x64. The root package and all four
 native packages share one version.
 
-CI builds every target on the lowest suitable Blacksmith image and
+CI builds every target on its native GitHub-hosted image and
 clean-installs the packed root and native packages under Node 22, 24, and 26.
 The root artifact contains no `.node` binary. Each platform package contains
-exactly one native artifact, and platform packages publish before the root.
+exactly one native artifact plus the repository license and generated
+third-party dependency notices. Platform packages publish before the root.
 
-The retained [`release.yml`](../.github/workflows/release.yml) consumes only an
-existing `node-vX.Y.Z` tag. It does not choose a version or create the tag. Its
-build and validation jobs use Blacksmith; the final npm OIDC job uses
-`ubuntu-latest` because npm Trusted Publishing does not support self-hosted
-runners.
+The retained [`release.yml`](../.github/workflows/release.yml) is manually
+dispatched from `main` with an existing `node-vX.Y.Z` tag. It does not choose a
+version or create the tag, and it rejects tags whose commit is not on `main`.
+All release build, packaging, validation, and npm OIDC jobs use GitHub-hosted
+runners so publishable bytes do not cross a self-hosted runner trust boundary.
 
 ## Prerequisites for a future release
 
@@ -33,11 +34,14 @@ Before creating any tag:
    `@sjunepark/ytm-*` native packages with owner `cpaikr`, repository `ytm`,
    workflow `release.yml`, and environment `npm`.
 3. Confirm the `npm` GitHub environment protections and current `main` branch
-   protection. No long-lived npm token is required.
+   protection. Self-review is forbidden, so a release initiator and reviewer
+   must be two distinct authorized users. No long-lived npm token is required.
 4. Pass the repository validation and supported-target native consumer matrix
    on the exact release commit.
 5. Create the immutable `node-vX.Y.Z` tag only after the release action is
-   separately authorized.
+   separately authorized. Then dispatch `release.yml` from `main` with that tag
+   as its required input. A different authorized user must approve the
+   protected `npm` environment.
 
 The tag workflow validates the tag against the root version, rebuilds the four
 native artifacts from the immutable tag commit, validates and packs the root,
@@ -55,6 +59,7 @@ unchanged. Deprecating the PyPI project is outside this cutover.
 ## Read-only validation
 
 ```sh
+cargo install --locked --features cli cargo-about --version 0.9.2
 bun install --frozen-lockfile
 bun run validate
 cargo fmt --all --check
@@ -65,6 +70,6 @@ bun run pack:node
 ```
 
 `bun run release:check` enforces the absence of Release Please and Python
-release machinery, version alignment across native packages, immutable tag
-checkout, native-before-root assembly, Blacksmith runner selection, and npm's
-GitHub-hosted OIDC boundary.
+release machinery, version alignment across native packages, manual release
+authorization from `main`, immutable tag ancestry, native-before-root assembly,
+GitHub-hosted artifact builders, and npm's OIDC boundary.

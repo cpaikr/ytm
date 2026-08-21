@@ -104,7 +104,7 @@ rules.
 Node.js 22 is the minimum runtime. CI also validates Node 24 and 26.
 
 Supported native targets are Linux GNU x64/ARM64, macOS ARM64, and Windows x64.
-Each target is built on its native Blacksmith image and clean-installs the
+Each target is built on its native GitHub-hosted image and clean-installs the
 packed root and platform packages under all three Node majors. Intel macOS,
 Linux musl, Windows ARM64/ia32, FreeBSD, Android, and WASM are unclaimed.
 
@@ -115,10 +115,11 @@ artifact and are not public entry points.
 ## Release boundary
 
 No workflow creates release PRs, tags, or GitHub Releases. Release Please and
-the Python release path are absent. A future authorized `node-vX.Y.Z` tag makes
-`release.yml` build all four native packages on their native Blacksmith images,
-validate and pack the root package, then publish native packages before the
-root from npm's required GitHub-hosted OIDC runner.
+the Python release path are absent. A future authorized `node-vX.Y.Z` tag lets
+an operator dispatch `release.yml` from `main`. The workflow verifies main
+ancestry, builds all publishable artifacts on GitHub-hosted runners, and
+publishes native packages before the root through npm OIDC after protected
+environment approval.
 
 The current `0.2.0` version remains historical until a new version is
 explicitly approved. Publication, PyPI deprecation, provider-state changes,

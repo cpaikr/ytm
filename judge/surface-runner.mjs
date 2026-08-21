@@ -45,6 +45,31 @@ try {
       context = { signal: controller.signal };
     }
     value = await toolset.execute(request.operation, request.input, context);
+  } else if (request.action === "abort-handler-preservation") {
+    const controller = new AbortController();
+    let handlerCalls = 0;
+    const handler = () => { handlerCalls += 1; };
+    controller.signal.onabort = handler;
+    const execution = toolset
+      .execute("kinds", request.input, { signal: controller.signal })
+      .then(
+        () => ({ ok: true }),
+        (caught) => ({ ok: false, caught })
+      );
+    const preservedDuringExecution = controller.signal.onabort === handler;
+    const requestAtEntry = await waitForCapturedRequest();
+    controller.abort(new Error("judge cancellation"));
+    const outcome = await execution;
+    const cancellation = outcome.ok
+      ? { code: "unexpected_success" }
+      : toolset.serializeError(outcome.caught);
+    value = {
+      preservedDuringExecution,
+      preservedAfterAbort: controller.signal.onabort === handler,
+      handlerCalls,
+      signalAbortedAtEntry: requestAtEntry.signalAborted,
+      cancellationCode: cancellation.code
+    };
   } else {
     throw new Error(`Unknown runner action: ${request.action}`);
   }
@@ -67,3 +92,27 @@ process.stdout.write(`${JSON.stringify({
   error,
   requests
 })}\n`);
+
+async function waitForCapturedRequest() {
+  const capturePath = process.env.YTM_JUDGE_CAPTURE_PATH;
+  if (!capturePath) throw new Error("Cancellation probe requires a capture path");
+  const deadline = Date.now() + 1_000;
+  while (Date.now() < deadline) {
+    let raw;
+    try {
+      raw = await readFile(capturePath, "utf8");
+    } catch (caught) {
+      if (caught?.code !== "ENOENT") throw caught;
+    }
+    if (raw !== undefined) {
+      try {
+        const captures = JSON.parse(raw);
+        if (captures.length > 0) return captures[0];
+      } catch (caught) {
+        if (!(caught instanceof SyntaxError)) throw caught;
+      }
+    }
+    await new Promise((resolveDelay) => setTimeout(resolveDelay, 5));
+  }
+  throw new Error("Cancellation probe timed out waiting for transport entry");
+}
