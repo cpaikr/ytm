@@ -7,6 +7,7 @@ use std::{
     env, fs,
     path::{Path, PathBuf},
     sync::{Arc, Mutex},
+    time::Duration,
 };
 
 use async_trait::async_trait;
@@ -36,6 +37,7 @@ struct Step {
     bom: Option<usize>,
     invalid_utf8: Option<bool>,
     depth: Option<usize>,
+    wait_for_cancellation: Option<bool>,
 }
 
 #[derive(Debug, Serialize)]
@@ -97,60 +99,75 @@ impl Transport for FixtureTransport {
         request: PreparedRequest,
         cancellation: CancellationToken,
     ) -> Result<Vec<u8>, YtmError> {
-        let mut state = self.state.lock().map_err(|_| YtmError::defect())?;
-        let signal_aborted = cancellation.is_cancelled();
-        state.captures.push(Capture {
-            url: request.url.clone(),
-            method: "POST",
-            headers: CaptureHeaders {
-                accept: "text/xml, */*",
-                content_type: "text/xml; charset=UTF-8",
-            },
-            body: request.body,
-            signal_present: true,
-            signal_aborted,
-        });
-        persist_captures(&state)?;
+        {
+            let mut state = self.state.lock().map_err(|_| YtmError::defect())?;
+            let signal_aborted = cancellation.is_cancelled();
+            state.captures.push(Capture {
+                url: request.url.clone(),
+                method: "POST",
+                headers: CaptureHeaders {
+                    accept: "text/xml, */*",
+                    content_type: "text/xml; charset=UTF-8",
+                },
+                body: request.body,
+                signal_present: true,
+                signal_aborted,
+            });
+            persist_captures(&state)?;
 
-        let step_index = state.next_step;
-        state.next_step += 1;
-        let step = state.config.steps.get(step_index).ok_or_else(|| {
-            YtmError::defect_with_reason(format!(
-                "Judge fixture received unexpected request {}.",
-                request.url
-            ))
-        })?;
-        if let Some(expected) = &step.path {
-            if !request.url.ends_with(expected) {
-                return Err(YtmError::defect_with_reason(format!(
-                    "Judge fixture expected {expected}, received {}.",
+            let step_index = state.next_step;
+            state.next_step += 1;
+            let step = state.config.steps.get(step_index).ok_or_else(|| {
+                YtmError::defect_with_reason(format!(
+                    "Judge fixture received unexpected request {}.",
                     request.url
-                )));
+                ))
+            })?;
+            if let Some(expected) = &step.path {
+                if !request.url.ends_with(expected) {
+                    return Err(YtmError::defect_with_reason(format!(
+                        "Judge fixture expected {expected}, received {}.",
+                        request.url
+                    )));
+                }
+            }
+            if step.transport_error.is_some() {
+                return Err(YtmError::transport(
+                    "KIS-NET request failed before a response was received.",
+                    None,
+                    Some("TypeError"),
+                ));
+            }
+            if signal_aborted {
+                return Err(YtmError::transport(
+                    "KIS-NET request was cancelled.",
+                    None,
+                    Some("AbortError"),
+                ));
+            }
+            if !step.wait_for_cancellation.unwrap_or(false) {
+                let status = step.status.unwrap_or(200);
+                if status != 200 {
+                    return Err(YtmError::transport(
+                        format!("KIS-NET returned HTTP {status}."),
+                        Some(status),
+                        None,
+                    ));
+                }
+                return response_bytes(step, &state.config.fixture_directory);
             }
         }
-        if step.transport_error.is_some() {
-            return Err(YtmError::transport(
-                "KIS-NET request failed before a response was received.",
-                None,
-                Some("TypeError"),
-            ));
-        }
-        if signal_aborted {
-            return Err(YtmError::transport(
+
+        match tokio::time::timeout(Duration::from_secs(1), cancellation.cancelled()).await {
+            Ok(()) => Err(YtmError::transport(
                 "KIS-NET request was cancelled.",
                 None,
                 Some("AbortError"),
-            ));
+            )),
+            Err(_) => Err(YtmError::defect_with_reason(
+                "Judge fixture timed out waiting for cancellation.",
+            )),
         }
-        let status = step.status.unwrap_or(200);
-        if status != 200 {
-            return Err(YtmError::transport(
-                format!("KIS-NET returned HTTP {status}."),
-                Some(status),
-                None,
-            ));
-        }
-        response_bytes(step, &state.config.fixture_directory)
     }
 }
 

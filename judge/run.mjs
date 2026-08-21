@@ -289,6 +289,17 @@ runCli("cli-machine-contract:formula-safe-csv", ["matrix", "--base-date", reques
 });
 
 runNativePreabort();
+runToolset("abort-handler-preservation", {
+  action: "abort-handler-preservation",
+  input: { baseDate: request.baseDate }
+}, fixture([{ path: initPath, waitForCancellation: true }]), (result, label) => {
+  check(result.ok, `${label} must complete its cancellation probe`);
+  check(result.value?.preservedDuringExecution === true, `${label} must preserve onabort while executing`);
+  check(result.value?.preservedAfterAbort === true, `${label} must preserve onabort after cancellation`);
+  check(result.value?.handlerCalls === 1, `${label} must call the consumer handler exactly once`);
+  check(result.value?.signalAbortedAtEntry === false, `${label} must cancel after transport work begins`);
+  check(result.value?.cancellationCode === evidence.expectations.transportError, `${label} must forward cancellation into the native operation`);
+});
 runWithoutNative();
 
 runToolset("kind-80:offline-catalog", { action: "execute", operation: "kinds", input: {} }, undefined, (result, label) => {

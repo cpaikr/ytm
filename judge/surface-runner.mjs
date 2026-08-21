@@ -45,6 +45,29 @@ try {
       context = { signal: controller.signal };
     }
     value = await toolset.execute(request.operation, request.input, context);
+  } else if (request.action === "abort-handler-preservation") {
+    const controller = new AbortController();
+    let handlerCalls = 0;
+    const handler = () => { handlerCalls += 1; };
+    controller.signal.onabort = handler;
+    const execution = toolset.execute("kinds", request.input, { signal: controller.signal });
+    const preservedDuringExecution = controller.signal.onabort === handler;
+    const requestAtEntry = await waitForCapturedRequest();
+    controller.abort(new Error("judge cancellation"));
+    let cancellation;
+    try {
+      await execution;
+      cancellation = { code: "unexpected_success" };
+    } catch (caught) {
+      cancellation = toolset.serializeError(caught);
+    }
+    value = {
+      preservedDuringExecution,
+      preservedAfterAbort: controller.signal.onabort === handler,
+      handlerCalls,
+      signalAbortedAtEntry: requestAtEntry.signalAborted,
+      cancellationCode: cancellation.code
+    };
   } else {
     throw new Error(`Unknown runner action: ${request.action}`);
   }
@@ -67,3 +90,19 @@ process.stdout.write(`${JSON.stringify({
   error,
   requests
 })}\n`);
+
+async function waitForCapturedRequest() {
+  const capturePath = process.env.YTM_JUDGE_CAPTURE_PATH;
+  if (!capturePath) throw new Error("Cancellation probe requires a capture path");
+  const deadline = Date.now() + 1_000;
+  while (Date.now() < deadline) {
+    try {
+      const captures = JSON.parse(await readFile(capturePath, "utf8"));
+      if (captures.length > 0) return captures[0];
+    } catch (caught) {
+      if (caught?.code !== "ENOENT") throw caught;
+    }
+    await new Promise((resolveDelay) => setTimeout(resolveDelay, 5));
+  }
+  throw new Error("Cancellation probe timed out waiting for transport entry");
+}

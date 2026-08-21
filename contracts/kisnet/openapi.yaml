@@ -299,7 +299,7 @@ components:
           description: Observed as XML with UTF-8 charset; parameter spacing is not significant.
           schema:
             type: string
-            pattern: '^text/xml\s*;\s*charset=UTF-8$'
+            pattern: '^[Tt][Ee][Xx][Tt]/[Xx][Mm][Ll]\s*;\s*[Cc][Hh][Aa][Rr][Ss][Ee][Tt]\s*=\s*[Uu][Tt][Ff]-8$'
       content:
         text/xml:
           schema:

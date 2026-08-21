@@ -99,6 +99,15 @@ check(profile?.transport?.requestDeadlineMilliseconds === 20_000, "request deadl
 check(profile?.transport?.redirects === "forbidden", "redirects must remain forbidden");
 check(profile?.transport?.automaticRetries === 0, "transport retries must remain disabled");
 
+const responseContentTypePattern = contract?.components?.responses?.NexacroResponse?.headers?.["Content-Type"]?.schema?.pattern;
+const responseContentType = new RegExp(responseContentTypePattern);
+for (const value of ["text/xml; charset=UTF-8", "TEXT/XML ; CHARSET = utf-8"]) {
+  check(responseContentType.test(value), `response Content-Type schema must accept ${value}`);
+}
+for (const value of ["text/xml", "text/html; charset=UTF-8", "text/xml; charset=UTF-8; vendor=x"]) {
+  check(!responseContentType.test(value), `response Content-Type schema must reject ${value}`);
+}
+
 const requiredMatrixColumns = [
   "pricingGroupCode", "pricingGroupName", "m3", "m6", "m9", "y1", "y15a", "y2", "y25", "y3", "y5", "y7", "y10", "y15", "y20", "y30", "y50"
 ];
@@ -156,11 +165,11 @@ const expectedRustTargets = [
 ];
 equal(nativeTargets.targets?.map(({ rustTarget }) => rustTarget), expectedRustTargets, "native release target selection must stay explicit");
 equal(nativeTargets.targets?.map(({ runner }) => runner), [
-  "blacksmith-2vcpu-ubuntu-2404",
-  "blacksmith-2vcpu-ubuntu-2404-arm",
-  "blacksmith-6vcpu-macos-15",
-  "blacksmith-2vcpu-windows-2025"
-], "native targets must use the lowest suitable Blacksmith runner for each image");
+  "ubuntu-24.04",
+  "ubuntu-24.04-arm",
+  "macos-15",
+  "windows-2025"
+], "native targets must use GitHub-hosted runners for every supported platform");
 check(nativeTargets.rootPackage === "packages/node", "native packaging must name the active root package");
 check(nativeTargets.nativePackageRoot === "packages/native", "native packaging must name the active native package root");
 check(new Set(nativeTargets.targets?.map(({ packageName }) => packageName)).size === expectedRustTargets.length, "every native target must have a unique npm package");
