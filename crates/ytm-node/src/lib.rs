@@ -14,13 +14,31 @@ use napi::{
     Env,
 };
 use napi_derive::napi;
+use serde::Deserialize;
 use serde_json::{json, Value};
-use tokio_util::sync::CancellationToken;
-use ytm_core::{HttpTransport, KindsInput, MatrixInput, Transport, YtmError, YtmService};
+use ytm_core::{
+    BaseDate, CancellationToken, HttpTransport, KindSelector, KindsInput, LookbackDays,
+    MatrixInput, Transport, YtmError, YtmService,
+};
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct MatrixInputDto {
+    base_date: String,
+    kind: Value,
+    fallback: Option<String>,
+    lookback_days: Option<u8>,
+}
+
+#[derive(Default, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct KindsInputDto {
+    base_date: Option<String>,
+}
 
 enum Operation {
-    Matrix(MatrixInput),
-    Kinds(KindsInput),
+    Matrix(MatrixInputDto),
+    Kinds(KindsInputDto),
 }
 
 #[napi(js_name = "matrix")]
@@ -30,7 +48,7 @@ fn matrix(
     signal: Option<AbortSignal>,
     pre_aborted: Option<bool>,
 ) -> napi::Result<AsyncBlock<String>> {
-    let input: MatrixInput = serde_json::from_str(&input_json)
+    let input: MatrixInputDto = serde_json::from_str(&input_json)
         .map_err(|error| napi::Error::from_reason(format!("invalid matrix input JSON: {error}")))?;
     task(
         &env,
@@ -47,7 +65,7 @@ fn kinds(
     signal: Option<AbortSignal>,
     pre_aborted: Option<bool>,
 ) -> napi::Result<AsyncBlock<String>> {
-    let input: KindsInput = serde_json::from_str(&input_json)
+    let input: KindsInputDto = serde_json::from_str(&input_json)
         .map_err(|error| napi::Error::from_reason(format!("invalid kinds input JSON: {error}")))?;
     task(
         &env,
@@ -59,7 +77,14 @@ fn kinds(
 
 #[napi]
 fn describe() -> String {
-    match std::panic::catch_unwind(|| serde_json::to_string(&YtmService::capabilities())) {
+    match std::panic::catch_unwind(|| {
+        let mut value = serde_json::to_value(YtmService::capabilities())?;
+        value
+            .as_object_mut()
+            .expect("capabilities serialize as an object")
+            .insert("minimumNodeMajor".into(), json!(22));
+        serde_json::to_string(&value)
+    }) {
         Ok(Ok(value)) => value,
         _ => serde_json::to_string(&error_envelope(YtmError::defect()))
             .expect("defect envelope serializes"),
@@ -98,17 +123,85 @@ fn task(
 
 async fn execute(operation: Operation, cancellation: CancellationToken) -> Result<Value, YtmError> {
     let transport = transport()?;
-    let service = YtmService::new(transport);
+    let service = YtmService::with_shared_transport(transport);
     match operation {
         Operation::Matrix(input) => service
-            .matrix(input, cancellation)
+            .matrix_with_cancellation(matrix_input(input)?, cancellation)
             .await
             .map(|value| serde_json::to_value(value).expect("matrix result serializes")),
         Operation::Kinds(input) => service
-            .kinds(input, cancellation)
+            .kinds_with_cancellation(kinds_input(input)?, cancellation)
             .await
             .map(|value| serde_json::to_value(value).expect("kinds result serializes")),
     }
+}
+
+fn matrix_input(input: MatrixInputDto) -> Result<MatrixInput, YtmError> {
+    let base_date = parse_base_date(&input.base_date, "matrix")?;
+    let kind_text = match input.kind {
+        Value::String(value) => value.trim().to_owned(),
+        Value::Number(value) => value.to_string(),
+        actual => {
+            return Err(YtmError::invalid_parameter(
+                "matrix",
+                "kind",
+                "kind must be a 종류 label or source code.",
+                actual,
+            ))
+        }
+    };
+    let kind = KindSelector::new(&kind_text).map_err(|_| {
+        YtmError::invalid_parameter("matrix", "kind", "kind must be nonempty.", json!(kind_text))
+    })?;
+    match input.fallback.as_deref() {
+        None | Some("exact") if input.lookback_days.is_none() => {
+            Ok(MatrixInput::new(base_date, kind))
+        }
+        None | Some("exact") => Err(YtmError::invalid_parameter(
+            "matrix",
+            "lookbackDays",
+            "lookbackDays only applies when fallback is previous-available.",
+            json!(input.lookback_days),
+        )),
+        Some("previous-available") => {
+            let raw = input.lookback_days.unwrap_or(10);
+            let lookback = LookbackDays::new(raw).map_err(|_| {
+                YtmError::invalid_parameter(
+                    "matrix",
+                    "lookbackDays",
+                    "lookbackDays must be an integer from 1 to 31.",
+                    json!(raw),
+                )
+            })?;
+            Ok(MatrixInput::previous_available(base_date, kind, lookback))
+        }
+        Some(fallback) => Err(YtmError::invalid_parameter(
+            "matrix",
+            "fallback",
+            "fallback must be exact or previous-available.",
+            json!(fallback),
+        )),
+    }
+}
+
+fn kinds_input(input: KindsInputDto) -> Result<KindsInput, YtmError> {
+    input
+        .base_date
+        .as_deref()
+        .map(|value| parse_base_date(value, "kinds"))
+        .transpose()
+        .map(|base_date| KindsInput { base_date })
+}
+
+fn parse_base_date(value: &str, operation: &str) -> Result<BaseDate, YtmError> {
+    value.parse().map_err(|_| {
+        YtmError::invalid_parameter(
+            operation,
+            "baseDate",
+            "baseDate must use YYYY-MM-DD, YYYY.MM.DD, or YYYYMMDD and be a valid calendar date.",
+            json!(value),
+        )
+    })
 }
 
 fn transport() -> Result<Arc<dyn Transport>, YtmError> {
@@ -126,4 +219,33 @@ fn transport() -> Result<Arc<dyn Transport>, YtmError> {
 
 fn error_envelope(error: YtmError) -> Value {
     json!({ "ok": false, "error": error.details })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn node_dto_preserves_numeric_kind_and_previous_available() {
+        let input = MatrixInputDto {
+            base_date: "20260608".into(),
+            kind: json!(10),
+            fallback: Some("previous-available".into()),
+            lookback_days: Some(7),
+        };
+        let input = matrix_input(input).unwrap();
+        assert_eq!(input.base_date.to_string(), "2026-06-08");
+        assert_eq!(input.kind.as_str(), "10");
+        assert!(matches!(
+            input.fallback,
+            ytm_core::FallbackPolicy::PreviousAvailable(days) if days.get() == 7
+        ));
+    }
+
+    #[test]
+    fn node_capabilities_keep_node_runtime_projection_outside_core() {
+        let capabilities: Value = serde_json::from_str(&describe()).unwrap();
+        assert_eq!(capabilities["minimumNodeMajor"], json!(22));
+        assert_eq!(capabilities["fallback"], json!("previous-available"));
+    }
 }

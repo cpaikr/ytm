@@ -1,23 +1,31 @@
 # Architecture
 
-## Purpose and boundary
+## Purpose and lifecycle
 
-`ytm` is a Node.js product for deterministic KIS-NET YTM Matrix lookup. One
-Rust core conforms to the external HTTP and Nexacro protocol through a narrow
-asynchronous Node-API binding. JavaScript provides public toolset and CLI
-ergonomics only.
+`ytm` retrieves deterministic KIS-NET YTM Matrix data through one Rust HTTP,
+Nexacro, and domain implementation. The active checkout exposes that
+implementation as a public Rust SDK and through a Rust-backed Node SDK. A
+JavaScript CLI remains temporarily while a separate Rust/Clap executable is
+implemented and verified.
 
-Browser, edge, Deno, Bun-runtime, proxy discovery, and Python APIs are outside
-the product boundary. Bun remains a development package manager.
+[`plans/rust-sdk-node-sdk-rust-cli.md`](plans/rust-sdk-node-sdk-rust-cli.md)
+owns the remaining migration boundary and completion criteria. Current commands
+and package behavior remain defined by [`SPEC.md`](SPEC.md).
+
+Python, browser, edge, Deno, Bun-runtime, proxy discovery, and alternate
+provider implementations are outside the product boundary. Bun remains a
+development package manager for the Node workspace.
 
 ## System shape
+
+The implemented transition shape is:
 
 ```text
 contracts/kisnet/openapi.yaml
               |
               v
        crates/ytm-core
-    protocol + domain policy
+       public Rust SDK
               |
               v
        crates/ytm-node
@@ -25,68 +33,111 @@ contracts/kisnet/openapi.yaml
               |
               v
       packages/node/src
-      toolset + CLI adapters
-              |
-              v
- packages/native/* + root npm package
+      Node toolset + JS CLI
 ```
 
-Dependencies point downward only. Nothing below the public adapters imports
-JavaScript, and no JavaScript module owns HTTP, XML, fallback, or source-domain
-rules.
+The approved target shape is:
+
+```text
+contracts/kisnet/openapi.yaml
+              |
+              v
+       crates/ytm-core
+       public Rust SDK
+          /         \
+         v           v
+crates/ytm-node   crates/ytm-cli
+ Node-API         Clap binary
+    |                 |
+    v                 v
+packages/node       `ytm`
+  Node SDK        standalone CLI
+```
+
+Dependencies point downward toward `ytm-core`. The Node SDK and Rust CLI are
+sibling consumers; neither depends on the other. At migration completion the
+npm package has no executable entry and the repository supports only the Rust
+`ytm` CLI.
 
 ## Components and start-here paths
 
 - [`contracts/kisnet/openapi.yaml`](contracts/kisnet/openapi.yaml) — sole
   authority for external HTTP and serialized Nexacro facts, including the
   named profile for constraints OpenAPI cannot express directly.
-- [`crates/ytm-core`](crates/ytm-core) — prepared requests, bounded transport,
-  strict XML parsing, kind resolution, matrix normalization, date fallback,
-  and tagged errors. It is independent of Node-API types.
-- [`crates/ytm-node`](crates/ytm-node) — async `matrix` and `kinds` projection,
-  cancellation, capabilities, and stable error data. It contains no source
-  rules.
-- [`packages/node/src`](packages/node/src) — wire-ignorant public validation,
-  help, CLI parsing, and stdout rendering.
+- [`crates/ytm-core`](crates/ytm-core) — public Rust SDK. It owns prepared
+  requests, bounded transport, strict XML parsing, kind resolution,
+  normalization, date fallback, typed inputs and results, source metadata, and
+  tagged errors without Node-API or CLI types.
+- [`crates/ytm-node`](crates/ytm-node) — async Node-API projection over the
+  public Rust SDK. It owns JavaScript cancellation and stable boundary
+  serialization, but no source rules.
+- [`packages/node/src`](packages/node/src) — public Node SDK validation,
+  discovery, type declarations, and error ergonomics. Its current CLI adapter
+  is removed after the Rust CLI reaches parity.
+- `crates/ytm-cli` — planned workspace crate producing the standalone `ytm`
+  binary. It owns Clap parsing, command help, terminal diagnostics, tabular
+  rendering, and exit statuses while delegating product behavior to
+  `ytm-core`.
 - [`packages/native`](packages/native) — generated platform package manifests;
-  release builds add exactly one Node-API artifact to each package.
-- [`judge`](judge) — process-isolated public-product conformance scenarios. It
-  never imports conformer internals.
-- [`native-targets.json`](native-targets.json) — canonical support matrix and
-  source for optional dependencies, native manifests, loader selection, and CI.
+  Node release builds add exactly one Node-API artifact to each package.
+- [`judge`](judge) — process-isolated public-product conformance scenarios.
+  During migration it must test the Node SDK and Rust CLI independently without
+  importing core internals.
+- [`native-targets.json`](native-targets.json) — canonical Node native support
+  matrix and source for optional dependencies, manifests, loader selection,
+  and CI.
 - [`docs/provider-qualification.md`](docs/provider-qualification.md) — source
   evidence and enablement decisions that protocol tests cannot establish.
 
-## Runtime flow
+## Runtime flows
 
-1. The CLI parses flags or a caller invokes the neutral toolset.
-2. The Node adapter performs network-free public-shape validation and forwards
-   normalized input plus cancellation to the binding.
-3. Rust validates again at the trust boundary, resolves the canonical kind,
-   prepares the contract-defined request, and performs one bounded source call
-   at a time.
-4. Rust enforces transport and XML constraints before interpreting protocol
-   status or datasets, then returns normalized domain data and source metadata.
-5. Only confirmed unavailable data can advance previous-date fallback.
-6. The binding projects Rust values and tagged failures without raw bodies,
-   dependency errors, or panics. The adapter renders the public result.
+For a Rust SDK call or Rust CLI command:
+
+1. The caller or Clap adapter constructs a typed SDK request.
+2. `ytm-core` validates domain input, resolves the canonical kind, prepares the
+   contract-defined request, and performs one bounded source call at a time.
+3. Rust enforces transport and XML constraints before interpreting protocol
+   status or datasets, then returns typed domain data and source metadata.
+4. Only confirmed unavailable data can advance previous-date fallback.
+5. The SDK returns typed results or tagged errors; the CLI projects them to the
+   approved JSON, CSV, TSV, diagnostic, and exit-code contract.
+
+For a Node SDK call:
+
+1. The JavaScript adapter performs network-free public-shape validation and
+   forwards normalized input plus `AbortSignal` cancellation to Node-API.
+2. The binding calls the same public Rust SDK used by the CLI and projects its
+   result without raw bodies, dependency errors, or panics.
+3. The Node adapter returns the typed toolset result or stable JavaScript
+   error. It does not render or dispatch a command-line interface.
+
+The current JavaScript CLI remains a temporary adapter over the Node toolset
+until the Rust CLI satisfies the same black-box contract.
 
 ## Ownership and invariants
 
 - OpenAPI and its named Nexacro profile are the only wire authority. Fixtures
   and judge expectations are independent evidence.
 - Rust is the only component allowed to know source origins, paths, headers,
-  serialized XML, transport policy, parser rules, or dataset mappings.
-- The Node-API surface is asynchronous and project-owned. Rust crate types,
-  parser types, raw bodies, dependency errors, and panics do not cross it.
-- The public toolset accepts `AbortSignal` cancellation and has no JavaScript
+  serialized XML, transport policy, parser rules, dataset mappings, or
+  fallback policy.
+- `ytm-core` exposes caller-facing requests, results, capabilities, source
+  metadata, and errors from its crate root. Node runtime requirements and CLI
+  presentation types stay outside the SDK.
+- In the target shape, `ytm-node` and `ytm-cli` consume the public SDK boundary.
+  They may project runtime-specific cancellation and presentation concerns but
+  may not call private parser, request, or transport modules.
+- There is one supported `ytm` executable. The npm `bin` entry and JavaScript
+  CLI are removed only after Rust CLI parity is proven; they are not retained
+  as a compatibility implementation.
+- The Node-API surface remains asynchronous and project-owned. Rust crate
+  internals, parser types, raw bodies, dependency errors, and panics do not
+  cross it.
+- The public Node SDK accepts `AbortSignal` cancellation and has no JavaScript
   transport-injection seam.
-- Judge builds enable a compile-time-only Rust fixture transport. Release
-  builds cannot enable or select it, and clean-install tests exercise release
+- Judge builds may enable a compile-time-only Rust fixture transport. Release
+  builds cannot enable or select it, and clean-consumer tests exercise release
   artifacts separately.
-- Rust returns source metadata and the canonical kind capability projection.
-  JavaScript owns public input-shape constants, not source facts or the kind
-  catalog.
 - Discovery may add kinds but cannot remove or redefine canonical values;
   conflicts fail explicitly.
 - Transport is sequential, bounded, redirect-free, proxy-free, and has no
@@ -99,28 +150,26 @@ rules.
 - Native manifests, the loader, optional dependencies, and built JavaScript
   files are generated or compared deterministically before delivery.
 
-## Runtime and native distribution
+## Runtime and distribution boundaries
 
-Node.js 22 is the minimum runtime. CI also validates Node 24 and 26.
+The current Node SDK requires Node.js 22; CI also validates Node 24 and 26.
+Supported Node native targets are Linux GNU x64/ARM64, macOS ARM64, and Windows
+x64. Each target is built on its native GitHub-hosted image and clean-installed
+under all three Node majors. The root npm package contains JavaScript only and
+selects an exact-version optional native package at runtime.
 
-Supported native targets are Linux GNU x64/ARM64, macOS ARM64, and Windows x64.
-Each target is built on its native GitHub-hosted image and clean-installs the
-packed root and platform packages under all three Node majors. Intel macOS,
-Linux musl, Windows ARM64/ia32, FreeBSD, Android, and WASM are unclaimed.
-
-The root npm package contains JavaScript only and selects an exact-version
-optional native package at runtime. Platform packages contain one `.node`
-artifact and are not public entry points.
+The standalone Rust CLI must build and pass black-box tests as a workspace
+binary. Its publication targets, installers, release assets, and support matrix
+are not implied by the Node native matrix and require a separate release
+decision.
 
 ## Release boundary
 
 No workflow creates release PRs, tags, or GitHub Releases. Release Please and
-the Python release path are absent. A future authorized `node-vX.Y.Z` tag lets
-an operator dispatch `release.yml` from `main`. The workflow verifies main
-ancestry, builds all publishable artifacts on GitHub-hosted runners, and
-publishes native packages before the root through npm OIDC after protected
-environment approval.
+the Python release path are absent. The retained Node workflow publishes native
+packages before the root npm package through OIDC only after separate version,
+tag, dispatch, and environment approval.
 
-The current `0.2.0` version remains historical until a new version is
-explicitly approved. Publication, PyPI deprecation, provider-state changes,
-and the final main-branch merge remain separate authority boundaries.
+The current `0.2.0` version remains historical. The SDK/CLI migration does not
+authorize crates.io publication, npm publication, CLI binaries or installers,
+GitHub Releases, provider-state changes, or PyPI deprecation.

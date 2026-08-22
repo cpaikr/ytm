@@ -106,10 +106,12 @@ current cutover state that follows.
   formatting/Clippy/32 tests, native licenses, root package contents, and a
   bounded metadata-only production kind-80 lookup returning 13 rows.
 - PR #12 merged the rewrite to `main` as `49f4fcf`; PR #14 landed the remaining
-  review hardening as `04defec`. Post-cutover issue #13 identified leading
+  review hardening as `04defec`. Post-cutover issue #13 had identified leading
   ASCII-space fixed-width yield padding as the remaining live blocker for issue
-  #7. The maintenance fix parses an unpadded numeric view while preserving exact
-  `yieldText` and `raw`, and it keeps all other whitespace fail-closed.
+  #7. PR #15 merged the maintenance fix as `77c33fd` after required validation
+  and all 12 native consumer jobs passed. Issues #13 and #7 are closed; exact
+  `yieldText` and `raw` remain preserved and all other whitespace stays
+  fail-closed.
 
 ## Decisions
 
@@ -296,6 +298,7 @@ current cutover state that follows.
 
 ## Next action
 
-The rewrite plan is complete on `main`. Land the post-cutover issue #13 fix
-through normal review and required CI, then reconcile issues #13 and #7.
+None — complete. The approved successor architecture is tracked separately in
+[`plans/rust-sdk-node-sdk-rust-cli.md`](rust-sdk-node-sdk-rust-cli.md) so this
+file remains a truthful historical record of the completed Node-only rewrite.
 Publication and PyPI deprecation remain excluded.

@@ -5,6 +5,13 @@ configuration, or manifest, and no workflow creates release PRs, tags, or
 GitHub Releases. The current `0.2.0` package version is historical; selecting a
 new version, creating a tag, and publishing require separate authorization.
 
+The architecture migration has added a public Rust SDK and will add a
+standalone Rust/Clap CLI while making the npm package SDK-only. This document
+continues to describe the implemented Node release path during that cutover.
+Crates.io publication, CLI binaries or installers, a CLI support matrix, and
+GitHub Releases are not authorized by the migration and require a separate
+release decision.
+
 ## Node package assembly
 
 [`native-targets.json`](../native-targets.json) owns the supported matrix:

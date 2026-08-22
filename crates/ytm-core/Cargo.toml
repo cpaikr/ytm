@@ -1,5 +1,7 @@
 [package]
 name = "ytm-core"
+description = "Typed Rust SDK for KIS-NET yield-to-maturity matrix lookups"
+readme = "README.md"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

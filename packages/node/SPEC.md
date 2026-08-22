@@ -1,4 +1,4 @@
-# Node package boundary
+# Current Node package boundary
 
 The public toolset and CLI contract is defined by the repository
 [`SPEC.md`](https://github.com/cpaikr/ytm/blob/main/SPEC.md). External HTTP
@@ -9,3 +9,7 @@ The package requires Node.js 22 or newer and supports Linux GNU x64/ARM64,
 macOS ARM64, and Windows x64 through exact-version optional native packages.
 Run `ytm --help` or use toolset discovery methods for the current public
 operation contract.
+
+The approved target removes the package `bin` entry after a standalone
+Rust/Clap CLI reaches behavioral parity. The package remains the Rust-backed
+Node SDK; it does not gain HTTP, XML, fallback, or CLI ownership.
