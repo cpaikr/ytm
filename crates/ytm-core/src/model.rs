@@ -41,10 +41,6 @@ impl BaseDate {
             .ok_or(InputError::InvalidBaseDate)
     }
 
-    pub fn display(self) -> String {
-        self.0.format("%Y-%m-%d").to_string()
-    }
-
     pub(crate) fn compact(self) -> String {
         self.0.format("%Y%m%d").to_string()
     }
@@ -166,6 +162,7 @@ pub enum FallbackPolicy {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct MatrixInput {
     pub base_date: BaseDate,
     pub kind: KindSelector,
@@ -195,6 +192,7 @@ impl MatrixInput {
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct KindsInput {
     pub base_date: Option<BaseDate>,
 }
@@ -215,6 +213,7 @@ pub struct Kind {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub struct Capabilities {
     pub kinds: Vec<Kind>,
     pub tenors: Vec<String>,
@@ -225,6 +224,7 @@ pub struct Capabilities {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub struct KindsResult {
     pub base_date: Option<BaseDate>,
     pub kinds: Vec<Kind>,
@@ -233,6 +233,7 @@ pub struct KindsResult {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub struct MatrixResult {
     pub base_date: BaseDate,
     pub kind: Kind,
@@ -252,6 +253,7 @@ pub enum FallbackMode {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub struct DateResolution {
     pub mode: FallbackMode,
     pub requested_base_date: BaseDate,
@@ -274,6 +276,7 @@ pub struct MatrixRow {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub struct SourceMetadata {
     pub page_url: &'static str,
     pub endpoint: Option<String>,
@@ -288,6 +291,7 @@ pub struct SourceMetadata {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[non_exhaustive]
 pub struct SourceRequest {
     pub format: &'static str,
     pub in_datasets: &'static str,
@@ -379,5 +383,12 @@ mod tests {
         assert_eq!(LookbackDays::new(31).unwrap().get(), 31);
         assert_eq!(LookbackDays::new(0), Err(InputError::InvalidLookbackDays));
         assert_eq!(LookbackDays::new(32), Err(InputError::InvalidLookbackDays));
+    }
+
+    #[test]
+    fn kind_selector_trims_and_rejects_blank_labels() {
+        assert_eq!(KindSelector::new("국채").unwrap().as_str(), "국채");
+        assert_eq!(KindSelector::new("  10  ").unwrap().as_str(), "10");
+        assert_eq!(KindSelector::new("   "), Err(InputError::EmptyKind));
     }
 }

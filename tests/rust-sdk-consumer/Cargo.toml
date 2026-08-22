@@ -6,6 +6,6 @@ publish = false
 
 [dependencies]
 async-trait = "=0.1.89"
-ytm-core = { path = "../../crates/ytm-core" }
+ytm-core = { version = "0.2.0", path = "../../crates/ytm-core" }
 
 [workspace]

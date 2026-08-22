@@ -1,6 +1,6 @@
 use ytm_core::{
-    BaseDate, KindSelector, KindsInput, KindsResult, LookbackDays, MatrixInput, MatrixResult,
-    YtmClient, YtmError,
+    BaseDate, FallbackPolicy, KindSelector, KindsInput, KindsResult, LookbackDays, MatrixInput,
+    MatrixResult, YtmClient, YtmError,
 };
 
 #[test]
@@ -13,6 +13,11 @@ fn default_client_and_typed_inputs_are_available_from_the_crate_root() {
 
     assert_eq!(exact.base_date, date);
     assert_eq!(fallback.base_date, date);
+    assert_eq!(exact.fallback, FallbackPolicy::Exact);
+    assert_eq!(
+        fallback.fallback,
+        FallbackPolicy::PreviousAvailable(LookbackDays::new(10).unwrap())
+    );
 }
 
 #[allow(dead_code)]

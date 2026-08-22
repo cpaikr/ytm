@@ -2,6 +2,10 @@ use serde::Serialize;
 use serde_json::Value;
 use std::fmt;
 
+use crate::model::{DEFAULT_LOOKBACK_DAYS, MAX_LOOKBACK_DAYS};
+
+const SOURCE_DATA_UNAVAILABLE_CODE: &str = "source_data_unavailable";
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ErrorDetails {
@@ -48,6 +52,10 @@ impl fmt::Display for YtmError {
 impl std::error::Error for YtmError {}
 
 impl YtmError {
+    pub(crate) fn is_unavailable(&self) -> bool {
+        self.details.code == SOURCE_DATA_UNAVAILABLE_CODE
+    }
+
     pub fn invalid_parameter(
         operation: &str,
         parameter: &str,
@@ -203,7 +211,7 @@ impl YtmError {
                 "baseDate": base_date,
                 "kind": kind.unwrap_or("국채"),
                 "fallback": "previous-available",
-                "lookbackDays": 10
+                "lookbackDays": DEFAULT_LOOKBACK_DAYS
             })
         } else {
             nearby_date
@@ -212,7 +220,7 @@ impl YtmError {
         };
         Self::new(ErrorDetails {
             ok: false,
-            code: "source_data_unavailable",
+            code: SOURCE_DATA_UNAVAILABLE_CODE,
             operation_name: Some(operation.to_owned()),
             parameter: Some("baseDate".into()),
             reason,
@@ -222,13 +230,13 @@ impl YtmError {
             actual: Some(Value::String(base_date.to_owned())),
             example_input: Some(example_input),
             recovery_hint: if exhausted {
-                "No data was found in the fallback window. Try a known business day, or increase lookbackDays up to 31."
+                format!("No data was found in the fallback window. Try a known business day, or increase lookbackDays up to {MAX_LOOKBACK_DAYS}.")
             } else if operation == "kinds" {
-                "Try a nearby business day."
+                "Try a nearby business day.".into()
             } else {
                 "Try a nearby business day, or rerun matrix with fallback=previous-available."
-            }
-            .into(),
+                    .into()
+            },
             recovery_action: if operation == "matrix" && !exhausted {
                 "use_previous_available_fallback"
             } else {

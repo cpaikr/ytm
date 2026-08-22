@@ -121,10 +121,10 @@ impl YtmService {
                     });
                 }
                 Err(error)
-                    if error.details.code == "source_data_unavailable"
+                    if error.is_unavailable()
                         && fallback == FallbackMode::PreviousAvailable
                         && offset < u64::from(lookback_days) => {}
-                Err(error) if error.details.code == "source_data_unavailable" => {
+                Err(error) if error.is_unavailable() => {
                     return Err(YtmError::unavailable(
                         "matrix",
                         &requested_date.to_string(),
