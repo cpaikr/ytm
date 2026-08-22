@@ -32,6 +32,32 @@ try {
   if (!proof.stderr.includes("matrix-success: toolset public result differs from the approved golden result")) {
     throw new Error(`Judge failed for the wrong reason:\n${proof.stderr || proof.stdout}`);
   }
+
+  const missingCli = spawnSync(process.execPath, [
+    resolve(root, "judge/run.mjs"),
+    "--surface", "cli",
+    "--scenario", "cli-machine-contract:help",
+    "--cli-bin", resolve(temporaryRoot, "missing-ytm")
+  ], { encoding: "utf8" });
+  if (missingCli.status !== 1 || !missingCli.stderr.includes("standalone CLI does not exist")) {
+    throw new Error(`Judge did not report an unavailable CLI cleanly:\n${missingCli.stderr || missingCli.stdout}`);
+  }
+  if (missingCli.stderr.includes("SyntaxError")) {
+    throw new Error(`Judge parsed output from an unavailable CLI:\n${missingCli.stderr}`);
+  }
+
+  const unexecutableCli = spawnSync(process.execPath, [
+    resolve(root, "judge/run.mjs"),
+    "--surface", "cli",
+    "--scenario", "cli-machine-contract:help",
+    "--cli-bin", resolve(root, "README.md")
+  ], { encoding: "utf8" });
+  if (unexecutableCli.status !== 1 || !unexecutableCli.stderr.includes("standalone CLI did not start")) {
+    throw new Error(`Judge did not report an unexecutable CLI cleanly:\n${unexecutableCli.stderr || unexecutableCli.stdout}`);
+  }
+  if (unexecutableCli.stderr.includes("public result differs")) {
+    throw new Error(`Judge compared output from an unexecutable CLI:\n${unexecutableCli.stderr}`);
+  }
   console.log("deliberate-failure proof passed: judge rejected a corrupted public source envelope");
 } finally {
   await rm(temporaryRoot, { recursive: true, force: true });

@@ -1,5 +1,7 @@
 import { access, readdir, readFile } from "node:fs/promises";
+import { resolve } from "node:path";
 import { parse } from "yaml";
+import { isNodeCliArtifact } from "./node-cli-artifact-policy.mjs";
 
 const readJson = async (path) => JSON.parse(await readFile(path, "utf8"));
 const readYaml = async (path) => parse(await readFile(path, "utf8"));
@@ -15,6 +17,13 @@ const activeShell = (step) => typeof step?.run === "string"
   ? step.run.split(/\r?\n/).map((line) => line.trim()).filter((line) => line && !line.startsWith("#")).join("\n")
   : "";
 const pathExists = (path) => access(path).then(() => true, () => false);
+const listFiles = async (directory, prefix = "") => (await Promise.all(
+  (await readdir(directory, { withFileTypes: true })).map((entry) => {
+    const relative = prefix ? `${prefix}/${entry.name}` : entry.name;
+    if (entry.isDirectory()) return listFiles(resolve(directory, entry.name), relative);
+    return entry.isFile() ? [relative] : [];
+  })
+)).flat();
 
 const [
   rootPackage,
@@ -61,7 +70,12 @@ const adapterSourceFiles = (await readdir("packages/node/src", { withFileTypes: 
   .filter((entry) => entry.isFile())
   .map((entry) => entry.name)
   .sort();
-check(!adapterSourceFiles.includes("cli.js") && !(nodePackage.files || []).includes("dist/cli.js"), "Node package must not retain JavaScript CLI source or distribution files");
+const nodeCliFiles = [
+  ...(await listFiles("packages/node/src", "src")),
+  ...(await pathExists("packages/node/dist") ? await listFiles("packages/node/dist", "dist") : []),
+  ...(nodePackage.files || [])
+].filter(isNodeCliArtifact);
+check(nodeCliFiles.length === 0, `Node package must not retain JavaScript CLI source or distribution files: ${nodeCliFiles.join(", ")}`);
 const packagedAdapterFiles = (nodePackage.files || [])
   .filter((path) => path.startsWith("dist/"))
   .map((path) => path.slice("dist/".length))

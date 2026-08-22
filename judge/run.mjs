@@ -1,5 +1,5 @@
 import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile, readdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { isDeepStrictEqual } from "node:util";
@@ -7,6 +7,7 @@ import { pathToFileURL } from "node:url";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { parse } from "yaml";
+import { isNodeCliArtifact } from "../scripts/node-cli-artifact-policy.mjs";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const options = parseArguments(process.argv.slice(2));
@@ -81,6 +82,10 @@ function runCli(name, args, fixture, assertResult) {
   if (!surfaceEnabled("cli") || !scenarioEnabled(name)) return;
   scenariosRun += 1;
   const product = invokeCli(cliBin, args, fixture);
+  if (product.status === null) {
+    failures.push(`${name}: ${product.stderr || "standalone CLI did not start"}`);
+    return;
+  }
   assertGolden(name, "cli", product);
   assertResult?.(product, `${name}: product`);
 }
@@ -262,6 +267,12 @@ runCli("cli-machine-contract:help", ["--help"], undefined, (result, label) => {
 runCli("cli-machine-contract:command-help", ["matrix", "--help"], undefined, (result, label) => {
   check(result.status === 0 && result.stdout.includes("CLI example:") && result.stderr === "", `${label} command help must use stdout and exit zero`);
 });
+runCli("cli-machine-contract:unknown-command-help", ["not-a-command", "--help"], undefined, (result, label) => {
+  check(result.status === 2 && result.stdout.startsWith("Unknown command: not-a-command") && result.stderr === "", `${label} unknown-command help must preserve the legacy plain stdout diagnostic`);
+});
+runCli("cli-machine-contract:help-command-help", ["help", "--help"], undefined, (result, label) => {
+  check(result.status === 0 && result.stdout.includes("CLI usage:") && result.stderr === "", `${label} help-command help must show root help on clean stdout`);
+});
 runCli("cli-machine-contract:validation", ["matrix", "--kind", "국채"], undefined, (result, label) => {
   check(result.status === 2, `${label} validation must exit 2`);
   check(JSON.parse(result.stdout).error?.code === "missing_parameter", `${label} validation stdout must be structured JSON`);
@@ -288,6 +299,22 @@ runCli("cli-machine-contract:aliases", ["matrix", "--baseDate", request.baseDate
 runCli("cli-machine-contract:input-json", ["matrix", "--input-json", JSON.stringify({ baseDate: request.baseDate, kind: request.kind.name })], successFixture, (result, label) => {
   check(result.status === 0 && JSON.parse(result.stdout).result?.kind?.code === request.kind.code, `${label} input JSON must merge into execution input`);
 });
+for (const [id, input, parameter] of [
+  ["null-base-date", '{"baseDate":null,"kind":"10"}', "baseDate"],
+  ["empty-base-date", '{"baseDate":"","kind":"10"}', "baseDate"],
+  ["null-kind", `{"baseDate":${JSON.stringify(request.baseDate)},"kind":null}`, "kind"]
+]) {
+  runCli(`cli-machine-contract:input-json-${id}`, ["matrix", "--input-json", input], undefined, (result, label) => {
+    const parsed = JSON.parse(result.stdout);
+    check(result.status === 2 && parsed.error?.code === "missing_parameter" && parsed.error?.parameter === parameter, `${label} must classify empty required JSON fields as missing`);
+  });
+}
+for (const [id, kind] of [["decimal-kind", "10.0"], ["exponent-kind", "1e1"]]) {
+  runCli(`cli-machine-contract:input-json-${id}`, ["matrix", "--input-json", `{"baseDate":${JSON.stringify(request.baseDate)},"kind":${kind}}`], successFixture, (result, label) => {
+    const parsed = JSON.parse(result.stdout);
+    check(result.status === 0 && parsed.result?.kind?.code === "10", `${label} must normalize integral JSON numbers like JavaScript`);
+  });
+}
 runCli("cli-machine-contract:input-json-order", ["matrix", "--kind", "20", "--input-json", JSON.stringify({ baseDate: request.baseDate, kind: "30" }), "--kind", request.kind.code], successFixture, (result, label) => {
   check(result.status === 0 && JSON.parse(result.stdout).result?.kind?.code === request.kind.code, `${label} flags and input JSON must apply in argv order with the last value winning`);
 });
@@ -587,7 +614,12 @@ function invokeCli(binary, args, fixtureConfig) {
     env: { ...process.env, ...(fixtureConfig ? { YTM_JUDGE_FIXTURE: JSON.stringify(fixtureConfig) } : {}) },
     maxBuffer: 4 * 1024 * 1024
   });
-  return { status: result.status, signal: result.signal, stdout: result.stdout, stderr: result.stderr };
+  return {
+    status: result.status,
+    signal: result.signal,
+    stdout: result.stdout ?? "",
+    stderr: result.error ? `standalone CLI did not start: ${result.error.message}` : result.stderr ?? ""
+  };
 }
 
 function assertRequests(actual, expected, label) {
@@ -608,6 +640,10 @@ async function inspectPackage(packageRoot) {
   const toolset = pkg.exports?.["./toolset"]?.import;
   const types = pkg.exports?.["./toolset"]?.types;
   const required = [toolset, types, "README.md", "SPEC.md", "LICENSE.md", "skills/kisnet-ytm/SKILL.md"];
+  const cliFiles = (await Promise.all(["src", "dist"].map(async (directory) => {
+    const absolute = resolve(packageRoot, directory);
+    return existsSync(absolute) ? listFiles(absolute, directory) : [];
+  }))).flat().filter(isNodeCliArtifact);
   return {
     name: pkg.name,
     bin: bin ?? null,
@@ -615,9 +651,18 @@ async function inspectPackage(packageRoot) {
     types,
     packageJsonExport: pkg.exports?.["./package.json"],
     engine: pkg.engines?.node,
-    cliFiles: ["src/cli.js", "dist/cli.js"].filter((path) => existsSync(resolve(packageRoot, path))),
+    cliFiles,
     files: required.map((path) => ({ path, exists: typeof path === "string" && existsSync(resolve(packageRoot, path)) }))
   };
+}
+
+async function listFiles(directory, prefix) {
+  const entries = await readdir(directory, { withFileTypes: true });
+  return (await Promise.all(entries.map((entry) => {
+    const relative = `${prefix}/${entry.name}`;
+    if (entry.isDirectory()) return listFiles(resolve(directory, entry.name), relative);
+    return entry.isFile() ? [relative] : [];
+  }))).flat();
 }
 
 function parseArguments(args) {

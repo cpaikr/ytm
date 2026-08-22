@@ -23,10 +23,11 @@ Clap. The Node package no longer owns or distributes the CLI.
   statuses match the approved black-box contract while execution calls only
   the public `ytm-core` SDK.
 - The public judge runs the standalone CLI and Node SDK independently across
-  88 scenarios. It adds explicit CLI fallback, malformed-source,
+  95 scenarios. It adds explicit CLI fallback, malformed-source,
   argv-ordered input merge, and unknown-command coverage while preserving the
   previously reviewed CLI goldens, including legacy-anchored invalid-invocation
-  payloads.
+  payloads. Review hardening also freezes missing JSON required fields and
+  JavaScript-compatible integral numeric kinds.
 - PR #15 merged as `77c33fd` after required validation and all 12 native
   consumer jobs passed. Issues #13 and #7 are closed; their kind-80,
   padded-yield, raw-fidelity, and fail-closed behavior is established baseline
@@ -138,6 +139,15 @@ required for ordinary construction.
   another HTTP/XML implementation.
 - Changing provider qualification or production enablement.
 
-## Next action
+## Delivery
 
-Finish cross-surface validation, required code review, and final PR delivery.
+- PR #16 delivered the consumable public Rust SDK to the integration branch.
+- PR #17 delivers the standalone Rust CLI, removes CLI ownership and
+  distribution from the Node package, and completes the cross-surface
+  validation and documentation result.
+- The final revision passes formatting, strict workspace Clippy, Rust unit,
+  public-API and documentation tests, the detached Rust consumer, contract and
+  release validation, the 95-scenario full judge, the 66-scenario Node-only
+  judge, deliberate-oracle corruption, npm package inspection, and all 12
+  supported native consumer jobs. Publication and release-channel decisions
+  remain excluded.

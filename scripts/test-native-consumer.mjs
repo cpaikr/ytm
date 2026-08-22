@@ -3,6 +3,7 @@ import { access, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { delimiter, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { isNodeCliArtifact } from "./node-cli-artifact-policy.mjs";
 
 const repositoryRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const rustTarget = process.argv[2];
@@ -23,7 +24,7 @@ try {
   if (rootPack.files.some(({ path }) => path.endsWith(".node"))) {
     throw new Error("The root package must not embed a native artifact.");
   }
-  if (rootPack.files.some(({ path }) => /(?:^|\/)cli\.(?:[cm]?js|ts)$/.test(path))) {
+  if (rootPack.files.some(({ path }) => isNodeCliArtifact(path))) {
     throw new Error("The root Node SDK package must not contain a JavaScript CLI entry point.");
   }
 

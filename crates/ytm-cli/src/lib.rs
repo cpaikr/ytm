@@ -9,6 +9,57 @@ use ytm_core::{
 };
 
 const FORMATS: [&str; 3] = ["json", "csv", "tsv"];
+const MAX_SAFE_INTEGER: f64 = 9_007_199_254_740_991.0;
+const VALUE_OPTIONS: [(&str, &str, &str, &str); 8] = [
+    (
+        "--input-json",
+        "inputJson",
+        "JSON object string",
+        "--input-json requires a JSON object string.",
+    ),
+    (
+        "--base-date",
+        "baseDate",
+        "date",
+        "--base-date requires a 기준일 value.",
+    ),
+    (
+        "--baseDate",
+        "baseDate",
+        "date",
+        "--baseDate requires a 기준일 value.",
+    ),
+    (
+        "--kind",
+        "kind",
+        "종류 label or code",
+        "--kind requires a 종류 value.",
+    ),
+    (
+        "--fallback",
+        "fallback",
+        "previous-available",
+        "--fallback requires a policy value.",
+    ),
+    (
+        "--lookback-days",
+        "lookbackDays",
+        "integer day count",
+        "--lookback-days requires a day count.",
+    ),
+    (
+        "--lookbackDays",
+        "lookbackDays",
+        "integer day count",
+        "--lookbackDays requires a day count.",
+    ),
+    (
+        "--format",
+        "format",
+        "format",
+        "--format requires a format value.",
+    ),
+];
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct ProcessOutput {
@@ -150,10 +201,14 @@ fn parse_invocation(args: &[OsString], tail: &[String]) -> ParseOutcome {
     }
 
     let first = tail[0].as_str();
-    if tail
-        .iter()
-        .any(|arg| matches!(arg.as_str(), "--help" | "-h"))
-    {
+    let help_requested = if Operation::parse(first).is_some() {
+        help_requested(&tail[1..])
+    } else {
+        tail[1..]
+            .iter()
+            .any(|argument| matches!(argument.as_str(), "--help" | "-h"))
+    };
+    if matches!(first, "--help" | "-h") || help_requested {
         return ParseOutcome::Immediate(help_output(first));
     }
     if first == "help" {
@@ -342,65 +397,36 @@ fn assign_json(target: &mut Map<String, Value>, source: Value) {
     }
 }
 
+fn help_requested(args: &[String]) -> bool {
+    let mut index = 0;
+    while index < args.len() {
+        if matches!(args[index].as_str(), "--help" | "-h") {
+            return true;
+        }
+        if args[index] == "--pretty" {
+            index += 1;
+        } else if VALUE_OPTIONS
+            .iter()
+            .any(|(flag, _, _, _)| *flag == args[index])
+        {
+            index += 2;
+        } else {
+            index += 1;
+        }
+    }
+    false
+}
+
 fn legacy_syntax_error(operation: Operation, args: &[String]) -> Option<CliError> {
-    let options = &[
-        (
-            "--input-json",
-            "inputJson",
-            "JSON object string",
-            "--input-json requires a JSON object string.",
-        ),
-        (
-            "--base-date",
-            "baseDate",
-            "date",
-            "--base-date requires a 기준일 value.",
-        ),
-        (
-            "--baseDate",
-            "baseDate",
-            "date",
-            "--baseDate requires a 기준일 value.",
-        ),
-        (
-            "--kind",
-            "kind",
-            "종류 label or code",
-            "--kind requires a 종류 value.",
-        ),
-        (
-            "--fallback",
-            "fallback",
-            "previous-available",
-            "--fallback requires a policy value.",
-        ),
-        (
-            "--lookback-days",
-            "lookbackDays",
-            "integer day count",
-            "--lookback-days requires a day count.",
-        ),
-        (
-            "--lookbackDays",
-            "lookbackDays",
-            "integer day count",
-            "--lookbackDays requires a day count.",
-        ),
-        (
-            "--format",
-            "format",
-            "format",
-            "--format requires a format value.",
-        ),
-    ];
     let mut index = 0;
     while index < args.len() {
         if args[index] == "--pretty" {
             index += 1;
             continue;
         }
-        if let Some((_, parameter, expected, reason)) =
-            options.iter().find(|(flag, _, _, _)| *flag == args[index])
+        if let Some((_, parameter, expected, reason)) = VALUE_OPTIONS
+            .iter()
+            .find(|(flag, _, _, _)| *flag == args[index])
         {
             let raw = args.get(index + 1);
             if args[index] == "--format" {
@@ -465,21 +491,27 @@ fn validate_input(
         }
     }
 
+    let missing_base_date = |actual| {
+        Box::new(validation_error(
+            operation,
+            "missing_parameter",
+            Some("baseDate"),
+            "Missing required parameter: baseDate.",
+            Some(json!({
+                "type": "string",
+                "description": "기준일. Accepted forms: YYYY-MM-DD, YYYY.MM.DD, or YYYYMMDD."
+            })),
+            actual,
+            "Provide baseDate.",
+        ))
+    };
     let base_date = match input.get("baseDate") {
+        Some(value) if operation == Operation::Matrix && required_value_is_missing(value) => {
+            return Err(missing_base_date(Some(safe_actual(value))));
+        }
         Some(value) => Some(parse_base_date(operation, value)?),
         None if operation == Operation::Matrix => {
-            return Err(Box::new(validation_error(
-                operation,
-                "missing_parameter",
-                Some("baseDate"),
-                "Missing required parameter: baseDate.",
-                Some(json!({
-                    "type": "string",
-                    "description": "기준일. Accepted forms: YYYY-MM-DD, YYYY.MM.DD, or YYYYMMDD."
-                })),
-                Some(Value::String("[missing]".into())),
-                "Provide baseDate.",
-            )));
+            return Err(missing_base_date(Some(Value::String("[missing]".into()))));
         }
         None => None,
     };
@@ -491,7 +523,7 @@ fn validate_input(
         }));
     }
 
-    let kind_value = input.get("kind").ok_or_else(|| {
+    let missing_kind = |actual| {
         Box::new(validation_error(
             operation,
             "missing_parameter",
@@ -501,13 +533,20 @@ fn validate_input(
                 "type": ["string", "number"],
                 "description": "종류. Use a Korean source label such as 국채 or a source code such as 10."
             })),
-            Some(Value::String("[missing]".into())),
+            actual,
             "Provide kind.",
         ))
-    })?;
+    };
+    let kind_value = match input.get("kind") {
+        Some(value) if required_value_is_missing(value) => {
+            return Err(missing_kind(Some(safe_actual(value))));
+        }
+        Some(value) => value,
+        None => return Err(missing_kind(Some(Value::String("[missing]".into())))),
+    };
     let kind_text = match kind_value {
         Value::String(value) => value.trim().to_owned(),
-        Value::Number(value) => value.to_string(),
+        Value::Number(value) => stringify_kind_number(value),
         actual => {
             return Err(Box::new(validation_error(
                 operation,
@@ -575,6 +614,24 @@ fn validate_input(
         Some(days) => MatrixInput::previous_available(base_date, kind, days),
         None => MatrixInput::new(base_date, kind),
     }))
+}
+
+fn stringify_kind_number(number: &Number) -> String {
+    number
+        .as_i64()
+        .map(|value| value.to_string())
+        .or_else(|| number.as_u64().map(|value| value.to_string()))
+        .or_else(|| {
+            number
+                .as_f64()
+                .filter(|value| value.fract() == 0.0 && value.abs() <= MAX_SAFE_INTEGER)
+                .map(|value| (value as i64).to_string())
+        })
+        .unwrap_or_else(|| number.to_string())
+}
+
+fn required_value_is_missing(value: &Value) -> bool {
+    value.is_null() || value.as_str() == Some("")
 }
 
 fn parse_base_date(operation: Operation, value: &Value) -> Result<BaseDate, Box<CliError>> {
@@ -921,7 +978,7 @@ fn normalize_numbers(value: Value) -> Value {
         Value::Number(number) => number
             .as_f64()
             .filter(|value| value.fract() == 0.0)
-            .filter(|value| value.abs() <= 9_007_199_254_740_991.0)
+            .filter(|value| value.abs() <= MAX_SAFE_INTEGER)
             .map(|value| Value::Number(Number::from(value as i64)))
             .unwrap_or(Value::Number(number)),
         other => other,
@@ -1043,6 +1100,44 @@ mod tests {
         assert_eq!(command.code, 0);
         assert!(command.stdout.contains("CLI example:"));
         assert_eq!(command.stderr, "");
+
+        let unknown = run(vec!["ytm".into(), "not-a-command".into(), "--help".into()]).await;
+        assert_eq!(unknown.code, 2);
+        assert!(unknown.stdout.starts_with("Unknown command: not-a-command"));
+        assert_eq!(unknown.stderr, "");
+
+        let help = run(vec!["ytm".into(), "help".into(), "--help".into()]).await;
+        assert_eq!(help.code, 0);
+        assert!(help.stdout.contains("CLI usage:"));
+        assert_eq!(help.stderr, "");
+
+        for (flag, help_value) in [("--kind", "-h"), ("--base-date", "--help")] {
+            let args = ["ytm", "matrix", flag, help_value]
+                .into_iter()
+                .map(OsString::from)
+                .collect::<Vec<_>>();
+            let tail = args[1..]
+                .iter()
+                .map(|value| value.to_string_lossy().into_owned())
+                .collect::<Vec<_>>();
+            assert!(matches!(
+                parse_invocation(&args, &tail),
+                ParseOutcome::Execute(_)
+            ));
+        }
+
+        let args = ["ytm", "matrix", "--format", "--help"]
+            .into_iter()
+            .map(OsString::from)
+            .collect::<Vec<_>>();
+        let tail = args[1..]
+            .iter()
+            .map(|value| value.to_string_lossy().into_owned())
+            .collect::<Vec<_>>();
+        assert!(matches!(
+            parse_invocation(&args, &tail),
+            ParseOutcome::Invalid(_)
+        ));
     }
 
     #[tokio::test]
@@ -1173,6 +1268,39 @@ mod tests {
         };
         assert_eq!(invocation.input["baseDate"], "20260608");
         assert_eq!(invocation.input["kind"], "80");
+    }
+
+    #[test]
+    fn input_json_preserves_required_field_and_numeric_kind_semantics() {
+        for base_date in [Value::Null, Value::String(String::new())] {
+            let input =
+                Map::from_iter([("baseDate".into(), base_date), ("kind".into(), json!(10))]);
+            let error = validate_input(Operation::Matrix, &input).unwrap_err();
+            assert_eq!(error.code, "missing_parameter");
+            assert_eq!(error.parameter.as_deref(), Some("baseDate"));
+        }
+
+        for kind in [Value::Null, Value::String(String::new())] {
+            let input = Map::from_iter([
+                ("baseDate".into(), json!("2026-06-08")),
+                ("kind".into(), kind),
+            ]);
+            let error = validate_input(Operation::Matrix, &input).unwrap_err();
+            assert_eq!(error.code, "missing_parameter");
+            assert_eq!(error.parameter.as_deref(), Some("kind"));
+        }
+
+        for kind in [json!(10.0), json!(1e1)] {
+            let input = Map::from_iter([
+                ("baseDate".into(), json!("2026-06-08")),
+                ("kind".into(), kind),
+            ]);
+            let ValidatedInput::Matrix(input) = validate_input(Operation::Matrix, &input).unwrap()
+            else {
+                panic!("matrix input should remain a matrix input");
+            };
+            assert_eq!(input.kind.as_str(), "10");
+        }
     }
 
     #[test]

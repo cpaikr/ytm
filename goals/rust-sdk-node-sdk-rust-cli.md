@@ -1,6 +1,6 @@
 # Goal: Deliver a Rust SDK, Rust-backed Node SDK, and standalone Rust CLI
 
-Status: active
+Status: delivery complete on the integration branch; publication excluded
 Planning scope: ROADMAP.md
 
 ## Original contract
@@ -33,47 +33,47 @@ _None._
   construction, advanced cancellation and transport seams, crate docs and
   examples, public-API tests, a detached locked consumer, and Node-owned DTO
   projection over the same Rust implementation.
-- Standalone Rust CLI parity and Node SDK-only cutover — the current reviewed
-  slice adds `ytm-cli`, moves the 88-scenario black-box CLI contract to the
-  Rust binary, and removes the npm `bin` and JavaScript CLI implementation.
+- Rust-backed Node SDK cutover — PR #17 keeps the complete Node SDK and native
+  matrix over `ytm-core` while removing the npm `bin`, JavaScript CLI source,
+  distribution file, scripts, and package claims.
+- Standalone Rust CLI parity — PR #17 adds the Rust/Clap `ytm` binary over the
+  public SDK with the approved commands, validation, help, JSON/CSV/TSV,
+  fallback, diagnostics, and exit behavior frozen across 29 CLI scenarios.
 - Cross-surface validation and truthful documentation — architecture, product,
-  judge, package, release, smoke, and skill documentation now describe the
-  three separated surfaces and the unchanged release boundary.
+  judge, package, release, smoke, skill, plan, and roadmap records describe the
+  three separated surfaces and the unchanged publication boundary.
 
 ### Current in-scope result
 
-Final review and PR delivery for the CLI/Node cutover slice.
+Delivery — PRs #16 and #17 complete the authorized initiative on
+`codex/rust-sdk-node-sdk-rust-cli` with reviewed commits preserved.
 
 ### Next in-scope action
 
-Resolve independent review findings, finish the final PR through feedback, and
-merge it into the integration branch with reviewed commits preserved.
+None — complete. crates.io, npm, binary or installer publication, version and
+tag selection, CLI release-channel design, and GitHub Releases remain excluded.
 
 ### Evidence and blockers
 
 - Boundary check: Standalone Rust CLI parity and Rust-backed Node SDK cutover
-  are included directly by the contract. Combining them is the fewest safe
-  reviewable slices because Node CLI removal is gated on Rust CLI parity.
+  were combined as the fewest safe reviewable slices because Node CLI removal
+  was gated on Rust CLI parity.
 - Cancellation decision: ordinary Rust consumers receive token-free calls,
   while an advanced cancellable API preserves explicit cancellation for the
   Node `AbortSignal` adapter and CLI interruption. This keeps Node/Tokio
   mechanics out of the ordinary SDK contract without weakening cancellation.
-- Preflight: `main` is protected and requires PR delivery. The dedicated
-  non-production integration branch is `codex/rust-sdk-node-sdk-rust-cli`.
-- The pre-existing uncommitted planning/specification edits are intentional
-  input to the successor initiative and are included with the first reviewed
-  slice.
 - PR #16 completed required review and feedback handling: all 10 inline review
   threads were resolved, all 14 GitHub checks passed, and the merge preserved
   both reviewed commits.
-- Final public SDK evidence: 33 core tests, one public API test, six Node
-  adapter tests, the Rust doctest, detached consumer, formatting, workspace
-  Clippy, dependency policy, release fixture guard, build/contract freshness,
-  npm package check, deliberate broken-oracle check, and all 79 public judge
-  scenarios passed.
-- Final-slice local evidence: six Rust CLI tests, 33 core tests, one public API
-  test, six Node adapter tests, the Rust doctest and detached consumer, locked
-  packaging, formatting, workspace Clippy, dependency and advisory policy,
-  release fixture guards, generated-artifact and license freshness, Node SDK
-  package inspection, deliberate broken-oracle proof, and all 88 public judge
-  scenarios pass. Independent code review and hosted PR checks remain.
+- PR #17 completed independent code review and the full PR feedback lifecycle.
+  Its review hardening makes help scanning option-aware, reports failed output
+  writes, preserves missing-field and numeric-kind JSON semantics, diagnoses an
+  unavailable judge binary, and enforces one shared Node CLI-artifact policy.
+- Final evidence covers seven CLI-library tests, one CLI-binary output test, 33
+  core tests, one public API test, six Node adapter tests, the Rust doctest and
+  detached consumer, locked packaging, formatting, strict workspace Clippy,
+  dependency and advisory policy, release fixture guards, generated-artifact
+  and license freshness, a 10-file SDK-only npm package, deliberate
+  broken-oracle and unavailable-binary proofs, all 95 public judge scenarios, all
+  66 Node-only scenarios, and all 12 supported native consumer jobs.
+- Blockers: none.
