@@ -4,8 +4,8 @@ use clap::{Arg, ArgAction, ArgMatches, Command};
 use serde::Serialize;
 use serde_json::{json, Map, Number, Value};
 use ytm_core::{
-    BaseDate, KindSelector, KindsInput, LookbackDays, MatrixInput, YtmError, YtmService,
-    DEFAULT_LOOKBACK_DAYS, MAX_LOOKBACK_DAYS,
+    BaseDate, KindSelector, KindsInput, KindsResult, LookbackDays, MatrixInput, MatrixResult,
+    YtmError, YtmService, DEFAULT_LOOKBACK_DAYS, MAX_LOOKBACK_DAYS,
 };
 
 const FORMATS: [&str; 3] = ["json", "csv", "tsv"];
@@ -123,6 +123,28 @@ enum ValidatedInput {
     Kinds(KindsInput),
 }
 
+#[derive(Debug)]
+enum OperationResult {
+    Matrix(MatrixResult),
+    Kinds(KindsResult),
+}
+
+impl OperationResult {
+    fn operation(&self) -> Operation {
+        match self {
+            Self::Matrix(_) => Operation::Matrix,
+            Self::Kinds(_) => Operation::Kinds,
+        }
+    }
+
+    fn into_json(self) -> Result<Value, YtmError> {
+        match self {
+            Self::Matrix(result) => serialize_result(result),
+            Self::Kinds(result) => serialize_result(result),
+        }
+    }
+}
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct CliError {
@@ -180,13 +202,11 @@ pub async fn run(args: Vec<OsString>) -> ProcessOutput {
         }
     };
 
-    match execute(input).await {
-        Ok(result) => success_output(
-            invocation.operation,
-            result,
-            invocation.format,
-            invocation.pretty,
-        ),
+    match execute(input)
+        .await
+        .and_then(|result| success_output(result, invocation.format, invocation.pretty))
+    {
+        Ok(output) => output,
         Err(error) => ProcessOutput {
             code: 1,
             stdout: encode_json(&json!({ "ok": false, "error": error.details }), false),
@@ -752,11 +772,11 @@ fn safe_actual(value: &Value) -> Value {
     }
 }
 
-async fn execute(input: ValidatedInput) -> Result<Value, YtmError> {
+async fn execute(input: ValidatedInput) -> Result<OperationResult, YtmError> {
     let service = service()?;
     match input {
-        ValidatedInput::Matrix(input) => service.matrix(input).await.and_then(serialize_result),
-        ValidatedInput::Kinds(input) => service.kinds(input).await.and_then(serialize_result),
+        ValidatedInput::Matrix(input) => service.matrix(input).await.map(OperationResult::Matrix),
+        ValidatedInput::Kinds(input) => service.kinds(input).await.map(OperationResult::Kinds),
     }
 }
 
@@ -773,50 +793,39 @@ fn service() -> Result<YtmService, YtmError> {
 }
 
 fn success_output(
-    operation: Operation,
-    result: Value,
+    result: OperationResult,
     format: OutputFormat,
     pretty: bool,
-) -> ProcessOutput {
+) -> Result<ProcessOutput, YtmError> {
     let stdout = match format {
-        OutputFormat::Json => encode_json(
-            &json!({ "ok": true, "operation": operation.name(), "result": normalize_numbers(result) }),
-            pretty,
-        ),
+        OutputFormat::Json => {
+            let operation = result.operation();
+            let result = result.into_json()?;
+            encode_json(
+                &json!({ "ok": true, "operation": operation.name(), "result": normalize_numbers(result) }),
+                pretty,
+            )
+        }
         OutputFormat::Csv | OutputFormat::Tsv => {
             let delimiter = if format == OutputFormat::Tsv {
                 '\t'
             } else {
                 ','
             };
-            match operation {
-                Operation::Matrix => render_matrix_table(result, delimiter),
-                Operation::Kinds => render_kinds_table(result, delimiter),
+            match result {
+                OperationResult::Matrix(result) => render_matrix_table(&result, delimiter),
+                OperationResult::Kinds(result) => render_kinds_table(&result, delimiter),
             }
         }
     };
-    ProcessOutput {
+    Ok(ProcessOutput {
         code: 0,
         stdout,
         stderr: String::new(),
-    }
+    })
 }
 
-fn render_matrix_table(result: Value, delimiter: char) -> String {
-    let result = result
-        .as_object()
-        .expect("core matrix results serialize as an object");
-    let tenors = result["tenors"]
-        .as_array()
-        .expect("matrix tenors serialize as an array")
-        .iter()
-        .map(|value| {
-            value
-                .as_str()
-                .expect("matrix tenor labels serialize as strings")
-                .to_owned()
-        })
-        .collect::<Vec<_>>();
+fn render_matrix_table(result: &MatrixResult, delimiter: char) -> String {
     let mut columns = vec![
         "requestedBaseDate".to_owned(),
         "baseDate".to_owned(),
@@ -826,90 +835,36 @@ fn render_matrix_table(result: Value, delimiter: char) -> String {
         "pricingGroupCode".to_owned(),
         "pricingGroupName".to_owned(),
     ];
-    columns.extend(tenors.iter().cloned());
-    let rows = result["rows"]
-        .as_array()
-        .expect("matrix rows serialize as an array")
-        .iter()
-        .map(|row| {
-            let mut cells = vec![
-                Cell::Text(json_string(result, "requestedBaseDate")),
-                Cell::Text(json_string(result, "baseDate")),
-                Cell::Boolean(
-                    result["dateResolution"]["usedFallback"]
-                        .as_bool()
-                        .expect("usedFallback serializes as a boolean"),
-                ),
-                Cell::Text(json_string(
-                    result["kind"]
-                        .as_object()
-                        .expect("kind serializes as an object"),
-                    "code",
-                )),
-                Cell::Text(json_string(
-                    result["kind"]
-                        .as_object()
-                        .expect("kind serializes as an object"),
-                    "name",
-                )),
-                Cell::Text(
-                    row["pricingGroupCode"]
-                        .as_str()
-                        .expect("pricingGroupCode serializes as a string")
-                        .to_owned(),
-                ),
-                Cell::Text(
-                    row["pricingGroupName"]
-                        .as_str()
-                        .expect("pricingGroupName serializes as a string")
-                        .to_owned(),
-                ),
-            ];
-            cells.extend(tenors.iter().map(|tenor| {
-                match &row["yields"][tenor] {
-                    Value::Number(value) => Cell::Number(
-                        value
-                            .as_f64()
-                            .expect("yield numbers serialize as finite f64 values"),
-                    ),
-                    Value::Null => Cell::Empty,
-                    _ => panic!("matrix yields serialize as numbers or null"),
-                }
-            }));
-            cells
-        });
+    columns.extend(result.tenors.iter().cloned());
+    let rows = result.rows.iter().map(|row| {
+        let mut cells = vec![
+            Cell::Text(result.requested_base_date.to_string()),
+            Cell::Text(result.base_date.to_string()),
+            Cell::Boolean(result.date_resolution.used_fallback),
+            Cell::Text(result.kind.code.clone()),
+            Cell::Text(result.kind.name.clone()),
+            Cell::Text(row.pricing_group_code.clone()),
+            Cell::Text(row.pricing_group_name.clone()),
+        ];
+        cells.extend(result.tenors.iter().map(|tenor| {
+            row.yields
+                .get(tenor)
+                .copied()
+                .flatten()
+                .map(Cell::Number)
+                .unwrap_or(Cell::Empty)
+        }));
+        cells
+    });
     table(columns, rows, delimiter)
 }
 
-fn render_kinds_table(result: Value, delimiter: char) -> String {
-    let rows = result["kinds"]
-        .as_array()
-        .expect("core kinds serialize as an array")
+fn render_kinds_table(result: &KindsResult, delimiter: char) -> String {
+    let rows = result
+        .kinds
         .iter()
-        .map(|kind| {
-            vec![
-                Cell::Text(
-                    kind["code"]
-                        .as_str()
-                        .expect("kind code serializes as a string")
-                        .to_owned(),
-                ),
-                Cell::Text(
-                    kind["name"]
-                        .as_str()
-                        .expect("kind name serializes as a string")
-                        .to_owned(),
-                ),
-            ]
-        });
+        .map(|kind| vec![Cell::Text(kind.code.clone()), Cell::Text(kind.name.clone())]);
     table(["code".to_owned(), "name".to_owned()], rows, delimiter)
-}
-
-fn json_string(object: &Map<String, Value>, key: &str) -> String {
-    object[key]
-        .as_str()
-        .unwrap_or_else(|| panic!("{key} serializes as a string"))
-        .to_owned()
 }
 
 #[derive(Debug)]
@@ -1048,7 +1003,7 @@ fn stdout_output(code: u8, stdout: String) -> ProcessOutput {
 
 fn root_help() -> String {
     format!(
-        "{}\n\nCLI usage:\n  ytm matrix --base-date <기준일> --kind <종류> [--fallback previous-available] [--lookback-days <days>] [--format json|csv|tsv] [--pretty]\n  ytm kinds [--base-date <기준일>] [--format json|csv|tsv] [--pretty]\n  ytm help <command>\n\nOutput:\n  json is the default and prints one JSON object. csv and tsv print tabular success rows. Failures always print one JSON object to stdout and exit non-zero. Help diagnostics for invalid invocations are written to stderr.\n",
+        "{}\n\nCLI usage:\n  ytm matrix --base-date <기준일> --kind <종류> [--fallback previous-available] [--lookback-days <days>] [--format json|csv|tsv] [--pretty]\n  ytm kinds [--base-date <기준일>] [--format json|csv|tsv] [--pretty]\n  ytm help <command>\n\nOutput:\n  json is the default and prints one JSON object. csv and tsv print tabular success rows. Command failures print one JSON object to stdout and exit non-zero. Unknown command names given to ytm help print a plain-text message and exit non-zero. Help diagnostics for invalid invocations are written to stderr.\n",
         tool_help()
     )
 }
@@ -1094,6 +1049,12 @@ mod tests {
         let root = run(vec!["ytm".into(), "--help".into()]).await;
         assert_eq!(root.code, 0);
         assert!(root.stdout.contains("CLI usage:"));
+        assert!(root
+            .stdout
+            .contains("Command failures print one JSON object"));
+        assert!(root
+            .stdout
+            .contains("given to ytm help print a plain-text message"));
         assert_eq!(root.stderr, "");
 
         let command = run(vec!["ytm".into(), "matrix".into(), "--help".into()]).await;

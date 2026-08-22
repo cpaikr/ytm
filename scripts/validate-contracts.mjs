@@ -160,7 +160,17 @@ const packagedSkill = await readFile(new URL("../packages/node/skills/kisnet-ytm
 check(!repositorySkill.includes("Python") && repositorySkill.includes("ytm matrix") && repositorySkill.includes("80` 회사채(사모)"), "the repository skill must cover the active Rust CLI and canonical kind 80");
 check(packagedSkill.includes("@sjunepark/ytm/toolset") && !packagedSkill.includes("ytm matrix") && !packagedSkill.includes("package-provided"), "the packaged Node skill must describe the SDK without claiming a CLI");
 
-for (const path of ["package/dist/cli.js", "cli.d.ts", "src/ytm-cli.js", "package/bin/ytm.js", "package/bin/sub/tool"]) {
+for (const path of [
+  "package/dist/cli.js",
+  "cli.d.ts",
+  "cli.mts",
+  "cli.cts",
+  "cli.d.mts",
+  "cli.d.cts",
+  "src/ytm-cli.js",
+  "package/bin/ytm.js",
+  "package/bin/sub/tool"
+]) {
   check(isNodeCliArtifact(path), `the Node CLI artifact guard must reject ${path}`);
 }
 for (const path of ["dist/toolset.js", "src/client.js", "skills/kisnet-ytm/SKILL.md"]) {
