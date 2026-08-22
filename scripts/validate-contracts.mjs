@@ -114,6 +114,13 @@ const requiredMatrixColumns = [
 equal(contract?.components?.schemas?.MatrixRow?.required, requiredMatrixColumns, "matrix wire columns must remain complete and ordered");
 check(contract?.components?.schemas?.KindRow?.additionalProperties?.type === "string", "kind rows must stay open to unknown source columns");
 check(contract?.components?.schemas?.MatrixRow?.additionalProperties?.type === "string", "matrix rows must stay open to unknown source columns");
+const yieldCellPattern = new RegExp(contract?.components?.schemas?.YieldCell?.pattern);
+for (const value of ["2.500", "   2.500", " +.5", "-", ""]) {
+  check(yieldCellPattern.test(value), `YieldCell must accept ${JSON.stringify(value)}`);
+}
+for (const value of ["2.500 ", " 2 .500", "\t2.500", "\u00a02.500", " -", "   ", "1e3", "NaN"]) {
+  check(!yieldCellPattern.test(value), `YieldCell must reject ${JSON.stringify(value)}`);
+}
 
 const evidence = JSON.parse(await readFile(new URL("../contracts/kisnet/cases.json", import.meta.url), "utf8"));
 equal(Object.keys(evidence), ["schemaVersion", "requestExample", "expectedTenors", "fixtures", "xmlCases", "expectations"], "evidence manifest must not become a second wire authority");

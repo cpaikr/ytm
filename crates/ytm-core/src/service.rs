@@ -315,12 +315,16 @@ fn normalize_row(row: IndexMap<String, String>, kind: &Kind) -> Result<MatrixRow
         let value = if raw.is_empty() || raw == "-" {
             None
         } else {
-            if !is_decimal_yield(&raw) {
+            // KIS-NET emits fixed-width decimals with leading ASCII spaces.
+            // Parse that normalized view while retaining the exact source cell
+            // in both `yield_text` and `raw` for provenance.
+            let numeric = raw.trim_start_matches(' ');
+            if !is_decimal_yield(numeric) {
                 return Err(YtmError::format(format!(
                     "KIS-NET matrix column {key} contains an invalid numeric value."
                 )));
             }
-            Some(raw.parse::<f64>().map_err(|_| {
+            Some(numeric.parse::<f64>().map_err(|_| {
                 YtmError::format(format!(
                     "KIS-NET matrix column {key} contains an invalid numeric value."
                 ))
@@ -543,16 +547,34 @@ mod tests {
             assert!(is_decimal_yield(value), "{value}");
         }
         for value in [
-            "", "-", "+", ".", "+.", "1e3", "NaN", "inf", "1.2.3", " 2.5 ", " - ",
+            "", "-", "+", ".", "+.", "1e3", "NaN", "inf", "1.2.3", " 2.5", "2.5 ",
         ] {
             assert!(!is_decimal_yield(value), "{value}");
         }
     }
 
     #[test]
-    fn matrix_rows_reject_padded_yield_cells() {
+    fn matrix_rows_accept_leading_ascii_padding_without_losing_provenance() {
+        for kind in canonical_kinds() {
+            let raw_value = "   2.500";
+            let mut row = IndexMap::from([
+                ("pricingGroupCode".to_owned(), "100".to_owned()),
+                ("pricingGroupName".to_owned(), "국고채권".to_owned()),
+            ]);
+            for (key, _) in TENORS {
+                row.insert((*key).to_owned(), raw_value.to_owned());
+            }
+            let normalized = normalize_row(row, &kind).unwrap();
+            assert_eq!(normalized.yields["3M"], Some(2.5), "{}", kind.code);
+            assert_eq!(normalized.yield_text["3M"], raw_value, "{}", kind.code);
+            assert_eq!(normalized.raw["m3"], raw_value, "{}", kind.code);
+        }
+    }
+
+    #[test]
+    fn matrix_rows_reject_unapproved_yield_whitespace() {
         let kind = canonical_kinds().into_iter().next().unwrap();
-        for value in [" 2.5 ", " - "] {
+        for value in ["2.5 ", " 2 .5", "\t2.5", "\u{a0}2.5", " -", "   "] {
             let mut row = IndexMap::from([
                 ("pricingGroupCode".to_owned(), "100".to_owned()),
                 ("pricingGroupName".to_owned(), "국고채권".to_owned()),

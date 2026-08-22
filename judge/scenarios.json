@@ -33,10 +33,10 @@
   },
   "requiredCoverage": {
     "toolset": ["identity", "help", "operation order", "schemas", "examples", "limitations", "validation normalization", "structured recovery", "cancellation"],
-    "execution": ["request projection", "kind resolution", "deterministic tenors", "numeric yields", "raw cells", "source metadata", "unavailable data", "fallback stop conditions"],
+    "execution": ["request projection", "kind resolution", "deterministic tenors", "numeric yields", "leading ASCII-space fixed-width yields", "raw cells", "source metadata", "unavailable data", "fallback stop conditions"],
     "xml": ["all valid fixtures", "all invalid fixtures", "BOM", "UTF-8", "XML 1.0", "body bytes", "depth", "protocol status precedence", "open unknown values"],
     "cli": ["root help", "command help", "exit 0/1/2", "single JSON stdout", "stderr separation", "JSON/CSV/TSV", "pretty determinism", "flag aliases", "input JSON merge"],
     "package": ["identity", "bin", "toolset export", "package JSON export", "types", "README", "SPEC", "license", "skill", "clean install"],
-    "kind80": ["offline catalog", "discovery omission", "code", "numeric input", "exact label", "whitespace-normalized label", "conflict rejection", "fallback preserves kind", "no synthesis"]
+    "kind80": ["offline catalog", "discovery omission", "code", "numeric input", "exact label", "whitespace-normalized label", "conflict rejection", "source-shaped padded matrix", "raw fidelity", "fallback preserves kind", "no synthesis"]
   }
 }

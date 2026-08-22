@@ -35,9 +35,12 @@ a browser.
   source-format, validation, and kind-resolution failures stop immediately.
 - A successful matrix contains at least one row and records requested,
   attempted, and resolved dates.
-- Empty or `-` yield cells become `null` while their original cell text remains
-  available. Invalid numeric cells and missing required columns are
-  source-format errors.
+- Empty or exact `-` yield cells become `null`. Numeric yield cells may contain
+  source-observed leading ASCII-space fixed-width padding; validation and
+  parsing use the unpadded numeric view while `yieldText` and `raw` preserve the
+  exact original cell. Trailing, internal, or non-ASCII whitespace remains a
+  source-format error, as do other invalid numeric cells and missing required
+  columns.
 - Source kinds, pricing groups, and unknown row columns remain open for source
   compatibility. Output tenor labels and order remain deterministic.
 
