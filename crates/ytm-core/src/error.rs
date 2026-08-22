@@ -144,7 +144,7 @@ impl YtmError {
             actual: None,
             example_input: None,
             recovery_hint:
-                "The KIS-NET source format may have changed; update the package before retrying."
+                "The KIS-NET source format may have changed; update this client before retrying."
                     .into(),
             recovery_action: "inspect_tool_help",
             recoverable: false,

@@ -1,13 +1,13 @@
 # KIS-NET YTM
 
 KIS-NET YTM Matrix access backed by one Rust HTTP, Nexacro, and domain core.
-The current checkout exposes that core as a public Rust SDK and through a
-Rust-backed Node SDK. The Node package still temporarily owns the JavaScript
-CLI while the standalone Rust/Clap replacement is implemented and verified.
+The current checkout exposes that core as a public Rust SDK, through a
+Rust-backed Node SDK, and through a standalone Rust/Clap CLI. The Node package
+does not own or distribute the CLI.
 
-See [`ARCHITECTURE.md`](ARCHITECTURE.md) for the implemented and target shapes
-and [`plans/rust-sdk-node-sdk-rust-cli.md`](plans/rust-sdk-node-sdk-rust-cli.md)
-for the remaining migration boundary.
+See [`ARCHITECTURE.md`](ARCHITECTURE.md) for the implemented system shape and
+[`plans/rust-sdk-node-sdk-rust-cli.md`](plans/rust-sdk-node-sdk-rust-cli.md)
+for the three-surface delivery record.
 
 ## Run from this checkout
 
@@ -20,10 +20,8 @@ cargo run --locked -p ytm-core --example basic
 Or use `ytm-core` through a path or Git dependency; its public API and typed
 inputs are documented in [`crates/ytm-core`](crates/ytm-core/README.md).
 
-The current CLI and Node SDK require Node.js 22 or newer:
-
-Publication of the rewritten package is not yet authorized, so build and run
-the checked-out source rather than the historical npm `latest` release.
+Publication of the rewritten products is not yet authorized, so build and run
+the checked-out source rather than historical registry releases.
 
 ```sh
 bun install --frozen-lockfile
@@ -32,8 +30,10 @@ bun run cli -- matrix --base-date 2026-06-08 --kind 국채 --format json
 bun run cli -- kinds --format json
 ```
 
-The package also exports `@sjunepark/ytm/toolset` for in-process use. Run
-`ytm --help` and `ytm <command> --help` for the current CLI contract. See
+`bun run cli --` invokes the Rust binary. The Node package requires Node.js 22
+or newer and exports `@sjunepark/ytm/toolset` for in-process use, but it has no
+executable entry. Run `bun run cli -- --help` and
+`bun run cli -- <command> --help` for the checkout CLI contract. See
 [`SPEC.md`](SPEC.md) for product behavior and
 [`docs/provider-qualification.md`](docs/provider-qualification.md) before
 treating source availability as production suitability.

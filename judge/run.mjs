@@ -1,5 +1,5 @@
 import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile, readdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { isDeepStrictEqual } from "node:util";
@@ -7,11 +7,17 @@ import { pathToFileURL } from "node:url";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { parse } from "yaml";
+import { isNodeCliArtifact } from "../scripts/node-cli-artifact-policy.mjs";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const options = parseArguments(process.argv.slice(2));
 const productRoot = resolve(options.productRoot || resolve(root, "packages/node"));
+const cliBin = resolve(options.cliBin || resolve(root, "target/debug/ytm"));
 const selectedScenario = options.scenario;
+const selectedSurface = options.surface;
+if (options.updateGolden && (selectedScenario || selectedSurface)) {
+  throw new Error("Golden results can only be updated by a complete, unfiltered judge run");
+}
 const failures = [];
 let scenariosRun = 0;
 const goldenPath = resolve(root, "judge/golden-results.json");
@@ -37,6 +43,10 @@ function scenarioEnabled(name) {
   return !selectedScenario || selectedScenario === name;
 }
 
+function surfaceEnabled(surface) {
+  return !selectedSurface || selectedSurface === surface;
+}
+
 function assertGolden(name, surface, actual) {
   const key = `${surface}:${name}`;
   if (observedGoldenKeys.has(key)) {
@@ -60,7 +70,7 @@ function publicToolsetResult(result) {
 }
 
 function runToolset(name, requestPayload, fixture, assertResult, runnerOptions = {}) {
-  if (!scenarioEnabled(name)) return;
+  if (!surfaceEnabled("node") || !scenarioEnabled(name)) return;
   scenariosRun += 1;
   const product = invokeToolset(productRoot, requestPayload, fixture);
   assertGolden(name, "toolset", publicToolsetResult(product));
@@ -69,9 +79,13 @@ function runToolset(name, requestPayload, fixture, assertResult, runnerOptions =
 }
 
 function runCli(name, args, fixture, assertResult) {
-  if (!scenarioEnabled(name)) return;
+  if (!surfaceEnabled("cli") || !scenarioEnabled(name)) return;
   scenariosRun += 1;
-  const product = invokeCli(productRoot, args, fixture);
+  const product = invokeCli(cliBin, args, fixture);
+  if (product.status === null) {
+    failures.push(`${name}: ${product.stderr || "standalone CLI did not start"}`);
+    return;
+  }
   assertGolden(name, "cli", product);
   assertResult?.(product, `${name}: product`);
 }
@@ -253,6 +267,12 @@ runCli("cli-machine-contract:help", ["--help"], undefined, (result, label) => {
 runCli("cli-machine-contract:command-help", ["matrix", "--help"], undefined, (result, label) => {
   check(result.status === 0 && result.stdout.includes("CLI example:") && result.stderr === "", `${label} command help must use stdout and exit zero`);
 });
+runCli("cli-machine-contract:unknown-command-help", ["not-a-command", "--help"], undefined, (result, label) => {
+  check(result.status === 2 && result.stdout.startsWith("Unknown command: not-a-command") && result.stderr === "", `${label} unknown-command help must preserve the legacy plain stdout diagnostic`);
+});
+runCli("cli-machine-contract:help-command-help", ["help", "--help"], undefined, (result, label) => {
+  check(result.status === 0 && result.stdout.includes("CLI usage:") && result.stderr === "", `${label} help-command help must show root help on clean stdout`);
+});
 runCli("cli-machine-contract:validation", ["matrix", "--kind", "국채"], undefined, (result, label) => {
   check(result.status === 2, `${label} validation must exit 2`);
   check(JSON.parse(result.stdout).error?.code === "missing_parameter", `${label} validation stdout must be structured JSON`);
@@ -279,6 +299,25 @@ runCli("cli-machine-contract:aliases", ["matrix", "--baseDate", request.baseDate
 runCli("cli-machine-contract:input-json", ["matrix", "--input-json", JSON.stringify({ baseDate: request.baseDate, kind: request.kind.name })], successFixture, (result, label) => {
   check(result.status === 0 && JSON.parse(result.stdout).result?.kind?.code === request.kind.code, `${label} input JSON must merge into execution input`);
 });
+for (const [id, input, parameter] of [
+  ["null-base-date", '{"baseDate":null,"kind":"10"}', "baseDate"],
+  ["empty-base-date", '{"baseDate":"","kind":"10"}', "baseDate"],
+  ["null-kind", `{"baseDate":${JSON.stringify(request.baseDate)},"kind":null}`, "kind"]
+]) {
+  runCli(`cli-machine-contract:input-json-${id}`, ["matrix", "--input-json", input], undefined, (result, label) => {
+    const parsed = JSON.parse(result.stdout);
+    check(result.status === 2 && parsed.error?.code === "missing_parameter" && parsed.error?.parameter === parameter, `${label} must classify empty required JSON fields as missing`);
+  });
+}
+for (const [id, kind] of [["decimal-kind", "10.0"], ["exponent-kind", "1e1"]]) {
+  runCli(`cli-machine-contract:input-json-${id}`, ["matrix", "--input-json", `{"baseDate":${JSON.stringify(request.baseDate)},"kind":${kind}}`], successFixture, (result, label) => {
+    const parsed = JSON.parse(result.stdout);
+    check(result.status === 0 && parsed.result?.kind?.code === "10", `${label} must normalize integral JSON numbers like JavaScript`);
+  });
+}
+runCli("cli-machine-contract:input-json-order", ["matrix", "--kind", "20", "--input-json", JSON.stringify({ baseDate: request.baseDate, kind: "30" }), "--kind", request.kind.code], successFixture, (result, label) => {
+  check(result.status === 0 && JSON.parse(result.stdout).result?.kind?.code === request.kind.code, `${label} flags and input JSON must apply in argv order with the last value winning`);
+});
 runCli("cli-machine-contract:csv", ["matrix", "--base-date", request.baseDate, "--kind", request.kind.name, "--format", "csv"], successFixture, (result, label) => {
   check(result.status === 0 && result.stdout.startsWith("requestedBaseDate,baseDate,usedFallback,kindCode,kindName"), `${label} CSV must preserve its header`);
 });
@@ -299,6 +338,47 @@ runCli("cli-machine-contract:formula-safe-csv", ["matrix", "--base-date", reques
 ]), (result, label) => {
   check(result.status === 0 && result.stdout.includes(",'=1+1,"), `${label} must neutralize source strings that spreadsheet software can execute`);
   check(result.stdout.includes(",-4.455,"), `${label} must preserve negative numeric yields as numbers`);
+});
+runCli("cli-machine-contract:fallback", ["matrix", "--base-date", "2026-06-07", "--kind", request.kind.name, "--fallback", "previous-available", "--lookback-days", "2"], fixture([
+  { path: initPath, fixture: evidence.fixtures.init }, { path: matrixPath, fixture: evidence.fixtures.unavailable },
+  { path: initPath, fixture: evidence.fixtures.init }, { path: matrixPath, fixture: evidence.fixtures.unavailable },
+  { path: initPath, fixture: evidence.fixtures.init }, { path: matrixPath, fixture: evidence.fixtures.matrix }
+]), (result, label) => {
+  const parsed = JSON.parse(result.stdout);
+  check(result.status === 0 && parsed.result?.baseDate === "2026-06-05", `${label} must resolve the first available prior date`);
+  check(parsed.result?.dateResolution?.attemptedDates?.join(",") === "2026-06-07,2026-06-06,2026-06-05", `${label} must preserve fallback attempt order`);
+});
+runCli("cli-machine-contract:format-error", ["matrix", "--base-date", request.baseDate, "--kind", request.kind.name], fixture([
+  { path: initPath, fixture: evidence.fixtures.init },
+  { path: matrixPath, fixture: evidence.fixtures.invalidNumeric }
+]), (result, label) => {
+  check(result.status === 1 && JSON.parse(result.stdout).error?.code === evidence.expectations.formatError, `${label} malformed source data must exit one with structured JSON`);
+  check(result.stderr === "", `${label} execution failure must not write diagnostics to stderr`);
+});
+runCli("cli-machine-contract:unknown-command", ["not-a-command"], undefined, (result, label) => {
+  check(result.status === 2 && JSON.parse(result.stdout).error?.code === "invalid_request", `${label} unknown commands must exit two with structured JSON`);
+  check(JSON.parse(result.stdout).error?.ok === undefined && JSON.parse(result.stdout).error?.operationName === undefined, `${label} must preserve the legacy unknown-command payload`);
+  check(result.stderr.includes("CLI usage:"), `${label} unknown commands must put root help on stderr`);
+});
+runCli("cli-machine-contract:cross-command-option", ["kinds", "--kind", "10"], undefined, (result, label) => {
+  const error = JSON.parse(result.stdout).error;
+  check(result.status === 2 && error?.code === "unknown_parameter" && error?.parameter === "kind", `${label} syntactically accepted options must be rejected by operation validation`);
+});
+runCli("cli-machine-contract:missing-format", ["matrix", "--format"], undefined, (result, label) => {
+  const error = JSON.parse(result.stdout).error;
+  check(result.status === 2 && error?.code === "invalid_parameter" && error?.parameter === "format", `${label} missing format values must preserve the legacy invalid-parameter contract`);
+});
+runCli("cli-machine-contract:empty-format", ["matrix", "--format", ""], undefined, (result, label) => {
+  const error = JSON.parse(result.stdout).error;
+  check(result.status === 2 && error?.code === "invalid_parameter" && error?.actual === "", `${label} empty format values must preserve the legacy actual value`);
+});
+runCli("cli-machine-contract:empty-base-date", ["matrix", "--base-date", ""], undefined, (result, label) => {
+  const error = JSON.parse(result.stdout).error;
+  check(result.status === 2 && error?.code === "missing_parameter" && error?.reason === "--base-date requires a 기준일 value.", `${label} empty option values must preserve the legacy missing-parameter contract`);
+});
+runCli("cli-machine-contract:invalid-fallback", ["matrix", "--base-date", request.baseDate, "--kind", "10", "--fallback", "unsupported"], undefined, (result, label) => {
+  const error = JSON.parse(result.stdout).error;
+  check(result.status === 2 && error?.code === "invalid_parameter" && error?.exampleInput?.fallback === "previous-available", `${label} fallback failures must preserve the recovery example`);
 });
 
 runNativePreabort();
@@ -389,17 +469,18 @@ for (const [id, kind] of [["code", "80"], ["label", "회사채(사모)"]]) {
   });
 }
 
-if (scenarioEnabled("package-surface")) {
+if (surfaceEnabled("node") && scenarioEnabled("package-surface")) {
   scenariosRun += 1;
   const product = await inspectPackage(productRoot);
   assertGolden("package-surface", "package", product);
   check(product.name === "@sjunepark/ytm", "package-surface: product must preserve package identity");
   check(product.engine === ">=22", "package-surface: product must require Node 22 or newer");
-  check(product.bin === "dist/cli.js" && product.toolset === "./dist/toolset.js", "package-surface: product must preserve bin and toolset exports");
+  check(product.bin === null && product.toolset === "./dist/toolset.js", "package-surface: Node SDK must omit a bin and preserve the toolset export");
+  check(product.cliFiles.length === 0, "package-surface: Node SDK must not retain JavaScript CLI source or distribution files");
   check(product.files.every(({ exists }) => exists), "package-surface: product must ship all required public files");
 }
 
-if (!selectedScenario && !options.updateGolden) {
+if (!selectedScenario && !selectedSurface && !options.updateGolden) {
   const unobserved = Object.keys(goldenResults).filter((key) => !observedGoldenKeys.has(key));
   check(unobserved.length === 0, `approved golden results contain stale scenarios: ${unobserved.join(", ")}`);
 }
@@ -409,7 +490,6 @@ if (failures.length > 0) {
   process.exit(1);
 }
 if (options.updateGolden) {
-  if (selectedScenario) throw new Error("Golden results can only be updated by a complete judge run");
   const sorted = Object.fromEntries(Object.entries(goldenResults).sort(([left], [right]) => left.localeCompare(right)));
   await writeFile(goldenPath, `${JSON.stringify(sorted, null, 2)}\n`);
   console.log(`updated ${Object.keys(sorted).length} approved golden result(s)`);
@@ -436,7 +516,7 @@ function assertPrivateBondPadded(result, label) {
 
 function runNativePreabort() {
   const name = "native-binding:preaborted-signal";
-  if (!scenarioEnabled(name)) return;
+  if (!surfaceEnabled("node") || !scenarioEnabled(name)) return;
   scenariosRun += 1;
   const captureDirectory = mkdtempSync(resolve(tmpdir(), "ytm-native-judge-"));
   const capturePath = resolve(captureDirectory, "requests.json");
@@ -467,7 +547,7 @@ function runNativePreabort() {
 
 function runWithoutNative() {
   const name = "node-adapter:missing-native";
-  if (!scenarioEnabled(name)) return;
+  if (!surfaceEnabled("node") || !scenarioEnabled(name)) return;
   scenariosRun += 1;
   const isolatedRoot = mkdtempSync(resolve(tmpdir(), "ytm-no-native-"));
   let result;
@@ -527,16 +607,19 @@ function invokeToolset(packageRoot, requestPayload, fixtureConfig) {
   }
 }
 
-function invokeCli(packageRoot, args, fixtureConfig) {
-  const pkg = JSON.parse(readFileSync(resolve(packageRoot, "package.json"), "utf8"));
-  const bin = typeof pkg.bin === "string" ? pkg.bin : pkg.bin?.ytm;
-  if (!bin) return { status: null, signal: null, stdout: "", stderr: "package does not declare bin.ytm" };
-  const result = spawnSync(process.execPath, [resolve(packageRoot, bin), ...args], {
+function invokeCli(binary, args, fixtureConfig) {
+  if (!existsSync(binary)) return { status: null, signal: null, stdout: "", stderr: `standalone CLI does not exist: ${binary}` };
+  const result = spawnSync(binary, args, {
     encoding: "utf8",
     env: { ...process.env, ...(fixtureConfig ? { YTM_JUDGE_FIXTURE: JSON.stringify(fixtureConfig) } : {}) },
     maxBuffer: 4 * 1024 * 1024
   });
-  return { status: result.status, signal: result.signal, stdout: result.stdout, stderr: result.stderr };
+  return {
+    status: result.status,
+    signal: result.signal,
+    stdout: result.stdout ?? "",
+    stderr: result.error ? `standalone CLI did not start: ${result.error.message}` : result.stderr ?? ""
+  };
 }
 
 function assertRequests(actual, expected, label) {
@@ -556,16 +639,30 @@ async function inspectPackage(packageRoot) {
   const bin = typeof pkg.bin === "string" ? pkg.bin : pkg.bin?.ytm;
   const toolset = pkg.exports?.["./toolset"]?.import;
   const types = pkg.exports?.["./toolset"]?.types;
-  const required = [bin, toolset, types, "README.md", "SPEC.md", "LICENSE.md", "skills/kisnet-ytm/SKILL.md"];
+  const required = [toolset, types, "README.md", "SPEC.md", "LICENSE.md", "skills/kisnet-ytm/SKILL.md"];
+  const cliFiles = (await Promise.all(["src", "dist"].map(async (directory) => {
+    const absolute = resolve(packageRoot, directory);
+    return existsSync(absolute) ? listFiles(absolute, directory) : [];
+  }))).flat().filter(isNodeCliArtifact);
   return {
     name: pkg.name,
-    bin,
+    bin: bin ?? null,
     toolset,
     types,
     packageJsonExport: pkg.exports?.["./package.json"],
     engine: pkg.engines?.node,
+    cliFiles,
     files: required.map((path) => ({ path, exists: typeof path === "string" && existsSync(resolve(packageRoot, path)) }))
   };
+}
+
+async function listFiles(directory, prefix) {
+  const entries = await readdir(directory, { withFileTypes: true });
+  return (await Promise.all(entries.map((entry) => {
+    const relative = `${prefix}/${entry.name}`;
+    if (entry.isDirectory()) return listFiles(resolve(directory, entry.name), relative);
+    return entry.isFile() ? [relative] : [];
+  }))).flat();
 }
 
 function parseArguments(args) {
@@ -574,8 +671,11 @@ function parseArguments(args) {
     const option = args[index];
     if (option === "--update-golden") parsed.updateGolden = true;
     else if (option === "--product-root") parsed.productRoot = args[++index];
+    else if (option === "--cli-bin") parsed.cliBin = args[++index];
     else if (option === "--scenario") parsed.scenario = args[++index];
+    else if (option === "--surface") parsed.surface = args[++index];
     else throw new Error(`Unknown judge option: ${option}`);
   }
+  if (parsed.surface && !["node", "cli"].includes(parsed.surface)) throw new Error(`Unknown judge surface: ${parsed.surface}`);
   return parsed;
 }

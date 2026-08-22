@@ -1,5 +1,7 @@
 import { access, readdir, readFile } from "node:fs/promises";
+import { resolve } from "node:path";
 import { parse } from "yaml";
+import { isNodeCliArtifact } from "./node-cli-artifact-policy.mjs";
 
 const readJson = async (path) => JSON.parse(await readFile(path, "utf8"));
 const readYaml = async (path) => parse(await readFile(path, "utf8"));
@@ -15,6 +17,13 @@ const activeShell = (step) => typeof step?.run === "string"
   ? step.run.split(/\r?\n/).map((line) => line.trim()).filter((line) => line && !line.startsWith("#")).join("\n")
   : "";
 const pathExists = (path) => access(path).then(() => true, () => false);
+const listFiles = async (directory, prefix = "") => (await Promise.all(
+  (await readdir(directory, { withFileTypes: true })).map((entry) => {
+    const relative = prefix ? `${prefix}/${entry.name}` : entry.name;
+    if (entry.isDirectory()) return listFiles(resolve(directory, entry.name), relative);
+    return entry.isFile() ? [relative] : [];
+  })
+)).flat();
 
 const [
   rootPackage,
@@ -48,6 +57,7 @@ check(rootPackage.private === true, "root package must remain private");
 check(rootPackage.version === undefined, "root package must not become a release component");
 equal(rootPackage.workspaces, ["packages/node", "packages/native/*"], "root workspaces must contain only the Node root and native packages");
 check(nodePackage.name === "@sjunepark/ytm", "Node package identity must remain @sjunepark/ytm");
+check(nodePackage.bin === undefined, "Node package must not own or distribute a CLI bin");
 check(nodePackage.private !== true, "Node package must be publishable");
 check(nodePackage.publishConfig?.access === "public", "Node package must retain public scoped publishing");
 check(
@@ -60,6 +70,12 @@ const adapterSourceFiles = (await readdir("packages/node/src", { withFileTypes: 
   .filter((entry) => entry.isFile())
   .map((entry) => entry.name)
   .sort();
+const nodeCliFiles = [
+  ...(await listFiles("packages/node/src", "src")),
+  ...(await pathExists("packages/node/dist") ? await listFiles("packages/node/dist", "dist") : []),
+  ...(nodePackage.files || [])
+].filter(isNodeCliArtifact);
+check(nodeCliFiles.length === 0, `Node package must not retain JavaScript CLI source or distribution files: ${nodeCliFiles.join(", ")}`);
 const packagedAdapterFiles = (nodePackage.files || [])
   .filter((path) => path.startsWith("dist/"))
   .map((path) => path.slice("dist/".length))
@@ -88,10 +104,11 @@ for (const target of nativeTargets.targets) {
 check(!releasePleaseWorkflowPresent && !releasePleaseConfigPresent && !releasePleaseManifestPresent, "Release Please workflow and metadata must remain absent");
 check(!pythonPackagePresent && !pythonWorkflowPresent, "Python product and publishing workflow must remain absent");
 equal(Object.keys(ciWorkflow.jobs || {}), ["validate", "native-consumer"], "CI must contain only Node/Rust validation and native consumers");
-equal(Object.keys(liveWorkflow.jobs || {}), ["node"], "live smoke must contain only the Node product");
+equal(Object.keys(liveWorkflow.jobs || {}), ["rust-cli"], "live smoke must exercise only the standalone Rust CLI");
 check(ciWorkflow.jobs?.validate?.["timeout-minutes"] === 20, "CI validation must have a bounded timeout");
 check(activeShell(findNamedStep(ciWorkflow.jobs?.validate, "Validate contracts, generated artifacts, and release configuration")).includes("bun run licenses:check"), "CI validation must check third-party notice freshness");
-check(activeShell(findNamedStep(liveWorkflow.jobs?.node, "Run live smoke")).includes('process.stdin.setEncoding("utf8")'), "live smoke must decode streamed JSON as UTF-8");
+const liveSmoke = activeShell(findNamedStep(liveWorkflow.jobs?.["rust-cli"], "Run live smoke"));
+check(liveSmoke.includes('target/debug/ytm matrix') && liveSmoke.includes("--fallback previous-available") && liveSmoke.includes("jq -e"), "live smoke must use bounded fallback through the standalone Rust CLI");
 const ciNativeJob = ciWorkflow.jobs?.["native-consumer"];
 check(ciNativeJob?.["timeout-minutes"] === 20, "CI native consumers must have a bounded timeout");
 equal(ciNativeJob?.strategy?.matrix?.node, nativeTargets.validationNodeMajors, "CI native consumers must cover every declared Node major");
@@ -99,8 +116,9 @@ equal(ciNativeJob?.strategy?.matrix?.target?.map(({ rust }) => rust), nativeTarg
 equal(ciNativeJob?.strategy?.matrix?.target?.map(({ runner }) => runner), nativeTargets.targets.map(({ runner }) => runner), "CI native consumers must use the manifest runners");
 equal(ciNativeJob?.strategy?.matrix?.target?.map(({ arch }) => arch), nativeTargets.targets.map(({ npmArch }) => npmArch), "CI native consumers must use the manifest architectures");
 check(activeShell(findNamedStep(ciNativeJob, "Build production native artifact")).includes("cargo build --locked --release"), "CI native consumers must build production artifacts");
+check(activeShell(findNamedStep(ciNativeJob, "Smoke standalone Rust CLI")).includes("cargo run --locked --release -p ytm-cli -- --help"), "CI native consumers must smoke the standalone CLI on every supported runner");
 check(activeShell(findNamedStep(ciNativeJob, "Assemble product packages")).includes("scripts/assemble-native-package.mjs"), "CI native consumers must assemble platform packages");
-check(activeShell(findNamedStep(ciNativeJob, "Test clean installed CLI and toolset")).includes("scripts/test-native-consumer.mjs"), "CI native consumers must exercise clean installs");
+check(activeShell(findNamedStep(ciNativeJob, "Test clean installed Node SDK")).includes("scripts/test-native-consumer.mjs"), "CI native consumers must exercise clean SDK installs");
 
 check(!npmWorkflow.on?.push, "npm publishing must not trigger automatically from pushed tags");
 check(npmWorkflow.on?.workflow_dispatch?.inputs?.tag?.required === true, "npm publishing must require an explicitly authorized tag input");
@@ -151,4 +169,4 @@ if (failures.length > 0) {
   console.error(failures.map((failure) => `- ${failure}`).join("\n"));
   process.exit(1);
 }
-console.log(`Node-only release configuration is valid at ${nodePackage.version}`);
+console.log(`SDK-only Node release configuration is valid at ${nodePackage.version}`);

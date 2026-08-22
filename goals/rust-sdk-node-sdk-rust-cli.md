@@ -1,6 +1,6 @@
 # Goal: Deliver a Rust SDK, Rust-backed Node SDK, and standalone Rust CLI
 
-Status: active
+Status: delivery complete on the integration branch; publication excluded
 Planning scope: ROADMAP.md
 
 ## Original contract
@@ -28,34 +28,52 @@ _None._
 
 ### Completed included results
 
-_None._
+- Public Rust SDK — PR #16 merged into the integration branch as
+  `cbf2b314`. It provides typed request/result/source contracts, default HTTP
+  construction, advanced cancellation and transport seams, crate docs and
+  examples, public-API tests, a detached locked consumer, and Node-owned DTO
+  projection over the same Rust implementation.
+- Rust-backed Node SDK cutover — PR #17 keeps the complete Node SDK and native
+  matrix over `ytm-core` while removing the npm `bin`, JavaScript CLI source,
+  distribution file, scripts, and package claims.
+- Standalone Rust CLI parity — PR #17 adds the Rust/Clap `ytm` binary over the
+  public SDK with the approved commands, validation, help, JSON/CSV/TSV,
+  fallback, diagnostics, and exit behavior frozen across 29 CLI scenarios.
+- Cross-surface validation and truthful documentation — architecture, product,
+  judge, package, release, smoke, skill, plan, and roadmap records describe the
+  three separated surfaces and the unchanged publication boundary.
 
 ### Current in-scope result
 
-Public Rust SDK.
+Delivery — PRs #16 and #17 complete the authorized initiative on
+`codex/rust-sdk-node-sdk-rust-cli` with reviewed commits preserved.
 
 ### Next in-scope action
 
-Finish the public Rust SDK slice through PR creation, required checks, review,
-and feedback resolution. After it merges, classify and begin the standalone
-Rust CLI parity result.
+None — complete. crates.io, npm, binary or installer publication, version and
+tag selection, CLI release-channel design, and GitHub Releases remain excluded.
 
 ### Evidence and blockers
 
-- Boundary check: Public Rust SDK is included directly by the contract; proceed.
+- Boundary check: Standalone Rust CLI parity and Rust-backed Node SDK cutover
+  were combined as the fewest safe reviewable slices because Node CLI removal
+  was gated on Rust CLI parity.
 - Cancellation decision: ordinary Rust consumers receive token-free calls,
   while an advanced cancellable API preserves explicit cancellation for the
   Node `AbortSignal` adapter and CLI interruption. This keeps Node/Tokio
   mechanics out of the ordinary SDK contract without weakening cancellation.
-- Preflight: `main` is protected and requires PR delivery. The dedicated
-  non-production integration branch is `codex/rust-sdk-node-sdk-rust-cli`.
-- The pre-existing uncommitted planning/specification edits are intentional
-  input to the successor initiative and are included with the first reviewed
-  slice.
-- `codex/public-rust-sdk` now provides typed requests/results/source metadata,
-  default HTTP construction, token-free ordinary calls, explicit advanced
-  cancellation and transport seams, Node-owned JSON DTO projection, crate
-  documentation and example, public-API tests, and a detached locked consumer.
-- Local evidence: 32 core tests and the public API test pass; Rust docs,
-  formatting, workspace Clippy, the detached consumer, release fixture guard,
-  build/contract freshness, and all 79 public Node judge scenarios pass.
+- PR #16 completed required review and feedback handling: all 10 inline review
+  threads were resolved, all 14 GitHub checks passed, and the merge preserved
+  both reviewed commits.
+- PR #17 completed independent code review and the full PR feedback lifecycle.
+  Its review hardening makes help scanning option-aware, reports failed output
+  writes, preserves missing-field and numeric-kind JSON semantics, diagnoses an
+  unavailable judge binary, and enforces one shared Node CLI-artifact policy.
+- Final evidence covers seven CLI-library tests, one CLI-binary output test, 33
+  core tests, one public API test, six Node adapter tests, the Rust doctest and
+  detached consumer, locked packaging, formatting, strict workspace Clippy,
+  dependency and advisory policy, release fixture guards, generated-artifact
+  and license freshness, a 10-file SDK-only npm package, deliberate
+  broken-oracle and unavailable-binary proofs, all 95 public judge scenarios, all
+  66 Node-only scenarios, and all 12 supported native consumer jobs.
+- Blockers: none.

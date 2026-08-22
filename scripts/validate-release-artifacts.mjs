@@ -2,6 +2,7 @@ import { readdir, readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { isNodeCliArtifact } from "./node-cli-artifact-policy.mjs";
 
 const repositoryRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const nativeDirectory = resolve(repositoryRoot, process.argv[2] || "dist/native");
@@ -55,6 +56,9 @@ const root = packageJson(rootTarballs[0]);
 if (root.name !== rootSource.name || root.version !== rootSource.version) {
   throw new Error(`Root tarball identity ${root.name}@${root.version} does not match ${rootSource.name}@${rootSource.version}.`);
 }
+if (root.bin !== undefined || rootSource.bin !== undefined) {
+  throw new Error("The Node SDK root package must not declare a CLI bin.");
+}
 const expectedOptional = Object.fromEntries(targets.targets.map((target) => [target.packageName, rootSource.version]));
 if (JSON.stringify(root.optionalDependencies) !== JSON.stringify(expectedOptional)) {
   throw new Error("Root tarball optionalDependencies do not match the native target manifest.");
@@ -63,10 +67,11 @@ const rootEntries = listTarball(rootTarballs[0]);
 if (rootEntries.some((entry) => entry.endsWith(".node"))) {
   throw new Error("Root tarball must not contain a native artifact.");
 }
-const binPaths = typeof rootSource.bin === "string" ? [rootSource.bin] : Object.values(rootSource.bin || {});
+if (rootEntries.some(isNodeCliArtifact)) {
+  throw new Error("Root Node SDK tarball must not contain a JavaScript CLI entry point.");
+}
 const expectedRootPaths = new Set([
   "package.json",
-  ...binPaths,
   ...collectStringLeaves(rootSource.exports).map((entry) => entry.replace(/^\.\//, "")),
   "dist/native.cjs",
   "dist/native.js",
