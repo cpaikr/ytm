@@ -57,7 +57,7 @@ const operationSpecs = [
     limitations: [
       "KIS-NET decides available 기준일 data and may return an empty matrix for non-business days, holidays, or unavailable dates.",
       `With fallback=${FALLBACK_PREVIOUS_AVAILABLE}, the requested 기준일 is still tried first; previous dates are probed only after KIS-NET returns no rows.`,
-      "Yield cells containing '-' are returned as null while preserving the raw cell text."
+      "Exact '-' yield cells are returned as null; leading ASCII-space padding on numeric yields is parsed without changing yieldText or raw."
     ],
     resultSummary: "Returns the resolved 종류, tenor labels, one row per 적용대상채권, numeric yield values, raw source cells, source request metadata, and date-resolution metadata."
   },

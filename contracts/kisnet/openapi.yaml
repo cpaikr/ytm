@@ -449,5 +449,6 @@ components:
 
     YieldCell:
       type: string
-      pattern: '^(?:[+-]?(?:\d+(?:\.\d*)?|\.\d+)|-|)$'
-      examples: ["2.500", "-", ""]
+      description: Numeric yields may have source-observed leading U+0020 fixed-width padding; missing values remain exact `-` or empty cells.
+      pattern: '^(?: *[+-]?(?:\d+(?:\.\d*)?|\.\d+)|-|)$'
+      examples: ["   2.500", "-", ""]

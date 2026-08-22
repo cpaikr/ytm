@@ -1,6 +1,6 @@
 # Goal: Deliver cutover-ready Node-only ytm
 
-Status: delivery complete; final main merge excluded
+Status: delivery complete on main; publication excluded
 Planning scope: ROADMAP.md
 
 ## Original contract
@@ -56,11 +56,13 @@ Goal contract
 
 ### Current result
 
-Delivery — PR #12 is open from `codex/rewrite-vnext` to `main` and intentionally
-unmerged. Its feedback head `b41e98c` passed both the pull-request and duplicate
-push matrices: `validate` plus all 12 native-consumer contexts. Every one of the
-20 Codex/CodeRabbit review threads has an evidence-backed reply and is resolved;
-a fresh feedback collection found no unresolved thread.
+Delivery — PR #12 merged the Node-only rewrite to `main` as `49f4fcf`; PR #14
+then landed the remaining parser, cancellation, license, and release-boundary
+hardening as `04defec`. Post-cutover issue #13 identified source-observed
+leading ASCII-space padding in numeric yield cells as the remaining live
+kind-80 blocker from issue #7. The maintenance fix accepts only that padding,
+retains exact provenance text, and passes a source-shaped kind-80 fixture plus
+a bounded metadata-only live check returning all 13 source rows.
 
 ### Current evidence
 
@@ -72,21 +74,17 @@ a fresh feedback collection found no unresolved thread.
   The retained tag-only npm workflow builds and clean-installs every native
   artifact before root assembly; publication remains excluded and uses the
   required GitHub-hosted OIDC runner only if separately authorized.
-- The approved PR #10 public projections plus the explicit kind-80 fallback
-  acceptance case are frozen as 77 full golden results.
+- The approved rewrite projections plus padded-yield, exact-provenance, and
+  format-error fallback cases are frozen as 79 full golden results.
   The active single-product judge verifies every public CLI/toolset outcome,
   including `source`, and rejects a deliberate source-envelope corruption.
 - The current local pass covers frozen Bun state, contract/release/build
-  freshness, 77 public scenarios, deliberate oracle corruption, Rust
-  formatting/Clippy/24 tests, RustSec and dependency policy, native licenses,
-  root package contents, macOS ARM64 clean install on Node 26, workflow parsing,
-  diff checks, and the earlier metadata-only production live lookup.
-- PR #12 review feedback hardening rejects non-contract decimal spellings and
-  padded yield cells, forbidden XML 1.0 characters, ambient proxies, and
-  whitespace-altered protocol identifiers; it also makes fixture assertions,
-  build/package freshness, release metadata, and consumer diagnostics fail
-  closed. The production HTTP client is reused while fixture transports remain
-  isolated per invocation.
+  freshness, 79 public scenarios, deliberate oracle corruption, Rust
+  formatting/Clippy/32 tests, native licenses, root package contents, and the
+  metadata-only production kind-80 lookup.
+- Decimal validation rejects non-contract spellings and every unapproved
+  whitespace form. Only leading U+0020 padding is removed from the numeric view;
+  `yieldText` and `raw` preserve the source spelling unchanged.
 - PR #11's final remote run passed `validate` and all 12 supported-target
   consumers. Feedback hardening rejects duplicate golden keys and malformed
   successful JSON, guarantees temporary cleanup, normalizes nondeterministic
@@ -99,8 +97,9 @@ a fresh feedback collection found no unresolved thread.
 
 ### Next action
 
-No in-scope delivery work remains. Await separate authorization for the final
-main merge; publication and PyPI deprecation remain excluded.
+The rewrite goal is closed. Land the post-cutover issue #13 fix through normal
+review and required CI, then reconcile issues #13 and #7. Publication and PyPI
+deprecation remain separately excluded.
 
 ### Blockers
 

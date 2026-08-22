@@ -180,6 +180,19 @@ for (const failure of [
   });
 }
 
+runToolset("fallback-stops-on-format-error", { action: "execute", operation: "matrix", input: {
+  baseDate: request.baseDate,
+  kind: request.kind.name,
+  fallback: "previous-available",
+  lookbackDays: 1
+} }, fixture([
+  { path: initPath, fixture: evidence.fixtures.init },
+  { path: matrixPath, fixture: evidence.fixtures.invalidNumeric }
+]), (result, label) => {
+  check(!result.ok && result.error?.code === evidence.expectations.formatError, `${label} must stop on source-format failure`);
+  check(result.requests?.length === 2, `${label} must not advance fallback after a source-format failure`);
+});
+
 for (const xmlCase of evidence.xmlCases.valid) {
   const operation = xmlCase.operation;
   const effectiveKindCode = xmlCase.expectedKindCode === "10" && xmlCase.expectedKindName !== "국채"
@@ -317,11 +330,11 @@ runToolset("kind-80:dated-catalog", { action: "execute", operation: "kinds", inp
 for (const [id, kind] of [["code", "80"], ["number", 80], ["label", "회사채(사모)"], ["normalized-label", "회사채 (사모)"]]) {
   runToolset(`kind-80:matrix-${id}`, { action: "execute", operation: "matrix", input: { baseDate: request.baseDate, kind } }, fixture([
     { path: initPath, fixture: evidence.fixtures.init },
-    { path: matrixPath, fixture: evidence.fixtures.missingValues }
+    { path: matrixPath, fixture: evidence.fixtures.privateBondPadded }
   ]), (result, label) => {
     check(result.ok && result.value?.kind?.code === "80" && result.value?.kind?.name === "회사채(사모)", `${label} must resolve canonical kind 80`);
     check(result.value?.rows?.[0]?.groupName === "회사채(사모)", `${label} must preserve the canonical row group`);
-    check(result.value?.rows?.[0]?.yields?.["6M"] === null && result.value?.rows?.[0]?.yieldText?.["6M"] === "-", `${label} must preserve generic missing-value semantics`);
+    assertPrivateBondPadded(result, label);
     check(result.requests?.[1]?.body.includes('<Col id="cboYtmSort">80</Col>'), `${label} must send only code 80`);
     check(!result.requests?.[1]?.body.includes('<Col id="cboYtmSort">70</Col>'), `${label} must never substitute code 70`);
   });
@@ -344,7 +357,7 @@ runToolset("kind-80:fallback-preserves-kind", { action: "execute", operation: "m
   { path: initPath, fixture: evidence.fixtures.init },
   { path: matrixPath, fixture: evidence.fixtures.unavailable },
   { path: initPath, fixture: evidence.fixtures.init },
-  { path: matrixPath, fixture: evidence.fixtures.missingValues }
+  { path: matrixPath, fixture: evidence.fixtures.privateBondPadded }
 ]), (result, label) => {
   check(result.ok && result.value?.baseDate === "2026-06-07", `${label} must resolve the prior available date`);
   check(result.value?.kind?.code === "80" && result.value?.kind?.name === "회사채(사모)", `${label} must preserve canonical kind 80`);
@@ -368,9 +381,11 @@ runToolset("kind-80:discovery-conflict", { action: "execute", operation: "kinds"
 for (const [id, kind] of [["code", "80"], ["label", "회사채(사모)"]]) {
   runCli(`kind-80:cli-${id}`, ["matrix", "--base-date", request.baseDate, "--kind", kind], fixture([
     { path: initPath, fixture: evidence.fixtures.init },
-    { path: matrixPath, fixture: evidence.fixtures.matrix }
+    { path: matrixPath, fixture: evidence.fixtures.privateBondPadded }
   ]), (result, label) => {
-    check(result.status === 0 && JSON.parse(result.stdout).result?.kind?.code === "80", `${label} must execute kind 80`);
+    const parsed = JSON.parse(result.stdout);
+    check(result.status === 0 && parsed.result?.kind?.code === "80", `${label} must execute kind 80`);
+    assertPrivateBondPadded({ value: parsed.result }, label);
   });
 }
 
@@ -403,6 +418,20 @@ console.log(`public-surface judge passed ${scenariosRun} scenario(s)`);
 
 function fixture(steps) {
   return { fixtureDirectory, steps };
+}
+
+function assertPrivateBondPadded(result, label) {
+  const expected = evidence.expectations.privateBondPadded;
+  const rows = result.value?.rows;
+  const first = rows?.[0];
+  check(rows?.length === expected.rowCount, `${label} must normalize all source-shaped private-bond rows`);
+  check(first?.pricingGroupCode === expected.pricingGroupCode && first?.pricingGroupName === expected.pricingGroupName, `${label} must retain the private-bond row identity`);
+  check(first?.yields?.["3M"] === expected.threeMonthNumeric, `${label} must parse the padded decimal view`);
+  check(first?.yieldText?.["3M"] === expected.threeMonthRaw, `${label} must preserve padded yieldText`);
+  check(first?.raw?.m3 === expected.threeMonthRaw, `${label} must preserve the exact padded raw cell`);
+  for (const tenor of expected.nullTenors) {
+    check(first?.yields?.[tenor] === null && first?.yieldText?.[tenor] === "-", `${label} must preserve exact missing ${tenor}`);
+  }
 }
 
 function runNativePreabort() {

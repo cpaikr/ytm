@@ -31,6 +31,7 @@
     "initMalformedAll": "init-malformed-all.xml",
     "matrix": "matrix-success.xml",
     "missingValues": "matrix-missing-values.xml",
+    "privateBondPadded": "matrix-private-bond-padded.xml",
     "unavailable": "matrix-unavailable.xml",
     "protocolError": "protocol-error.xml",
     "protocolWarning": "protocol-warning.xml",
@@ -101,6 +102,14 @@
     "missingValues": {
       "nullTenors": ["6M", "2Y"],
       "rawValues": { "6M": "-", "2Y": "" }
+    },
+    "privateBondPadded": {
+      "rowCount": 2,
+      "pricingGroupCode": "8010110",
+      "pricingGroupName": "회사채AAA(사모/무)",
+      "threeMonthRaw": "   2.500",
+      "threeMonthNumeric": 2.5,
+      "nullTenors": ["30Y", "50Y"]
     },
     "unavailableError": "source_data_unavailable",
     "transportError": "source_transport_error",

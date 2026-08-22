@@ -90,8 +90,8 @@ current cutover state that follows.
   integration branch as `e858f5f`; its final `validate` job and all 12
   native-consumer contexts passed on Blacksmith, all review threads are
   resolved, and Codex completed review without findings.
-- The active judge freezes the reviewed PR #10 public projections plus the
-  explicit kind-80 fallback acceptance case as 77 golden results and
+- The active judge freezes the reviewed rewrite projections plus padded-yield,
+  exact-provenance, and format-error fallback cases as 79 golden results and
   deep-compares every CLI/toolset outcome, including source metadata. A
   deliberate source-envelope mutation proves the oracle fails.
 - Node/Rust-only CI and live smoke use the lowest suitable Blacksmith images.
@@ -102,15 +102,14 @@ current cutover state that follows.
   without weakening strict checks, administrator enforcement, conversation
   resolution, platform gates, or branch immutability.
 - The current local pass covers frozen Bun state, contract/release/build
-  freshness, 77 public scenarios, deliberate oracle corruption, Rust
-  formatting/Clippy/24 tests, RustSec and dependency policy, native licenses,
-  root package contents, macOS ARM64 clean install on Node 26, workflow parsing,
-  diff checks, and the earlier metadata-only production live lookup.
-- PR #12 is open from `codex/rewrite-vnext` to `main` and remains intentionally
-  unmerged. Its feedback head `b41e98c` passed `validate` and all 12
-  native-consumer contexts in both the pull-request and duplicate push
-  matrices. All 20 Codex/CodeRabbit threads have evidence-backed replies and
-  are resolved; a fresh feedback collection found no unresolved thread.
+  freshness, 79 public scenarios, deliberate oracle corruption, Rust
+  formatting/Clippy/32 tests, native licenses, root package contents, and a
+  bounded metadata-only production kind-80 lookup returning 13 rows.
+- PR #12 merged the rewrite to `main` as `49f4fcf`; PR #14 landed the remaining
+  review hardening as `04defec`. Post-cutover issue #13 identified leading
+  ASCII-space fixed-width yield padding as the remaining live blocker for issue
+  #7. The maintenance fix parses an unpadded numeric view while preserving exact
+  `yieldText` and `raw`, and it keeps all other whitespace fail-closed.
 
 ## Decisions
 
@@ -285,10 +284,8 @@ current cutover state that follows.
 - A replacement Python implementation, extension, package, or API.
 - A new repository, orphaned history, or parallel long-term implementation.
 - Browser, edge, Deno, or Bun runtime support.
-- Publishing a registry release, deprecating the PyPI project, merging the
-  final main/release pull request, or changing external provider state without
-  explicit authorization. Intermediate rewrite PR delivery to the isolated
-  integration branch is part of this plan.
+- Publishing a registry release, deprecating the PyPI project, or changing
+  external provider state without explicit authorization.
 
 ## References
 
@@ -299,5 +296,6 @@ current cutover state that follows.
 
 ## Next action
 
-No in-scope delivery work remains. Await separate authorization for the final
-main merge; publication and PyPI deprecation remain excluded.
+The rewrite plan is complete on `main`. Land the post-cutover issue #13 fix
+through normal review and required CI, then reconcile issues #13 and #7.
+Publication and PyPI deprecation remain excluded.
