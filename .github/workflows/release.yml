@@ -158,7 +158,7 @@ jobs:
           cargo fmt --all --check
           cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
           cargo test --locked --workspace --all-targets --all-features
-          bun run test:node
+          bun run test
           bun run judge:broken
 
       - name: Pack root package without a native binary

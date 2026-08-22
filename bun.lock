@@ -28,9 +28,6 @@
     "packages/node": {
       "name": "@sjunepark/ytm",
       "version": "0.2.0",
-      "bin": {
-        "ytm": "dist/cli.js",
-      },
       "optionalDependencies": {
         "@sjunepark/ytm-darwin-arm64": "0.2.0",
         "@sjunepark/ytm-linux-arm64-gnu": "0.2.0",

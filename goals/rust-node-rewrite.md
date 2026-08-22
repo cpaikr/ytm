@@ -57,12 +57,12 @@ Goal contract
 ### Current result
 
 Delivery — PR #12 merged the Node-only rewrite to `main` as `49f4fcf`; PR #14
-then landed the remaining parser, cancellation, license, and release-boundary
-hardening as `04defec`. Post-cutover issue #13 identified source-observed
-leading ASCII-space padding in numeric yield cells as the remaining live
-kind-80 blocker from issue #7. The maintenance fix accepts only that padding,
-retains exact provenance text, and passes a source-shaped kind-80 fixture plus
-a bounded metadata-only live check returning all 13 source rows.
+then landed parser, cancellation, license, and release-boundary hardening as
+`04defec`. PR #15 merged the remaining fixed-width padded-yield fix as
+`77c33fd` after required validation and all 12 native consumer jobs passed.
+Issues #13 and #7 are closed. The delivered behavior accepts only leading
+ASCII-space numeric padding, retains exact provenance text, and covers kind 80
+with a source-shaped fixture and bounded metadata-only live evidence.
 
 ### Current evidence
 
@@ -97,9 +97,9 @@ a bounded metadata-only live check returning all 13 source rows.
 
 ### Next action
 
-The rewrite goal is closed. Land the post-cutover issue #13 fix through normal
-review and required CI, then reconcile issues #13 and #7. Publication and PyPI
-deprecation remain separately excluded.
+None — complete. The separately authorized successor direction is recorded in
+`plans/rust-sdk-node-sdk-rust-cli.md`; it is outside this goal's immutable
+Node-only delivery contract. Publication and PyPI deprecation remain excluded.
 
 ### Blockers
 

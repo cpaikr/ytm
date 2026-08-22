@@ -1,19 +1,19 @@
 use std::sync::Arc;
 
-use chrono::{Days, NaiveDate};
 use indexmap::IndexMap;
-use serde_json::{json, Value};
-use tokio_util::sync::CancellationToken;
+use serde_json::json;
 
 use crate::{
     error::YtmError,
     model::{
-        canonical_kinds, Capabilities, DateResolution, Kind, KindsInput, KindsResult, MatrixInput,
-        MatrixResult, MatrixRow, TENORS,
+        canonical_kinds, BaseDate, Capabilities, DateResolution, FallbackMode, FallbackPolicy,
+        Kind, KindsInput, KindsResult, MatrixInput, MatrixResult, MatrixRow, SourceMetadata,
+        SourceParameters, SourceRequest, TENORS,
     },
     nexacro,
     request::{self, INIT_PATH, MATRIX_PATH, SOURCE_ORIGIN, SOURCE_PAGE_URL},
-    transport::Transport,
+    transport::{HttpTransport, Transport},
+    CancellationToken,
 };
 
 pub struct YtmService {
@@ -21,7 +21,15 @@ pub struct YtmService {
 }
 
 impl YtmService {
-    pub fn new(transport: Arc<dyn Transport>) -> Self {
+    pub fn new() -> Result<Self, YtmError> {
+        Ok(Self::with_shared_transport(HttpTransport::shared()?))
+    }
+
+    pub fn with_transport(transport: impl Transport + 'static) -> Self {
+        Self::with_shared_transport(Arc::new(transport))
+    }
+
+    pub fn with_shared_transport(transport: Arc<dyn Transport>) -> Self {
         Self { transport }
     }
 
@@ -29,7 +37,12 @@ impl YtmService {
         Capabilities::current()
     }
 
-    pub async fn kinds(
+    pub async fn kinds(&self, input: KindsInput) -> Result<KindsResult, YtmError> {
+        self.kinds_with_cancellation(input, CancellationToken::new())
+            .await
+    }
+
+    pub async fn kinds_with_cancellation(
         &self,
         input: KindsInput,
         cancellation: CancellationToken,
@@ -38,38 +51,41 @@ impl YtmService {
             return Ok(KindsResult {
                 base_date: None,
                 kinds: canonical_kinds(),
-                source: json!({
-                    "pageUrl": SOURCE_PAGE_URL,
-                    "endpoint": Value::Null,
-                    "method": Value::Null,
-                    "note": "Canonical 종류 catalog owned by the Rust ytm core. Provide baseDate to merge live discovery."
-                }),
+                source: SourceMetadata {
+                    page_url: SOURCE_PAGE_URL,
+                    endpoint: None,
+                    method: None,
+                    request: None,
+                    inspected_workflow: None,
+                    note: Some("Canonical 종류 catalog owned by the Rust ytm core. Provide baseDate to merge live discovery."),
+                },
             });
         };
-        let (_, compact) = normalize_date(&base_date, "kinds")?;
-        self.kinds_for_date(&base_date, &compact, cancellation)
+        let compact = base_date.compact();
+        self.kinds_for_date(base_date, &compact, cancellation).await
+    }
+
+    pub async fn matrix(&self, input: MatrixInput) -> Result<MatrixResult, YtmError> {
+        self.matrix_with_cancellation(input, CancellationToken::new())
             .await
     }
 
-    pub async fn matrix(
+    pub async fn matrix_with_cancellation(
         &self,
         input: MatrixInput,
         cancellation: CancellationToken,
     ) -> Result<MatrixResult, YtmError> {
-        let (requested_date, _) = normalize_date(&input.base_date, "matrix")?;
-        let kind_input = kind_text(&input.kind)?;
-        let (fallback, lookback_days) = fallback_policy(&input)?;
-        let start = NaiveDate::parse_from_str(&requested_date, "%Y-%m-%d").map_err(|_| {
-            YtmError::invalid_parameter(
-                "matrix",
-                "baseDate",
-                "baseDate is invalid.",
-                json!(input.base_date),
-            )
-        })?;
+        let requested_date = input.base_date;
+        let kind_input = input.kind.as_str().to_owned();
+        let (fallback, lookback_days) = match input.fallback {
+            FallbackPolicy::Exact => (FallbackMode::Exact, 0),
+            FallbackPolicy::PreviousAvailable(days) => {
+                (FallbackMode::PreviousAvailable, days.get())
+            }
+        };
         let mut attempted_dates = Vec::new();
         for offset in 0..=u64::from(lookback_days) {
-            let date = start.checked_sub_days(Days::new(offset)).ok_or_else(|| {
+            let date = requested_date.checked_sub_days(offset).ok_or_else(|| {
                 YtmError::invalid_parameter(
                     "matrix",
                     "baseDate",
@@ -77,22 +93,21 @@ impl YtmService {
                     json!(requested_date),
                 )
             })?;
-            let display = date.format("%Y-%m-%d").to_string();
-            let compact = date.format("%Y%m%d").to_string();
-            attempted_dates.push(display.clone());
+            let compact = date.compact();
+            attempted_dates.push(date);
             match self
-                .matrix_for_date(&display, &compact, &kind_input, cancellation.clone())
+                .matrix_for_date(date, &compact, &kind_input, cancellation.clone())
                 .await
             {
                 Ok((kind, rows, source)) => {
                     return Ok(MatrixResult {
-                        base_date: display.clone(),
-                        requested_base_date: requested_date.clone(),
+                        base_date: date,
+                        requested_base_date: requested_date,
                         date_resolution: DateResolution {
-                            mode: fallback.to_owned(),
-                            requested_base_date: requested_date.clone(),
-                            resolved_base_date: display.clone(),
-                            used_fallback: display != requested_date,
+                            mode: fallback,
+                            requested_base_date: requested_date,
+                            resolved_base_date: date,
+                            used_fallback: date != requested_date,
                             attempted_dates,
                             lookback_days,
                         },
@@ -106,17 +121,17 @@ impl YtmService {
                     });
                 }
                 Err(error)
-                    if error.details.code == "source_data_unavailable"
-                        && fallback == "previous-available"
+                    if error.is_unavailable()
+                        && fallback == FallbackMode::PreviousAvailable
                         && offset < u64::from(lookback_days) => {}
-                Err(error) if error.details.code == "source_data_unavailable" => {
+                Err(error) if error.is_unavailable() => {
                     return Err(YtmError::unavailable(
                         "matrix",
-                        &requested_date,
+                        &requested_date.to_string(),
                         Some(&kind_input),
-                        attempted_dates,
+                        attempted_dates.iter().map(ToString::to_string).collect(),
                         lookback_days,
-                        fallback == "previous-available",
+                        fallback == FallbackMode::PreviousAvailable,
                     ));
                 }
                 Err(error) => return Err(error),
@@ -124,17 +139,17 @@ impl YtmService {
         }
         Err(YtmError::unavailable(
             "matrix",
-            &requested_date,
+            &requested_date.to_string(),
             Some(&kind_input),
-            attempted_dates,
+            attempted_dates.iter().map(ToString::to_string).collect(),
             lookback_days,
-            fallback == "previous-available",
+            fallback == FallbackMode::PreviousAvailable,
         ))
     }
 
     async fn kinds_for_date(
         &self,
-        display: &str,
+        display: BaseDate,
         compact: &str,
         cancellation: CancellationToken,
     ) -> Result<KindsResult, YtmError> {
@@ -146,9 +161,9 @@ impl YtmService {
         if dataset.rows.is_empty() {
             return Err(YtmError::unavailable(
                 "kinds",
-                display,
+                &display.to_string(),
                 None,
-                vec![display.to_owned()],
+                vec![display.to_string()],
                 0,
                 false,
             ));
@@ -160,7 +175,7 @@ impl YtmService {
             .collect::<Result<Vec<_>, _>>()?;
         let kinds = merge_kinds(discovered)?;
         Ok(KindsResult {
-            base_date: Some(display.to_owned()),
+            base_date: Some(display),
             kinds,
             source: source_metadata(INIT_PATH, "ds_tymSort=output1 ds_list=output2", compact, "10", "The mobile page posts ds_search to /rateInfo/ytmMatrixMobileInitList.do on initial YTM Matrix load."),
         })
@@ -168,11 +183,11 @@ impl YtmService {
 
     async fn matrix_for_date(
         &self,
-        display: &str,
+        display: BaseDate,
         compact: &str,
         kind_input: &str,
         cancellation: CancellationToken,
-    ) -> Result<(Kind, Vec<MatrixRow>, Value), YtmError> {
+    ) -> Result<(Kind, Vec<MatrixRow>, SourceMetadata), YtmError> {
         let kinds = self
             .kinds_for_date(display, compact, cancellation.clone())
             .await?
@@ -182,7 +197,7 @@ impl YtmService {
                 kind_input,
                 json!(kinds),
                 json!({
-                    "baseDate": display,
+                    "baseDate": display.to_string(),
                     "kind": kinds.first().map(|kind| kind.name.as_str()).unwrap_or("국채")
                 }),
             )
@@ -195,9 +210,9 @@ impl YtmService {
         if dataset.rows.is_empty() {
             return Err(YtmError::unavailable(
                 "matrix",
-                display,
+                &display.to_string(),
                 Some(kind_input),
-                vec![display.to_owned()],
+                vec![display.to_string()],
                 0,
                 false,
             ));
@@ -348,40 +363,6 @@ fn normalize_row(row: IndexMap<String, String>, kind: &Kind) -> Result<MatrixRow
     })
 }
 
-fn fallback_policy(input: &MatrixInput) -> Result<(&str, u8), YtmError> {
-    let fallback = input.fallback.as_deref().unwrap_or("exact");
-    if !matches!(fallback, "exact" | "previous-available") {
-        return Err(YtmError::invalid_parameter(
-            "matrix",
-            "fallback",
-            "fallback must be exact or previous-available.",
-            json!(fallback),
-        ));
-    }
-    if fallback != "previous-available" && input.lookback_days.is_some() {
-        return Err(YtmError::invalid_parameter(
-            "matrix",
-            "lookbackDays",
-            "lookbackDays only applies when fallback is previous-available.",
-            json!(input.lookback_days),
-        ));
-    }
-    let lookback_days = if fallback == "previous-available" {
-        input.lookback_days.unwrap_or(10)
-    } else {
-        0
-    };
-    if lookback_days > 31 || (fallback == "previous-available" && lookback_days == 0) {
-        return Err(YtmError::invalid_parameter(
-            "matrix",
-            "lookbackDays",
-            "lookbackDays must be an integer from 1 to 31.",
-            json!(lookback_days),
-        ));
-    }
-    Ok((fallback, lookback_days))
-}
-
 fn is_decimal_yield(value: &str) -> bool {
     let unsigned = value.strip_prefix(['+', '-']).unwrap_or(value);
     let mut parts = unsigned.split('.');
@@ -400,79 +381,29 @@ fn is_decimal_yield(value: &str) -> bool {
     }
 }
 
-fn normalize_date(value: &str, operation: &str) -> Result<(String, String), YtmError> {
-    let trimmed = value.trim();
-    let bytes = trimmed.as_bytes();
-    let supported_shape = bytes.len() == 8 && bytes.iter().all(u8::is_ascii_digit)
-        || bytes.len() == 10
-            && matches!((bytes[4], bytes[7]), (b'-', b'-') | (b'.', b'.'))
-            && bytes
-                .iter()
-                .enumerate()
-                .all(|(index, byte)| matches!(index, 4 | 7) || byte.is_ascii_digit());
-    if !supported_shape {
-        return Err(YtmError::invalid_parameter(
-            operation,
-            "baseDate",
-            "baseDate must use YYYY-MM-DD, YYYY.MM.DD, or YYYYMMDD.",
-            json!(value),
-        ));
-    }
-    let compact = trimmed.replace(['-', '.'], "");
-    let date = NaiveDate::parse_from_str(&compact, "%Y%m%d").map_err(|_| {
-        YtmError::invalid_parameter(
-            operation,
-            "baseDate",
-            "baseDate is not a valid calendar date.",
-            json!(value),
-        )
-    })?;
-    Ok((date.format("%Y-%m-%d").to_string(), compact))
-}
-
-fn kind_text(value: &Value) -> Result<String, YtmError> {
-    let text = match value {
-        Value::String(value) => value.trim().to_owned(),
-        Value::Number(value) => value.to_string(),
-        _ => {
-            return Err(YtmError::invalid_parameter(
-                "matrix",
-                "kind",
-                "kind must be a 종류 label or source code.",
-                value.clone(),
-            ))
-        }
-    };
-    if text.is_empty() {
-        return Err(YtmError::invalid_parameter(
-            "matrix",
-            "kind",
-            "kind must be nonempty.",
-            value.clone(),
-        ));
-    }
-    Ok(text)
-}
-
 fn source_metadata(
-    path: &str,
-    out_datasets: &str,
+    path: &'static str,
+    out_datasets: &'static str,
     compact: &str,
     kind: &str,
-    workflow: &str,
-) -> Value {
-    json!({
-        "pageUrl": SOURCE_PAGE_URL,
-        "endpoint": format!("{SOURCE_ORIGIN}{path}"),
-        "method": "POST",
-        "request": {
-            "format": "Nexacro XML PlatformData",
-            "inDatasets": request::IN_DATASETS,
-            "outDatasets": out_datasets,
-            "parameters": { "calBaseDt": compact, "cboYtmSort": kind }
-        },
-        "inspectedWorkflow": workflow
-    })
+    workflow: &'static str,
+) -> SourceMetadata {
+    SourceMetadata {
+        page_url: SOURCE_PAGE_URL,
+        endpoint: Some(format!("{SOURCE_ORIGIN}{path}")),
+        method: Some("POST"),
+        request: Some(SourceRequest {
+            format: "Nexacro XML PlatformData",
+            in_datasets: request::IN_DATASETS,
+            out_datasets,
+            parameters: SourceParameters {
+                cal_base_dt: compact.to_owned(),
+                cbo_ytm_sort: kind.to_owned(),
+            },
+        }),
+        inspected_workflow: Some(workflow),
+        note: None,
+    }
 }
 
 #[cfg(test)]
@@ -498,47 +429,6 @@ mod tests {
         }])
         .unwrap_err();
         assert_eq!(error.details.code, "source_format_error");
-    }
-
-    #[test]
-    fn date_normalization_accepts_only_the_documented_shapes() {
-        for value in ["20260820", "2026-08-20", "2026.08.20"] {
-            assert_eq!(
-                normalize_date(value, "matrix").unwrap(),
-                ("2026-08-20".into(), "20260820".into())
-            );
-        }
-        for value in ["2026.08-20", "2026-0820", "202608-20", "2026..08.20"] {
-            assert_eq!(
-                normalize_date(value, "matrix").unwrap_err().details.code,
-                "invalid_parameter"
-            );
-        }
-    }
-
-    #[test]
-    fn fallback_policy_rejects_lookback_without_previous_available() {
-        for fallback in [None, Some("exact".to_owned())] {
-            let input = MatrixInput {
-                base_date: "2026-08-20".into(),
-                kind: json!("10"),
-                fallback,
-                lookback_days: Some(1),
-            };
-            let error = fallback_policy(&input).unwrap_err();
-            assert_eq!(error.details.code, "invalid_parameter");
-            assert_eq!(error.details.parameter.as_deref(), Some("lookbackDays"));
-        }
-
-        let input = MatrixInput {
-            base_date: "2026-08-20".into(),
-            kind: json!("10"),
-            fallback: Some("unexpected".into()),
-            lookback_days: None,
-        };
-        let error = fallback_policy(&input).unwrap_err();
-        assert_eq!(error.details.parameter.as_deref(), Some("fallback"));
-        assert!(error.details.reason.contains("exact or previous-available"));
     }
 
     #[test]

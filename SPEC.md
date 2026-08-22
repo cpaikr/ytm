@@ -19,6 +19,16 @@ a browser.
   distinction between protocol conformance, observed availability, and
   production suitability.
 
+## Surface ownership
+
+The current checkout exposes the Rust implementation as a public Rust SDK,
+through a Node-API-backed Node SDK, and through a standalone Rust/Clap `ytm`
+executable. The Node package has no `bin` entry or JavaScript CLI. All three
+surfaces preserve the product behavior in this contract; their component
+boundary and completion criteria live in
+[`ARCHITECTURE.md`](ARCHITECTURE.md) and
+[`plans/rust-sdk-node-sdk-rust-cli.md`](plans/rust-sdk-node-sdk-rust-cli.md).
+
 ## Product behavior
 
 - `baseDate` accepts `YYYY-MM-DD`, `YYYY.MM.DD`, or `YYYYMMDD` and normalizes to
@@ -65,11 +75,12 @@ but cannot remove or silently redefine a supported kind.
   Empty code-80 rows use the ordinary unavailable-data behavior.
 
 This is the approved divergence from the archived `0.2.0` implementation and
-is the Node-only acceptance boundary for GitHub issue #7.
+the completed acceptance boundary for GitHub issue #7. Every future Rust SDK,
+Node SDK, and CLI surface must preserve it.
 
-## Node surfaces
+## Public SDK and CLI surfaces
 
-The CLI is:
+The standalone Rust CLI is:
 
 ```sh
 ytm matrix --base-date <기준일> --kind <종류> [--fallback previous-available] [--lookback-days <days>] [--format json|csv|tsv] [--pretty]
@@ -81,7 +92,8 @@ JSON is the default. A successful JSON command prints exactly one
 structured JSON object and exits nonzero; data needed to consume the result is
 never available only on stderr.
 
-`@sjunepark/ytm/toolset` exports `createKisnetYtmToolset()` with `help`,
+`@sjunepark/ytm/toolset` is the Rust-backed Node SDK. It exports
+`createKisnetYtmToolset()` with `help`,
 `listOperations`, `getOperation`, `getCommandHelp`, `validateInput`, `execute`,
 and `serializeError`. Discovery, help, and validation remain network-free.
 Execution accepts cancellation through `AbortSignal`. The rewrite intentionally
@@ -100,6 +112,8 @@ machine-readable recovery metadata.
 
 ## Runtime boundary
 
-The active product is Node.js-only. Historical Python releases and component
-tags remain immutable registry and Git history, but no Python source, API,
-package, CI, live smoke, or release path is part of this repository state.
+The repository contains a public Rust SDK, a Rust-backed Node SDK, and a
+standalone Rust CLI over the same core. Historical Python releases and
+component tags remain immutable registry and Git history, but no Python source,
+API, package, CI, live smoke, or release path is part of this repository state.
+The Rust CLI does not reintroduce Python or a second KIS-NET implementation.

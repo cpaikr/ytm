@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 const repositoryRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const checkOnly = process.argv.includes("--check");
 const manifest = JSON.parse(await readFile(resolve(repositoryRoot, "native-targets.json"), "utf8"));
+const nodeEngine = `>=${manifest.minimumNodeMajor}`;
 const rootPackagePath = resolve(repositoryRoot, manifest.rootPackage, "package.json");
 const rootPackage = JSON.parse(await readFile(rootPackagePath, "utf8"));
 const license = await readFile(resolve(repositoryRoot, "LICENSE.md"), "utf8");
@@ -28,7 +29,7 @@ for (const target of manifest.targets) {
     files: [target.artifactFile, "LICENSE.md", "THIRD_PARTY_LICENSES.html"],
     os: [target.npmPlatform],
     cpu: [target.npmArch],
-    engines: { node: ">=22" },
+    engines: { node: nodeEngine },
     publishConfig: { access: "public" },
     repository: {
       ...rootPackage.repository,

@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { Validator } from "@seriousme/openapi-schema-validator";
 import { parseDocument } from "yaml";
+import { isNodeCliArtifact } from "./node-cli-artifact-policy.mjs";
 
 const failures = [];
 
@@ -139,7 +140,7 @@ for (const relativePath of ["../SPEC.md", "../packages/node/SPEC.md", "../packag
   }
 }
 
-for (const relativePath of ["../packages/node/src/toolset.js", "../packages/node/src/cli.js", "../packages/node/src/native.js", "../packages/node/src/native.cjs"]) {
+for (const relativePath of ["../packages/node/src/toolset.js", "../packages/node/src/native.js", "../packages/node/src/native.cjs"]) {
   const text = await readFile(new URL(relativePath, import.meta.url), "utf8");
   for (const forbidden of [
     "https://kis-net.kr",
@@ -156,14 +157,34 @@ for (const relativePath of ["../packages/node/src/toolset.js", "../packages/node
 
 const repositorySkill = await readFile(new URL("../skills/kisnet-ytm/SKILL.md", import.meta.url), "utf8");
 const packagedSkill = await readFile(new URL("../packages/node/skills/kisnet-ytm/SKILL.md", import.meta.url), "utf8");
-check(repositorySkill === packagedSkill, "the repository and packaged KIS-NET skills must remain identical");
-check(!repositorySkill.includes("Python") && repositorySkill.includes("80` 회사채(사모)"), "the active skill must be Node-only and include canonical kind 80");
+check(!repositorySkill.includes("Python") && repositorySkill.includes("ytm matrix") && repositorySkill.includes("80` 회사채(사모)"), "the repository skill must cover the active Rust CLI and canonical kind 80");
+check(packagedSkill.includes("@sjunepark/ytm/toolset") && !packagedSkill.includes("ytm matrix") && !packagedSkill.includes("package-provided"), "the packaged Node skill must describe the SDK without claiming a CLI");
+
+for (const path of [
+  "package/dist/cli.js",
+  "cli.d.ts",
+  "cli.mts",
+  "cli.cts",
+  "cli.d.mts",
+  "cli.d.cts",
+  "src/ytm-cli.js",
+  "package/bin/ytm.js",
+  "package/bin/sub/tool"
+]) {
+  check(isNodeCliArtifact(path), `the Node CLI artifact guard must reject ${path}`);
+}
+for (const path of ["dist/toolset.js", "src/client.js", "skills/kisnet-ytm/SKILL.md"]) {
+  check(!isNodeCliArtifact(path), `the Node CLI artifact guard must allow ${path}`);
+}
 
 const nativeTargets = JSON.parse(await readFile(new URL("../native-targets.json", import.meta.url), "utf8"));
+const nodePackage = JSON.parse(await readFile(new URL("../packages/node/package.json", import.meta.url), "utf8"));
 check(nativeTargets.schemaVersion === 2, "native target manifest schemaVersion must be 2");
 check(nativeTargets.supportClaim === "supported", "native targets must record the clean-install support decision");
-check(nativeTargets.minimumNodeMajor === 22, "the rewrite must not claim support for end-of-life Node majors");
-equal(nativeTargets.validationNodeMajors, [22, 24, 26], "Node validation majors must stay explicit");
+check(Number.isInteger(nativeTargets.minimumNodeMajor) && nativeTargets.minimumNodeMajor > 0, "minimum Node major must be a positive integer");
+check(nodePackage.engines?.node === `>=${nativeTargets.minimumNodeMajor}`, "Node package engine must match the canonical runtime policy");
+check(nativeTargets.validationNodeMajors?.[0] === nativeTargets.minimumNodeMajor, "Node validation must begin with the minimum supported major");
+check(nativeTargets.validationNodeMajors?.every((major) => Number.isInteger(major) && major >= nativeTargets.minimumNodeMajor), "Node validation majors must stay within the supported range");
 const expectedRustTargets = [
   "x86_64-unknown-linux-gnu",
   "aarch64-unknown-linux-gnu",

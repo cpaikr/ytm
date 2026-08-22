@@ -29,10 +29,40 @@
     "stdout": "matrix\n  Input JSON: { \"baseDate\": \"2026-06-08\", \"kind\": \"국채\" }\n  Optional fallback: { \"fallback\": \"previous-available\", \"lookbackDays\": 10 }\n  baseDate maps to 기준일 and accepts YYYY-MM-DD, YYYY.MM.DD, or YYYYMMDD.\n  kind maps to 종류 and accepts one of these Korean labels or source codes:\n    10 = 국채\n    20 = 지방채\n    30 = 특수채\n    40 = 통안채\n    50 = 은행채\n    60 = 기타금융채\n    70 = 회사채(무보증)\n    80 = 회사채(사모)\n  fallback=previous-available tries the requested date once, then walks backward until rows are found.\n  lookbackDays defaults to 10 and may not exceed 31.\n  Run kinds to print this list as JSON, CSV, or TSV.\n  Result rows include 적용대상채권, tenors 3M through 50Y, and dateResolution metadata.\n\nCLI example:\n  ytm matrix --base-date 2026-06-08 --kind 국채 --format json\n",
     "stderr": ""
   },
+  "cli:cli-machine-contract:cross-command-option": {
+    "status": 2,
+    "signal": null,
+    "stdout": "{\"ok\":false,\"error\":{\"ok\":false,\"code\":\"unknown_parameter\",\"operationName\":\"kinds\",\"parameter\":\"kind\",\"reason\":\"Unknown parameter: kind.\",\"expected\":[\"baseDate\"],\"actual\":\"kind\",\"exampleInput\":{},\"recoveryHint\":\"Remove kind or inspect command help for supported parameters.\",\"recoveryAction\":\"inspect_command_help\",\"recoverable\":true,\"retryable\":false}}\n",
+    "stderr": "\nkinds\n  Input JSON: {} or { \"baseDate\": \"2026-06-08\" }\n  Returns accepted 종류 source codes and Korean labels.\n\nCLI example:\n  ytm kinds --base-date 2026-06-08 --format json\n"
+  },
   "cli:cli-machine-contract:csv": {
     "status": 0,
     "signal": null,
     "stdout": "requestedBaseDate,baseDate,usedFallback,kindCode,kindName,pricingGroupCode,pricingGroupName,3M,6M,9M,1Y,1.5Y,2Y,2.5Y,3Y,5Y,7Y,10Y,15Y,20Y,30Y,50Y\n2026-06-08,2026-06-08,false,10,국채,100,국고채권,2.5,2.51,2.52,2.53,2.54,2.55,2.56,2.57,2.6,2.7,2.8,2.9,3,3.1,3.2\n",
+    "stderr": ""
+  },
+  "cli:cli-machine-contract:empty-base-date": {
+    "status": 2,
+    "signal": null,
+    "stdout": "{\"ok\":false,\"error\":{\"ok\":false,\"code\":\"missing_parameter\",\"operationName\":\"matrix\",\"parameter\":\"baseDate\",\"reason\":\"--base-date requires a 기준일 value.\",\"expected\":\"date\",\"exampleInput\":{\"baseDate\":\"2026-06-08\",\"kind\":\"국채\"},\"recoveryHint\":\"Run ytm help matrix and retry with supported options.\",\"recoveryAction\":\"inspect_command_help\",\"recoverable\":true,\"retryable\":false}}\n",
+    "stderr": "\nmatrix\n  Input JSON: { \"baseDate\": \"2026-06-08\", \"kind\": \"국채\" }\n  Optional fallback: { \"fallback\": \"previous-available\", \"lookbackDays\": 10 }\n  baseDate maps to 기준일 and accepts YYYY-MM-DD, YYYY.MM.DD, or YYYYMMDD.\n  kind maps to 종류 and accepts one of these Korean labels or source codes:\n    10 = 국채\n    20 = 지방채\n    30 = 특수채\n    40 = 통안채\n    50 = 은행채\n    60 = 기타금융채\n    70 = 회사채(무보증)\n    80 = 회사채(사모)\n  fallback=previous-available tries the requested date once, then walks backward until rows are found.\n  lookbackDays defaults to 10 and may not exceed 31.\n  Run kinds to print this list as JSON, CSV, or TSV.\n  Result rows include 적용대상채권, tenors 3M through 50Y, and dateResolution metadata.\n\nCLI example:\n  ytm matrix --base-date 2026-06-08 --kind 국채 --format json\n"
+  },
+  "cli:cli-machine-contract:empty-format": {
+    "status": 2,
+    "signal": null,
+    "stdout": "{\"ok\":false,\"error\":{\"ok\":false,\"code\":\"invalid_parameter\",\"operationName\":\"matrix\",\"parameter\":\"format\",\"reason\":\"Unsupported format.\",\"expected\":[\"json\",\"csv\",\"tsv\"],\"actual\":\"\",\"exampleInput\":{\"baseDate\":\"2026-06-08\",\"kind\":\"국채\"},\"recoveryHint\":\"Run ytm help matrix and retry with supported options.\",\"recoveryAction\":\"inspect_command_help\",\"recoverable\":true,\"retryable\":false}}\n",
+    "stderr": "\nmatrix\n  Input JSON: { \"baseDate\": \"2026-06-08\", \"kind\": \"국채\" }\n  Optional fallback: { \"fallback\": \"previous-available\", \"lookbackDays\": 10 }\n  baseDate maps to 기준일 and accepts YYYY-MM-DD, YYYY.MM.DD, or YYYYMMDD.\n  kind maps to 종류 and accepts one of these Korean labels or source codes:\n    10 = 국채\n    20 = 지방채\n    30 = 특수채\n    40 = 통안채\n    50 = 은행채\n    60 = 기타금융채\n    70 = 회사채(무보증)\n    80 = 회사채(사모)\n  fallback=previous-available tries the requested date once, then walks backward until rows are found.\n  lookbackDays defaults to 10 and may not exceed 31.\n  Run kinds to print this list as JSON, CSV, or TSV.\n  Result rows include 적용대상채권, tenors 3M through 50Y, and dateResolution metadata.\n\nCLI example:\n  ytm matrix --base-date 2026-06-08 --kind 국채 --format json\n"
+  },
+  "cli:cli-machine-contract:fallback": {
+    "status": 0,
+    "signal": null,
+    "stdout": "{\"ok\":true,\"operation\":\"matrix\",\"result\":{\"baseDate\":\"2026-06-05\",\"kind\":{\"code\":\"10\",\"name\":\"국채\"},\"tenors\":[\"3M\",\"6M\",\"9M\",\"1Y\",\"1.5Y\",\"2Y\",\"2.5Y\",\"3Y\",\"5Y\",\"7Y\",\"10Y\",\"15Y\",\"20Y\",\"30Y\",\"50Y\"],\"rows\":[{\"groupName\":\"국채\",\"pricingGroupCode\":\"100\",\"pricingGroupName\":\"국고채권\",\"yields\":{\"3M\":2.5,\"6M\":2.51,\"9M\":2.52,\"1Y\":2.53,\"1.5Y\":2.54,\"2Y\":2.55,\"2.5Y\":2.56,\"3Y\":2.57,\"5Y\":2.6,\"7Y\":2.7,\"10Y\":2.8,\"15Y\":2.9,\"20Y\":3,\"30Y\":3.1,\"50Y\":3.2},\"yieldText\":{\"3M\":\"2.500\",\"6M\":\"2.510\",\"9M\":\"2.520\",\"1Y\":\"2.530\",\"1.5Y\":\"2.540\",\"2Y\":\"2.550\",\"2.5Y\":\"2.560\",\"3Y\":\"2.570\",\"5Y\":\"2.600\",\"7Y\":\"2.700\",\"10Y\":\"2.800\",\"15Y\":\"2.900\",\"20Y\":\"3.000\",\"30Y\":\"3.100\",\"50Y\":\"3.200\"},\"raw\":{\"pricingGroupCode\":\"100\",\"pricingGroupName\":\"국고채권\",\"m3\":\"2.500\",\"m6\":\"2.510\",\"m9\":\"2.520\",\"y1\":\"2.530\",\"y15a\":\"2.540\",\"y2\":\"2.550\",\"y25\":\"2.560\",\"y3\":\"2.570\",\"y5\":\"2.600\",\"y7\":\"2.700\",\"y10\":\"2.800\",\"y15\":\"2.900\",\"y20\":\"3.000\",\"y30\":\"3.100\",\"y50\":\"3.200\"}}],\"source\":{\"pageUrl\":\"https://kis-net.kr/kisnet_mobile/index.html\",\"endpoint\":\"https://kis-net.kr/rateInfo/ytmMatrixMobileList.do\",\"method\":\"POST\",\"request\":{\"format\":\"Nexacro XML PlatformData\",\"inDatasets\":\"ds_search=ds_search gds_tranInfo=gds_tranInfo\",\"outDatasets\":\"ds_list=output1\",\"parameters\":{\"calBaseDt\":\"20260605\",\"cboYtmSort\":\"10\"}},\"inspectedWorkflow\":\"The mobile page posts ds_search to /rateInfo/ytmMatrixMobileList.do when 검색 is clicked.\"},\"requestedBaseDate\":\"2026-06-07\",\"dateResolution\":{\"mode\":\"previous-available\",\"requestedBaseDate\":\"2026-06-07\",\"resolvedBaseDate\":\"2026-06-05\",\"usedFallback\":true,\"attemptedDates\":[\"2026-06-07\",\"2026-06-06\",\"2026-06-05\"],\"lookbackDays\":2}}}\n",
+    "stderr": ""
+  },
+  "cli:cli-machine-contract:format-error": {
+    "status": 1,
+    "signal": null,
+    "stdout": "{\"ok\":false,\"error\":{\"ok\":false,\"code\":\"source_format_error\",\"reason\":\"KIS-NET matrix column m3 contains an invalid numeric value.\",\"expected\":\"A valid KIS-NET Nexacro response matching the documented YTM Matrix schema\",\"recoveryHint\":\"The KIS-NET source format may have changed; update this client before retrying.\",\"recoveryAction\":\"inspect_tool_help\",\"recoverable\":false,\"retryable\":false}}\n",
     "stderr": ""
   },
   "cli:cli-machine-contract:formula-safe-csv": {
@@ -44,7 +74,13 @@
   "cli:cli-machine-contract:help": {
     "status": 0,
     "signal": null,
-    "stdout": "KIS-NET YTM Matrix toolset\n\nOperations:\n  matrix: fetch YTM Matrix rows for a 기준일 and 종류.\n  kinds: list accepted 종류 codes and Korean labels.\n\nAccepted 종류 values:\n  10 = 국채\n  20 = 지방채\n  30 = 특수채\n  40 = 통안채\n  50 = 은행채\n  60 = 기타금융채\n  70 = 회사채(무보증)\n  80 = 회사채(사모)\n\nSource terms are preserved where official: 기준일, 종류, and 적용대상채권.\nUse validateInput(operationName, input) before execute when integrating in-process.\n\nCLI usage:\n  ytm matrix --base-date <기준일> --kind <종류> [--fallback previous-available] [--lookback-days <days>] [--format json|csv|tsv] [--pretty]\n  ytm kinds [--base-date <기준일>] [--format json|csv|tsv] [--pretty]\n  ytm help <command>\n\nOutput:\n  json is the default and prints one JSON object. csv and tsv print tabular success rows. Failures always print one JSON object to stdout and exit non-zero. Help diagnostics for invalid invocations are written to stderr.\n",
+    "stdout": "KIS-NET YTM Matrix CLI\n\nOperations:\n  matrix: fetch YTM Matrix rows for a 기준일 and 종류.\n  kinds: list accepted 종류 codes and Korean labels.\n\nAccepted 종류 values:\n  10 = 국채\n  20 = 지방채\n  30 = 특수채\n  40 = 통안채\n  50 = 은행채\n  60 = 기타금융채\n  70 = 회사채(무보증)\n  80 = 회사채(사모)\n\nSource terms are preserved where official: 기준일, 종류, and 적용대상채권.\nRun ytm help <command> for command-specific input and output guidance.\n\nCLI usage:\n  ytm matrix --base-date <기준일> --kind <종류> [--fallback previous-available] [--lookback-days <days>] [--format json|csv|tsv] [--pretty]\n  ytm kinds [--base-date <기준일>] [--format json|csv|tsv] [--pretty]\n  ytm help <command>\n\nOutput:\n  json is the default and prints one JSON object. csv and tsv print tabular success rows. Command failures print one JSON object to stdout and exit non-zero. Unknown command names given to ytm help print a plain-text message and exit non-zero. Help diagnostics for invalid invocations are written to stderr.\n",
+    "stderr": ""
+  },
+  "cli:cli-machine-contract:help-command-help": {
+    "status": 0,
+    "signal": null,
+    "stdout": "KIS-NET YTM Matrix CLI\n\nOperations:\n  matrix: fetch YTM Matrix rows for a 기준일 and 종류.\n  kinds: list accepted 종류 codes and Korean labels.\n\nAccepted 종류 values:\n  10 = 국채\n  20 = 지방채\n  30 = 특수채\n  40 = 통안채\n  50 = 은행채\n  60 = 기타금융채\n  70 = 회사채(무보증)\n  80 = 회사채(사모)\n\nSource terms are preserved where official: 기준일, 종류, and 적용대상채권.\nRun ytm help <command> for command-specific input and output guidance.\n\nCLI usage:\n  ytm matrix --base-date <기준일> --kind <종류> [--fallback previous-available] [--lookback-days <days>] [--format json|csv|tsv] [--pretty]\n  ytm kinds [--base-date <기준일>] [--format json|csv|tsv] [--pretty]\n  ytm help <command>\n\nOutput:\n  json is the default and prints one JSON object. csv and tsv print tabular success rows. Command failures print one JSON object to stdout and exit non-zero. Unknown command names given to ytm help print a plain-text message and exit non-zero. Help diagnostics for invalid invocations are written to stderr.\n",
     "stderr": ""
   },
   "cli:cli-machine-contract:input-json": {
@@ -53,11 +89,59 @@
     "stdout": "{\"ok\":true,\"operation\":\"matrix\",\"result\":{\"baseDate\":\"2026-06-08\",\"kind\":{\"code\":\"10\",\"name\":\"국채\"},\"tenors\":[\"3M\",\"6M\",\"9M\",\"1Y\",\"1.5Y\",\"2Y\",\"2.5Y\",\"3Y\",\"5Y\",\"7Y\",\"10Y\",\"15Y\",\"20Y\",\"30Y\",\"50Y\"],\"rows\":[{\"groupName\":\"국채\",\"pricingGroupCode\":\"100\",\"pricingGroupName\":\"국고채권\",\"yields\":{\"3M\":2.5,\"6M\":2.51,\"9M\":2.52,\"1Y\":2.53,\"1.5Y\":2.54,\"2Y\":2.55,\"2.5Y\":2.56,\"3Y\":2.57,\"5Y\":2.6,\"7Y\":2.7,\"10Y\":2.8,\"15Y\":2.9,\"20Y\":3,\"30Y\":3.1,\"50Y\":3.2},\"yieldText\":{\"3M\":\"2.500\",\"6M\":\"2.510\",\"9M\":\"2.520\",\"1Y\":\"2.530\",\"1.5Y\":\"2.540\",\"2Y\":\"2.550\",\"2.5Y\":\"2.560\",\"3Y\":\"2.570\",\"5Y\":\"2.600\",\"7Y\":\"2.700\",\"10Y\":\"2.800\",\"15Y\":\"2.900\",\"20Y\":\"3.000\",\"30Y\":\"3.100\",\"50Y\":\"3.200\"},\"raw\":{\"pricingGroupCode\":\"100\",\"pricingGroupName\":\"국고채권\",\"m3\":\"2.500\",\"m6\":\"2.510\",\"m9\":\"2.520\",\"y1\":\"2.530\",\"y15a\":\"2.540\",\"y2\":\"2.550\",\"y25\":\"2.560\",\"y3\":\"2.570\",\"y5\":\"2.600\",\"y7\":\"2.700\",\"y10\":\"2.800\",\"y15\":\"2.900\",\"y20\":\"3.000\",\"y30\":\"3.100\",\"y50\":\"3.200\"}}],\"source\":{\"pageUrl\":\"https://kis-net.kr/kisnet_mobile/index.html\",\"endpoint\":\"https://kis-net.kr/rateInfo/ytmMatrixMobileList.do\",\"method\":\"POST\",\"request\":{\"format\":\"Nexacro XML PlatformData\",\"inDatasets\":\"ds_search=ds_search gds_tranInfo=gds_tranInfo\",\"outDatasets\":\"ds_list=output1\",\"parameters\":{\"calBaseDt\":\"20260608\",\"cboYtmSort\":\"10\"}},\"inspectedWorkflow\":\"The mobile page posts ds_search to /rateInfo/ytmMatrixMobileList.do when 검색 is clicked.\"},\"requestedBaseDate\":\"2026-06-08\",\"dateResolution\":{\"mode\":\"exact\",\"requestedBaseDate\":\"2026-06-08\",\"resolvedBaseDate\":\"2026-06-08\",\"usedFallback\":false,\"attemptedDates\":[\"2026-06-08\"],\"lookbackDays\":0}}}\n",
     "stderr": ""
   },
+  "cli:cli-machine-contract:input-json-decimal-kind": {
+    "status": 0,
+    "signal": null,
+    "stdout": "{\"ok\":true,\"operation\":\"matrix\",\"result\":{\"baseDate\":\"2026-06-08\",\"kind\":{\"code\":\"10\",\"name\":\"국채\"},\"tenors\":[\"3M\",\"6M\",\"9M\",\"1Y\",\"1.5Y\",\"2Y\",\"2.5Y\",\"3Y\",\"5Y\",\"7Y\",\"10Y\",\"15Y\",\"20Y\",\"30Y\",\"50Y\"],\"rows\":[{\"groupName\":\"국채\",\"pricingGroupCode\":\"100\",\"pricingGroupName\":\"국고채권\",\"yields\":{\"3M\":2.5,\"6M\":2.51,\"9M\":2.52,\"1Y\":2.53,\"1.5Y\":2.54,\"2Y\":2.55,\"2.5Y\":2.56,\"3Y\":2.57,\"5Y\":2.6,\"7Y\":2.7,\"10Y\":2.8,\"15Y\":2.9,\"20Y\":3,\"30Y\":3.1,\"50Y\":3.2},\"yieldText\":{\"3M\":\"2.500\",\"6M\":\"2.510\",\"9M\":\"2.520\",\"1Y\":\"2.530\",\"1.5Y\":\"2.540\",\"2Y\":\"2.550\",\"2.5Y\":\"2.560\",\"3Y\":\"2.570\",\"5Y\":\"2.600\",\"7Y\":\"2.700\",\"10Y\":\"2.800\",\"15Y\":\"2.900\",\"20Y\":\"3.000\",\"30Y\":\"3.100\",\"50Y\":\"3.200\"},\"raw\":{\"pricingGroupCode\":\"100\",\"pricingGroupName\":\"국고채권\",\"m3\":\"2.500\",\"m6\":\"2.510\",\"m9\":\"2.520\",\"y1\":\"2.530\",\"y15a\":\"2.540\",\"y2\":\"2.550\",\"y25\":\"2.560\",\"y3\":\"2.570\",\"y5\":\"2.600\",\"y7\":\"2.700\",\"y10\":\"2.800\",\"y15\":\"2.900\",\"y20\":\"3.000\",\"y30\":\"3.100\",\"y50\":\"3.200\"}}],\"source\":{\"pageUrl\":\"https://kis-net.kr/kisnet_mobile/index.html\",\"endpoint\":\"https://kis-net.kr/rateInfo/ytmMatrixMobileList.do\",\"method\":\"POST\",\"request\":{\"format\":\"Nexacro XML PlatformData\",\"inDatasets\":\"ds_search=ds_search gds_tranInfo=gds_tranInfo\",\"outDatasets\":\"ds_list=output1\",\"parameters\":{\"calBaseDt\":\"20260608\",\"cboYtmSort\":\"10\"}},\"inspectedWorkflow\":\"The mobile page posts ds_search to /rateInfo/ytmMatrixMobileList.do when 검색 is clicked.\"},\"requestedBaseDate\":\"2026-06-08\",\"dateResolution\":{\"mode\":\"exact\",\"requestedBaseDate\":\"2026-06-08\",\"resolvedBaseDate\":\"2026-06-08\",\"usedFallback\":false,\"attemptedDates\":[\"2026-06-08\"],\"lookbackDays\":0}}}\n",
+    "stderr": ""
+  },
+  "cli:cli-machine-contract:input-json-empty-base-date": {
+    "status": 2,
+    "signal": null,
+    "stdout": "{\"ok\":false,\"error\":{\"ok\":false,\"code\":\"missing_parameter\",\"operationName\":\"matrix\",\"parameter\":\"baseDate\",\"reason\":\"Missing required parameter: baseDate.\",\"expected\":{\"type\":\"string\",\"description\":\"기준일. Accepted forms: YYYY-MM-DD, YYYY.MM.DD, or YYYYMMDD.\"},\"actual\":\"\",\"exampleInput\":{\"baseDate\":\"2026-06-08\",\"kind\":\"국채\"},\"recoveryHint\":\"Provide baseDate.\",\"recoveryAction\":\"inspect_command_help\",\"recoverable\":true,\"retryable\":false}}\n",
+    "stderr": "\nmatrix\n  Input JSON: { \"baseDate\": \"2026-06-08\", \"kind\": \"국채\" }\n  Optional fallback: { \"fallback\": \"previous-available\", \"lookbackDays\": 10 }\n  baseDate maps to 기준일 and accepts YYYY-MM-DD, YYYY.MM.DD, or YYYYMMDD.\n  kind maps to 종류 and accepts one of these Korean labels or source codes:\n    10 = 국채\n    20 = 지방채\n    30 = 특수채\n    40 = 통안채\n    50 = 은행채\n    60 = 기타금융채\n    70 = 회사채(무보증)\n    80 = 회사채(사모)\n  fallback=previous-available tries the requested date once, then walks backward until rows are found.\n  lookbackDays defaults to 10 and may not exceed 31.\n  Run kinds to print this list as JSON, CSV, or TSV.\n  Result rows include 적용대상채권, tenors 3M through 50Y, and dateResolution metadata.\n\nCLI example:\n  ytm matrix --base-date 2026-06-08 --kind 국채 --format json\n"
+  },
+  "cli:cli-machine-contract:input-json-exponent-kind": {
+    "status": 0,
+    "signal": null,
+    "stdout": "{\"ok\":true,\"operation\":\"matrix\",\"result\":{\"baseDate\":\"2026-06-08\",\"kind\":{\"code\":\"10\",\"name\":\"국채\"},\"tenors\":[\"3M\",\"6M\",\"9M\",\"1Y\",\"1.5Y\",\"2Y\",\"2.5Y\",\"3Y\",\"5Y\",\"7Y\",\"10Y\",\"15Y\",\"20Y\",\"30Y\",\"50Y\"],\"rows\":[{\"groupName\":\"국채\",\"pricingGroupCode\":\"100\",\"pricingGroupName\":\"국고채권\",\"yields\":{\"3M\":2.5,\"6M\":2.51,\"9M\":2.52,\"1Y\":2.53,\"1.5Y\":2.54,\"2Y\":2.55,\"2.5Y\":2.56,\"3Y\":2.57,\"5Y\":2.6,\"7Y\":2.7,\"10Y\":2.8,\"15Y\":2.9,\"20Y\":3,\"30Y\":3.1,\"50Y\":3.2},\"yieldText\":{\"3M\":\"2.500\",\"6M\":\"2.510\",\"9M\":\"2.520\",\"1Y\":\"2.530\",\"1.5Y\":\"2.540\",\"2Y\":\"2.550\",\"2.5Y\":\"2.560\",\"3Y\":\"2.570\",\"5Y\":\"2.600\",\"7Y\":\"2.700\",\"10Y\":\"2.800\",\"15Y\":\"2.900\",\"20Y\":\"3.000\",\"30Y\":\"3.100\",\"50Y\":\"3.200\"},\"raw\":{\"pricingGroupCode\":\"100\",\"pricingGroupName\":\"국고채권\",\"m3\":\"2.500\",\"m6\":\"2.510\",\"m9\":\"2.520\",\"y1\":\"2.530\",\"y15a\":\"2.540\",\"y2\":\"2.550\",\"y25\":\"2.560\",\"y3\":\"2.570\",\"y5\":\"2.600\",\"y7\":\"2.700\",\"y10\":\"2.800\",\"y15\":\"2.900\",\"y20\":\"3.000\",\"y30\":\"3.100\",\"y50\":\"3.200\"}}],\"source\":{\"pageUrl\":\"https://kis-net.kr/kisnet_mobile/index.html\",\"endpoint\":\"https://kis-net.kr/rateInfo/ytmMatrixMobileList.do\",\"method\":\"POST\",\"request\":{\"format\":\"Nexacro XML PlatformData\",\"inDatasets\":\"ds_search=ds_search gds_tranInfo=gds_tranInfo\",\"outDatasets\":\"ds_list=output1\",\"parameters\":{\"calBaseDt\":\"20260608\",\"cboYtmSort\":\"10\"}},\"inspectedWorkflow\":\"The mobile page posts ds_search to /rateInfo/ytmMatrixMobileList.do when 검색 is clicked.\"},\"requestedBaseDate\":\"2026-06-08\",\"dateResolution\":{\"mode\":\"exact\",\"requestedBaseDate\":\"2026-06-08\",\"resolvedBaseDate\":\"2026-06-08\",\"usedFallback\":false,\"attemptedDates\":[\"2026-06-08\"],\"lookbackDays\":0}}}\n",
+    "stderr": ""
+  },
+  "cli:cli-machine-contract:input-json-null-base-date": {
+    "status": 2,
+    "signal": null,
+    "stdout": "{\"ok\":false,\"error\":{\"ok\":false,\"code\":\"missing_parameter\",\"operationName\":\"matrix\",\"parameter\":\"baseDate\",\"reason\":\"Missing required parameter: baseDate.\",\"expected\":{\"type\":\"string\",\"description\":\"기준일. Accepted forms: YYYY-MM-DD, YYYY.MM.DD, or YYYYMMDD.\"},\"actual\":null,\"exampleInput\":{\"baseDate\":\"2026-06-08\",\"kind\":\"국채\"},\"recoveryHint\":\"Provide baseDate.\",\"recoveryAction\":\"inspect_command_help\",\"recoverable\":true,\"retryable\":false}}\n",
+    "stderr": "\nmatrix\n  Input JSON: { \"baseDate\": \"2026-06-08\", \"kind\": \"국채\" }\n  Optional fallback: { \"fallback\": \"previous-available\", \"lookbackDays\": 10 }\n  baseDate maps to 기준일 and accepts YYYY-MM-DD, YYYY.MM.DD, or YYYYMMDD.\n  kind maps to 종류 and accepts one of these Korean labels or source codes:\n    10 = 국채\n    20 = 지방채\n    30 = 특수채\n    40 = 통안채\n    50 = 은행채\n    60 = 기타금융채\n    70 = 회사채(무보증)\n    80 = 회사채(사모)\n  fallback=previous-available tries the requested date once, then walks backward until rows are found.\n  lookbackDays defaults to 10 and may not exceed 31.\n  Run kinds to print this list as JSON, CSV, or TSV.\n  Result rows include 적용대상채권, tenors 3M through 50Y, and dateResolution metadata.\n\nCLI example:\n  ytm matrix --base-date 2026-06-08 --kind 국채 --format json\n"
+  },
+  "cli:cli-machine-contract:input-json-null-kind": {
+    "status": 2,
+    "signal": null,
+    "stdout": "{\"ok\":false,\"error\":{\"ok\":false,\"code\":\"missing_parameter\",\"operationName\":\"matrix\",\"parameter\":\"kind\",\"reason\":\"Missing required parameter: kind.\",\"expected\":{\"type\":[\"string\",\"number\"],\"description\":\"종류. Use a Korean source label such as 국채 or a source code such as 10.\"},\"actual\":null,\"exampleInput\":{\"baseDate\":\"2026-06-08\",\"kind\":\"국채\"},\"recoveryHint\":\"Provide kind.\",\"recoveryAction\":\"inspect_command_help\",\"recoverable\":true,\"retryable\":false}}\n",
+    "stderr": "\nmatrix\n  Input JSON: { \"baseDate\": \"2026-06-08\", \"kind\": \"국채\" }\n  Optional fallback: { \"fallback\": \"previous-available\", \"lookbackDays\": 10 }\n  baseDate maps to 기준일 and accepts YYYY-MM-DD, YYYY.MM.DD, or YYYYMMDD.\n  kind maps to 종류 and accepts one of these Korean labels or source codes:\n    10 = 국채\n    20 = 지방채\n    30 = 특수채\n    40 = 통안채\n    50 = 은행채\n    60 = 기타금융채\n    70 = 회사채(무보증)\n    80 = 회사채(사모)\n  fallback=previous-available tries the requested date once, then walks backward until rows are found.\n  lookbackDays defaults to 10 and may not exceed 31.\n  Run kinds to print this list as JSON, CSV, or TSV.\n  Result rows include 적용대상채권, tenors 3M through 50Y, and dateResolution metadata.\n\nCLI example:\n  ytm matrix --base-date 2026-06-08 --kind 국채 --format json\n"
+  },
+  "cli:cli-machine-contract:input-json-order": {
+    "status": 0,
+    "signal": null,
+    "stdout": "{\"ok\":true,\"operation\":\"matrix\",\"result\":{\"baseDate\":\"2026-06-08\",\"kind\":{\"code\":\"10\",\"name\":\"국채\"},\"tenors\":[\"3M\",\"6M\",\"9M\",\"1Y\",\"1.5Y\",\"2Y\",\"2.5Y\",\"3Y\",\"5Y\",\"7Y\",\"10Y\",\"15Y\",\"20Y\",\"30Y\",\"50Y\"],\"rows\":[{\"groupName\":\"국채\",\"pricingGroupCode\":\"100\",\"pricingGroupName\":\"국고채권\",\"yields\":{\"3M\":2.5,\"6M\":2.51,\"9M\":2.52,\"1Y\":2.53,\"1.5Y\":2.54,\"2Y\":2.55,\"2.5Y\":2.56,\"3Y\":2.57,\"5Y\":2.6,\"7Y\":2.7,\"10Y\":2.8,\"15Y\":2.9,\"20Y\":3,\"30Y\":3.1,\"50Y\":3.2},\"yieldText\":{\"3M\":\"2.500\",\"6M\":\"2.510\",\"9M\":\"2.520\",\"1Y\":\"2.530\",\"1.5Y\":\"2.540\",\"2Y\":\"2.550\",\"2.5Y\":\"2.560\",\"3Y\":\"2.570\",\"5Y\":\"2.600\",\"7Y\":\"2.700\",\"10Y\":\"2.800\",\"15Y\":\"2.900\",\"20Y\":\"3.000\",\"30Y\":\"3.100\",\"50Y\":\"3.200\"},\"raw\":{\"pricingGroupCode\":\"100\",\"pricingGroupName\":\"국고채권\",\"m3\":\"2.500\",\"m6\":\"2.510\",\"m9\":\"2.520\",\"y1\":\"2.530\",\"y15a\":\"2.540\",\"y2\":\"2.550\",\"y25\":\"2.560\",\"y3\":\"2.570\",\"y5\":\"2.600\",\"y7\":\"2.700\",\"y10\":\"2.800\",\"y15\":\"2.900\",\"y20\":\"3.000\",\"y30\":\"3.100\",\"y50\":\"3.200\"}}],\"source\":{\"pageUrl\":\"https://kis-net.kr/kisnet_mobile/index.html\",\"endpoint\":\"https://kis-net.kr/rateInfo/ytmMatrixMobileList.do\",\"method\":\"POST\",\"request\":{\"format\":\"Nexacro XML PlatformData\",\"inDatasets\":\"ds_search=ds_search gds_tranInfo=gds_tranInfo\",\"outDatasets\":\"ds_list=output1\",\"parameters\":{\"calBaseDt\":\"20260608\",\"cboYtmSort\":\"10\"}},\"inspectedWorkflow\":\"The mobile page posts ds_search to /rateInfo/ytmMatrixMobileList.do when 검색 is clicked.\"},\"requestedBaseDate\":\"2026-06-08\",\"dateResolution\":{\"mode\":\"exact\",\"requestedBaseDate\":\"2026-06-08\",\"resolvedBaseDate\":\"2026-06-08\",\"usedFallback\":false,\"attemptedDates\":[\"2026-06-08\"],\"lookbackDays\":0}}}\n",
+    "stderr": ""
+  },
+  "cli:cli-machine-contract:invalid-fallback": {
+    "status": 2,
+    "signal": null,
+    "stdout": "{\"ok\":false,\"error\":{\"ok\":false,\"code\":\"invalid_parameter\",\"operationName\":\"matrix\",\"parameter\":\"fallback\",\"reason\":\"fallback must be previous-available.\",\"expected\":[\"previous-available\"],\"actual\":\"unsupported\",\"exampleInput\":{\"baseDate\":\"2026-06-07\",\"kind\":\"국채\",\"fallback\":\"previous-available\",\"lookbackDays\":10},\"recoveryHint\":\"Use fallback=previous-available, or omit fallback for exact-date behavior.\",\"recoveryAction\":\"inspect_command_help\",\"recoverable\":true,\"retryable\":false}}\n",
+    "stderr": "\nmatrix\n  Input JSON: { \"baseDate\": \"2026-06-08\", \"kind\": \"국채\" }\n  Optional fallback: { \"fallback\": \"previous-available\", \"lookbackDays\": 10 }\n  baseDate maps to 기준일 and accepts YYYY-MM-DD, YYYY.MM.DD, or YYYYMMDD.\n  kind maps to 종류 and accepts one of these Korean labels or source codes:\n    10 = 국채\n    20 = 지방채\n    30 = 특수채\n    40 = 통안채\n    50 = 은행채\n    60 = 기타금융채\n    70 = 회사채(무보증)\n    80 = 회사채(사모)\n  fallback=previous-available tries the requested date once, then walks backward until rows are found.\n  lookbackDays defaults to 10 and may not exceed 31.\n  Run kinds to print this list as JSON, CSV, or TSV.\n  Result rows include 적용대상채권, tenors 3M through 50Y, and dateResolution metadata.\n\nCLI example:\n  ytm matrix --base-date 2026-06-08 --kind 국채 --format json\n"
+  },
   "cli:cli-machine-contract:json": {
     "status": 0,
     "signal": null,
     "stdout": "{\"ok\":true,\"operation\":\"matrix\",\"result\":{\"baseDate\":\"2026-06-08\",\"kind\":{\"code\":\"10\",\"name\":\"국채\"},\"tenors\":[\"3M\",\"6M\",\"9M\",\"1Y\",\"1.5Y\",\"2Y\",\"2.5Y\",\"3Y\",\"5Y\",\"7Y\",\"10Y\",\"15Y\",\"20Y\",\"30Y\",\"50Y\"],\"rows\":[{\"groupName\":\"국채\",\"pricingGroupCode\":\"100\",\"pricingGroupName\":\"국고채권\",\"yields\":{\"3M\":2.5,\"6M\":2.51,\"9M\":2.52,\"1Y\":2.53,\"1.5Y\":2.54,\"2Y\":2.55,\"2.5Y\":2.56,\"3Y\":2.57,\"5Y\":2.6,\"7Y\":2.7,\"10Y\":2.8,\"15Y\":2.9,\"20Y\":3,\"30Y\":3.1,\"50Y\":3.2},\"yieldText\":{\"3M\":\"2.500\",\"6M\":\"2.510\",\"9M\":\"2.520\",\"1Y\":\"2.530\",\"1.5Y\":\"2.540\",\"2Y\":\"2.550\",\"2.5Y\":\"2.560\",\"3Y\":\"2.570\",\"5Y\":\"2.600\",\"7Y\":\"2.700\",\"10Y\":\"2.800\",\"15Y\":\"2.900\",\"20Y\":\"3.000\",\"30Y\":\"3.100\",\"50Y\":\"3.200\"},\"raw\":{\"pricingGroupCode\":\"100\",\"pricingGroupName\":\"국고채권\",\"m3\":\"2.500\",\"m6\":\"2.510\",\"m9\":\"2.520\",\"y1\":\"2.530\",\"y15a\":\"2.540\",\"y2\":\"2.550\",\"y25\":\"2.560\",\"y3\":\"2.570\",\"y5\":\"2.600\",\"y7\":\"2.700\",\"y10\":\"2.800\",\"y15\":\"2.900\",\"y20\":\"3.000\",\"y30\":\"3.100\",\"y50\":\"3.200\"}}],\"source\":{\"pageUrl\":\"https://kis-net.kr/kisnet_mobile/index.html\",\"endpoint\":\"https://kis-net.kr/rateInfo/ytmMatrixMobileList.do\",\"method\":\"POST\",\"request\":{\"format\":\"Nexacro XML PlatformData\",\"inDatasets\":\"ds_search=ds_search gds_tranInfo=gds_tranInfo\",\"outDatasets\":\"ds_list=output1\",\"parameters\":{\"calBaseDt\":\"20260608\",\"cboYtmSort\":\"10\"}},\"inspectedWorkflow\":\"The mobile page posts ds_search to /rateInfo/ytmMatrixMobileList.do when 검색 is clicked.\"},\"requestedBaseDate\":\"2026-06-08\",\"dateResolution\":{\"mode\":\"exact\",\"requestedBaseDate\":\"2026-06-08\",\"resolvedBaseDate\":\"2026-06-08\",\"usedFallback\":false,\"attemptedDates\":[\"2026-06-08\"],\"lookbackDays\":0}}}\n",
     "stderr": ""
+  },
+  "cli:cli-machine-contract:missing-format": {
+    "status": 2,
+    "signal": null,
+    "stdout": "{\"ok\":false,\"error\":{\"ok\":false,\"code\":\"invalid_parameter\",\"operationName\":\"matrix\",\"parameter\":\"format\",\"reason\":\"Unsupported format.\",\"expected\":[\"json\",\"csv\",\"tsv\"],\"exampleInput\":{\"baseDate\":\"2026-06-08\",\"kind\":\"국채\"},\"recoveryHint\":\"Run ytm help matrix and retry with supported options.\",\"recoveryAction\":\"inspect_command_help\",\"recoverable\":true,\"retryable\":false}}\n",
+    "stderr": "\nmatrix\n  Input JSON: { \"baseDate\": \"2026-06-08\", \"kind\": \"국채\" }\n  Optional fallback: { \"fallback\": \"previous-available\", \"lookbackDays\": 10 }\n  baseDate maps to 기준일 and accepts YYYY-MM-DD, YYYY.MM.DD, or YYYYMMDD.\n  kind maps to 종류 and accepts one of these Korean labels or source codes:\n    10 = 국채\n    20 = 지방채\n    30 = 특수채\n    40 = 통안채\n    50 = 은행채\n    60 = 기타금융채\n    70 = 회사채(무보증)\n    80 = 회사채(사모)\n  fallback=previous-available tries the requested date once, then walks backward until rows are found.\n  lookbackDays defaults to 10 and may not exceed 31.\n  Run kinds to print this list as JSON, CSV, or TSV.\n  Result rows include 적용대상채권, tenors 3M through 50Y, and dateResolution metadata.\n\nCLI example:\n  ytm matrix --base-date 2026-06-08 --kind 국채 --format json\n"
   },
   "cli:cli-machine-contract:pretty": {
     "status": 0,
@@ -75,6 +159,18 @@
     "status": 0,
     "signal": null,
     "stdout": "code\tname\n10\t국채\n20\t지방채\n30\t특수채\n40\t통안채\n50\t은행채\n60\t기타금융채\n70\t회사채(무보증)\n80\t회사채(사모)\n",
+    "stderr": ""
+  },
+  "cli:cli-machine-contract:unknown-command": {
+    "status": 2,
+    "signal": null,
+    "stdout": "{\"ok\":false,\"error\":{\"code\":\"invalid_request\",\"reason\":\"Unknown command: not-a-command.\",\"expected\":[\"matrix\",\"kinds\"],\"actual\":\"not-a-command\",\"recoveryHint\":\"Run ytm --help and retry with a listed command.\",\"recoveryAction\":\"inspect_tool_help\",\"recoverable\":true,\"retryable\":false}}\n",
+    "stderr": "\nKIS-NET YTM Matrix CLI\n\nOperations:\n  matrix: fetch YTM Matrix rows for a 기준일 and 종류.\n  kinds: list accepted 종류 codes and Korean labels.\n\nAccepted 종류 values:\n  10 = 국채\n  20 = 지방채\n  30 = 특수채\n  40 = 통안채\n  50 = 은행채\n  60 = 기타금융채\n  70 = 회사채(무보증)\n  80 = 회사채(사모)\n\nSource terms are preserved where official: 기준일, 종류, and 적용대상채권.\nRun ytm help <command> for command-specific input and output guidance.\n\nCLI usage:\n  ytm matrix --base-date <기준일> --kind <종류> [--fallback previous-available] [--lookback-days <days>] [--format json|csv|tsv] [--pretty]\n  ytm kinds [--base-date <기준일>] [--format json|csv|tsv] [--pretty]\n  ytm help <command>\n\nOutput:\n  json is the default and prints one JSON object. csv and tsv print tabular success rows. Command failures print one JSON object to stdout and exit non-zero. Unknown command names given to ytm help print a plain-text message and exit non-zero. Help diagnostics for invalid invocations are written to stderr.\n"
+  },
+  "cli:cli-machine-contract:unknown-command-help": {
+    "status": 2,
+    "signal": null,
+    "stdout": "Unknown command: not-a-command\nRun ytm --help for available commands.\n",
     "stderr": ""
   },
   "cli:cli-machine-contract:validation": {
@@ -97,16 +193,13 @@
   },
   "package:package-surface": {
     "name": "@sjunepark/ytm",
-    "bin": "dist/cli.js",
+    "bin": null,
     "toolset": "./dist/toolset.js",
     "types": "./dist/toolset.d.ts",
     "packageJsonExport": "./package.json",
     "engine": ">=22",
+    "cliFiles": [],
     "files": [
-      {
-        "path": "dist/cli.js",
-        "exists": true
-      },
       {
         "path": "./dist/toolset.js",
         "exists": true
@@ -279,7 +372,7 @@
       "code": "source_format_error",
       "reason": "KIS-NET matrix column m3 contains an invalid numeric value.",
       "expected": "A valid KIS-NET Nexacro response matching the documented YTM Matrix schema",
-      "recoveryHint": "The KIS-NET source format may have changed; update the package before retrying.",
+      "recoveryHint": "The KIS-NET source format may have changed; update this client before retrying.",
       "recoveryAction": "inspect_tool_help",
       "recoverable": false,
       "retryable": false
@@ -292,7 +385,7 @@
       "code": "source_format_error",
       "reason": "KIS-NET response root or namespace is invalid.",
       "expected": "A valid KIS-NET Nexacro response matching the documented YTM Matrix schema",
-      "recoveryHint": "The KIS-NET source format may have changed; update the package before retrying.",
+      "recoveryHint": "The KIS-NET source format may have changed; update this client before retrying.",
       "recoveryAction": "inspect_tool_help",
       "recoverable": false,
       "retryable": false
@@ -360,7 +453,7 @@
       "code": "source_format_error",
       "reason": "KIS-NET discovery assigned canonical label 회사채(무보증) to conflicting code 80 instead of 70.",
       "expected": "A valid KIS-NET Nexacro response matching the documented YTM Matrix schema",
-      "recoveryHint": "The KIS-NET source format may have changed; update the package before retrying.",
+      "recoveryHint": "The KIS-NET source format may have changed; update this client before retrying.",
       "recoveryAction": "inspect_tool_help",
       "recoverable": false,
       "retryable": false
@@ -2294,7 +2387,7 @@
       "code": "source_format_error",
       "reason": "KIS-NET XML declaration attributes are duplicated, unknown, or out of order.",
       "expected": "A valid KIS-NET Nexacro response matching the documented YTM Matrix schema",
-      "recoveryHint": "The KIS-NET source format may have changed; update the package before retrying.",
+      "recoveryHint": "The KIS-NET source format may have changed; update this client before retrying.",
       "recoveryAction": "inspect_tool_help",
       "recoverable": false,
       "retryable": false
@@ -2307,7 +2400,7 @@
       "code": "source_format_error",
       "reason": "KIS-NET XML declaration attributes are duplicated, unknown, or out of order.",
       "expected": "A valid KIS-NET Nexacro response matching the documented YTM Matrix schema",
-      "recoveryHint": "The KIS-NET source format may have changed; update the package before retrying.",
+      "recoveryHint": "The KIS-NET source format may have changed; update this client before retrying.",
       "recoveryAction": "inspect_tool_help",
       "recoverable": false,
       "retryable": false
@@ -2320,7 +2413,7 @@
       "code": "source_format_error",
       "reason": "KIS-NET XML declaration attributes are duplicated, unknown, or out of order.",
       "expected": "A valid KIS-NET Nexacro response matching the documented YTM Matrix schema",
-      "recoveryHint": "The KIS-NET source format may have changed; update the package before retrying.",
+      "recoveryHint": "The KIS-NET source format may have changed; update this client before retrying.",
       "recoveryAction": "inspect_tool_help",
       "recoverable": false,
       "retryable": false
@@ -2333,7 +2426,7 @@
       "code": "source_format_error",
       "reason": "KIS-NET XML declaration must contain version in the required order.",
       "expected": "A valid KIS-NET Nexacro response matching the documented YTM Matrix schema",
-      "recoveryHint": "The KIS-NET source format may have changed; update the package before retrying.",
+      "recoveryHint": "The KIS-NET source format may have changed; update this client before retrying.",
       "recoveryAction": "inspect_tool_help",
       "recoverable": false,
       "retryable": false
@@ -2346,7 +2439,7 @@
       "code": "source_format_error",
       "reason": "KIS-NET response must not contain a DOCTYPE declaration.",
       "expected": "A valid KIS-NET Nexacro response matching the documented YTM Matrix schema",
-      "recoveryHint": "The KIS-NET source format may have changed; update the package before retrying.",
+      "recoveryHint": "The KIS-NET source format may have changed; update this client before retrying.",
       "recoveryAction": "inspect_tool_help",
       "recoverable": false,
       "retryable": false
@@ -2359,7 +2452,7 @@
       "code": "source_format_error",
       "reason": "KIS-NET row contains a duplicate column.",
       "expected": "A valid KIS-NET Nexacro response matching the documented YTM Matrix schema",
-      "recoveryHint": "The KIS-NET source format may have changed; update the package before retrying.",
+      "recoveryHint": "The KIS-NET source format may have changed; update this client before retrying.",
       "recoveryAction": "inspect_tool_help",
       "recoverable": false,
       "retryable": false
@@ -2372,7 +2465,7 @@
       "code": "source_format_error",
       "reason": "KIS-NET response must contain exactly one direct Dataset named output1.",
       "expected": "A valid KIS-NET Nexacro response matching the documented YTM Matrix schema",
-      "recoveryHint": "The KIS-NET source format may have changed; update the package before retrying.",
+      "recoveryHint": "The KIS-NET source format may have changed; update this client before retrying.",
       "recoveryAction": "inspect_tool_help",
       "recoverable": false,
       "retryable": false
@@ -2385,7 +2478,7 @@
       "code": "source_format_error",
       "reason": "KIS-NET response contains duplicate ErrorCode.",
       "expected": "A valid KIS-NET Nexacro response matching the documented YTM Matrix schema",
-      "recoveryHint": "The KIS-NET source format may have changed; update the package before retrying.",
+      "recoveryHint": "The KIS-NET source format may have changed; update this client before retrying.",
       "recoveryAction": "inspect_tool_help",
       "recoverable": false,
       "retryable": false
@@ -2398,7 +2491,7 @@
       "code": "source_format_error",
       "reason": "KIS-NET response contains duplicate ErrorMsg.",
       "expected": "A valid KIS-NET Nexacro response matching the documented YTM Matrix schema",
-      "recoveryHint": "The KIS-NET source format may have changed; update the package before retrying.",
+      "recoveryHint": "The KIS-NET source format may have changed; update this client before retrying.",
       "recoveryAction": "inspect_tool_help",
       "recoverable": false,
       "retryable": false
@@ -2411,7 +2504,7 @@
       "code": "source_format_error",
       "reason": "KIS-NET response contains malformed Nexacro XML.",
       "expected": "A valid KIS-NET Nexacro response matching the documented YTM Matrix schema",
-      "recoveryHint": "The KIS-NET source format may have changed; update the package before retrying.",
+      "recoveryHint": "The KIS-NET source format may have changed; update this client before retrying.",
       "recoveryAction": "inspect_tool_help",
       "recoverable": false,
       "retryable": false
@@ -2424,7 +2517,7 @@
       "code": "source_format_error",
       "reason": "KIS-NET response root or namespace is invalid.",
       "expected": "A valid KIS-NET Nexacro response matching the documented YTM Matrix schema",
-      "recoveryHint": "The KIS-NET source format may have changed; update the package before retrying.",
+      "recoveryHint": "The KIS-NET source format may have changed; update this client before retrying.",
       "recoveryAction": "inspect_tool_help",
       "recoverable": false,
       "retryable": false
@@ -2437,7 +2530,7 @@
       "code": "source_format_error",
       "reason": "KIS-NET scalar elements must not contain nested elements.",
       "expected": "A valid KIS-NET Nexacro response matching the documented YTM Matrix schema",
-      "recoveryHint": "The KIS-NET source format may have changed; update the package before retrying.",
+      "recoveryHint": "The KIS-NET source format may have changed; update this client before retrying.",
       "recoveryAction": "inspect_tool_help",
       "recoverable": false,
       "retryable": false
@@ -2450,7 +2543,7 @@
       "code": "source_format_error",
       "reason": "KIS-NET scalar elements must not contain nested elements.",
       "expected": "A valid KIS-NET Nexacro response matching the documented YTM Matrix schema",
-      "recoveryHint": "The KIS-NET source format may have changed; update the package before retrying.",
+      "recoveryHint": "The KIS-NET source format may have changed; update this client before retrying.",
       "recoveryAction": "inspect_tool_help",
       "recoverable": false,
       "retryable": false
@@ -2463,7 +2556,7 @@
       "code": "source_format_error",
       "reason": "KIS-NET response root or namespace is invalid.",
       "expected": "A valid KIS-NET Nexacro response matching the documented YTM Matrix schema",
-      "recoveryHint": "The KIS-NET source format may have changed; update the package before retrying.",
+      "recoveryHint": "The KIS-NET source format may have changed; update this client before retrying.",
       "recoveryAction": "inspect_tool_help",
       "recoverable": false,
       "retryable": false
@@ -3038,7 +3131,7 @@
       "code": "source_format_error",
       "reason": "KIS-NET response exceeds the maximum body size of 1048576 bytes.",
       "expected": "A valid KIS-NET Nexacro response matching the documented YTM Matrix schema",
-      "recoveryHint": "The KIS-NET source format may have changed; update the package before retrying.",
+      "recoveryHint": "The KIS-NET source format may have changed; update this client before retrying.",
       "recoveryAction": "inspect_tool_help",
       "recoverable": false,
       "retryable": false
@@ -3051,7 +3144,7 @@
       "code": "source_format_error",
       "reason": "KIS-NET response exceeds the maximum XML element depth of 64.",
       "expected": "A valid KIS-NET Nexacro response matching the documented YTM Matrix schema",
-      "recoveryHint": "The KIS-NET source format may have changed; update the package before retrying.",
+      "recoveryHint": "The KIS-NET source format may have changed; update this client before retrying.",
       "recoveryAction": "inspect_tool_help",
       "recoverable": false,
       "retryable": false
@@ -3064,7 +3157,7 @@
       "code": "source_format_error",
       "reason": "KIS-NET response contains more than one UTF-8 BOM.",
       "expected": "A valid KIS-NET Nexacro response matching the documented YTM Matrix schema",
-      "recoveryHint": "The KIS-NET source format may have changed; update the package before retrying.",
+      "recoveryHint": "The KIS-NET source format may have changed; update this client before retrying.",
       "recoveryAction": "inspect_tool_help",
       "recoverable": false,
       "retryable": false
@@ -3187,7 +3280,7 @@
       "code": "source_format_error",
       "reason": "KIS-NET response is not valid UTF-8.",
       "expected": "A valid KIS-NET Nexacro response matching the documented YTM Matrix schema",
-      "recoveryHint": "The KIS-NET source format may have changed; update the package before retrying.",
+      "recoveryHint": "The KIS-NET source format may have changed; update this client before retrying.",
       "recoveryAction": "inspect_tool_help",
       "recoverable": false,
       "retryable": false

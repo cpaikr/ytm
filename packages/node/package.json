@@ -1,16 +1,13 @@
 {
   "name": "@sjunepark/ytm",
   "version": "0.2.0",
-  "description": "Deterministic CLI and neutral toolset for KIS-NET YTM Matrix lookups.",
+  "description": "Rust-backed Node SDK for deterministic KIS-NET YTM Matrix lookups.",
   "type": "module",
   "packageManager": "bun@1.3.13",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/cpaikr/ytm.git",
     "directory": "packages/node"
-  },
-  "bin": {
-    "ytm": "dist/cli.js"
   },
   "exports": {
     "./toolset": {
@@ -20,7 +17,6 @@
     "./package.json": "./package.json"
   },
   "files": [
-    "dist/cli.js",
     "dist/native.cjs",
     "dist/native.js",
     "dist/toolset.d.ts",
@@ -44,8 +40,7 @@
     "prepack": "node scripts/build.mjs --facade-only",
     "prepublishOnly": "node scripts/build.mjs --facade-only && node ../../judge/run.mjs --product-root . --scenario package-surface",
     "validate": "node ../../judge/run.mjs --product-root . --scenario package-surface",
-    "test": "cargo build --manifest-path ../../Cargo.toml --locked -p ytm-node --features judge-fixtures && node scripts/build.mjs && node ../../judge/run.mjs --product-root .",
-    "smoke": "node dist/cli.js matrix --base-date 2026-06-08 --kind 국채 --format json"
+    "test": "cargo build --manifest-path ../../Cargo.toml --locked -p ytm-node --features judge-fixtures && node scripts/build.mjs && node ../../judge/run.mjs --product-root . --surface node"
   },
   "optionalDependencies": {
     "@sjunepark/ytm-linux-x64-gnu": "0.2.0",

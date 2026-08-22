@@ -1,16 +1,14 @@
 ---
 name: kisnet-ytm
-description: Use when retrieving Korean KIS-NET YTM Matrix rows or listing supported bond kinds through the @sjunepark/ytm CLI or toolset.
+description: Use when retrieving Korean KIS-NET YTM Matrix rows or listing supported bond kinds through the standalone ytm CLI or @sjunepark/ytm toolset.
 ---
 
 # KIS-NET YTM
 
-Use the Node-only `@sjunepark/ytm` product. Publication of the rewrite is not
-yet authorized. In the repository checkout, build once with `bun run build`
-and replace `ytm` below with `bun run cli --`. After installation from an
-authorized artifact, use the package-provided `ytm` command directly. For an
-in-process integration, import `createKisnetYtmToolset` from
-`@sjunepark/ytm/toolset`.
+Publication is not yet authorized. In the repository checkout, replace `ytm`
+below with `bun run cli --`; this invokes the standalone Rust/Clap binary. The
+Node package is SDK-only. For an in-process Node integration, import
+`createKisnetYtmToolset` from `@sjunepark/ytm/toolset`.
 
 ```sh
 ytm kinds --format json
