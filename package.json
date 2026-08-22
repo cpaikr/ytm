@@ -13,6 +13,7 @@
     "build:facade": "node packages/node/scripts/build.mjs --facade-only",
     "build:check": "node scripts/generate-native-packages.mjs --check && node scripts/check-node-build.mjs",
     "rust:fixture-guard": "node scripts/check-release-fixture-guard.mjs",
+    "rust:consumer:check": "cargo check --locked --manifest-path tests/rust-sdk-consumer/Cargo.toml",
     "validate": "bun run contracts:check && bun run licenses:check && bun run release:check && bun run validate:node",
     "validate:node": "bun run --filter @sjunepark/ytm validate",
     "test": "bun run test:node",

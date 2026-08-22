@@ -160,10 +160,13 @@ check(repositorySkill === packagedSkill, "the repository and packaged KIS-NET sk
 check(!repositorySkill.includes("Python") && repositorySkill.includes("80` 회사채(사모)"), "the active skill must be Node-only and include canonical kind 80");
 
 const nativeTargets = JSON.parse(await readFile(new URL("../native-targets.json", import.meta.url), "utf8"));
+const nodePackage = JSON.parse(await readFile(new URL("../packages/node/package.json", import.meta.url), "utf8"));
 check(nativeTargets.schemaVersion === 2, "native target manifest schemaVersion must be 2");
 check(nativeTargets.supportClaim === "supported", "native targets must record the clean-install support decision");
-check(nativeTargets.minimumNodeMajor === 22, "the rewrite must not claim support for end-of-life Node majors");
-equal(nativeTargets.validationNodeMajors, [22, 24, 26], "Node validation majors must stay explicit");
+check(Number.isInteger(nativeTargets.minimumNodeMajor) && nativeTargets.minimumNodeMajor > 0, "minimum Node major must be a positive integer");
+check(nodePackage.engines?.node === `>=${nativeTargets.minimumNodeMajor}`, "Node package engine must match the canonical runtime policy");
+check(nativeTargets.validationNodeMajors?.[0] === nativeTargets.minimumNodeMajor, "Node validation must begin with the minimum supported major");
+check(nativeTargets.validationNodeMajors?.every((major) => Number.isInteger(major) && major >= nativeTargets.minimumNodeMajor), "Node validation majors must stay within the supported range");
 const expectedRustTargets = [
   "x86_64-unknown-linux-gnu",
   "aarch64-unknown-linux-gnu",

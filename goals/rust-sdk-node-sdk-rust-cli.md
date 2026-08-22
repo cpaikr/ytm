@@ -36,9 +36,9 @@ Public Rust SDK.
 
 ### Next in-scope action
 
-Harden `ytm-core` into an ergonomic public SDK, using token-free ordinary calls
-and a separate advanced cancellable API, then validate an external Rust
-consumer before the first implementation PR.
+Finish the public Rust SDK slice through PR creation, required checks, review,
+and feedback resolution. After it merges, classify and begin the standalone
+Rust CLI parity result.
 
 ### Evidence and blockers
 
@@ -50,5 +50,12 @@ consumer before the first implementation PR.
 - Preflight: `main` is protected and requires PR delivery. The dedicated
   non-production integration branch is `codex/rust-sdk-node-sdk-rust-cli`.
 - The pre-existing uncommitted planning/specification edits are intentional
-  input to the successor initiative and remain unstaged during goal
-  initialization.
+  input to the successor initiative and are included with the first reviewed
+  slice.
+- `codex/public-rust-sdk` now provides typed requests/results/source metadata,
+  default HTTP construction, token-free ordinary calls, explicit advanced
+  cancellation and transport seams, Node-owned JSON DTO projection, crate
+  documentation and example, public-API tests, and a detached locked consumer.
+- Local evidence: 32 core tests and the public API test pass; Rust docs,
+  formatting, workspace Clippy, the detached consumer, release fixture guard,
+  build/contract freshness, and all 79 public Node judge scenarios pass.

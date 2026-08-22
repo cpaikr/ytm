@@ -12,6 +12,11 @@ authorized artifact, use the package-provided `ytm` command directly. For an
 in-process integration, import `createKisnetYtmToolset` from
 `@sjunepark/ytm/toolset`.
 
+These instructions describe the current checkout. The approved migration will
+replace the package-provided JavaScript CLI with a standalone Rust/Clap binary
+while keeping the Node toolset as a Rust-backed SDK; do not assume that target
+is available until the repository documentation marks the migration complete.
+
 ```sh
 ytm kinds --format json
 ytm matrix --base-date 2026-06-08 --kind 국채 --format json --pretty

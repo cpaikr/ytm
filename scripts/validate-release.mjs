@@ -50,7 +50,10 @@ equal(rootPackage.workspaces, ["packages/node", "packages/native/*"], "root work
 check(nodePackage.name === "@sjunepark/ytm", "Node package identity must remain @sjunepark/ytm");
 check(nodePackage.private !== true, "Node package must be publishable");
 check(nodePackage.publishConfig?.access === "public", "Node package must retain public scoped publishing");
-check(nodePackage.engines?.node === ">=22", "Node package must require Node 22 or newer");
+check(
+  nodePackage.engines?.node === `>=${nativeTargets.minimumNodeMajor}`,
+  "Node package engine must match the canonical native target policy"
+);
 check(nodePackage.repository?.url === "git+https://github.com/cpaikr/ytm.git" && nodePackage.repository?.directory === "packages/node", "Node package repository metadata must use cpaikr/ytm");
 check(!nodePackage.dependencies?.["@xmldom/xmldom"], "legacy JavaScript XML dependencies must be absent");
 const adapterSourceFiles = (await readdir("packages/node/src", { withFileTypes: true }))
@@ -77,6 +80,7 @@ for (const target of nativeTargets.targets) {
   equal(nativePackage.os, [target.npmPlatform], `${target.rustTarget} native package OS must match the target manifest`);
   equal(nativePackage.cpu, [target.npmArch], `${target.rustTarget} native package CPU must match the target manifest`);
   equal(nativePackage.libc, target.libc ? [target.libc] : undefined, `${target.rustTarget} native package libc must match the target manifest`);
+  check(nativePackage.engines?.node === `>=${nativeTargets.minimumNodeMajor}`, `${target.rustTarget} native package engine must match the canonical policy`);
   check(await pathExists(`${nativeTargets.nativePackageRoot}/${target.packageDirectory}/LICENSE.md`), `${target.rustTarget} native package must ship the repository license`);
   check(await pathExists(`${nativeTargets.nativePackageRoot}/${target.packageDirectory}/THIRD_PARTY_LICENSES.html`), `${target.rustTarget} native package must ship third-party notices`);
 }

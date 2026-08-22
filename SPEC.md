@@ -19,6 +19,17 @@ a browser.
   distinction between protocol conformance, observed availability, and
   production suitability.
 
+## Surface ownership transition
+
+The current checkout exposes the Rust implementation as a public Rust SDK and
+through a Node-API-backed Node SDK. The Node package still owns the temporary
+JavaScript CLI; the approved target moves the `ytm` executable to a separate
+Rust/Clap crate and removes that npm executable. The remaining migration must
+preserve the product behavior in this contract; its component boundary and
+completion criteria live in
+[`ARCHITECTURE.md`](ARCHITECTURE.md) and
+[`plans/rust-sdk-node-sdk-rust-cli.md`](plans/rust-sdk-node-sdk-rust-cli.md).
+
 ## Product behavior
 
 - `baseDate` accepts `YYYY-MM-DD`, `YYYY.MM.DD`, or `YYYYMMDD` and normalizes to
@@ -65,9 +76,10 @@ but cannot remove or silently redefine a supported kind.
   Empty code-80 rows use the ordinary unavailable-data behavior.
 
 This is the approved divergence from the archived `0.2.0` implementation and
-is the Node-only acceptance boundary for GitHub issue #7.
+the completed acceptance boundary for GitHub issue #7. Every future Rust SDK,
+Node SDK, and CLI surface must preserve it.
 
-## Node surfaces
+## Current Node surfaces
 
 The CLI is:
 
@@ -98,8 +110,10 @@ Source failures use `source_data_unavailable`, `source_transport_error`,
 the source status and message. Validation failures preserve specific codes and
 machine-readable recovery metadata.
 
-## Runtime boundary
+## Current runtime boundary
 
-The active product is Node.js-only. Historical Python releases and component
-tags remain immutable registry and Git history, but no Python source, API,
-package, CI, live smoke, or release path is part of this repository state.
+The repository now contains a public Rust SDK plus the current Node SDK and
+temporary JavaScript CLI. Historical Python releases and component tags remain
+immutable registry and Git history, but no Python source, API, package, CI,
+live smoke, or release path is part of this repository state. The standalone
+Rust CLI does not reintroduce Python or a second KIS-NET implementation.

@@ -3,6 +3,11 @@
 Deterministic KIS-NET YTM Matrix CLI and runtime-neutral toolset, backed by a
 Rust HTTP and Nexacro core.
 
+This package currently includes the JavaScript `ytm` CLI. The approved
+architecture migration makes this package a Node SDK only and moves the
+executable to a standalone Rust/Clap crate. Until that migration lands, the
+commands below remain the implemented interface.
+
 Node.js 22 or newer is required. Supported native targets are Linux GNU
 x64/ARM64, macOS ARM64, and Windows x64. After installing an authorized
 artifact, use the package-provided CLI:
