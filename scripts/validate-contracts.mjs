@@ -139,7 +139,7 @@ for (const relativePath of ["../SPEC.md", "../packages/node/SPEC.md", "../packag
   }
 }
 
-for (const relativePath of ["../packages/node/src/toolset.js", "../packages/node/src/cli.js", "../packages/node/src/native.js", "../packages/node/src/native.cjs"]) {
+for (const relativePath of ["../packages/node/src/toolset.js", "../packages/node/src/native.js", "../packages/node/src/native.cjs"]) {
   const text = await readFile(new URL(relativePath, import.meta.url), "utf8");
   for (const forbidden of [
     "https://kis-net.kr",
@@ -156,8 +156,8 @@ for (const relativePath of ["../packages/node/src/toolset.js", "../packages/node
 
 const repositorySkill = await readFile(new URL("../skills/kisnet-ytm/SKILL.md", import.meta.url), "utf8");
 const packagedSkill = await readFile(new URL("../packages/node/skills/kisnet-ytm/SKILL.md", import.meta.url), "utf8");
-check(repositorySkill === packagedSkill, "the repository and packaged KIS-NET skills must remain identical");
-check(!repositorySkill.includes("Python") && repositorySkill.includes("80` 회사채(사모)"), "the active skill must be Node-only and include canonical kind 80");
+check(!repositorySkill.includes("Python") && repositorySkill.includes("80` 회사채(사모)"), "the repository skill must cover the active Rust CLI and canonical kind 80");
+check(packagedSkill.includes("@sjunepark/ytm/toolset") && !packagedSkill.includes("ytm matrix") && !packagedSkill.includes("package-provided"), "the packaged Node skill must describe the SDK without claiming a CLI");
 
 const nativeTargets = JSON.parse(await readFile(new URL("../native-targets.json", import.meta.url), "utf8"));
 const nodePackage = JSON.parse(await readFile(new URL("../packages/node/package.json", import.meta.url), "utf8"));

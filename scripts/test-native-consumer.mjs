@@ -23,6 +23,9 @@ try {
   if (rootPack.files.some(({ path }) => path.endsWith(".node"))) {
     throw new Error("The root package must not embed a native artifact.");
   }
+  if (rootPack.files.some(({ path }) => /(?:^|\/)cli\.(?:[cm]?js|ts)$/.test(path))) {
+    throw new Error("The root Node SDK package must not contain a JavaScript CLI entry point.");
+  }
 
   await writeFile(resolve(temporary, "package.json"), `${JSON.stringify({
     private: true,
@@ -44,15 +47,9 @@ try {
     throw new Error(`Installed toolset capability check failed: ${inspection.stdout}`);
   }
 
-  const cli = resolve(temporary, "node_modules/.bin", process.platform === "win32" ? "ytm.cmd" : "ytm");
-  const kinds = run(cli, ["kinds", "--format", "json"], temporary);
-  const kindsResult = parseJson(kinds, "ytm kinds");
-  if (kindsResult.result?.kinds?.at(-1)?.code !== "80") throw new Error("Installed CLI omitted canonical kind 80.");
-  const invalid = spawn(cli, ["matrix", "--kind", "80"], temporary);
-  if (invalid.status !== 2 || parseJson(invalid, "ytm matrix").error?.code !== "missing_parameter" || !invalid.stderr.includes("matrix")) {
-    throw new Error("Installed CLI validation/stdout/stderr contract failed.");
-  }
-  console.log(`clean consumer passed ${rustTarget} on Node ${process.versions.node}`);
+  const installedPackage = JSON.parse(await readFile(resolve(temporary, "node_modules/@sjunepark/ytm/package.json"), "utf8"));
+  if (installedPackage.bin !== undefined) throw new Error("Installed Node SDK must not declare or distribute a CLI bin.");
+  console.log(`clean Node SDK consumer passed ${rustTarget} on Node ${process.versions.node}`);
 } finally {
   await rm(temporary, { recursive: true, force: true });
 }

@@ -5,9 +5,9 @@ configuration, or manifest, and no workflow creates release PRs, tags, or
 GitHub Releases. The current `0.2.0` package version is historical; selecting a
 new version, creating a tag, and publishing require separate authorization.
 
-The architecture migration has added a public Rust SDK and will add a
-standalone Rust/Clap CLI while making the npm package SDK-only. This document
-continues to describe the implemented Node release path during that cutover.
+The repository now contains a public Rust SDK, a standalone Rust/Clap CLI, and
+an SDK-only npm package. This document describes only the implemented Node
+release path.
 Crates.io publication, CLI binaries or installers, a CLI support matrix, and
 GitHub Releases are not authorized by the migration and require a separate
 release decision.
@@ -20,9 +20,10 @@ native packages share one version.
 
 CI builds every target on its native GitHub-hosted image and
 clean-installs the packed root and native packages under Node 22, 24, and 26.
-The root artifact contains no `.node` binary. Each platform package contains
-exactly one native artifact plus the repository license and generated
-third-party dependency notices. Platform packages publish before the root.
+The root artifact contains no `.node` binary and declares no CLI `bin`. Each
+platform package contains exactly one native artifact plus the repository
+license and generated third-party dependency notices. Platform packages
+publish before the root.
 
 The retained [`release.yml`](../.github/workflows/release.yml) is manually
 dispatched from `main` with an existing `node-vX.Y.Z` tag. It does not choose a

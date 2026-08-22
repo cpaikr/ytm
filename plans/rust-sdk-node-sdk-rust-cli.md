@@ -7,24 +7,26 @@ protocol implementation: a consumable Rust SDK, a Node SDK backed by that Rust
 SDK through Node-API, and a standalone `ytm` executable built in Rust with
 Clap. The Node package no longer owns or distributes the CLI.
 
-## Current state
+## Delivered state
 
 - `crates/ytm-core` owns KIS-NET transport, Nexacro parsing, normalization,
   fallback, capabilities, and errors, and `crates/ytm-node` already depends on
   it. This is the correct dependency direction.
-- The first implementation slice on `codex/public-rust-sdk` promotes
-  `ytm-core` to a typed public SDK: crate-root result/source re-exports,
-  validated date/kind/fallback inputs, a default HTTP client, token-free
-  ordinary calls, explicit cancellation and transport seams, crate docs,
-  examples, public-API tests, and a detached consumer check are implemented.
-  The Node adapter projects its runtime metadata and preserves the established
-  wire contract. This slice is pending PR review and merge.
-- `@sjunepark/ytm/toolset` is the current Node SDK surface and calls the native
-  Rust binding. The same npm package also exposes `ytm` through
-  `dist/cli.js`; all CLI argument parsing, help, and rendering currently live
-  in JavaScript.
-- There is no Cargo binary target, Clap dependency, `ytm-cli` crate, Rust CLI
-  consumer test, or Rust CLI distribution design.
+- PR #16 promoted `ytm-core` to a typed public SDK with crate-root
+  result/source re-exports, validated date/kind/fallback inputs, a default HTTP
+  client, token-free ordinary calls, explicit cancellation and transport
+  seams, crate docs, examples, public-API tests, and a detached consumer check.
+- `@sjunepark/ytm/toolset` is the Node SDK surface and calls the native Rust
+  binding. The npm package has no `bin` entry or JavaScript CLI source.
+- `crates/ytm-cli` is the standalone Rust/Clap `ytm` binary. Its parser,
+  validation projection, help, JSON/CSV/TSV rendering, diagnostics, and exit
+  statuses match the approved black-box contract while execution calls only
+  the public `ytm-core` SDK.
+- The public judge runs the standalone CLI and Node SDK independently across
+  88 scenarios. It adds explicit CLI fallback, malformed-source,
+  argv-ordered input merge, and unknown-command coverage while preserving the
+  previously reviewed CLI goldens, including legacy-anchored invalid-invocation
+  payloads.
 - PR #15 merged as `77c33fd` after required validation and all 12 native
   consumer jobs passed. Issues #13 and #7 are closed; their kind-80,
   padded-yield, raw-fidelity, and fail-closed behavior is established baseline
@@ -138,6 +140,4 @@ required for ordinary construction.
 
 ## Next action
 
-Finish the public Rust SDK slice through PR review and feedback, then add the
-standalone `ytm-cli` crate and migrate the black-box CLI scenarios before
-removing the npm executable.
+Finish cross-surface validation, required code review, and final PR delivery.

@@ -28,21 +28,32 @@ _None._
 
 ### Completed included results
 
-_None._
+- Public Rust SDK — PR #16 merged into the integration branch as
+  `cbf2b314`. It provides typed request/result/source contracts, default HTTP
+  construction, advanced cancellation and transport seams, crate docs and
+  examples, public-API tests, a detached locked consumer, and Node-owned DTO
+  projection over the same Rust implementation.
+- Standalone Rust CLI parity and Node SDK-only cutover — the current reviewed
+  slice adds `ytm-cli`, moves the 88-scenario black-box CLI contract to the
+  Rust binary, and removes the npm `bin` and JavaScript CLI implementation.
+- Cross-surface validation and truthful documentation — architecture, product,
+  judge, package, release, smoke, and skill documentation now describe the
+  three separated surfaces and the unchanged release boundary.
 
 ### Current in-scope result
 
-Public Rust SDK.
+Final review and PR delivery for the CLI/Node cutover slice.
 
 ### Next in-scope action
 
-Finish the public Rust SDK slice through PR creation, required checks, review,
-and feedback resolution. After it merges, classify and begin the standalone
-Rust CLI parity result.
+Resolve independent review findings, finish the final PR through feedback, and
+merge it into the integration branch with reviewed commits preserved.
 
 ### Evidence and blockers
 
-- Boundary check: Public Rust SDK is included directly by the contract; proceed.
+- Boundary check: Standalone Rust CLI parity and Rust-backed Node SDK cutover
+  are included directly by the contract. Combining them is the fewest safe
+  reviewable slices because Node CLI removal is gated on Rust CLI parity.
 - Cancellation decision: ordinary Rust consumers receive token-free calls,
   while an advanced cancellable API preserves explicit cancellation for the
   Node `AbortSignal` adapter and CLI interruption. This keeps Node/Tokio
@@ -52,10 +63,17 @@ Rust CLI parity result.
 - The pre-existing uncommitted planning/specification edits are intentional
   input to the successor initiative and are included with the first reviewed
   slice.
-- `codex/public-rust-sdk` now provides typed requests/results/source metadata,
-  default HTTP construction, token-free ordinary calls, explicit advanced
-  cancellation and transport seams, Node-owned JSON DTO projection, crate
-  documentation and example, public-API tests, and a detached locked consumer.
-- Local evidence: 32 core tests and the public API test pass; Rust docs,
-  formatting, workspace Clippy, the detached consumer, release fixture guard,
-  build/contract freshness, and all 79 public Node judge scenarios pass.
+- PR #16 completed required review and feedback handling: all 10 inline review
+  threads were resolved, all 14 GitHub checks passed, and the merge preserved
+  both reviewed commits.
+- Final public SDK evidence: 33 core tests, one public API test, six Node
+  adapter tests, the Rust doctest, detached consumer, formatting, workspace
+  Clippy, dependency policy, release fixture guard, build/contract freshness,
+  npm package check, deliberate broken-oracle check, and all 79 public judge
+  scenarios passed.
+- Final-slice local evidence: six Rust CLI tests, 33 core tests, one public API
+  test, six Node adapter tests, the Rust doctest and detached consumer, locked
+  packaging, formatting, workspace Clippy, dependency and advisory policy,
+  release fixture guards, generated-artifact and license freshness, Node SDK
+  package inspection, deliberate broken-oracle proof, and all 88 public judge
+  scenarios pass. Independent code review and hosted PR checks remain.

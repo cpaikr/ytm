@@ -1,27 +1,16 @@
 # `@sjunepark/ytm`
 
-Deterministic KIS-NET YTM Matrix CLI and runtime-neutral toolset, backed by a
-Rust HTTP and Nexacro core.
+Rust-backed KIS-NET YTM Matrix SDK for Node.js.
 
-This package currently includes the JavaScript `ytm` CLI. The approved
-architecture migration makes this package a Node SDK only and moves the
-executable to a standalone Rust/Clap crate. Until that migration lands, the
-commands below remain the implemented interface.
+This package exports the runtime-neutral toolset and platform Node-API loader.
+It has no `bin` entry or JavaScript CLI; the standalone `ytm` executable is the
+Rust/Clap workspace binary in `crates/ytm-cli`.
 
 Node.js 22 or newer is required. Supported native targets are Linux GNU
-x64/ARM64, macOS ARM64, and Windows x64. After installing an authorized
-artifact, use the package-provided CLI:
-
-```sh
-ytm matrix --base-date 2026-06-08 --kind 국채 --format json
-ytm kinds --format json
-```
+x64/ARM64, macOS ARM64, and Windows x64.
 
 This rewrite has not been published yet. For the current checkout, follow the
 root README instead of installing the historical npm `latest` release.
-
-Run `ytm --help` and `ytm <command> --help` before automation to inspect the
-current inputs, examples, output contract, and recovery guidance.
 
 ```js
 import { createKisnetYtmToolset } from "@sjunepark/ytm/toolset";

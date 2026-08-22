@@ -122,6 +122,9 @@ jobs:
       - name: Install Rust target
         run: rustup target add ${{ matrix.target.rust }}
 
+      - name: Smoke standalone Rust CLI
+        run: cargo run --locked --release -p ytm-cli -- --help
+
       - name: Build production native artifact
         run: cargo build --locked --release --target ${{ matrix.target.rust }} -p ytm-node
 
@@ -131,5 +134,5 @@ jobs:
           node packages/node/scripts/build.mjs --facade-only
           node scripts/assemble-native-package.mjs ${{ matrix.target.rust }}
 
-      - name: Test clean installed CLI and toolset
+      - name: Test clean installed Node SDK
         run: node scripts/test-native-consumer.mjs ${{ matrix.target.rust }}

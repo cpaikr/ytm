@@ -1,27 +1,13 @@
 ---
 name: kisnet-ytm
-description: Use when retrieving Korean KIS-NET YTM Matrix rows or listing supported bond kinds through the @sjunepark/ytm CLI or toolset.
+description: Use when retrieving Korean KIS-NET YTM Matrix rows or listing supported bond kinds through the @sjunepark/ytm Node toolset.
 ---
 
 # KIS-NET YTM
 
-Use the Node-only `@sjunepark/ytm` product. Publication of the rewrite is not
-yet authorized. In the repository checkout, build once with `bun run build`
-and replace `ytm` below with `bun run cli --`. After installation from an
-authorized artifact, use the package-provided `ytm` command directly. For an
-in-process integration, import `createKisnetYtmToolset` from
-`@sjunepark/ytm/toolset`.
-
-These instructions describe the current checkout. The approved migration will
-replace the package-provided JavaScript CLI with a standalone Rust/Clap binary
-while keeping the Node toolset as a Rust-backed SDK; do not assume that target
-is available until the repository documentation marks the migration complete.
-
-```sh
-ytm kinds --format json
-ytm matrix --base-date 2026-06-08 --kind 국채 --format json --pretty
-ytm matrix --base-date 2026-06-07 --kind 80 --fallback previous-available --lookback-days 10 --format json
-```
+Import `createKisnetYtmToolset` from `@sjunepark/ytm/toolset`. The package is a
+Rust-backed Node SDK and does not declare or distribute a CLI. Publication of
+the rewritten package is not yet authorized.
 
 - Dates accept `YYYY-MM-DD`, `YYYY.MM.DD`, or `YYYYMMDD`.
 - Kind accepts a source code or Korean label. The canonical catalog includes
@@ -30,8 +16,7 @@ ytm matrix --base-date 2026-06-07 --kind 80 --fallback previous-available --look
   caller authorizes walking backward through calendar dates.
 - Retry fallback only after confirmed unavailable data. Transport, protocol,
   and source-format failures stop immediately.
-- JSON is the default agent-readable output. Failures are structured JSON;
-  inspect their recovery metadata before retrying.
+- Failures expose structured recovery metadata; inspect it before retrying.
 - Report requested and resolved dates, kind, tenors, and rows by 적용대상채권.
   Source `-` or empty yields become `null` while raw text remains available.
 
