@@ -136,12 +136,9 @@ function classifyLoaderFailure(cause) {
     );
   }
 
-  const missingPackage = chain.some((error) => {
-    if (error?.code === "MODULE_NOT_FOUND") return true;
-    return /cannot find module|module not found|not installed/i.test(
-      typeof error?.message === "string" ? error.message : ""
-    );
-  });
+  const missingPackage = chain.some(
+    (error) => error?.code === "YTM_NATIVE_PACKAGE_UNAVAILABLE"
+  );
   if (missingPackage) {
     return nativeLoaderFailure(
       "native_package_unavailable",
@@ -256,7 +253,10 @@ function runtimeKey() {
 
 function linuxLibc() {
   try {
-    return process.report?.getReport()?.header?.glibcVersionRuntime ? "gnu" : "musl";
+    const runtimeVersion = process.report?.getReport()?.header?.glibcVersionRuntime;
+    return typeof runtimeVersion === "string" && runtimeVersion.length > 0
+      ? "gnu"
+      : "unknown-libc";
   } catch {
     return "unknown-libc";
   }

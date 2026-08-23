@@ -38,6 +38,19 @@ try {
       listed: toolset.listOperations()[0]
     };
   } else if (request.action === "facade-regressions") {
+    const circularDetails = {
+      ok: true,
+      code: "foreign_error",
+      reason: "Foreign failure",
+      retained: { value: 7 },
+      ignored() {},
+      large: 42n
+    };
+    circularDetails.self = circularDetails;
+    const hostileError = {};
+    Object.defineProperty(hostileError, "details", {
+      get() { throw new Error("hostile details getter"); }
+    });
     value = {
       commandHelp: toolset.getCommandHelp("matrix"),
       kindsWithoutInput: await toolset.execute("kinds"),
@@ -50,7 +63,9 @@ try {
         .map((kind) => toolset.validateInput("matrix", { baseDate: request.baseDate, kind })),
       scalarDetails: toolset.serializeError({ details: "not-an-error-envelope" }),
       arrayDetails: toolset.serializeError({ details: ["not-an-error-envelope"] }),
-      objectDetails: toolset.serializeError({ details: { code: "sentinel" } })
+      objectDetails: toolset.serializeError({ details: { code: "sentinel" } }),
+      foreignDetails: toolset.serializeError({ details: circularDetails }),
+      hostileDetails: toolset.serializeError(hostileError)
     };
   } else if (request.action === "execute") {
     let context;

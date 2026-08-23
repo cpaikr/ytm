@@ -537,23 +537,31 @@ function nativeEnvelopeError() {
 }
 
 function serializeError(error) {
-  if (isRecord(error?.details)) return normalizeSerializedError(error.details);
-  if (
-    isRecord(error) &&
-    (typeof error.code === "string" ||
-      typeof error.reason === "string" ||
-      error.ok === false)
-  ) {
-    if (error instanceof Error) {
-      return normalizeSerializedError({
-        ...error,
-        ok: false,
-        name: error.name,
-        message: error.message
-      });
+  try {
+    if (isRecord(error?.details)) return normalizeSerializedError(error.details);
+    if (
+      isRecord(error) &&
+      (typeof error.code === "string" ||
+        typeof error.reason === "string" ||
+        error.ok === false)
+    ) {
+      if (error instanceof Error) {
+        return normalizeSerializedError({
+          ...error,
+          ok: false,
+          name: error.name,
+          message: error.message
+        });
+      }
+      return normalizeSerializedError(error);
     }
-    return normalizeSerializedError(error);
+  } catch {
+    return internalSerializedError("InvalidErrorDetails");
   }
+  return internalSerializedError(error instanceof Error ? error.name : "Error");
+}
+
+function internalSerializedError(cause) {
   return normalizeSerializedError({
     ok: false,
     code: "internal_error",
@@ -563,51 +571,43 @@ function serializeError(error) {
     recoveryAction: { kind: "update_package" },
     recoverable: false,
     retryable: false,
-    cause: error instanceof Error ? error.name : "Error"
+    cause
   });
 }
 
 function normalizeSerializedError(details) {
   if (!isRecord(details)) {
-    return normalizeSerializedError({
-      ok: false,
-      code: "internal_error",
-      reason: "The Node adapter encountered an internal error.",
-      recoveryHint:
-        "Update the package for this platform, then report the failure if it persists.",
-      recoveryAction: { kind: "update_package" },
-      recoverable: false,
-      retryable: false,
-      cause: "InvalidErrorDetails"
-    });
+    return internalSerializedError("InvalidErrorDetails");
   }
 
-  const code = typeof details.code === "string" ? details.code : "internal_error";
+  const sanitized = jsonSafeClone(details);
+  if (!isRecord(sanitized)) return internalSerializedError("InvalidErrorDetails");
+  const code = typeof sanitized.code === "string" ? sanitized.code : "internal_error";
   const reason =
-    typeof details.reason === "string"
-      ? details.reason
-      : typeof details.message === "string"
-        ? details.message
+    typeof sanitized.reason === "string"
+      ? sanitized.reason
+      : typeof sanitized.message === "string"
+        ? sanitized.message
         : "The operation failed.";
-  const message = typeof details.message === "string" ? details.message : reason;
+  const message = typeof sanitized.message === "string" ? sanitized.message : reason;
   const operationName =
-    typeof details.operationName === "string" ? details.operationName : undefined;
+    typeof sanitized.operationName === "string" ? sanitized.operationName : undefined;
   const normalized = {
-    ...clone(details),
-    ok: details.ok === false ? false : details.ok === true ? true : false,
+    ...sanitized,
+    ok: false,
     name:
-      typeof details.name === "string" && details.name.length > 0
-        ? details.name
-        : details.cause === "AbortError"
+      typeof sanitized.name === "string" && sanitized.name.length > 0
+        ? sanitized.name
+        : sanitized.cause === "AbortError"
           ? "AbortError"
         : ERROR_NAMES[code] || "KisnetYtmError",
     message,
     code,
     reason,
-    recoveryAction: normalizeRecoveryAction(details.recoveryAction, operationName),
+    recoveryAction: normalizeRecoveryAction(sanitized.recoveryAction, operationName),
     recoverable:
-      typeof details.recoverable === "boolean" ? details.recoverable : false,
-    retryable: typeof details.retryable === "boolean" ? details.retryable : false
+      typeof sanitized.recoverable === "boolean" ? sanitized.recoverable : false,
+    retryable: typeof sanitized.retryable === "boolean" ? sanitized.retryable : false
   };
   if (normalized.recoveryHint === undefined) {
     normalized.recoveryHint =
@@ -615,12 +615,12 @@ function normalizeSerializedError(details) {
         ? "Update the package for this platform, then report the failure if it persists."
         : "Inspect tool help and retry with the documented recovery action.";
   }
-  return clone(normalized);
+  return normalized;
 }
 
 function normalizeRecoveryAction(action, operationName) {
   if (isRecord(action) && typeof action.kind === "string") {
-    return clone(action);
+    return action;
   }
   if (typeof action === "string") {
     if (action === "inspect_command_help") {
@@ -650,6 +650,34 @@ function safeActual(value) {
 
 function clone(value) {
   return structuredClone(value);
+}
+
+function jsonSafeClone(value, seen = new WeakSet()) {
+  if (value === null || typeof value === "string" || typeof value === "boolean") {
+    return value;
+  }
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value === "bigint") return value.toString();
+  if (typeof value !== "object") return undefined;
+  if (seen.has(value)) return "[Circular]";
+  seen.add(value);
+
+  if (Array.isArray(value)) {
+    return value.map((entry) => jsonSafeClone(entry, seen) ?? null);
+  }
+
+  const output = Object.create(null);
+  for (const key of Object.keys(value)) {
+    let entry;
+    try {
+      entry = value[key];
+    } catch {
+      continue;
+    }
+    const cloned = jsonSafeClone(entry, seen);
+    if (cloned !== undefined) output[key] = cloned;
+  }
+  return output;
 }
 
 function formatKindsForHelp() {

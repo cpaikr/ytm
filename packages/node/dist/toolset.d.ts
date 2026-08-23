@@ -53,7 +53,7 @@ export type ErrorCode =
   | "internal_error";
 
 export interface SerializedError {
-  readonly ok?: false;
+  readonly ok: false;
   readonly name: string;
   readonly message: string;
   readonly code?: ErrorCode | string;

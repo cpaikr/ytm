@@ -13,17 +13,35 @@ const local = join(__dirname, "ytm.node");
 if (existsSync(local)) {
   module.exports = require(local);
 } else {
-  const libc = process.platform === "linux"
-    ? (process.report?.getReport()?.header?.glibcVersionRuntime ? "gnu" : "musl")
-    : null;
+  const libc = process.platform === "linux" ? linuxLibc() : null;
   const key = [process.platform, process.arch, libc].filter(Boolean).join("-");
   const packageName = packageByTarget[key];
   if (!packageName) throw new Error(`@sjunepark/ytm does not support ${key}.`);
   try {
     module.exports = require(packageName);
   } catch (cause) {
-    const error = new Error(`The native ytm package for ${key} is not installed correctly.`);
+    const error = new Error(`The native ytm package for ${key} could not be loaded correctly.`);
+    if (missingExpectedPackage(cause, packageName)) {
+      error.code = "YTM_NATIVE_PACKAGE_UNAVAILABLE";
+    }
     error.cause = cause;
     throw error;
   }
+}
+
+function linuxLibc() {
+  try {
+    const runtimeVersion = process.report?.getReport()?.header?.glibcVersionRuntime;
+    return typeof runtimeVersion === "string" && runtimeVersion.length > 0
+      ? "gnu"
+      : "unknown-libc";
+  } catch {
+    return "unknown-libc";
+  }
+}
+
+function missingExpectedPackage(cause, packageName) {
+  if (cause?.code !== "MODULE_NOT_FOUND" || typeof cause.message !== "string") return false;
+  const escaped = packageName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`^(?:Cannot find module|Cannot find package) ['"]${escaped}['"]`).test(cause.message);
 }

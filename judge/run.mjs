@@ -1,4 +1,4 @@
-import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { readFile, readdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { tmpdir } from "node:os";
@@ -158,6 +158,10 @@ runToolset("node-facade-regressions", { action: "facade-regressions", baseDate: 
   check(value?.nonFiniteKinds?.map(({ error }) => error?.actual).join(",") === "NaN,Infinity,-Infinity", `${label} non-finite numeric diagnostics must preserve each source spelling`);
   check(value?.scalarDetails?.code === "internal_error" && value?.arrayDetails?.code === "internal_error", `${label} malformed error details must not escape as public envelopes`);
   check(value?.objectDetails?.code === "sentinel", `${label} object error details must remain serializable`);
+  check(value?.foreignDetails?.ok === false && value?.foreignDetails?.code === "foreign_error", `${label} foreign error details must remain a failure envelope`);
+  check(value?.foreignDetails?.retained?.value === 7 && value?.foreignDetails?.large === "42", `${label} JSON-safe foreign fields must be retained`);
+  check(value?.foreignDetails?.self === "[Circular]" && value?.foreignDetails?.ignored === undefined, `${label} cyclic and callable foreign fields must be sanitized`);
+  check(value?.hostileDetails?.code === "internal_error", `${label} hostile error details must fall back to an internal error envelope`);
 });
 
 const successFixture = fixture([
@@ -725,6 +729,46 @@ function runWithoutNative() {
       timeout: childTimeoutMilliseconds
     });
     value = parseSuccessfulJson(result, name);
+
+    rmSync(resolve(isolatedRoot, "src/native.cjs"));
+    const missingLoader = spawnSync(process.execPath, ["--input-type=module", "-e", code], {
+      encoding: "utf8",
+      env: childEnvironment(),
+      maxBuffer: 4 * 1024 * 1024,
+      timeout: childTimeoutMilliseconds
+    });
+    const missingLoaderValue = parseSuccessfulJson(missingLoader, `${name}: missing loader`);
+    check(missingLoader.status === 0 && missingLoaderValue?.failure?.code === "native_package_corrupt", `${name}: a missing root native loader must be classified as corrupt`);
+
+    cpSync(resolve(productRoot, "src/native.cjs"), resolve(isolatedRoot, "src/native.cjs"));
+    const currentTarget = JSON.parse(readFileSync(resolve(root, "native-targets.json"), "utf8")).targets
+      .find((target) => target.npmPlatform === process.platform && target.npmArch === process.arch);
+    if (currentTarget) {
+      const packageRoot = resolve(isolatedRoot, "node_modules", ...currentTarget.packageName.split("/"));
+      mkdirSync(packageRoot, { recursive: true });
+      writeFileSync(resolve(packageRoot, "package.json"), '{"main":"index.cjs"}\n');
+      writeFileSync(resolve(packageRoot, "index.cjs"), 'module.exports = require("./missing-internal.cjs");\n');
+      const corruptPackage = spawnSync(process.execPath, ["--input-type=module", "-e", code], {
+        encoding: "utf8",
+        env: childEnvironment(),
+        maxBuffer: 4 * 1024 * 1024,
+        timeout: childTimeoutMilliseconds
+      });
+      const corruptPackageValue = parseSuccessfulJson(corruptPackage, `${name}: corrupt package`);
+      check(corruptPackage.status === 0 && corruptPackageValue?.failure?.code === "native_package_corrupt", `${name}: a missing internal package module must be classified as corrupt`);
+    }
+
+    if (process.platform === "linux") {
+      const unknownLibcCode = `process.report.getReport=()=>({header:{}});${code}`;
+      const unknownLibc = spawnSync(process.execPath, ["--input-type=module", "-e", unknownLibcCode], {
+        encoding: "utf8",
+        env: childEnvironment(),
+        maxBuffer: 4 * 1024 * 1024,
+        timeout: childTimeoutMilliseconds
+      });
+      const unknownLibcValue = parseSuccessfulJson(unknownLibc, `${name}: unknown libc`);
+      check(unknownLibc.status === 0 && unknownLibcValue?.failure?.actual?.endsWith("-unknown-libc"), `${name}: inconclusive Linux reports must not be classified as musl`);
+    }
   } finally {
     rmSync(isolatedRoot, { recursive: true, force: true });
   }
