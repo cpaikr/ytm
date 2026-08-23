@@ -5,9 +5,10 @@ The current checkout exposes that core as a public Rust SDK, through a
 Rust-backed Node SDK, and through a standalone Rust/Clap CLI. The Node package
 does not own or distribute the CLI.
 
-See [`ARCHITECTURE.md`](ARCHITECTURE.md) for the implemented system shape and
-[`plans/rust-sdk-node-sdk-rust-cli.md`](plans/rust-sdk-node-sdk-rust-cli.md)
-for the three-surface delivery record.
+[`SPEC.md`](SPEC.md) defines public behavior, while
+[`ARCHITECTURE.md`](ARCHITECTURE.md) explains the implemented system shape.
+[`ROADMAP.md`](ROADMAP.md) records the remaining verification and decision
+boundaries.
 
 ## Run from this checkout
 
@@ -41,13 +42,21 @@ treating source availability as production suitability.
 ## Repository validation
 
 ```sh
+cargo install --locked --features cli cargo-about --version 0.9.2
+cargo install --locked cargo-audit --version 0.22.2
+cargo install --locked cargo-deny --version 0.19.0
 bun install --frozen-lockfile
 bun run validate
+bun run build:check
 cargo fmt --all --check
 cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
 cargo test --locked --workspace --all-targets --all-features
+cargo test --locked -p ytm-core --doc
 bun run rust:consumer:check
+cargo audit
+cargo deny check
 bun run test
+bun run judge:broken
 bun run pack:node
 ```
 

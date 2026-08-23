@@ -9,8 +9,8 @@ The external Rust SDK consumer is checked separately under
 Node SDK scenarios import only the package export, preserving independent
 black-box boundaries and reviewed golden expectations.
 
-The fixture preload drives the compile-time-only Rust judge transport and
-records prepared request metadata. Production builds cannot enable that
+An environment-selected, feature-gated Rust fixture transport records prepared
+request metadata during judge runs. Release artifacts cannot compile that
 transport, and native clean-consumer tests exercise release builds separately.
 
 ```sh

@@ -10,5 +10,6 @@ macOS ARM64, and Windows x64 through exact-version optional native packages.
 Use toolset discovery methods for the current public operation contract.
 
 The package is the Rust-backed Node SDK and has no `bin` entry or JavaScript
-CLI. It does not own HTTP, XML, fallback, or command-line behavior; the
-standalone CLI lives in `crates/ytm-cli` and depends directly on `ytm-core`.
+CLI. It mirrors public fallback-input validation but does not own HTTP, XML,
+fallback execution, source semantics, or command-line behavior; the standalone
+CLI lives in `crates/ytm-cli` and depends directly on `ytm-core`.
