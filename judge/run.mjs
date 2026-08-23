@@ -419,6 +419,9 @@ runCli("cli-machine-contract:malformed-operation-help", ["matrix", "--help", "--
   check(result.status === 2 && JSON.parse(result.stdout).error?.code === "invalid_request", `${label} operation help must not bypass duplicate-option validation`);
   check(result.stderr.includes("matrix"), `${label} malformed operation help must show command help on stderr`);
 });
+runCli("cli-machine-contract:duplicate-value-option", ["matrix", "--base-date", request.baseDate, "--base-date", "2026-06-09", "--kind", "10"], undefined, (result, label) => {
+  check(result.status === 2 && JSON.parse(result.stdout).error?.code === "invalid_request", `${label} execution must reject duplicate value options`);
+});
 runCli("cli-machine-contract:malformed-root-help", ["--help", "--bogus"], undefined, (result, label) => {
   check(result.status === 2 && JSON.parse(result.stdout).error?.code === "invalid_request", `${label} root help must reject trailing arguments with structured JSON`);
   check(result.stderr.includes("CLI usage:"), `${label} malformed root help must direct recovery on stderr`);

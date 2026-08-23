@@ -184,7 +184,7 @@ fn parse_invocation(args: &[OsString], tail: &[String]) -> ParseOutcome {
     let Some(operation) = Operation::parse(first) else {
         return ParseOutcome::Immediate(unknown_command_output(first));
     };
-    if help_requested(&tail[1..]) {
+    if help_requested(operation, &tail[1..]) {
         return match validate_operation_help(args, operation) {
             Ok(()) => ParseOutcome::Immediate(command_help_output(operation.name())),
             Err(error) => ParseOutcome::Invalid(InvocationError { operation, error }),
@@ -295,7 +295,20 @@ fn invocation_from_matches(
     })
 }
 
-fn help_requested(args: &[String]) -> bool {
+fn help_requested(operation: Operation, args: &[String]) -> bool {
+    let recognized = operation_command(operation.name())
+        .get_arguments()
+        .filter_map(|argument| {
+            argument.get_long().map(|long| {
+                (
+                    format!("--{long}"),
+                    argument
+                        .get_num_args()
+                        .is_some_and(|range| range.takes_values()),
+                )
+            })
+        })
+        .collect::<std::collections::HashMap<_, _>>();
     let mut index = 0;
     let mut requested = false;
     let mut seen = std::collections::HashSet::new();
@@ -303,25 +316,21 @@ fn help_requested(args: &[String]) -> bool {
         if matches!(args[index].as_str(), "--help" | "-h") {
             requested = true;
             index += 1;
-        } else if args[index] == "--pretty" {
-            if !seen.insert("--pretty") {
-                return false;
-            }
-            index += 1;
-        } else if matches!(
-            args[index].as_str(),
-            "--base-date" | "--kind" | "--fallback" | "--lookback-days" | "--format"
-        ) {
+        } else if let Some(takes_value) = recognized.get(args[index].as_str()) {
             if !seen.insert(args[index].as_str()) {
                 return false;
             }
-            let Some(value) = args.get(index + 1) else {
-                return false;
-            };
-            if value.starts_with("--") || value == "-h" {
-                return false;
+            if *takes_value {
+                let Some(value) = args.get(index + 1) else {
+                    return false;
+                };
+                if value.starts_with("--") || value == "-h" {
+                    return false;
+                }
+                index += 2;
+            } else {
+                index += 1;
             }
-            index += 2;
         } else {
             return false;
         }
@@ -1059,6 +1068,25 @@ mod tests {
         assert_structured_failure(&help_as_value, Some("matrix"));
     }
 
+    #[test]
+    fn operation_help_recognizes_every_declared_long_option() {
+        for operation in [Operation::Matrix, Operation::Kinds] {
+            for argument in operation_command(operation.name()).get_arguments() {
+                let Some(long) = argument.get_long() else {
+                    continue;
+                };
+                let mut args = vec!["--help".to_string(), format!("--{long}")];
+                if argument
+                    .get_num_args()
+                    .is_some_and(|range| range.takes_values())
+                {
+                    args.push("value".to_string());
+                }
+                assert!(help_requested(operation, &args), "--{long}");
+            }
+        }
+    }
+
     #[tokio::test]
     async fn missing_matrix_input_is_structured_and_uses_exit_two() {
         let output = run(vec![
@@ -1098,6 +1126,16 @@ mod tests {
             vec!["ytm", "matrix", "--format"],
             vec!["ytm", "matrix", "--format", ""],
             vec!["ytm", "matrix", "--unknown-option", "value"],
+            vec![
+                "ytm",
+                "matrix",
+                "--base-date",
+                "2026-06-08",
+                "--base-date",
+                "2026-06-09",
+                "--kind",
+                "10",
+            ],
         ] {
             let output = run(args.into_iter().map(OsString::from).collect()).await;
             assert_structured_failure(&output, Some("matrix"));

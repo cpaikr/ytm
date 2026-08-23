@@ -19,10 +19,8 @@ import { createKisnetYtmToolset } from "@sjunepark/ytm/toolset";
 const ytm = createKisnetYtmToolset();
 const matrixHelp = ytm.getCommandHelp("matrix");
 const validation = ytm.validateInput("matrix", matrixHelp.examples[0]);
-const result = await ytm.execute("matrix", {
-  baseDate: "2026-06-08",
-  kind: "국채"
-});
+if (!validation.ok) throw validation.error;
+const result = await ytm.execute("matrix", validation.input);
 ```
 
 `help()` and `getCommandHelp()` return cloned structured objects. Operation

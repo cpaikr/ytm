@@ -36,6 +36,12 @@
     "stdout": "requestedBaseDate,baseDate,usedFallback,kindCode,kindName,pricingGroupCode,pricingGroupName,3M,6M,9M,1Y,1.5Y,2Y,2.5Y,3Y,5Y,7Y,10Y,15Y,20Y,30Y,50Y\n2026-06-08,2026-06-08,false,10,국채,100,국고채권,2.5,2.51,2.52,2.53,2.54,2.55,2.56,2.57,2.6,2.7,2.8,2.9,3,3.1,3.2\n",
     "stderr": ""
   },
+  "cli:cli-machine-contract:duplicate-value-option": {
+    "status": 2,
+    "signal": null,
+    "stdout": "{\"ok\":false,\"error\":{\"ok\":false,\"code\":\"invalid_request\",\"operationName\":\"matrix\",\"parameter\":\"input\",\"reason\":\"Invalid command invocation.\",\"expected\":\"supported CLI options\",\"exampleInput\":{\"baseDate\":\"2026-06-08\",\"kind\":\"국채\"},\"recoveryHint\":\"Run ytm help matrix and retry with supported options.\",\"recoveryAction\":\"inspect_command_help\",\"recoverable\":true,\"retryable\":false}}\n",
+    "stderr": "\nmatrix\n  Required: --base-date <기준일> --kind <종류>\n  Optional: --fallback previous-available --lookback-days <days>\n  Output: --format json|csv|tsv [--pretty]\n  base-date accepts YYYY-MM-DD, YYYY.MM.DD, or YYYYMMDD.\n  kind maps to 종류 and accepts one of these Korean labels or source codes:\n    10 = 국채\n    20 = 지방채\n    30 = 특수채\n    40 = 통안채\n    50 = 은행채\n    60 = 기타금융채\n    70 = 회사채(무보증)\n    80 = 회사채(사모)\n  fallback=previous-available tries the requested date once, then walks backward until rows are found.\n  lookback-days defaults to 10 and may not exceed 31.\n  Run ytm kinds to print accepted kinds as JSON, CSV, or TSV.\n  Result rows include 적용대상채권, tenors 3M through 50Y, and dateResolution metadata.\n\nCLI example:\n  ytm matrix --base-date 2026-06-08 --kind 국채 --format json\n"
+  },
   "cli:cli-machine-contract:empty-base-date": {
     "status": 2,
     "signal": null,

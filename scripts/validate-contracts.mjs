@@ -200,8 +200,17 @@ for (const relativePath of ["../packages/node/src/toolset.js", "../packages/node
 
 const repositorySkill = await readFile(new URL("../skills/kisnet-ytm/SKILL.md", import.meta.url), "utf8");
 const packagedSkill = await readFile(new URL("../packages/node/skills/kisnet-ytm/SKILL.md", import.meta.url), "utf8");
+const nodeReadme = await readFile(new URL("../packages/node/README.md", import.meta.url), "utf8");
 check(!repositorySkill.includes("Python") && repositorySkill.includes("ytm matrix") && repositorySkill.includes("80` 회사채(사모)"), "the repository skill must cover the active Rust CLI and canonical kind 80");
 check(packagedSkill.includes("@sjunepark/ytm/toolset") && !packagedSkill.includes("ytm matrix") && !packagedSkill.includes("package-provided"), "the packaged Node skill must describe the SDK without claiming a CLI");
+for (const [label, example] of [
+  ["repository skill", repositorySkill],
+  ["packaged skill", packagedSkill],
+  ["Node README", nodeReadme]
+]) {
+  check(example.includes("validation.ok") && example.includes("validation.input"), `${label} must use the current validation result contract`);
+  check(!example.includes("validation.valid") && !example.includes("validation.normalizedInput"), `${label} must not use the retired validation result contract`);
+}
 
 for (const path of [
   "package/dist/cli.js",
