@@ -12,11 +12,18 @@ export function nativeBuildPlan(manifest, rustTarget) {
   }
   const command = linuxGnu ? "zigbuild" : "build";
   const args = [command, "--locked", "--release", "--target", target.buildTarget, "-p", "ytm-node"];
+  const extension = target.npmPlatform === "win32"
+    ? "dll"
+    : target.npmPlatform === "darwin"
+      ? "dylib"
+      : "so";
+  const prefix = target.npmPlatform === "win32" ? "" : "lib";
   return {
     target,
     command: "cargo",
     args,
     artifactTarget: target.rustTarget,
+    artifactFileName: `${prefix}ytm_node.${extension}`,
     usesGlibcFloor: linuxGnu
   };
 }

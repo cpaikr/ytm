@@ -70,8 +70,15 @@ check(nativeTargets.linuxNativeBuild?.cargoZigbuildVersion === "0.23.0", "native
 check(nativeTargets.linuxNativeBuild?.zigVersion === "0.14.1", "native release policy must pin Zig 0.14.1");
 check(nativeTargets.linuxNativeBuild?.glibcFloor === "2.28", "native release policy must retain the GLIBC_2.28 floor");
 for (const target of nativeTargets.targets || []) {
-  const plan = nativeBuildPlan(nativeTargets, target.rustTarget);
+  let plan;
+  try {
+    plan = nativeBuildPlan(nativeTargets, target.rustTarget);
+  } catch (error) {
+    check(false, `${target.rustTarget} release build policy is invalid: ${error instanceof Error ? error.message : String(error)}`);
+    continue;
+  }
   check(plan.artifactTarget === target.rustTarget, `${target.rustTarget} release assembly must use the exact Cargo artifact target`);
+  check(typeof plan.artifactFileName === "string" && plan.artifactFileName.length > 0, `${target.rustTarget} release build must expose its platform artifact filename`);
   check(target.npmPlatform === "linux" && target.libc === "glibc" ? plan.args[0] === "zigbuild" : plan.args[0] === "build", `${target.rustTarget} release build command must match its target policy`);
 }
 check(nodePackage.repository?.url === "git+https://github.com/cpaikr/ytm.git" && nodePackage.repository?.directory === "packages/node", "Node package repository metadata must use cpaikr/ytm");

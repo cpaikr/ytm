@@ -20,7 +20,7 @@ const artifactPath = resolve(
   "target",
   plan.artifactTarget,
   "release",
-  "libytm_node.so"
+  plan.artifactFileName
 );
 const artifact = await readFile(artifactPath);
 if (artifact.subarray(0, 4).toString("latin1") !== "\u007fELF") {

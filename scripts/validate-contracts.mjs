@@ -279,8 +279,20 @@ check(new Set(nativeTargets.targets?.map((target) => [target.npmPlatform, target
 for (const target of nativeTargets.targets || []) {
   check(target.packageName?.startsWith("@sjunepark/ytm-"), `${target.rustTarget} must use the ytm npm scope`);
   check(target.artifactFile?.endsWith(".node"), `${target.rustTarget} must name a Node-API artifact`);
-  const plan = nativeBuildPlan(nativeTargets, target.rustTarget);
+  let plan;
+  try {
+    plan = nativeBuildPlan(nativeTargets, target.rustTarget);
+  } catch (error) {
+    check(false, `${target.rustTarget} native build policy is invalid: ${error instanceof Error ? error.message : String(error)}`);
+    continue;
+  }
   check(plan.artifactTarget === target.rustTarget, `${target.rustTarget} native assembly must use its exact Cargo artifact target`);
+  const expectedArtifactFileName = target.npmPlatform === "win32"
+    ? "ytm_node.dll"
+    : target.npmPlatform === "darwin"
+      ? "libytm_node.dylib"
+      : "libytm_node.so";
+  check(plan.artifactFileName === expectedArtifactFileName, `${target.rustTarget} native build must expose its platform artifact filename`);
   check(
     target.npmPlatform === "linux" && target.libc === "glibc"
       ? plan.args[0] === "zigbuild" && plan.args[4] === target.buildTarget && target.buildTarget.endsWith(`.${nativeTargets.linuxNativeBuild.glibcFloor}`)
