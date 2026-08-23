@@ -2064,11 +2064,11 @@
       "failure": {
         "ok": false,
         "name": "NativePackageUnavailableError",
-        "message": "The native ytm package for darwin-arm64 is not installed.",
+        "message": "The native ytm package for <runtime-key> is not installed.",
         "code": "native_package_unavailable",
-        "reason": "The native ytm package for darwin-arm64 is not installed.",
+        "reason": "The native ytm package for <runtime-key> is not installed.",
         "expected": "A loadable @sjunepark/ytm native package for the current platform",
-        "actual": "darwin-arm64",
+        "actual": "<runtime-key>",
         "recoveryHint": "Install @sjunepark/ytm with its platform-specific optional dependency, then retry.",
         "recoveryAction": {
           "kind": "update_package"

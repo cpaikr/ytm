@@ -8,6 +8,7 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { parse } from "yaml";
 import { isNodeCliArtifact } from "../scripts/node-cli-artifact-policy.mjs";
+import { nativeRuntimeKey } from "../scripts/native-build-policy.mjs";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const options = parseArguments(process.argv.slice(2));
@@ -720,6 +721,8 @@ function runWithoutNative() {
   if (!surfaceEnabled("node") || !scenarioEnabled(name)) return;
   scenariosRun += 1;
   const isolatedRoot = mkdtempSync(resolve(tmpdir(), "ytm-no-native-"));
+  const currentTarget = JSON.parse(readFileSync(resolve(root, "native-targets.json"), "utf8")).targets
+    .find((target) => target.npmPlatform === process.platform && target.npmArch === process.arch);
   let result;
   let value;
   try {
@@ -746,8 +749,6 @@ function runWithoutNative() {
     check(missingLoader.status === 0 && missingLoaderValue?.failure?.code === "native_package_corrupt", `${name}: a missing root native loader must be classified as corrupt`);
 
     cpSync(resolve(productRoot, "src/native.cjs"), resolve(isolatedRoot, "src/native.cjs"));
-    const currentTarget = JSON.parse(readFileSync(resolve(root, "native-targets.json"), "utf8")).targets
-      .find((target) => target.npmPlatform === process.platform && target.npmArch === process.arch);
     if (currentTarget) {
       const packageRoot = resolve(isolatedRoot, "node_modules", ...currentTarget.packageName.split("/"));
       mkdirSync(packageRoot, { recursive: true });
@@ -777,11 +778,33 @@ function runWithoutNative() {
   } finally {
     rmSync(isolatedRoot, { recursive: true, force: true });
   }
-  assertGolden(name, "toolset", { status: result.status, value, stderr: result.stderr === "" ? "empty" : "nonempty" });
+  const runtimeKey = value?.failure?.actual;
+  const runtimeReason = typeof runtimeKey === "string"
+    ? `The native ytm package for ${runtimeKey} is not installed.`
+    : undefined;
+  check(runtimeKey === (currentTarget ? nativeRuntimeKey(currentTarget) : undefined), `${name}: the unavailable package must identify the exact manifest runtime`);
+  check(value?.failure?.reason === runtimeReason && value?.failure?.message === runtimeReason, `${name}: the unavailable package message must identify the current runtime`);
+  assertGolden(name, "toolset", {
+    status: result.status,
+    value: normalizeMissingNativeGolden(value, runtimeKey),
+    stderr: result.stderr === "" ? "empty" : "nonempty"
+  });
   check(result.stderr === "", `${name}: toolset must not write to stderr`);
   check(result.status === 0 && value?.help?.availableKinds?.some((entry) => entry.includes("Native capabilities unavailable")), `${name}: help must remain available without a native package`);
   check(value?.validation?.ok === true, `${name}: pure validation must remain available without a native package`);
   check(value?.failure?.code === "native_package_unavailable" && value?.failure?.recoveryAction?.kind === "update_package" && value?.failure?.retryable === false, `${name}: execution must return an actionable native-package failure`);
+}
+
+function normalizeMissingNativeGolden(value, runtimeKey) {
+  const normalized = structuredClone(value);
+  if (typeof runtimeKey !== "string") return normalized;
+  normalized.failure.actual = "<runtime-key>";
+  for (const field of ["message", "reason"]) {
+    if (typeof normalized.failure[field] === "string") {
+      normalized.failure[field] = normalized.failure[field].replaceAll(runtimeKey, "<runtime-key>");
+    }
+  }
+  return normalized;
 }
 
 function parseSuccessfulJson(result, name) {

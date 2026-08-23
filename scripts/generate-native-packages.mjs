@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { nativeRuntimeKey } from "./native-build-policy.mjs";
 
 const repositoryRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const checkOnly = process.argv.includes("--check");
@@ -19,7 +20,7 @@ outputs.set(rootPackagePath, `${JSON.stringify(rootPackage, null, 2)}\n`);
 
 const packageMap = {};
 for (const target of manifest.targets) {
-  packageMap[runtimeKey(target)] = target.packageName;
+  packageMap[nativeRuntimeKey(target)] = target.packageName;
   const directory = resolve(repositoryRoot, manifest.nativePackageRoot, target.packageDirectory);
   const nativePackage = {
     name: target.packageName,
@@ -69,10 +70,3 @@ if (stale.length > 0) {
   process.exit(1);
 }
 console.log(checkOnly ? "native package metadata is current" : "generated native package metadata");
-
-function runtimeKey(target) {
-  const libc = target.npmPlatform === "linux"
-    ? target.libc === "glibc" ? "gnu" : target.libc
-    : null;
-  return [target.npmPlatform, target.npmArch, libc].filter(Boolean).join("-");
-}

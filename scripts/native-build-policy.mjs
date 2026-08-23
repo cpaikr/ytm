@@ -1,3 +1,10 @@
+export function nativeRuntimeKey(target) {
+  const libc = target.npmPlatform === "linux"
+    ? target.libc === "glibc" ? "gnu" : target.libc
+    : null;
+  return [target.npmPlatform, target.npmArch, libc].filter(Boolean).join("-");
+}
+
 export function nativeBuildPlan(manifest, rustTarget) {
   const target = manifest.targets?.find((candidate) => candidate.rustTarget === rustTarget);
   if (!target) throw new Error(`Unknown native target: ${rustTarget}`);
