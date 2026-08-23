@@ -47,10 +47,19 @@ try {
       large: 42n
     };
     circularDetails.self = circularDetails;
+    const sharedDetails = { value: 11 };
     const hostileError = {};
     Object.defineProperty(hostileError, "details", {
       get() { throw new Error("hostile details getter"); }
     });
+    const revoked = Proxy.revocable({}, {});
+    revoked.revoke();
+    let hostileConstructor;
+    try {
+      hostileConstructor = new module.KisnetYtmError(revoked.proxy).details;
+    } catch (caught) {
+      hostileConstructor = { threw: true, name: caught?.name };
+    }
     value = {
       commandHelp: toolset.getCommandHelp("matrix"),
       kindsWithoutInput: await toolset.execute("kinds"),
@@ -65,7 +74,16 @@ try {
       arrayDetails: toolset.serializeError({ details: ["not-an-error-envelope"] }),
       objectDetails: toolset.serializeError({ details: { code: "sentinel" } }),
       foreignDetails: toolset.serializeError({ details: circularDetails }),
-      hostileDetails: toolset.serializeError(hostileError)
+      sharedReferences: toolset.serializeError({
+        details: {
+          code: "foreign_error",
+          reason: "Shared diagnostics",
+          expected: sharedDetails,
+          actual: sharedDetails
+        }
+      }),
+      hostileDetails: toolset.serializeError(hostileError),
+      hostileConstructor
     };
   } else if (request.action === "execute") {
     let context;

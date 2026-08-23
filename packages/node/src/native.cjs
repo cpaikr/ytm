@@ -22,7 +22,7 @@ if (existsSync(local)) {
   } catch (cause) {
     const error = new Error(`The native ytm package for ${key} could not be loaded correctly.`);
     if (missingExpectedPackage(cause, packageName)) {
-      error.code = "YTM_NATIVE_PACKAGE_UNAVAILABLE";
+      error.ytmNativePackageUnavailable = true;
     }
     error.cause = cause;
     throw error;

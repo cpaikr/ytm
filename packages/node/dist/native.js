@@ -137,7 +137,7 @@ function classifyLoaderFailure(cause) {
   }
 
   const missingPackage = chain.some(
-    (error) => error?.code === "YTM_NATIVE_PACKAGE_UNAVAILABLE"
+    (error) => error?.ytmNativePackageUnavailable === true
   );
   if (missingPackage) {
     return nativeLoaderFailure(

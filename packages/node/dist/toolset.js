@@ -580,7 +580,12 @@ function normalizeSerializedError(details) {
     return internalSerializedError("InvalidErrorDetails");
   }
 
-  const sanitized = jsonSafeClone(details);
+  let sanitized;
+  try {
+    sanitized = jsonSafeClone(details);
+  } catch {
+    return internalSerializedError("InvalidErrorDetails");
+  }
   if (!isRecord(sanitized)) return internalSerializedError("InvalidErrorDetails");
   const code = typeof sanitized.code === "string" ? sanitized.code : "internal_error";
   const reason =
@@ -637,7 +642,11 @@ function normalizeRecoveryAction(action, operationName) {
 }
 
 function isRecord(value) {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+  try {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
+  } catch {
+    return false;
+  }
 }
 
 function safeActual(value) {
@@ -663,7 +672,9 @@ function jsonSafeClone(value, seen = new WeakSet()) {
   seen.add(value);
 
   if (Array.isArray(value)) {
-    return value.map((entry) => jsonSafeClone(entry, seen) ?? null);
+    const output = value.map((entry) => jsonSafeClone(entry, seen) ?? null);
+    seen.delete(value);
+    return output;
   }
 
   const output = Object.create(null);
@@ -677,6 +688,7 @@ function jsonSafeClone(value, seen = new WeakSet()) {
     const cloned = jsonSafeClone(entry, seen);
     if (cloned !== undefined) output[key] = cloned;
   }
+  seen.delete(value);
   return output;
 }
 

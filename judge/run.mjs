@@ -161,7 +161,9 @@ runToolset("node-facade-regressions", { action: "facade-regressions", baseDate: 
   check(value?.foreignDetails?.ok === false && value?.foreignDetails?.code === "foreign_error", `${label} foreign error details must remain a failure envelope`);
   check(value?.foreignDetails?.retained?.value === 7 && value?.foreignDetails?.large === "42", `${label} JSON-safe foreign fields must be retained`);
   check(value?.foreignDetails?.self === "[Circular]" && value?.foreignDetails?.ignored === undefined, `${label} cyclic and callable foreign fields must be sanitized`);
+  check(value?.sharedReferences?.expected?.value === 11 && value?.sharedReferences?.actual?.value === 11, `${label} repeated non-cyclic references must not be mistaken for cycles`);
   check(value?.hostileDetails?.code === "internal_error", `${label} hostile error details must fall back to an internal error envelope`);
+  check(value?.hostileConstructor?.code === "internal_error" && value?.hostileConstructor?.threw === undefined, `${label} hostile constructor details must fall back to an internal error envelope`);
 });
 
 const successFixture = fixture([

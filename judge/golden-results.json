@@ -2075,7 +2075,7 @@
         },
         "recoverable": true,
         "retryable": false,
-        "cause": "YTM_NATIVE_PACKAGE_UNAVAILABLE"
+        "cause": "MODULE_NOT_FOUND"
       }
     },
     "stderr": "empty"
@@ -2468,7 +2468,40 @@
         "retryable": false,
         "recoveryHint": "Inspect tool help and retry with the documented recovery action."
       },
+      "sharedReferences": {
+        "code": "foreign_error",
+        "reason": "Shared diagnostics",
+        "expected": {
+          "value": 11
+        },
+        "actual": {
+          "value": 11
+        },
+        "ok": false,
+        "name": "KisnetYtmError",
+        "message": "Shared diagnostics",
+        "recoveryAction": {
+          "kind": "inspect_tool_help"
+        },
+        "recoverable": false,
+        "retryable": false,
+        "recoveryHint": "Inspect tool help and retry with the documented recovery action."
+      },
       "hostileDetails": {
+        "ok": false,
+        "code": "internal_error",
+        "reason": "The Node adapter encountered an internal error.",
+        "recoveryHint": "Update the package for this platform, then report the failure if it persists.",
+        "recoveryAction": {
+          "kind": "update_package"
+        },
+        "recoverable": false,
+        "retryable": false,
+        "cause": "InvalidErrorDetails",
+        "name": "InternalError",
+        "message": "The Node adapter encountered an internal error."
+      },
+      "hostileConstructor": {
         "ok": false,
         "code": "internal_error",
         "reason": "The Node adapter encountered an internal error.",
