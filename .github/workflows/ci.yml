@@ -119,6 +119,10 @@ jobs:
           architecture: ${{ matrix.target.arch }}
           package-manager-cache: false
 
+      - name: Install pinned Linux native build toolchain
+        if: matrix.target.rust == 'x86_64-unknown-linux-gnu' || matrix.target.rust == 'aarch64-unknown-linux-gnu'
+        run: node scripts/install-linux-native-toolchain.mjs
+
       - name: Install Rust target
         run: rustup target add ${{ matrix.target.rust }}
 
@@ -126,7 +130,11 @@ jobs:
         run: cargo run --locked --release -p ytm-cli -- --help
 
       - name: Build production native artifact
-        run: cargo build --locked --release --target ${{ matrix.target.rust }} -p ytm-node
+        run: node scripts/build-native-artifact.mjs ${{ matrix.target.rust }}
+
+      - name: Validate Linux artifact glibc floor
+        if: matrix.target.rust == 'x86_64-unknown-linux-gnu' || matrix.target.rust == 'aarch64-unknown-linux-gnu'
+        run: node scripts/validate-native-artifact.mjs ${{ matrix.target.rust }}
 
       - name: Assemble product packages
         run: |

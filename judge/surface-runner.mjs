@@ -30,12 +30,60 @@ try {
   } else if (request.action === "operation-mutation") {
     const operation = toolset.getOperation("matrix");
     operation.inputJsonSchema.properties.baseDate.description = "mutated";
-    operation.examples[0].input.baseDate = "mutated";
+    operation.examples[0].baseDate = "mutated";
     const listed = toolset.listOperations();
     listed[0].limitations[0] = "mutated";
     value = {
       operation: toolset.getOperation("matrix"),
       listed: toolset.listOperations()[0]
+    };
+  } else if (request.action === "facade-regressions") {
+    const circularDetails = {
+      ok: true,
+      code: "foreign_error",
+      reason: "Foreign failure",
+      retained: { value: 7 },
+      ignored() {},
+      large: 42n
+    };
+    circularDetails.self = circularDetails;
+    const sharedDetails = { value: 11 };
+    const hostileError = {};
+    Object.defineProperty(hostileError, "details", {
+      get() { throw new Error("hostile details getter"); }
+    });
+    const revoked = Proxy.revocable({}, {});
+    revoked.revoke();
+    let hostileConstructor;
+    try {
+      hostileConstructor = new module.KisnetYtmError(revoked.proxy).details;
+    } catch (caught) {
+      hostileConstructor = { threw: true, name: caught?.name };
+    }
+    value = {
+      commandHelp: toolset.getCommandHelp("matrix"),
+      kindsWithoutInput: await toolset.execute("kinds"),
+      nonObject: toolset.validateInput("matrix", null),
+      blankKind: toolset.validateInput("matrix", { baseDate: request.baseDate, kind: "   " }),
+      earlyYearDates: ["0000-02-29", "0001-01-01", "0099-12-31"]
+        .map((baseDate) => toolset.validateInput("matrix", { baseDate, kind: "10" })),
+      invalidEarlyLeapDay: toolset.validateInput("matrix", { baseDate: "0001-02-29", kind: "10" }),
+      nonFiniteKinds: [Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]
+        .map((kind) => toolset.validateInput("matrix", { baseDate: request.baseDate, kind })),
+      scalarDetails: toolset.serializeError({ details: "not-an-error-envelope" }),
+      arrayDetails: toolset.serializeError({ details: ["not-an-error-envelope"] }),
+      objectDetails: toolset.serializeError({ details: { code: "sentinel" } }),
+      foreignDetails: toolset.serializeError({ details: circularDetails }),
+      sharedReferences: toolset.serializeError({
+        details: {
+          code: "foreign_error",
+          reason: "Shared diagnostics",
+          expected: sharedDetails,
+          actual: sharedDetails
+        }
+      }),
+      hostileDetails: toolset.serializeError(hostileError),
+      hostileConstructor
     };
   } else if (request.action === "execute") {
     let context;

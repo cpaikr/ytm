@@ -2,8 +2,9 @@
 
 Release creation is disabled. The repository has no Release Please workflow,
 configuration, or manifest, and no workflow creates release PRs, tags, or
-GitHub Releases. The current `0.2.0` package version is historical; selecting a
-new version, creating a tag, and publishing require separate authorization.
+GitHub Releases. The registry release at `0.2.0` predates the rewrite; the
+checkout retains that version until selecting a new version, creating a tag,
+and publishing are separately authorized.
 
 The repository now contains a public Rust SDK, a standalone Rust/Clap CLI, and
 an SDK-only npm package. This document describes only the implemented Node
@@ -16,7 +17,10 @@ release decision.
 
 [`native-targets.json`](../native-targets.json) owns the supported matrix:
 Linux GNU x64/ARM64, macOS ARM64, and Windows x64. The root package and all four
-native packages share one version.
+native packages share one version. GNU/Linux artifacts target glibc 2.28 or
+newer. Their build policy pins Zig 0.14.1 and `cargo-zigbuild` 0.23.0, including
+the downloaded Zig archive checksums; CI rejects ELF symbol requirements above
+the declared floor before assembly.
 
 CI builds every target on its native GitHub-hosted image and
 clean-installs the packed root and native packages under Node 22, 24, and 26.
@@ -64,18 +68,17 @@ Python source, CI, smoke, and PyPI publishing are absent from the active
 repository. Existing PyPI artifacts and `python-v*` tags remain historical and
 unchanged. Deprecating the PyPI project is outside this cutover.
 
-## Read-only validation
+## Validation
 
-```sh
-cargo install --locked --features cli cargo-about --version 0.9.2
-bun install --frozen-lockfile
-bun run validate
-cargo fmt --all --check
-cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
-cargo test --locked --workspace --all-targets --all-features
-bun run test
-bun run pack:node
-```
+Run the complete [repository validation](../README.md#repository-validation) on
+the exact candidate commit. That recipe includes release-policy checks,
+generated-artifact freshness, Rust and public-surface tests, dependency policy,
+judge sensitivity, and Node package inspection.
+
+These checks do not publish or change external release state. `bun run
+pack:node` does rebuild the tracked Node distribution files before inspecting
+the dry-run tarball; use `bun run build:check` alone when the local checkout must
+remain byte-for-byte unchanged.
 
 `bun run release:check` enforces the absence of Release Please and Python
 release machinery, version alignment across native packages, manual release

@@ -1,6 +1,6 @@
 use std::{fmt, num::NonZeroU8, str::FromStr};
 
-use chrono::NaiveDate;
+use chrono::{Datelike, NaiveDate};
 use indexmap::IndexMap;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
@@ -46,7 +46,10 @@ impl BaseDate {
     }
 
     pub(crate) fn checked_sub_days(self, days: u64) -> Option<Self> {
-        self.0.checked_sub_days(chrono::Days::new(days)).map(Self)
+        self.0
+            .checked_sub_days(chrono::Days::new(days))
+            .filter(|date| (0..=9999).contains(&date.year()))
+            .map(Self)
     }
 }
 
@@ -367,6 +370,13 @@ mod tests {
         for value in ["20260820", "2026-08-20", "2026.08.20"] {
             assert_eq!(value.parse::<BaseDate>().unwrap().to_string(), "2026-08-20");
         }
+        for (value, normalized) in [
+            ("00000229", "0000-02-29"),
+            ("0001-01-01", "0001-01-01"),
+            ("0099.12.31", "0099-12-31"),
+        ] {
+            assert_eq!(value.parse::<BaseDate>().unwrap().to_string(), normalized);
+        }
         for value in ["2026.08-20", "2026-02-30", "2026-0820"] {
             assert_eq!(value.parse::<BaseDate>(), Err(InputError::InvalidBaseDate));
         }
@@ -375,6 +385,10 @@ mod tests {
             BaseDate::new(10_000, 1, 1),
             Err(InputError::InvalidBaseDate)
         );
+        assert!(BaseDate::new(0, 1, 1)
+            .unwrap()
+            .checked_sub_days(1)
+            .is_none());
     }
 
     #[test]

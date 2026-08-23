@@ -75,6 +75,13 @@ The promoted Node-only product repeated the production check during cutover on
 without fallback. The result was streamed into a metadata-only checker; no
 response body, normalized row, raw cell, or yield was written to disk or logs.
 
+The scheduled [`live-smoke.yml`](../.github/workflows/live-smoke.yml) workflow
+now calls the standalone Rust CLI. As of 2026-08-23, no run from the
+post-migration `main` revision has completed; the latest successful scheduled
+run predates that cutover. The first successful Rust-CLI run remains an
+operational evidence task in [`ROADMAP.md`](../ROADMAP.md), not a prerequisite
+for treating the source as production-qualified.
+
 ## Unknowns requiring provider or owner confirmation
 
 - Whether the site terms permit automated access and this specific reuse.

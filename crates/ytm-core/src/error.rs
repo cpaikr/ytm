@@ -2,7 +2,7 @@ use serde::Serialize;
 use serde_json::Value;
 use std::fmt;
 
-use crate::model::{DEFAULT_LOOKBACK_DAYS, MAX_LOOKBACK_DAYS};
+use crate::model::{BaseDate, DEFAULT_LOOKBACK_DAYS, MAX_LOOKBACK_DAYS};
 
 const SOURCE_DATA_UNAVAILABLE_CODE: &str = "source_data_unavailable";
 
@@ -54,6 +54,41 @@ impl std::error::Error for YtmError {}
 impl YtmError {
     pub(crate) fn is_unavailable(&self) -> bool {
         self.details.code == SOURCE_DATA_UNAVAILABLE_CODE
+    }
+
+    pub(crate) fn with_source_context(
+        mut self,
+        operation: &str,
+        attempted_dates: &[BaseDate],
+        lookback_days: u8,
+    ) -> Self {
+        if matches!(
+            self.details.code,
+            "source_transport_error" | "source_format_error" | "source_protocol_error"
+        ) {
+            self.details.operation_name = Some(operation.to_owned());
+            self.details.attempted_dates =
+                Some(attempted_dates.iter().map(ToString::to_string).collect());
+            self.details.lookback_days = Some(lookback_days);
+        }
+        self
+    }
+
+    pub(crate) fn cancelled(operation: &str) -> Self {
+        Self::cancelled_with_reason(operation, "KIS-NET request was cancelled.")
+    }
+
+    pub(crate) fn cancelled_with_reason(operation: &str, reason: impl Into<String>) -> Self {
+        let mut error = Self::transport(reason, None, Some("AbortError"));
+        error.details.operation_name = Some(operation.to_owned());
+        error.details.expected = Some(Value::String(
+            "A request that remains active until completion".into(),
+        ));
+        error.details.recovery_hint =
+            "Start a new request with a non-aborted cancellation signal if the operation is still needed."
+                .into();
+        error.details.recovery_action = "start_new_request";
+        error
     }
 
     pub fn invalid_parameter(
@@ -108,6 +143,7 @@ impl YtmError {
     }
 
     pub fn transport(reason: impl Into<String>, status: Option<u16>, cause: Option<&str>) -> Self {
+        let cancelled = cause == Some("AbortError");
         Self::new(ErrorDetails {
             ok: false,
             code: "source_transport_error",
@@ -121,8 +157,8 @@ impl YtmError {
             example_input: None,
             recovery_hint: "Retry later or inspect whether KIS-NET is available.".into(),
             recovery_action: "inspect_tool_help",
-            recoverable: true,
-            retryable: true,
+            recoverable: !cancelled,
+            retryable: !cancelled,
             source_error_code: None,
             source_error_message: None,
             attempted_dates: None,
@@ -198,10 +234,11 @@ impl YtmError {
         } else {
             format!("KIS-NET returned no YTM Matrix rows for {base_date}. It may be a weekend, holiday, or unavailable source date.")
         };
-        let nearby_date = chrono::NaiveDate::parse_from_str(base_date, "%Y-%m-%d")
+        let nearby_date = base_date
+            .parse::<BaseDate>()
             .ok()
-            .and_then(|date| date.checked_sub_days(chrono::Days::new(1)))
-            .map(|date| date.format("%Y-%m-%d").to_string());
+            .and_then(|date| date.checked_sub_days(1))
+            .map(|date| date.to_string());
         let example_input = if operation == "matrix" && exhausted {
             nearby_date
                 .map(|date| serde_json::json!({ "baseDate": date, "kind": kind.unwrap_or("국채") }))
@@ -284,5 +321,37 @@ impl YtmError {
         Self {
             details: Box::new(details),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn unavailable_recovery_examples_stay_inside_the_base_date_domain() {
+        let error = YtmError::unavailable(
+            "kinds",
+            "0000-01-01",
+            None,
+            vec!["0000-01-01".into()],
+            0,
+            false,
+        );
+
+        assert_eq!(error.details.example_input, Some(serde_json::json!({})));
+    }
+
+    #[test]
+    fn cancellation_metadata_is_terminal_and_actionable() {
+        let error = YtmError::cancelled("matrix");
+
+        assert_eq!(error.details.code, "source_transport_error");
+        assert_eq!(error.details.operation_name.as_deref(), Some("matrix"));
+        assert_eq!(error.details.cause.as_deref(), Some("AbortError"));
+        assert!(!error.details.recoverable);
+        assert!(!error.details.retryable);
+        assert_eq!(error.details.recovery_action, "start_new_request");
+        assert!(error.details.recovery_hint.contains("new request"));
     }
 }

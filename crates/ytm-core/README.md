@@ -19,5 +19,9 @@ Ordinary `kinds` and `matrix` calls create their own cancellation scope. Node
 and other advanced adapters can use the explicitly named
 `*_with_cancellation` methods and `with_transport` injection seam.
 
+The default `YtmClient` uses Reqwest's asynchronous client and must run inside
+a Tokio runtime. Custom `Transport` implementations own their runtime behavior
+and equivalent deadline, redirect, proxy, retry, and cancellation policy.
+
 The crate is not published by this repository workflow; consumers currently
 use a Git or path dependency.

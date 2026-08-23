@@ -25,9 +25,7 @@ The current checkout exposes the Rust implementation as a public Rust SDK,
 through a Node-API-backed Node SDK, and through a standalone Rust/Clap `ytm`
 executable. The Node package has no `bin` entry or JavaScript CLI. All three
 surfaces preserve the product behavior in this contract; their component
-boundary and completion criteria live in
-[`ARCHITECTURE.md`](ARCHITECTURE.md) and
-[`plans/rust-sdk-node-sdk-rust-cli.md`](plans/rust-sdk-node-sdk-rust-cli.md).
+boundaries live in [`ARCHITECTURE.md`](ARCHITECTURE.md).
 
 ## Product behavior
 
@@ -88,14 +86,20 @@ ytm kinds [--base-date <기준일>] [--format json|csv|tsv] [--pretty]
 ```
 
 JSON is the default. A successful JSON command prints exactly one
-`{ "ok": true, "operation", "result" }` object. A failure prints exactly one
-structured JSON object and exits nonzero; data needed to consume the result is
-never available only on stderr.
+`{ "ok": true, "operation", "result" }` object. Execution and invalid-invocation
+failures print exactly one structured JSON object and exit nonzero; data needed
+to consume the result is never available only on stderr. The help lookup
+`ytm help <unknown>` is the sole plain-text failure: it reports the unknown help
+topic and exits with status 2.
 
 `@sjunepark/ytm/toolset` is the Rust-backed Node SDK. It exports
 `createKisnetYtmToolset()` with `help`,
 `listOperations`, `getOperation`, `getCommandHelp`, `validateInput`, `execute`,
-and `serializeError`. Discovery, help, and validation remain network-free.
+and `serializeError`. `help()` and command help return cloned structured
+objects; examples are direct operation inputs. Validation returns either
+`{ ok: true, input }` or `{ ok: false, error }`. Serialized errors retain stable
+`name`, `message`, project error fields, and a tagged `recoveryAction` object.
+Discovery, help, and validation remain network-free.
 Execution accepts cancellation through `AbortSignal`. The rewrite intentionally
 removes the legacy public `context.fetch` injection seam because allowing a
 JavaScript transport would violate the single Rust conformer boundary.

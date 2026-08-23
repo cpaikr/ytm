@@ -34,6 +34,7 @@ impl HttpTransport {
         let client = Client::builder()
             .no_proxy()
             .redirect(Policy::none())
+            .retry(reqwest::retry::never())
             .timeout(Duration::from_secs(REQUEST_DEADLINE_SECONDS))
             .user_agent(format!("ytm/{}", env!("CARGO_PKG_VERSION")))
             .build()
@@ -59,12 +60,9 @@ impl Transport for HttpTransport {
         request: PreparedRequest,
         cancellation: CancellationToken,
     ) -> Result<Vec<u8>, YtmError> {
+        let operation = request.operation;
         if cancellation.is_cancelled() {
-            return Err(YtmError::transport(
-                "KIS-NET request was cancelled.",
-                None,
-                Some("AbortError"),
-            ));
+            return Err(YtmError::cancelled(operation));
         }
         let send = self
             .client
@@ -74,7 +72,7 @@ impl Transport for HttpTransport {
             .body(request.body)
             .send();
         let response = tokio::select! {
-            () = cancellation.cancelled() => return Err(YtmError::transport("KIS-NET request was cancelled.", None, Some("AbortError"))),
+            () = cancellation.cancelled() => return Err(YtmError::cancelled(operation)),
             result = send => result.map_err(|error| YtmError::transport("KIS-NET request failed before a response was received.", None, Some(error_name(&error))))?,
         };
         let status = response.status();
@@ -97,7 +95,7 @@ impl Transport for HttpTransport {
         let mut body = Vec::new();
         loop {
             let next = tokio::select! {
-                () = cancellation.cancelled() => return Err(YtmError::transport("KIS-NET response body read was cancelled.", None, Some("AbortError"))),
+                () = cancellation.cancelled() => return Err(YtmError::cancelled_with_reason(operation, "KIS-NET response body read was cancelled.")),
                 chunk = stream.next() => chunk,
             };
             let Some(chunk) = next else { break };
@@ -288,7 +286,10 @@ mod tests {
         cancellation.cancel();
         let error = client.await.unwrap().unwrap_err();
         assert_eq!(error.details.code, "source_transport_error");
+        assert_eq!(error.details.operation_name.as_deref(), Some("probe"));
         assert_eq!(error.details.cause.as_deref(), Some("AbortError"));
+        assert!(!error.details.recoverable);
+        assert!(!error.details.retryable);
         server.abort();
     }
 

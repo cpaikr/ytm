@@ -7,9 +7,9 @@ Nexacro, and domain implementation. The active checkout exposes that
 implementation as a public Rust SDK, through a Rust-backed Node SDK, and as a
 standalone Rust/Clap CLI. The Node package does not own or distribute the CLI.
 
-[`SPEC.md`](SPEC.md) defines public behavior, and
-[`plans/rust-sdk-node-sdk-rust-cli.md`](plans/rust-sdk-node-sdk-rust-cli.md)
-records the three-surface delivery boundary.
+[`SPEC.md`](SPEC.md) defines public behavior. [`ROADMAP.md`](ROADMAP.md) owns
+remaining verification and future decision boundaries; it is not an account of
+implemented architecture.
 
 Python, browser, edge, Deno, Bun-runtime, proxy discovery, and alternate
 provider implementations are outside the product boundary. Bun remains a
@@ -94,8 +94,9 @@ For a Node SDK call:
 - OpenAPI and its named Nexacro profile are the only wire authority. Fixtures
   and judge expectations are independent evidence.
 - Rust is the only component allowed to know source origins, paths, headers,
-  serialized XML, transport policy, parser rules, dataset mappings, or
-  fallback policy.
+  serialized XML, transport policy, parser rules, dataset mappings, or fallback
+  execution and source semantics. The Node and CLI boundaries may project the
+  public fallback inputs and validate them before calling the SDK.
 - `ytm-core` exposes caller-facing requests, results, capabilities, source
   metadata, and errors from its crate root. Node runtime requirements and CLI
   presentation types stay outside the SDK.
@@ -114,11 +115,14 @@ For a Node SDK call:
   artifacts separately.
 - Discovery may add kinds but cannot remove or redefine canonical values;
   conflicts fail explicitly.
-- Transport is sequential, bounded, redirect-free, proxy-free, and has no
-  automatic retry. Date fallback advances only after confirmed empty data.
+- `ytm-core` invokes transports sequentially. Its default `HttpTransport` is
+  deadline-bounded, redirect-free, proxy-free, and has no automatic retry;
+  custom `Transport` implementations own equivalent transport policy. Date
+  fallback advances only after confirmed empty data.
 - Matrix lookup performs initialization followed by retrieval for each date.
-  The maximum fallback window permits 32 dates and 64 sequential HTTP calls,
-  each with its own 20-second deadline; cancellation is the overall stop.
+  The maximum fallback window permits 32 dates and 64 sequential transport
+  invocations. With the default `HttpTransport`, each call has its own 20-second
+  deadline and cancellation is the overall stop.
 - Stable project error categories and recovery metadata cross adapters;
   dependency messages do not.
 - Native manifests, the loader, optional dependencies, and built JavaScript
@@ -128,7 +132,9 @@ For a Node SDK call:
 
 The current Node SDK requires Node.js 22; CI also validates Node 24 and 26.
 Supported Node native targets are Linux GNU x64/ARM64, macOS ARM64, and Windows
-x64. Each target is built on its native GitHub-hosted image and clean-installed
+x64. Linux artifacts are cross-linked against an explicit glibc 2.28 floor;
+their versioned ELF requirements are checked before packaging. Each target is
+built on its native GitHub-hosted image and clean-installed
 under all three Node majors. The root npm package contains JavaScript only and
 selects an exact-version optional native package at runtime.
 
@@ -139,11 +145,15 @@ release assets, and support claims require a separate release decision.
 
 ## Release boundary
 
+[`docs/release.md`](docs/release.md) is the canonical release-state and
+publication runbook.
+
 No workflow creates release PRs, tags, or GitHub Releases. Release Please and
 the Python release path are absent. The retained Node workflow publishes native
 packages before the root npm package through OIDC only after separate version,
 tag, dispatch, and environment approval.
 
-The current `0.2.0` version remains historical. The SDK/CLI migration does not
+The registry release at `0.2.0` predates the rewrite; the checkout retains that
+version until a new release is authorized. The SDK/CLI migration does not
 authorize crates.io publication, npm publication, CLI binaries or installers,
 GitHub Releases, provider-state changes, or PyPI deprecation.

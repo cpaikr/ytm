@@ -23,8 +23,10 @@ ytm matrix --base-date 2026-06-07 --kind 80 --fallback previous-available --look
   caller authorizes walking backward through calendar dates.
 - Retry fallback only after confirmed unavailable data. Transport, protocol,
   and source-format failures stop immediately.
-- JSON is the default agent-readable output. Failures are structured JSON;
-  inspect their recovery metadata before retrying.
+- JSON is the default agent-readable output. Execution and invalid-invocation
+  failures are structured JSON; inspect their recovery metadata before
+  retrying. `ytm help <unknown>` instead prints a plain-text help error and
+  exits with status 2.
 - Report requested and resolved dates, kind, tenors, and rows by 적용대상채권.
   Source `-` or empty yields become `null` while raw text remains available.
 
@@ -36,6 +38,6 @@ const validation = toolset.validateInput("matrix", {
   baseDate: "2026-06-08",
   kind: "회사채(사모)"
 });
-if (!validation.valid) throw validation.error;
-const result = await toolset.execute("matrix", validation.normalizedInput);
+if (!validation.ok) throw validation.error;
+const result = await toolset.execute("matrix", validation.input);
 ```
