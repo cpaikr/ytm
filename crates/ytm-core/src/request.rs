@@ -122,6 +122,10 @@ mod tests {
             contract["x-ytm-nexacro-profile"]["transport"]["requestDeadlineMilliseconds"].as_u64(),
             Some(crate::REQUEST_DEADLINE_SECONDS * 1_000)
         );
+        assert_eq!(
+            contract["x-ytm-nexacro-profile"]["transport"]["automaticRetries"].as_u64(),
+            Some(0)
+        );
 
         assert_operation(
             &contract,
@@ -135,7 +139,7 @@ mod tests {
             MATRIX_PATH,
             "search1",
             "ds_list=output1",
-            matrix("20260608", "80"),
+            matrix("20260608", "10"),
         );
     }
 
@@ -147,12 +151,17 @@ mod tests {
         request: PreparedRequest,
     ) {
         let operation = &contract["paths"][path]["post"]["x-ytm-nexacro-request"];
+        let example = contract["paths"][path]["post"]["requestBody"]["content"]
+            ["text/xml; charset=UTF-8"]["example"]
+            .as_str()
+            .unwrap();
         assert_eq!(operation["endpoint"].as_str(), Some(path));
         assert_eq!(operation["serviceId"].as_str(), Some(service_id));
         assert_eq!(operation["inDatasets"].as_str(), Some(IN_DATASETS));
         assert_eq!(operation["outDatasets"].as_str(), Some(out_datasets));
         assert_eq!(request.path, path);
         assert_eq!(request.url, format!("{SOURCE_ORIGIN}{path}"));
+        assert_eq!(request.body, example);
         assert!(request
             .body
             .contains(&format!("<Col id=\"svcID\">{service_id}</Col>")));

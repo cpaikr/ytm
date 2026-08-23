@@ -10,56 +10,6 @@ use ytm_core::{
 
 const FORMATS: [&str; 3] = ["json", "csv", "tsv"];
 const MAX_SAFE_INTEGER: f64 = 9_007_199_254_740_991.0;
-const VALUE_OPTIONS: [(&str, &str, &str, &str); 8] = [
-    (
-        "--input-json",
-        "inputJson",
-        "JSON object string",
-        "--input-json requires a JSON object string.",
-    ),
-    (
-        "--base-date",
-        "baseDate",
-        "date",
-        "--base-date requires a 기준일 value.",
-    ),
-    (
-        "--baseDate",
-        "baseDate",
-        "date",
-        "--baseDate requires a 기준일 value.",
-    ),
-    (
-        "--kind",
-        "kind",
-        "종류 label or code",
-        "--kind requires a 종류 value.",
-    ),
-    (
-        "--fallback",
-        "fallback",
-        "previous-available",
-        "--fallback requires a policy value.",
-    ),
-    (
-        "--lookback-days",
-        "lookbackDays",
-        "integer day count",
-        "--lookback-days requires a day count.",
-    ),
-    (
-        "--lookbackDays",
-        "lookbackDays",
-        "integer day count",
-        "--lookbackDays requires a day count.",
-    ),
-    (
-        "--format",
-        "format",
-        "format",
-        "--format requires a format value.",
-    ),
-];
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct ProcessOutput {
@@ -221,30 +171,24 @@ fn parse_invocation(args: &[OsString], tail: &[String]) -> ParseOutcome {
     }
 
     let first = tail[0].as_str();
-    let help_requested = if Operation::parse(first).is_some() {
-        help_requested(&tail[1..])
-    } else {
-        tail[1..]
-            .iter()
-            .any(|argument| matches!(argument.as_str(), "--help" | "-h"))
-    };
-    if matches!(first, "--help" | "-h") || help_requested {
-        return ParseOutcome::Immediate(help_output(first));
-    }
     if first == "help" {
-        return ParseOutcome::Immediate(match tail.get(1) {
-            Some(command) => command_help_output(command),
-            None => stdout_output(0, root_help()),
+        return ParseOutcome::Immediate(help_invocation_output(tail));
+    }
+    if matches!(first, "--help" | "-h") {
+        return ParseOutcome::Immediate(if tail.len() == 1 {
+            stdout_output(0, root_help())
+        } else {
+            invalid_help_invocation_output(&tail[1..])
         });
     }
     let Some(operation) = Operation::parse(first) else {
         return ParseOutcome::Immediate(unknown_command_output(first));
     };
-    if let Some(error) = legacy_syntax_error(operation, &tail[1..]) {
-        return ParseOutcome::Invalid(InvocationError {
-            operation,
-            error: Box::new(error),
-        });
+    if help_requested(&tail[1..]) {
+        return match validate_operation_help(args, operation) {
+            Ok(()) => ParseOutcome::Immediate(command_help_output(operation.name())),
+            Err(error) => ParseOutcome::Invalid(InvocationError { operation, error }),
+        };
     }
 
     let matches = match command().try_get_matches_from(args.iter().cloned()) {
@@ -283,110 +227,65 @@ fn command() -> Command {
 fn operation_command(name: &'static str) -> Command {
     Command::new(name)
         .disable_help_flag(true)
-        .arg(repeated_value("input_json", "input-json", None))
-        .arg(repeated_value("base_date", "base-date", Some("baseDate")))
-        .arg(repeated_value("format", "format", None))
+        .arg(value_arg("base_date", "base-date"))
+        .arg(value_arg("format", "format"))
         .arg(Arg::new("pretty").long("pretty").action(ArgAction::Count))
-        .arg(repeated_value("kind", "kind", None))
-        .arg(repeated_value("fallback", "fallback", None))
-        .arg(repeated_value(
-            "lookback_days",
-            "lookback-days",
-            Some("lookbackDays"),
-        ))
+        .arg(value_arg("kind", "kind"))
+        .arg(value_arg("fallback", "fallback"))
+        .arg(value_arg("lookback_days", "lookback-days"))
 }
 
-fn repeated_value(id: &'static str, long: &'static str, alias: Option<&'static str>) -> Arg {
-    let argument = Arg::new(id)
+fn value_arg(id: &'static str, long: &'static str) -> Arg {
+    Arg::new(id)
         .long(long)
-        .action(ArgAction::Append)
+        .action(ArgAction::Set)
         .allow_hyphen_values(true)
-        .num_args(1);
-    alias.map_or(argument.clone(), |value| argument.alias(value))
+        .num_args(1)
 }
 
 fn invocation_from_matches(
     operation: Operation,
     matches: &ArgMatches,
 ) -> Result<ParsedInvocation, Box<CliError>> {
-    let mut events = Vec::new();
-    let ids = &[
-        "input_json",
-        "base_date",
-        "kind",
-        "fallback",
-        "lookback_days",
-        "format",
-    ];
-    for &id in ids {
-        let Some(indices) = matches.indices_of(id) else {
-            continue;
-        };
-        let values = matches
-            .get_many::<String>(id)
-            .expect("Clap indices and values are paired");
-        events.extend(
-            indices
-                .zip(values)
-                .map(|(index, value)| (index, id, value.clone())),
-        );
-    }
-    events.sort_by_key(|(index, _, _)| *index);
-
     let mut input = Map::new();
-    let mut format = OutputFormat::Json;
-    for (_, id, value) in events {
-        match id {
-            "input_json" => {
-                let parsed = serde_json::from_str::<Value>(&value).map_err(|error| {
-                    Box::new(cli_error(
-                        operation,
-                        "invalid_parameter",
-                        "inputJson",
-                        format!("Invalid JSON: {error}"),
-                        json!("JSON object string"),
-                        Some(Value::String(value.clone())),
-                    ))
-                })?;
-                assign_json(&mut input, parsed);
-            }
-            "base_date" => {
-                input.insert("baseDate".into(), Value::String(value));
-            }
-            "kind" => {
-                input.insert("kind".into(), Value::String(value));
-            }
-            "fallback" => {
-                input.insert("fallback".into(), Value::String(value));
-            }
-            "lookback_days" => {
-                let parsed = if value.bytes().all(|byte| byte.is_ascii_digit()) {
-                    value
-                        .parse::<u64>()
-                        .ok()
-                        .map(Number::from)
-                        .map(Value::Number)
-                        .unwrap_or_else(|| Value::String(value))
-                } else {
-                    Value::String(value)
-                };
-                input.insert("lookbackDays".into(), parsed);
-            }
-            "format" => {
-                format = OutputFormat::parse(&value).ok_or_else(|| {
-                    Box::new(cli_error(
-                        operation,
-                        "invalid_parameter",
-                        "format",
-                        "Unsupported format.",
-                        json!(FORMATS),
-                        Some(Value::String(value)),
-                    ))
-                })?;
-            }
-            _ => unreachable!("all event IDs are enumerated"),
-        }
+    if let Some(value) = matches.get_one::<String>("base_date") {
+        input.insert("baseDate".into(), Value::String(value.clone()));
     }
+    if let Some(value) = matches.get_one::<String>("kind") {
+        input.insert("kind".into(), Value::String(value.clone()));
+    }
+    if let Some(value) = matches.get_one::<String>("fallback") {
+        input.insert("fallback".into(), Value::String(value.clone()));
+    }
+    if let Some(value) = matches.get_one::<String>("lookback_days") {
+        let parsed = if value.bytes().all(|byte| byte.is_ascii_digit()) {
+            value
+                .parse::<u64>()
+                .ok()
+                .map(Number::from)
+                .map(Value::Number)
+                .unwrap_or_else(|| Value::String(value.clone()))
+        } else {
+            Value::String(value.clone())
+        };
+        input.insert("lookbackDays".into(), parsed);
+    }
+    let format = matches
+        .get_one::<String>("format")
+        .map(|value| {
+            OutputFormat::parse(value).ok_or_else(|| {
+                Box::new(cli_error(
+                    operation,
+                    "invalid_parameter",
+                    "format",
+                    "Unsupported format.",
+                    json!(FORMATS),
+                    Some(Value::String(value.clone())),
+                ))
+            })
+        })
+        .transpose()?
+        .unwrap_or(OutputFormat::Json);
 
     Ok(ParsedInvocation {
         operation,
@@ -396,97 +295,71 @@ fn invocation_from_matches(
     })
 }
 
-fn assign_json(target: &mut Map<String, Value>, source: Value) {
-    match source {
-        Value::Object(values) => {
-            for (key, value) in values {
-                target.insert(key, value);
-            }
-        }
-        Value::Array(values) => {
-            for (index, value) in values.into_iter().enumerate() {
-                target.insert(index.to_string(), value);
-            }
-        }
-        Value::String(value) => {
-            for (index, character) in value.chars().enumerate() {
-                target.insert(index.to_string(), Value::String(character.to_string()));
-            }
-        }
-        Value::Null | Value::Bool(_) | Value::Number(_) => {}
-    }
-}
-
 fn help_requested(args: &[String]) -> bool {
     let mut index = 0;
+    let mut requested = false;
+    let mut seen = std::collections::HashSet::new();
     while index < args.len() {
         if matches!(args[index].as_str(), "--help" | "-h") {
-            return true;
-        }
-        if args[index] == "--pretty" {
+            requested = true;
             index += 1;
-        } else if VALUE_OPTIONS
-            .iter()
-            .any(|(flag, _, _, _)| *flag == args[index])
-        {
+        } else if args[index] == "--pretty" {
+            if !seen.insert("--pretty") {
+                return false;
+            }
+            index += 1;
+        } else if matches!(
+            args[index].as_str(),
+            "--base-date" | "--kind" | "--fallback" | "--lookback-days" | "--format"
+        ) {
+            if !seen.insert(args[index].as_str()) {
+                return false;
+            }
+            let Some(value) = args.get(index + 1) else {
+                return false;
+            };
+            if value.starts_with("--") || value == "-h" {
+                return false;
+            }
             index += 2;
         } else {
-            index += 1;
+            return false;
         }
     }
-    false
+    requested
 }
 
-fn legacy_syntax_error(operation: Operation, args: &[String]) -> Option<CliError> {
-    let mut index = 0;
-    while index < args.len() {
-        if args[index] == "--pretty" {
-            index += 1;
-            continue;
-        }
-        if let Some((_, parameter, expected, reason)) = VALUE_OPTIONS
-            .iter()
-            .find(|(flag, _, _, _)| *flag == args[index])
-        {
-            let raw = args.get(index + 1);
-            if args[index] == "--format" {
-                if raw.is_none_or(|value| !FORMATS.contains(&value.as_str())) {
-                    return Some(cli_error(
-                        operation,
-                        "invalid_parameter",
-                        "format",
-                        "Unsupported format.",
-                        json!(FORMATS),
-                        raw.cloned().map(Value::String),
-                    ));
-                }
-                index += 2;
-                continue;
-            }
-            if raw.is_none_or(String::is_empty) {
-                return Some(cli_error(
-                    operation,
-                    "missing_parameter",
-                    parameter,
-                    *reason,
-                    json!(expected),
-                    None,
-                ));
-            }
-            index += 2;
-            continue;
-        }
-        let argument = args[index].clone();
-        return Some(cli_error(
+fn validate_operation_help(args: &[OsString], operation: Operation) -> Result<(), Box<CliError>> {
+    let filtered = args
+        .iter()
+        .filter(|argument| !matches!(argument.to_str(), Some("--help" | "-h")))
+        .cloned()
+        .collect::<Vec<_>>();
+    let matches = command().try_get_matches_from(filtered).map_err(|_| {
+        Box::new(cli_error(
             operation,
-            "unknown_parameter",
-            &argument,
-            format!("Unknown option: {argument}."),
+            "invalid_request",
+            "input",
+            "Invalid command invocation.",
             json!("supported CLI options"),
-            Some(Value::String(argument.clone())),
-        ));
+            None,
+        ))
+    })?;
+    let (_, subcommand) = matches
+        .subcommand()
+        .expect("known operation parsed as a Clap subcommand");
+    let mut invocation = invocation_from_matches(operation, subcommand)?;
+    if operation == Operation::Matrix {
+        invocation
+            .input
+            .entry("baseDate")
+            .or_insert_with(|| json!("2000-01-01"));
+        invocation
+            .input
+            .entry("kind")
+            .or_insert_with(|| json!("10"));
     }
-    None
+    validate_input(operation, &invocation.input).map(|_| ())
 }
 
 fn validate_input(
@@ -958,13 +831,6 @@ fn invalid_output(failure: InvocationError) -> ProcessOutput {
     }
 }
 
-fn help_output(first: &str) -> ProcessOutput {
-    match first {
-        "--help" | "-h" | "help" => stdout_output(0, root_help()),
-        command => command_help_output(command),
-    }
-}
-
 fn command_help_output(command: &str) -> ProcessOutput {
     match Operation::parse(command) {
         Some(operation) => stdout_output(0, command_help(operation)),
@@ -972,6 +838,36 @@ fn command_help_output(command: &str) -> ProcessOutput {
             2,
             format!("Unknown command: {command}\nRun ytm --help for available commands.\n"),
         ),
+    }
+}
+
+fn help_invocation_output(tail: &[String]) -> ProcessOutput {
+    match tail {
+        [_] => stdout_output(0, root_help()),
+        [_, flag] if matches!(flag.as_str(), "--help" | "-h") => stdout_output(0, root_help()),
+        [_, command] => command_help_output(command),
+        [_, command, flag] if matches!(flag.as_str(), "--help" | "-h") => {
+            command_help_output(command)
+        }
+        _ => invalid_help_invocation_output(&tail[1..]),
+    }
+}
+
+fn invalid_help_invocation_output(actual: &[String]) -> ProcessOutput {
+    let error = json!({
+        "code": "invalid_request",
+        "reason": "Invalid help invocation.",
+        "expected": ["help", "help --help", "help <command>", "help <command> --help"],
+        "actual": actual,
+        "recoveryHint": "Run ytm --help or ytm help <command> without trailing arguments.",
+        "recoveryAction": "inspect_tool_help",
+        "recoverable": true,
+        "retryable": false
+    });
+    ProcessOutput {
+        code: 2,
+        stdout: encode_json(&json!({ "ok": false, "error": error }), false),
+        stderr: format!("\n{}", root_help()),
     }
 }
 
@@ -1018,10 +914,10 @@ fn tool_help() -> String {
 fn command_help(operation: Operation) -> String {
     let body = match operation {
         Operation::Matrix => format!(
-            "matrix\n  Input JSON: {{ \"baseDate\": \"2026-06-08\", \"kind\": \"국채\" }}\n  Optional fallback: {{ \"fallback\": \"previous-available\", \"lookbackDays\": {DEFAULT_LOOKBACK_DAYS} }}\n  baseDate maps to 기준일 and accepts YYYY-MM-DD, YYYY.MM.DD, or YYYYMMDD.\n  kind maps to 종류 and accepts one of these Korean labels or source codes:\n{}\n  fallback=previous-available tries the requested date once, then walks backward until rows are found.\n  lookbackDays defaults to {DEFAULT_LOOKBACK_DAYS} and may not exceed {MAX_LOOKBACK_DAYS}.\n  Run kinds to print this list as JSON, CSV, or TSV.\n  Result rows include 적용대상채권, tenors 3M through 50Y, and dateResolution metadata.",
+            "matrix\n  Required: --base-date <기준일> --kind <종류>\n  Optional: --fallback previous-available --lookback-days <days>\n  Output: --format json|csv|tsv [--pretty]\n  base-date accepts YYYY-MM-DD, YYYY.MM.DD, or YYYYMMDD.\n  kind maps to 종류 and accepts one of these Korean labels or source codes:\n{}\n  fallback=previous-available tries the requested date once, then walks backward until rows are found.\n  lookback-days defaults to {DEFAULT_LOOKBACK_DAYS} and may not exceed {MAX_LOOKBACK_DAYS}.\n  Run ytm kinds to print accepted kinds as JSON, CSV, or TSV.\n  Result rows include 적용대상채권, tenors 3M through 50Y, and dateResolution metadata.",
             formatted_kinds("    ")
         ),
-        Operation::Kinds => "kinds\n  Input JSON: {} or { \"baseDate\": \"2026-06-08\" }\n  Returns accepted 종류 source codes and Korean labels.".into(),
+        Operation::Kinds => "kinds\n  Optional: --base-date <기준일>\n  Output: --format json|csv|tsv [--pretty]\n  base-date accepts YYYY-MM-DD, YYYY.MM.DD, or YYYYMMDD.\n  Returns accepted 종류 source codes and Korean labels.".into(),
     };
     let example = match operation {
         Operation::Matrix => "ytm matrix --base-date 2026-06-08 --kind 국채 --format json",
@@ -1044,6 +940,18 @@ mod tests {
     use super::*;
     use pretty_assertions::assert_eq;
 
+    fn assert_structured_failure(output: &ProcessOutput, operation: Option<&str>) {
+        assert_eq!(output.code, 2);
+        assert_eq!(output.stdout.lines().count(), 1);
+        let envelope: Value = serde_json::from_str(&output.stdout).unwrap();
+        assert_eq!(envelope["ok"], false);
+        assert!(envelope["error"].is_object());
+        if let Some(operation) = operation {
+            assert_eq!(envelope["error"]["operationName"], operation);
+        }
+        assert!(!output.stderr.is_empty());
+    }
+
     #[tokio::test]
     async fn root_and_command_help_keep_stdout_clean() {
         let root = run(vec!["ytm".into(), "--help".into()]).await;
@@ -1060,45 +968,95 @@ mod tests {
         let command = run(vec!["ytm".into(), "matrix".into(), "--help".into()]).await;
         assert_eq!(command.code, 0);
         assert!(command.stdout.contains("CLI example:"));
+        assert!(!command.stdout.contains("Input JSON"));
         assert_eq!(command.stderr, "");
 
         let unknown = run(vec!["ytm".into(), "not-a-command".into(), "--help".into()]).await;
-        assert_eq!(unknown.code, 2);
-        assert!(unknown.stdout.starts_with("Unknown command: not-a-command"));
-        assert_eq!(unknown.stderr, "");
+        assert_structured_failure(&unknown, None);
+        let unknown_envelope: Value = serde_json::from_str(&unknown.stdout).unwrap();
+        assert_eq!(unknown_envelope["ok"], false);
+        assert_eq!(unknown_envelope["error"]["code"], "invalid_request");
+        assert!(unknown.stderr.contains("CLI usage:"));
 
         let help = run(vec!["ytm".into(), "help".into(), "--help".into()]).await;
         assert_eq!(help.code, 0);
         assert!(help.stdout.contains("CLI usage:"));
         assert_eq!(help.stderr, "");
 
-        for (flag, help_value) in [("--kind", "-h"), ("--base-date", "--help")] {
-            let args = ["ytm", "matrix", flag, help_value]
-                .into_iter()
-                .map(OsString::from)
-                .collect::<Vec<_>>();
-            let tail = args[1..]
-                .iter()
-                .map(|value| value.to_string_lossy().into_owned())
-                .collect::<Vec<_>>();
-            assert!(matches!(
-                parse_invocation(&args, &tail),
-                ParseOutcome::Execute(_)
-            ));
+        let unknown_help = run(vec!["ytm".into(), "help".into(), "not-a-command".into()]).await;
+        assert_eq!(unknown_help.code, 2);
+        assert!(unknown_help
+            .stdout
+            .starts_with("Unknown command: not-a-command"));
+        assert_eq!(unknown_help.stderr, "");
+
+        let unknown_help_flag = run(vec![
+            "ytm".into(),
+            "help".into(),
+            "not-a-command".into(),
+            "--help".into(),
+        ])
+        .await;
+        assert_eq!(unknown_help_flag.code, 2);
+        assert!(unknown_help_flag
+            .stdout
+            .starts_with("Unknown command: not-a-command"));
+        assert_eq!(unknown_help_flag.stderr, "");
+
+        let requested_help = run(vec![
+            "ytm".into(),
+            "help".into(),
+            "matrix".into(),
+            "--help".into(),
+        ])
+        .await;
+        assert_eq!(requested_help.code, 0);
+        assert!(requested_help.stdout.contains("CLI example:"));
+        assert_eq!(requested_help.stderr, "");
+
+        for malformed in [
+            vec!["ytm", "--help", "--bogus"],
+            vec!["ytm", "-h", "extra"],
+            vec!["ytm", "help", "matrix", "--bogus"],
+            vec!["ytm", "help", "matrix", "extra"],
+            vec![
+                "ytm",
+                "matrix",
+                "--help",
+                "--base-date",
+                "2026-06-08",
+                "--base-date",
+                "2026-06-09",
+            ],
+            vec!["ytm", "matrix", "--help", "--base-date", "--unknown"],
+            vec!["ytm", "matrix", "--help", "--format", "yaml"],
+            vec!["ytm", "matrix", "--help", "--fallback", "nope"],
+            vec!["ytm", "matrix", "--help", "--lookback-days", "0"],
+        ] {
+            let output = run(malformed.into_iter().map(OsString::from).collect()).await;
+            assert_structured_failure(&output, None);
         }
 
-        let args = ["ytm", "matrix", "--format", "--help"]
-            .into_iter()
-            .map(OsString::from)
-            .collect::<Vec<_>>();
-        let tail = args[1..]
-            .iter()
-            .map(|value| value.to_string_lossy().into_owned())
-            .collect::<Vec<_>>();
-        assert!(matches!(
-            parse_invocation(&args, &tail),
-            ParseOutcome::Invalid(_)
-        ));
+        let value_help = run(vec![
+            "ytm".into(),
+            "matrix".into(),
+            "--base-date".into(),
+            "2026-06-08".into(),
+            "--help".into(),
+        ])
+        .await;
+        assert_eq!(value_help.code, 0);
+        assert!(value_help.stdout.contains("CLI example:"));
+        assert_eq!(value_help.stderr, "");
+
+        let help_as_value = run(vec![
+            "ytm".into(),
+            "matrix".into(),
+            "--format".into(),
+            "--help".into(),
+        ])
+        .await;
+        assert_structured_failure(&help_as_value, Some("matrix"));
     }
 
     #[tokio::test]
@@ -1118,24 +1076,13 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn invalid_invocations_preserve_the_removed_cli_contract() {
+    async fn invalid_invocations_are_structured_and_use_exit_two() {
         let unknown = run(vec!["ytm".into(), "not-a-command".into()]).await;
-        assert_eq!(unknown.code, 2);
+        assert_structured_failure(&unknown, None);
+        let unknown_envelope: Value = serde_json::from_str(&unknown.stdout).unwrap();
         assert_eq!(
-            serde_json::from_str::<Value>(&unknown.stdout).unwrap(),
-            json!({
-                "ok": false,
-                "error": {
-                    "code": "invalid_request",
-                    "reason": "Unknown command: not-a-command.",
-                    "expected": ["matrix", "kinds"],
-                    "actual": "not-a-command",
-                    "recoveryHint": "Run ytm --help and retry with a listed command.",
-                    "recoveryAction": "inspect_tool_help",
-                    "recoverable": true,
-                    "retryable": false
-                }
-            })
+            unknown_envelope["error"]["reason"],
+            "Unknown command: not-a-command."
         );
 
         let cross_command = run(vec![
@@ -1145,25 +1092,15 @@ mod tests {
             "10".into(),
         ])
         .await;
-        let envelope: Value = serde_json::from_str(&cross_command.stdout).unwrap();
-        assert_eq!(envelope["error"]["code"], "unknown_parameter");
-        assert_eq!(envelope["error"]["parameter"], "kind");
-        assert_eq!(envelope["error"]["exampleInput"], json!({}));
+        assert_structured_failure(&cross_command, Some("kinds"));
 
         for args in [
             vec!["ytm", "matrix", "--format"],
             vec!["ytm", "matrix", "--format", ""],
+            vec!["ytm", "matrix", "--unknown-option", "value"],
         ] {
-            let has_empty_value = args.last() == Some(&"");
             let output = run(args.into_iter().map(OsString::from).collect()).await;
-            let envelope: Value = serde_json::from_str(&output.stdout).unwrap();
-            assert_eq!(envelope["error"]["code"], "invalid_parameter");
-            assert_eq!(envelope["error"]["parameter"], "format");
-            if has_empty_value {
-                assert_eq!(envelope["error"]["actual"], "");
-            } else {
-                assert!(envelope["error"].get("actual").is_none());
-            }
+            assert_structured_failure(&output, Some("matrix"));
         }
 
         let empty_date = run(vec![
@@ -1175,10 +1112,7 @@ mod tests {
         .await;
         let envelope: Value = serde_json::from_str(&empty_date.stdout).unwrap();
         assert_eq!(envelope["error"]["code"], "missing_parameter");
-        assert_eq!(
-            envelope["error"]["reason"],
-            "--base-date requires a 기준일 value."
-        );
+        assert_eq!(envelope["error"]["parameter"], "baseDate");
 
         let fallback = run(vec![
             "ytm".into(),
@@ -1204,63 +1138,66 @@ mod tests {
     }
 
     #[test]
-    fn input_json_and_flags_replay_in_argv_order() {
+    fn documented_flags_are_kebab_case_and_parse_without_merging() {
         let args = [
             "ytm",
             "matrix",
+            "--base-date",
+            "20260608",
             "--kind",
             "10",
-            "--input-json",
-            r#"{"kind":"20","baseDate":"20260608"}"#,
-            "--kind",
-            "80",
+            "--fallback",
+            "previous-available",
+            "--lookback-days",
+            "2",
+            "--format",
+            "json",
+            "--pretty",
         ]
         .into_iter()
         .map(OsString::from)
         .collect::<Vec<_>>();
-        let ParseOutcome::Execute(invocation) = parse_invocation(
-            &args,
-            &args[1..]
-                .iter()
-                .map(|value| value.to_string_lossy().into_owned())
-                .collect::<Vec<_>>(),
-        ) else {
-            panic!("invocation should parse");
+        let tail = args[1..]
+            .iter()
+            .map(|value| value.to_string_lossy().into_owned())
+            .collect::<Vec<_>>();
+        let ParseOutcome::Execute(invocation) = parse_invocation(&args, &tail) else {
+            panic!("documented invocation should parse");
         };
         assert_eq!(invocation.input["baseDate"], "20260608");
-        assert_eq!(invocation.input["kind"], "80");
+        assert_eq!(invocation.input["kind"], "10");
+        assert_eq!(invocation.input["fallback"], "previous-available");
+        assert_eq!(invocation.input["lookbackDays"], 2);
+        assert_eq!(invocation.format, OutputFormat::Json);
+        assert!(invocation.pretty);
     }
 
-    #[test]
-    fn input_json_preserves_required_field_and_numeric_kind_semantics() {
-        for base_date in [Value::Null, Value::String(String::new())] {
-            let input =
-                Map::from_iter([("baseDate".into(), base_date), ("kind".into(), json!(10))]);
-            let error = validate_input(Operation::Matrix, &input).unwrap_err();
-            assert_eq!(error.code, "missing_parameter");
-            assert_eq!(error.parameter.as_deref(), Some("baseDate"));
-        }
-
-        for kind in [Value::Null, Value::String(String::new())] {
-            let input = Map::from_iter([
-                ("baseDate".into(), json!("2026-06-08")),
-                ("kind".into(), kind),
-            ]);
-            let error = validate_input(Operation::Matrix, &input).unwrap_err();
-            assert_eq!(error.code, "missing_parameter");
-            assert_eq!(error.parameter.as_deref(), Some("kind"));
-        }
-
-        for kind in [json!(10.0), json!(1e1)] {
-            let input = Map::from_iter([
-                ("baseDate".into(), json!("2026-06-08")),
-                ("kind".into(), kind),
-            ]);
-            let ValidatedInput::Matrix(input) = validate_input(Operation::Matrix, &input).unwrap()
-            else {
-                panic!("matrix input should remain a matrix input");
+    #[tokio::test]
+    async fn removed_flags_are_structured_invalid_invocations() {
+        for flag in ["--input-json", "--baseDate", "--lookbackDays"] {
+            let value = if flag == "--input-json" {
+                "{}"
+            } else if flag == "--baseDate" {
+                "2026-06-08"
+            } else {
+                "2"
             };
-            assert_eq!(input.kind.as_str(), "10");
+            let args = vec![
+                "ytm".into(),
+                "matrix".into(),
+                "--base-date".into(),
+                "2026-06-08".into(),
+                "--kind".into(),
+                "10".into(),
+                flag.into(),
+                value.into(),
+            ];
+            let mut with_help = args.clone();
+            with_help.push("--help".into());
+            let output = run(args).await;
+            assert_structured_failure(&output, Some("matrix"));
+            let output_with_help = run(with_help).await;
+            assert_structured_failure(&output_with_help, Some("matrix"));
         }
     }
 

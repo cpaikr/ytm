@@ -30,12 +30,27 @@ try {
   } else if (request.action === "operation-mutation") {
     const operation = toolset.getOperation("matrix");
     operation.inputJsonSchema.properties.baseDate.description = "mutated";
-    operation.examples[0].input.baseDate = "mutated";
+    operation.examples[0].baseDate = "mutated";
     const listed = toolset.listOperations();
     listed[0].limitations[0] = "mutated";
     value = {
       operation: toolset.getOperation("matrix"),
       listed: toolset.listOperations()[0]
+    };
+  } else if (request.action === "facade-regressions") {
+    value = {
+      commandHelp: toolset.getCommandHelp("matrix"),
+      kindsWithoutInput: await toolset.execute("kinds"),
+      nonObject: toolset.validateInput("matrix", null),
+      blankKind: toolset.validateInput("matrix", { baseDate: request.baseDate, kind: "   " }),
+      earlyYearDates: ["0000-02-29", "0001-01-01", "0099-12-31"]
+        .map((baseDate) => toolset.validateInput("matrix", { baseDate, kind: "10" })),
+      invalidEarlyLeapDay: toolset.validateInput("matrix", { baseDate: "0001-02-29", kind: "10" }),
+      nonFiniteKinds: [Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]
+        .map((kind) => toolset.validateInput("matrix", { baseDate: request.baseDate, kind })),
+      scalarDetails: toolset.serializeError({ details: "not-an-error-envelope" }),
+      arrayDetails: toolset.serializeError({ details: ["not-an-error-envelope"] }),
+      objectDetails: toolset.serializeError({ details: { code: "sentinel" } })
     };
   } else if (request.action === "execute") {
     let context;

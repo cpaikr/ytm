@@ -28,6 +28,6 @@ const validation = toolset.validateInput("matrix", {
   baseDate: "2026-06-08",
   kind: "회사채(사모)"
 });
-if (!validation.valid) throw validation.error;
-const result = await toolset.execute("matrix", validation.normalizedInput);
+if (!validation.ok) throw validation.error;
+const result = await toolset.execute("matrix", validation.input);
 ```

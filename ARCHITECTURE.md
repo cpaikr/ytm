@@ -115,11 +115,14 @@ For a Node SDK call:
   artifacts separately.
 - Discovery may add kinds but cannot remove or redefine canonical values;
   conflicts fail explicitly.
-- Transport is sequential, bounded, redirect-free, proxy-free, and has no
-  automatic retry. Date fallback advances only after confirmed empty data.
+- `ytm-core` invokes transports sequentially. Its default `HttpTransport` is
+  deadline-bounded, redirect-free, proxy-free, and has no automatic retry;
+  custom `Transport` implementations own equivalent transport policy. Date
+  fallback advances only after confirmed empty data.
 - Matrix lookup performs initialization followed by retrieval for each date.
-  The maximum fallback window permits 32 dates and 64 sequential HTTP calls,
-  each with its own 20-second deadline; cancellation is the overall stop.
+  The maximum fallback window permits 32 dates and 64 sequential transport
+  invocations. With the default `HttpTransport`, each call has its own 20-second
+  deadline and cancellation is the overall stop.
 - Stable project error categories and recovery metadata cross adapters;
   dependency messages do not.
 - Native manifests, the loader, optional dependencies, and built JavaScript
@@ -129,7 +132,9 @@ For a Node SDK call:
 
 The current Node SDK requires Node.js 22; CI also validates Node 24 and 26.
 Supported Node native targets are Linux GNU x64/ARM64, macOS ARM64, and Windows
-x64. Each target is built on its native GitHub-hosted image and clean-installed
+x64. Linux artifacts are cross-linked against an explicit glibc 2.28 floor;
+their versioned ELF requirements are checked before packaging. Each target is
+built on its native GitHub-hosted image and clean-installed
 under all three Node majors. The root npm package contains JavaScript only and
 selects an exact-version optional native package at runtime.
 

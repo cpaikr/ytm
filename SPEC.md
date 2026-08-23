@@ -95,7 +95,11 @@ topic and exits with status 2.
 `@sjunepark/ytm/toolset` is the Rust-backed Node SDK. It exports
 `createKisnetYtmToolset()` with `help`,
 `listOperations`, `getOperation`, `getCommandHelp`, `validateInput`, `execute`,
-and `serializeError`. Discovery, help, and validation remain network-free.
+and `serializeError`. `help()` and command help return cloned structured
+objects; examples are direct operation inputs. Validation returns either
+`{ ok: true, input }` or `{ ok: false, error }`. Serialized errors retain stable
+`name`, `message`, project error fields, and a tagged `recoveryAction` object.
+Discovery, help, and validation remain network-free.
 Execution accepts cancellation through `AbortSignal`. The rewrite intentionally
 removes the legacy public `context.fetch` injection seam because allowing a
 JavaScript transport would violate the single Rust conformer boundary.

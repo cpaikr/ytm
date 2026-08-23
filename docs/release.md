@@ -17,7 +17,10 @@ release decision.
 
 [`native-targets.json`](../native-targets.json) owns the supported matrix:
 Linux GNU x64/ARM64, macOS ARM64, and Windows x64. The root package and all four
-native packages share one version.
+native packages share one version. GNU/Linux artifacts target glibc 2.28 or
+newer. Their build policy pins Zig 0.14.1 and `cargo-zigbuild` 0.23.0, including
+the downloaded Zig archive checksums; CI rejects ELF symbol requirements above
+the declared floor before assembly.
 
 CI builds every target on its native GitHub-hosted image and
 clean-installs the packed root and native packages under Node 22, 24, and 26.

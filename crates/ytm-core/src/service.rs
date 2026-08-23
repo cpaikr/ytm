@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use indexmap::IndexMap;
 use serde_json::json;
@@ -47,8 +47,9 @@ impl YtmService {
         input: KindsInput,
         cancellation: CancellationToken,
     ) -> Result<KindsResult, YtmError> {
+        check_cancellation(&cancellation, "kinds")?;
         let Some(base_date) = input.base_date else {
-            return Ok(KindsResult {
+            let result = KindsResult {
                 base_date: None,
                 kinds: canonical_kinds(),
                 source: SourceMetadata {
@@ -59,10 +60,22 @@ impl YtmService {
                     inspected_workflow: None,
                     note: Some("Canonical 종류 catalog owned by the Rust ytm core. Provide baseDate to merge live discovery."),
                 },
-            });
+            };
+            check_cancellation(&cancellation, "kinds")?;
+            return Ok(result);
         };
         let compact = base_date.compact();
-        self.kinds_for_date(base_date, &compact, cancellation).await
+        let result = self
+            .kinds_for_date(base_date, &compact, &cancellation)
+            .await;
+        if cancellation.is_cancelled() {
+            return Err(YtmError::cancelled("kinds").with_source_context(
+                "kinds",
+                std::slice::from_ref(&base_date),
+                0,
+            ));
+        }
+        result
     }
 
     pub async fn matrix(&self, input: MatrixInput) -> Result<MatrixResult, YtmError> {
@@ -75,6 +88,7 @@ impl YtmService {
         input: MatrixInput,
         cancellation: CancellationToken,
     ) -> Result<MatrixResult, YtmError> {
+        check_cancellation(&cancellation, "matrix")?;
         let requested_date = input.base_date;
         let kind_input = input.kind.as_str().to_owned();
         let (fallback, lookback_days) = match input.fallback {
@@ -85,6 +99,13 @@ impl YtmService {
         };
         let mut attempted_dates = Vec::new();
         for offset in 0..=u64::from(lookback_days) {
+            if cancellation.is_cancelled() {
+                return Err(YtmError::cancelled("matrix").with_source_context(
+                    "matrix",
+                    &attempted_dates,
+                    lookback_days,
+                ));
+            }
             let date = requested_date.checked_sub_days(offset).ok_or_else(|| {
                 YtmError::invalid_parameter(
                     "matrix",
@@ -94,13 +115,23 @@ impl YtmService {
                 )
             })?;
             let compact = date.compact();
+            check_cancellation(&cancellation, "matrix").map_err(|error| {
+                error.with_source_context("matrix", &attempted_dates, lookback_days)
+            })?;
             attempted_dates.push(date);
-            match self
+            let result = self
                 .matrix_for_date(date, &compact, &kind_input, cancellation.clone())
-                .await
-            {
+                .await;
+            if cancellation.is_cancelled() {
+                return Err(YtmError::cancelled("matrix").with_source_context(
+                    "matrix",
+                    &attempted_dates,
+                    lookback_days,
+                ));
+            }
+            match result {
                 Ok((kind, rows, source)) => {
-                    return Ok(MatrixResult {
+                    let result = MatrixResult {
                         base_date: date,
                         requested_base_date: requested_date,
                         date_resolution: DateResolution {
@@ -108,7 +139,7 @@ impl YtmService {
                             requested_base_date: requested_date,
                             resolved_base_date: date,
                             used_fallback: date != requested_date,
-                            attempted_dates,
+                            attempted_dates: attempted_dates.clone(),
                             lookback_days,
                         },
                         kind,
@@ -118,13 +149,24 @@ impl YtmService {
                             .collect(),
                         rows,
                         source,
-                    });
+                    };
+                    check_cancellation(&cancellation, "matrix").map_err(|error| {
+                        error.with_source_context("matrix", &attempted_dates, lookback_days)
+                    })?;
+                    return Ok(result);
                 }
                 Err(error)
                     if error.is_unavailable()
                         && fallback == FallbackMode::PreviousAvailable
                         && offset < u64::from(lookback_days) => {}
                 Err(error) if error.is_unavailable() => {
+                    if cancellation.is_cancelled() {
+                        return Err(YtmError::cancelled("matrix").with_source_context(
+                            "matrix",
+                            &attempted_dates,
+                            lookback_days,
+                        ));
+                    }
                     return Err(YtmError::unavailable(
                         "matrix",
                         &requested_date.to_string(),
@@ -134,8 +176,21 @@ impl YtmService {
                         fallback == FallbackMode::PreviousAvailable,
                     ));
                 }
-                Err(error) => return Err(error),
+                Err(error) => {
+                    return Err(error.with_source_context(
+                        "matrix",
+                        &attempted_dates,
+                        lookback_days,
+                    ))
+                }
             }
+        }
+        if cancellation.is_cancelled() {
+            return Err(YtmError::cancelled("matrix").with_source_context(
+                "matrix",
+                &attempted_dates,
+                lookback_days,
+            ));
         }
         Err(YtmError::unavailable(
             "matrix",
@@ -151,13 +206,17 @@ impl YtmService {
         &self,
         display: BaseDate,
         compact: &str,
-        cancellation: CancellationToken,
+        cancellation: &CancellationToken,
     ) -> Result<KindsResult, YtmError> {
+        let attempted_dates = [display];
         let response = self
-            .transport
-            .post(request::init(compact), cancellation)
-            .await?;
-        let dataset = nexacro::parse(&response, "output1")?;
+            .post(request::init(compact), cancellation, "kinds")
+            .await
+            .map_err(|error| error.with_source_context("kinds", &attempted_dates, 0))?;
+        check_cancellation(cancellation, "kinds")?;
+        let dataset = nexacro::parse(&response, "output1")
+            .map_err(|error| error.with_source_context("kinds", &attempted_dates, 0))?;
+        check_cancellation(cancellation, "kinds")?;
         if dataset.rows.is_empty() {
             return Err(YtmError::unavailable(
                 "kinds",
@@ -168,17 +227,24 @@ impl YtmService {
                 false,
             ));
         }
-        let discovered = dataset
-            .rows
-            .into_iter()
-            .map(kind_from_row)
-            .collect::<Result<Vec<_>, _>>()?;
-        let kinds = merge_kinds(discovered)?;
-        Ok(KindsResult {
+        let mut discovered = Vec::with_capacity(dataset.rows.len());
+        for row in dataset.rows {
+            check_cancellation(cancellation, "kinds")?;
+            let kind = kind_from_row(row)
+                .map_err(|error| error.with_source_context("kinds", &attempted_dates, 0))?;
+            check_cancellation(cancellation, "kinds")?;
+            discovered.push(kind);
+        }
+        let kinds = merge_kinds_with_cancellation(discovered, cancellation)
+            .map_err(|error| error.with_source_context("kinds", &attempted_dates, 0))?;
+        check_cancellation(cancellation, "kinds")?;
+        let result = KindsResult {
             base_date: Some(display),
             kinds,
             source: source_metadata(INIT_PATH, "ds_tymSort=output1 ds_list=output2", compact, "10", "The mobile page posts ds_search to /rateInfo/ytmMatrixMobileInitList.do on initial YTM Matrix load."),
-        })
+        };
+        check_cancellation(cancellation, "kinds")?;
+        Ok(result)
     }
 
     async fn matrix_for_date(
@@ -188,25 +254,37 @@ impl YtmService {
         kind_input: &str,
         cancellation: CancellationToken,
     ) -> Result<(Kind, Vec<MatrixRow>, SourceMetadata), YtmError> {
+        let attempted_dates = [display];
         let kinds = self
-            .kinds_for_date(display, compact, cancellation.clone())
-            .await?
+            .kinds_for_date(display, compact, &cancellation)
+            .await
+            .map_err(|error| error.with_source_context("matrix", &attempted_dates, 0))?
             .kinds;
-        let kind = resolve_kind(kind_input, &kinds).ok_or_else(|| {
-            YtmError::unsupported_kind(
+        check_cancellation(&cancellation, "matrix")?;
+        let kind = resolve_kind_with_cancellation(kind_input, &kinds, &cancellation)?;
+        let Some(kind) = kind else {
+            return Err(YtmError::unsupported_kind(
                 kind_input,
                 json!(kinds),
                 json!({
                     "baseDate": display.to_string(),
                     "kind": kinds.first().map(|kind| kind.name.as_str()).unwrap_or("국채")
                 }),
-            )
-        })?;
+            ));
+        };
+        check_cancellation(&cancellation, "matrix")?;
         let response = self
-            .transport
-            .post(request::matrix(compact, &kind.code), cancellation)
-            .await?;
-        let dataset = nexacro::parse(&response, "output1")?;
+            .post(
+                request::matrix(compact, &kind.code),
+                &cancellation,
+                "matrix",
+            )
+            .await
+            .map_err(|error| error.with_source_context("matrix", &attempted_dates, 0))?;
+        check_cancellation(&cancellation, "matrix")?;
+        let dataset = nexacro::parse(&response, "output1")
+            .map_err(|error| error.with_source_context("matrix", &attempted_dates, 0))?;
+        check_cancellation(&cancellation, "matrix")?;
         if dataset.rows.is_empty() {
             return Err(YtmError::unavailable(
                 "matrix",
@@ -217,11 +295,15 @@ impl YtmService {
                 false,
             ));
         }
-        let rows = dataset
-            .rows
-            .into_iter()
-            .map(|row| normalize_row(row, &kind))
-            .collect::<Result<Vec<_>, _>>()?;
+        let mut rows = Vec::with_capacity(dataset.rows.len());
+        for row in dataset.rows {
+            check_cancellation(&cancellation, "matrix")?;
+            let row = normalize_row_with_cancellation(row, &kind, &cancellation)
+                .map_err(|error| error.with_source_context("matrix", &attempted_dates, 0))?;
+            check_cancellation(&cancellation, "matrix")?;
+            rows.push(row);
+        }
+        check_cancellation(&cancellation, "matrix")?;
         let source = source_metadata(
             MATRIX_PATH,
             "ds_list=output1",
@@ -229,8 +311,30 @@ impl YtmService {
             &kind.code,
             "The mobile page posts ds_search to /rateInfo/ytmMatrixMobileList.do when 검색 is clicked.",
         );
+        check_cancellation(&cancellation, "matrix")?;
         Ok((kind, rows, source))
     }
+
+    async fn post(
+        &self,
+        request: crate::PreparedRequest,
+        cancellation: &CancellationToken,
+        operation: &str,
+    ) -> Result<Vec<u8>, YtmError> {
+        check_cancellation(cancellation, operation)?;
+        let response = self.transport.post(request, cancellation.clone()).await;
+        if cancellation.is_cancelled() {
+            return Err(YtmError::cancelled(operation));
+        }
+        response
+    }
+}
+
+fn check_cancellation(cancellation: &CancellationToken, operation: &str) -> Result<(), YtmError> {
+    if cancellation.is_cancelled() {
+        return Err(YtmError::cancelled(operation));
+    }
+    Ok(())
 }
 
 fn kind_from_row(row: IndexMap<String, String>) -> Result<Kind, YtmError> {
@@ -253,12 +357,31 @@ fn kind_from_row(row: IndexMap<String, String>) -> Result<Kind, YtmError> {
     })
 }
 
+#[cfg(test)]
 fn merge_kinds(discovered: Vec<Kind>) -> Result<Vec<Kind>, YtmError> {
-    let canonical = canonical_kinds();
-    let mut live_by_code = IndexMap::<String, String>::new();
+    merge_kinds_with_cancellation(discovered, &CancellationToken::new())
+}
+
+fn merge_kinds_with_cancellation(
+    discovered: Vec<Kind>,
+    cancellation: &CancellationToken,
+) -> Result<Vec<Kind>, YtmError> {
+    let mut canonical = canonical_kinds();
+    let canonical_labels_by_code = canonical
+        .iter()
+        .map(|kind| (kind.code.clone(), kind_label_key(&kind.name)))
+        .collect::<HashMap<_, _>>();
+    let mut label_owners = canonical
+        .iter()
+        .map(|kind| (kind_label_key(&kind.name), (kind.code.clone(), true)))
+        .collect::<HashMap<_, _>>();
+    let mut live_only_by_code = IndexMap::<String, String>::new();
+
     for kind in discovered {
-        if let Some(previous) = live_by_code.get(&kind.code) {
-            if previous != &kind.name {
+        check_cancellation(cancellation, "kinds")?;
+        let label_key = kind_label_key(&kind.name);
+        if let Some(previous) = live_only_by_code.get(&kind.code) {
+            if kind_label_key(previous) != label_key {
                 return Err(YtmError::format(format!(
                     "KIS-NET discovery returned conflicting labels for kind code {}.",
                     kind.code
@@ -266,46 +389,71 @@ fn merge_kinds(discovered: Vec<Kind>) -> Result<Vec<Kind>, YtmError> {
             }
             continue;
         }
-        if let Some(owner) = canonical
-            .iter()
-            .find(|candidate| candidate.name == kind.name && candidate.code != kind.code)
-        {
-            return Err(YtmError::format(format!("KIS-NET discovery assigned canonical label {} to conflicting code {} instead of {}.", kind.name, kind.code, owner.code)));
+
+        if let Some((owner_code, canonical_owner)) = label_owners.get(&label_key) {
+            if owner_code != &kind.code {
+                let qualifier = if *canonical_owner { "canonical " } else { "" };
+                return Err(YtmError::format(format!(
+                    "KIS-NET discovery assigned {qualifier}label {} to conflicting code {} instead of {}.",
+                    kind.name, kind.code, owner_code
+                )));
+            }
         }
-        live_by_code.insert(kind.code, kind.name);
-    }
-    for kind in &canonical {
-        if let Some(live_name) = live_by_code.get(&kind.code) {
-            if live_name != &kind.name {
+
+        if let Some(canonical_label) = canonical_labels_by_code.get(&kind.code) {
+            if canonical_label != &label_key {
                 return Err(YtmError::format(format!(
                     "KIS-NET discovery redefined canonical kind code {}.",
                     kind.code
                 )));
             }
+            continue;
         }
+
+        label_owners.insert(label_key, (kind.code.clone(), false));
+        live_only_by_code.insert(kind.code, kind.name);
     }
-    let mut merged = canonical;
-    for (code, name) in live_by_code {
-        if !merged.iter().any(|kind| kind.code == code) {
-            merged.push(Kind { code, name });
-        }
+
+    check_cancellation(cancellation, "kinds")?;
+
+    for (code, name) in live_only_by_code {
+        check_cancellation(cancellation, "kinds")?;
+        canonical.push(Kind { code, name });
     }
-    Ok(merged)
+    Ok(canonical)
 }
 
-fn resolve_kind(input: &str, kinds: &[Kind]) -> Option<Kind> {
-    let compact = input.split_whitespace().collect::<String>();
-    kinds
-        .iter()
-        .find(|kind| {
-            kind.code == input
-                || kind.name == input
-                || kind.name.split_whitespace().collect::<String>() == compact
-        })
-        .cloned()
+fn resolve_kind_with_cancellation(
+    input: &str,
+    kinds: &[Kind],
+    cancellation: &CancellationToken,
+) -> Result<Option<Kind>, YtmError> {
+    let label_key = kind_label_key(input);
+    for kind in kinds {
+        check_cancellation(cancellation, "matrix")?;
+        if kind.code == input || kind_label_key(&kind.name) == label_key {
+            return Ok(Some(kind.clone()));
+        }
+    }
+    check_cancellation(cancellation, "matrix")?;
+    Ok(None)
 }
 
+fn kind_label_key(value: &str) -> String {
+    value.split_whitespace().collect()
+}
+
+#[cfg(test)]
 fn normalize_row(row: IndexMap<String, String>, kind: &Kind) -> Result<MatrixRow, YtmError> {
+    normalize_row_with_cancellation(row, kind, &CancellationToken::new())
+}
+
+fn normalize_row_with_cancellation(
+    row: IndexMap<String, String>,
+    kind: &Kind,
+    cancellation: &CancellationToken,
+) -> Result<MatrixRow, YtmError> {
+    check_cancellation(cancellation, "matrix")?;
     for required in ["pricingGroupCode", "pricingGroupName"]
         .into_iter()
         .chain(TENORS.iter().map(|(key, _)| *key))
@@ -326,6 +474,7 @@ fn normalize_row(row: IndexMap<String, String>, kind: &Kind) -> Result<MatrixRow
     let mut yields = IndexMap::new();
     let mut yield_text = IndexMap::new();
     for (key, label) in TENORS {
+        check_cancellation(cancellation, "matrix")?;
         let raw = row[key].to_owned();
         let value = if raw.is_empty() || raw == "-" {
             None
@@ -353,6 +502,7 @@ fn normalize_row(row: IndexMap<String, String>, kind: &Kind) -> Result<MatrixRow
         yields.insert(label.to_owned(), value);
         yield_text.insert(label.to_owned(), raw);
     }
+    check_cancellation(cancellation, "matrix")?;
     Ok(MatrixRow {
         group_name: kind.name.clone(),
         pricing_group_code,
@@ -408,7 +558,103 @@ fn source_metadata(
 
 #[cfg(test)]
 mod tests {
+    use std::{collections::VecDeque, sync::Mutex};
+
+    use async_trait::async_trait;
+
     use super::*;
+
+    #[derive(Clone)]
+    struct EmptyKindsTransport {
+        requests: Arc<Mutex<Vec<crate::PreparedRequest>>>,
+    }
+
+    #[async_trait]
+    impl Transport for EmptyKindsTransport {
+        async fn post(
+            &self,
+            request: crate::PreparedRequest,
+            _cancellation: CancellationToken,
+        ) -> Result<Vec<u8>, YtmError> {
+            self.requests.lock().unwrap().push(request);
+            Ok(format!(
+                "<Root xmlns=\"{namespace}\"><Parameters><Parameter id=\"ErrorCode\">0</Parameter></Parameters><Dataset id=\"output1\"><Rows/></Dataset></Root>",
+                namespace = "http://www.nexacroplatform.com/platform/dataset",
+            )
+            .into_bytes())
+        }
+    }
+
+    #[derive(Clone)]
+    struct CancelAfterTransport {
+        response: Vec<u8>,
+        cancellation: CancellationToken,
+        requests: Arc<Mutex<Vec<crate::PreparedRequest>>>,
+    }
+
+    type TestResponse = Result<Vec<u8>, YtmError>;
+
+    #[async_trait]
+    impl Transport for CancelAfterTransport {
+        async fn post(
+            &self,
+            request: crate::PreparedRequest,
+            _cancellation: CancellationToken,
+        ) -> Result<Vec<u8>, YtmError> {
+            self.requests.lock().unwrap().push(request);
+            self.cancellation.cancel();
+            Ok(self.response.clone())
+        }
+    }
+
+    #[derive(Clone)]
+    struct SequenceTransport {
+        responses: Arc<Mutex<VecDeque<TestResponse>>>,
+        requests: Arc<Mutex<Vec<crate::PreparedRequest>>>,
+    }
+
+    #[async_trait]
+    impl Transport for SequenceTransport {
+        async fn post(
+            &self,
+            request: crate::PreparedRequest,
+            _cancellation: CancellationToken,
+        ) -> Result<Vec<u8>, YtmError> {
+            self.requests.lock().unwrap().push(request);
+            self.responses
+                .lock()
+                .unwrap()
+                .pop_front()
+                .expect("test transport response")
+        }
+    }
+
+    fn response(rows: &str) -> Vec<u8> {
+        format!(
+            "<Root xmlns=\"{namespace}\"><Parameters><Parameter id=\"ErrorCode\">0</Parameter></Parameters><Dataset id=\"output1\"><Rows>{rows}</Rows></Dataset></Root>",
+            namespace = "http://www.nexacroplatform.com/platform/dataset",
+        )
+        .into_bytes()
+    }
+
+    fn kind_rows(count: usize) -> String {
+        (0..count)
+            .map(|index| {
+                format!(
+                    "<Row><Col id=\"divCode\">{}</Col><Col id=\"divName\">live kind {index}</Col></Row>",
+                    90 + index,
+                )
+            })
+            .collect()
+    }
+
+    fn canonical_kind_response() -> Vec<u8> {
+        response("<Row><Col id=\"divCode\">10</Col><Col id=\"divName\">국채</Col></Row>")
+    }
+
+    fn empty_response() -> Vec<u8> {
+        response("")
+    }
 
     #[test]
     fn canonical_catalog_includes_private_corporate_bonds() {
@@ -421,6 +667,117 @@ mod tests {
         );
     }
 
+    #[tokio::test]
+    async fn fallback_never_sends_a_date_outside_the_public_domain() {
+        let requests = Arc::new(Mutex::new(Vec::new()));
+        let service = YtmService::with_transport(EmptyKindsTransport {
+            requests: requests.clone(),
+        });
+        let input = MatrixInput::previous_available(
+            BaseDate::new(0, 1, 1).unwrap(),
+            "국채".parse().unwrap(),
+            crate::LookbackDays::new(1).unwrap(),
+        );
+
+        let error = service.matrix(input).await.unwrap_err();
+
+        assert_eq!(error.details.code, "invalid_parameter");
+        let requests = requests.lock().unwrap();
+        assert_eq!(requests.len(), 1);
+        assert!(requests[0]
+            .body
+            .contains("<Col id=\"calBaseDt\">00000101</Col>"));
+        assert!(!requests[0].body.contains("-0001"));
+    }
+
+    #[tokio::test]
+    async fn pre_aborted_calls_do_not_start_transport_work() {
+        let requests = Arc::new(Mutex::new(Vec::new()));
+        let service = YtmService::with_transport(EmptyKindsTransport {
+            requests: requests.clone(),
+        });
+        let cancellation = CancellationToken::new();
+        cancellation.cancel();
+
+        let error = service
+            .kinds_with_cancellation(
+                KindsInput::for_date(BaseDate::new(2026, 6, 8).unwrap()),
+                cancellation,
+            )
+            .await
+            .unwrap_err();
+
+        assert_eq!(error.details.code, "source_transport_error");
+        assert_eq!(error.details.operation_name.as_deref(), Some("kinds"));
+        assert_eq!(error.details.cause.as_deref(), Some("AbortError"));
+        assert!(!error.details.recoverable);
+        assert!(!error.details.retryable);
+        assert!(requests.lock().unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn cancellation_after_transport_cannot_return_large_discovery_success() {
+        let requests = Arc::new(Mutex::new(Vec::new()));
+        let cancellation = CancellationToken::new();
+        let service = YtmService::with_transport(CancelAfterTransport {
+            response: response(&kind_rows(2_000)),
+            cancellation: cancellation.clone(),
+            requests: requests.clone(),
+        });
+
+        let error = service
+            .kinds_with_cancellation(
+                KindsInput::for_date(BaseDate::new(2026, 6, 8).unwrap()),
+                cancellation,
+            )
+            .await
+            .unwrap_err();
+
+        assert_eq!(error.details.code, "source_transport_error");
+        assert_eq!(error.details.operation_name.as_deref(), Some("kinds"));
+        assert_eq!(
+            error.details.attempted_dates.as_deref(),
+            Some(["2026-06-08".to_owned()].as_slice())
+        );
+        assert_eq!(error.details.lookback_days, Some(0));
+        assert_eq!(error.details.cause.as_deref(), Some("AbortError"));
+        assert!(!error.details.recoverable);
+        assert!(!error.details.retryable);
+        assert_eq!(requests.lock().unwrap().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn matrix_source_failures_preserve_attempt_history_and_operation_context() {
+        let requests = Arc::new(Mutex::new(Vec::new()));
+        let responses = Arc::new(Mutex::new(VecDeque::from([
+            Ok(canonical_kind_response()),
+            Ok(empty_response()),
+            Ok(canonical_kind_response()),
+            Err(YtmError::format("test source shape changed")),
+        ])));
+        let service = YtmService::with_transport(SequenceTransport {
+            responses,
+            requests: requests.clone(),
+        });
+        let input = MatrixInput::previous_available(
+            BaseDate::new(2026, 6, 8).unwrap(),
+            "국채".parse().unwrap(),
+            crate::LookbackDays::new(2).unwrap(),
+        );
+
+        let error = service.matrix(input).await.unwrap_err();
+
+        assert_eq!(error.details.code, "source_format_error");
+        assert_eq!(error.details.operation_name.as_deref(), Some("matrix"));
+        assert_eq!(
+            error.details.attempted_dates.as_deref(),
+            Some(["2026-06-08".to_owned(), "2026-06-07".to_owned()].as_slice())
+        );
+        assert_eq!(error.details.lookback_days, Some(2));
+        assert!(error.details.reason.contains("test source shape changed"));
+        assert_eq!(requests.lock().unwrap().len(), 4);
+    }
+
     #[test]
     fn discovery_cannot_redefine_canonical_kind() {
         let error = merge_kinds(vec![Kind {
@@ -429,6 +786,80 @@ mod tests {
         }])
         .unwrap_err();
         assert_eq!(error.details.code, "source_format_error");
+    }
+
+    #[test]
+    fn discovery_rejects_whitespace_normalized_canonical_label_collisions() {
+        let error = merge_kinds(vec![Kind {
+            code: "90".into(),
+            name: "회사채 (사모)".into(),
+        }])
+        .unwrap_err();
+
+        assert_eq!(error.details.code, "source_format_error");
+        assert!(error.details.reason.contains("instead of 80"));
+    }
+
+    #[test]
+    fn discovery_coalesces_whitespace_equivalent_canonical_entries() {
+        let kinds = merge_kinds(vec![Kind {
+            code: "80".into(),
+            name: "회사채 (사모)".into(),
+        }])
+        .unwrap();
+
+        assert_eq!(kinds, canonical_kinds());
+    }
+
+    #[test]
+    fn discovery_rejects_ambiguous_live_only_labels() {
+        let error = merge_kinds(vec![
+            Kind {
+                code: "90".into(),
+                name: "테스트 종류".into(),
+            },
+            Kind {
+                code: "91".into(),
+                name: "테스트종류".into(),
+            },
+        ])
+        .unwrap_err();
+
+        assert_eq!(error.details.code, "source_format_error");
+        assert!(error.details.reason.contains("instead of 90"));
+    }
+
+    #[test]
+    fn discovery_appends_live_only_kinds_in_first_seen_order() {
+        let kinds = merge_kinds(vec![
+            Kind {
+                code: "91".into(),
+                name: "두번째 코드".into(),
+            },
+            Kind {
+                code: "90".into(),
+                name: "첫번째 코드".into(),
+            },
+            Kind {
+                code: "91".into(),
+                name: "두번째코드".into(),
+            },
+        ])
+        .unwrap();
+
+        assert_eq!(
+            &kinds[canonical_kinds().len()..],
+            &[
+                Kind {
+                    code: "91".into(),
+                    name: "두번째 코드".into(),
+                },
+                Kind {
+                    code: "90".into(),
+                    name: "첫번째 코드".into(),
+                },
+            ]
+        );
     }
 
     #[test]

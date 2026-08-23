@@ -36,15 +36,15 @@ try {
       [target.packageName]: `file:${nativeTarball}`
     }
   }, null, 2)}\n`);
-  run(npm, ["install", "--ignore-scripts", "--no-audit", "--no-fund"], temporary);
+  run(npm, ["install", "--offline", "--ignore-scripts", "--no-audit", "--no-fund"], temporary);
 
   const inspection = run(process.execPath, [
     "--input-type=module",
     "-e",
-    "const m=await import('@sjunepark/ytm/toolset');const t=m.createKisnetYtmToolset();const v=t.validateInput('matrix',{baseDate:'20260820',kind:'80'});console.log(JSON.stringify({methods:['help','listOperations','getOperation','getCommandHelp','validateInput','execute','serializeError'].every(k=>typeof t[k]==='function'),operations:t.listOperations().map(x=>x.name),kind80:t.help().includes('80 = 회사채(사모)'),valid:v.valid,baseDate:v.normalizedInput?.baseDate}));"
+    "const m=await import('@sjunepark/ytm/toolset');const t=m.createKisnetYtmToolset();const v=t.validateInput('matrix',{baseDate:'20260820',kind:'80'});const kinds=await t.execute('kinds');console.log(JSON.stringify({methods:['help','listOperations','getOperation','getCommandHelp','validateInput','execute','serializeError'].every(k=>typeof t[k]==='function'),operations:t.listOperations().map(x=>x.name),kind80:t.help().availableKinds.includes('80 = 회사채(사모)'),valid:v.ok,baseDate:v.input?.baseDate,nativeKinds:kinds.kinds?.map(x=>x.code)}));"
   ], temporary);
   const capability = parseJson(inspection, "installed toolset inspection");
-  if (!capability.methods || capability.operations.join(",") !== "matrix,kinds" || !capability.kind80 || !capability.valid || capability.baseDate !== "2026-08-20") {
+  if (!capability.methods || capability.operations.join(",") !== "matrix,kinds" || !capability.kind80 || !capability.valid || capability.baseDate !== "2026-08-20" || capability.nativeKinds?.[0] !== "10" || !capability.nativeKinds.includes("80")) {
     throw new Error(`Installed toolset capability check failed: ${inspection.stdout}`);
   }
 

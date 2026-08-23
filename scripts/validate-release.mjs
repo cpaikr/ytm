@@ -2,6 +2,7 @@ import { access, readdir, readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { parse } from "yaml";
 import { isNodeCliArtifact } from "./node-cli-artifact-policy.mjs";
+import { nativeBuildPlan } from "./native-build-policy.mjs";
 
 const readJson = async (path) => JSON.parse(await readFile(path, "utf8"));
 const readYaml = async (path) => parse(await readFile(path, "utf8"));
@@ -64,6 +65,15 @@ check(
   nodePackage.engines?.node === `>=${nativeTargets.minimumNodeMajor}`,
   "Node package engine must match the canonical native target policy"
 );
+check(nativeTargets.schemaVersion === 3, "native release policy must use the glibc-floor manifest schema");
+check(nativeTargets.linuxNativeBuild?.cargoZigbuildVersion === "0.23.0", "native release policy must pin cargo-zigbuild 0.23.0");
+check(nativeTargets.linuxNativeBuild?.zigVersion === "0.14.1", "native release policy must pin Zig 0.14.1");
+check(nativeTargets.linuxNativeBuild?.glibcFloor === "2.28", "native release policy must retain the GLIBC_2.28 floor");
+for (const target of nativeTargets.targets || []) {
+  const plan = nativeBuildPlan(nativeTargets, target.rustTarget);
+  check(plan.artifactTarget === target.rustTarget, `${target.rustTarget} release assembly must use the exact Cargo artifact target`);
+  check(target.npmPlatform === "linux" && target.libc === "glibc" ? plan.args[0] === "zigbuild" : plan.args[0] === "build", `${target.rustTarget} release build command must match its target policy`);
+}
 check(nodePackage.repository?.url === "git+https://github.com/cpaikr/ytm.git" && nodePackage.repository?.directory === "packages/node", "Node package repository metadata must use cpaikr/ytm");
 check(!nodePackage.dependencies?.["@xmldom/xmldom"], "legacy JavaScript XML dependencies must be absent");
 const adapterSourceFiles = (await readdir("packages/node/src", { withFileTypes: true }))
@@ -106,16 +116,25 @@ check(!pythonPackagePresent && !pythonWorkflowPresent, "Python product and publi
 equal(Object.keys(ciWorkflow.jobs || {}), ["validate", "native-consumer"], "CI must contain only Node/Rust validation and native consumers");
 equal(Object.keys(liveWorkflow.jobs || {}), ["rust-cli"], "live smoke must exercise only the standalone Rust CLI");
 check(ciWorkflow.jobs?.validate?.["timeout-minutes"] === 20, "CI validation must have a bounded timeout");
+check(liveWorkflow.jobs?.["rust-cli"]?.["timeout-minutes"] === 20, "live smoke must have a bounded timeout");
 check(activeShell(findNamedStep(ciWorkflow.jobs?.validate, "Validate contracts, generated artifacts, and release configuration")).includes("bun run licenses:check"), "CI validation must check third-party notice freshness");
 const liveSmoke = activeShell(findNamedStep(liveWorkflow.jobs?.["rust-cli"], "Run live smoke"));
 check(liveSmoke.includes('target/debug/ytm matrix') && liveSmoke.includes("--fallback previous-available") && liveSmoke.includes("jq -e"), "live smoke must use bounded fallback through the standalone Rust CLI");
 const ciNativeJob = ciWorkflow.jobs?.["native-consumer"];
+const linuxNativeCondition = "matrix.target.rust == 'x86_64-unknown-linux-gnu' || matrix.target.rust == 'aarch64-unknown-linux-gnu'";
 check(ciNativeJob?.["timeout-minutes"] === 20, "CI native consumers must have a bounded timeout");
 equal(ciNativeJob?.strategy?.matrix?.node, nativeTargets.validationNodeMajors, "CI native consumers must cover every declared Node major");
 equal(ciNativeJob?.strategy?.matrix?.target?.map(({ rust }) => rust), nativeTargets.targets.map(({ rustTarget }) => rustTarget), "CI native consumers must cover every supported target");
 equal(ciNativeJob?.strategy?.matrix?.target?.map(({ runner }) => runner), nativeTargets.targets.map(({ runner }) => runner), "CI native consumers must use the manifest runners");
 equal(ciNativeJob?.strategy?.matrix?.target?.map(({ arch }) => arch), nativeTargets.targets.map(({ npmArch }) => npmArch), "CI native consumers must use the manifest architectures");
-check(activeShell(findNamedStep(ciNativeJob, "Build production native artifact")).includes("cargo build --locked --release"), "CI native consumers must build production artifacts");
+const ciLinuxToolchain = findNamedStep(ciNativeJob, "Install pinned Linux native build toolchain");
+check(ciLinuxToolchain?.if === linuxNativeCondition, "CI Linux native builds must install their pinned toolchain only on Linux targets");
+check(activeShell(ciLinuxToolchain).includes("scripts/install-linux-native-toolchain.mjs"), "CI Linux native builds must install the pinned cargo-zigbuild and Zig toolchain");
+const ciNativeBuild = findNamedStep(ciNativeJob, "Build production native artifact");
+check(activeShell(ciNativeBuild).includes("scripts/build-native-artifact.mjs"), "CI native consumers must use the target policy build script");
+check(!activeShell(ciNativeBuild).includes("cargo build --locked --release --target"), "CI native consumers must not silently use host-glibc cargo builds");
+const ciGlibcValidation = findNamedStep(ciNativeJob, "Validate Linux artifact glibc floor");
+check(ciGlibcValidation?.if === linuxNativeCondition && activeShell(ciGlibcValidation).includes("scripts/validate-native-artifact.mjs"), "CI Linux native consumers must validate the built artifact glibc floor");
 check(activeShell(findNamedStep(ciNativeJob, "Smoke standalone Rust CLI")).includes("cargo run --locked --release -p ytm-cli -- --help"), "CI native consumers must smoke the standalone CLI on every supported runner");
 check(activeShell(findNamedStep(ciNativeJob, "Assemble product packages")).includes("scripts/assemble-native-package.mjs"), "CI native consumers must assemble platform packages");
 check(activeShell(findNamedStep(ciNativeJob, "Test clean installed Node SDK")).includes("scripts/test-native-consumer.mjs"), "CI native consumers must exercise clean SDK installs");
@@ -142,6 +161,14 @@ equal(nativeJob?.strategy?.matrix?.target?.map(({ rust }) => rust), nativeTarget
 equal(nativeJob?.strategy?.matrix?.target?.map(({ runner }) => runner), nativeTargets.targets.map(({ runner }) => runner), "release native matrix must use the manifest runners");
 equal(nativeJob?.strategy?.matrix?.target?.map(({ runner }) => runner), ["ubuntu-24.04", "ubuntu-24.04-arm", "macos-15", "windows-2025"], "release native packages must build on the approved GitHub-hosted runners");
 check(findNamedStep(nativeJob, "Check out immutable release source")?.with?.ref === "${{ needs.metadata.outputs.source_sha }}", "native builds must use the immutable release commit");
+const releaseLinuxToolchain = findNamedStep(nativeJob, "Install pinned Linux native build toolchain");
+check(releaseLinuxToolchain?.if === linuxNativeCondition, "Release Linux native builds must install their pinned toolchain only on Linux targets");
+check(activeShell(releaseLinuxToolchain).includes("scripts/install-linux-native-toolchain.mjs"), "Release Linux native builds must install the pinned cargo-zigbuild and Zig toolchain");
+const releaseNativeBuild = findNamedStep(nativeJob, "Build native artifact");
+check(activeShell(releaseNativeBuild).includes("scripts/build-native-artifact.mjs"), "Release native builds must use the target policy build script");
+check(!activeShell(releaseNativeBuild).includes("cargo build --locked --release --target"), "Release native builds must not silently use host-glibc cargo builds");
+const releaseGlibcValidation = findNamedStep(nativeJob, "Validate Linux artifact glibc floor");
+check(releaseGlibcValidation?.if === linuxNativeCondition && activeShell(releaseGlibcValidation).includes("scripts/validate-native-artifact.mjs"), "Release Linux native builds must validate the built artifact glibc floor");
 check(activeShell(findNamedStep(nativeJob, "Assemble and pack native package")).includes("scripts/assemble-native-package.mjs"), "native release jobs must assemble generated packages");
 check(activeShell(findNamedStep(nativeJob, "Assemble and pack native package")).includes("scripts/test-native-consumer.mjs"), "native release jobs must clean-install their exact artifacts before upload");
 
@@ -149,6 +176,10 @@ const rootJob = npmWorkflow.jobs?.root_package;
 check(rootJob?.["timeout-minutes"] === 30, "release root package must have a bounded timeout");
 check(rootJob?.["runs-on"] === "ubuntu-24.04", "release root package must build on a GitHub-hosted runner");
 check(findNamedStep(rootJob, "Check out immutable release source")?.with?.ref === "${{ needs.metadata.outputs.source_sha }}", "root package validation must use the immutable release commit");
+const rustSecurityInstall = activeShell(findNamedStep(rootJob, "Install pinned Rust security checks"));
+check(rustSecurityInstall.includes("cargo install --locked cargo-audit --version 0.22.2") && rustSecurityInstall.includes("cargo install --locked cargo-deny --version 0.19.0"), "root package validation must install the pinned Rust security checks");
+const immutableSourceValidation = activeShell(findNamedStep(rootJob, "Validate immutable source"));
+check(immutableSourceValidation.includes("cargo audit") && immutableSourceValidation.includes("cargo deny check"), "root package validation must audit the immutable source before publication");
 check(activeShell(findNamedStep(rootJob, "Pack root package without a native binary")).includes("build:facade"), "root release artifact must be packed without a native binary");
 
 const publishJob = npmWorkflow.jobs?.publish;

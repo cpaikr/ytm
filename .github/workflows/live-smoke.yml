@@ -20,6 +20,7 @@ concurrency:
 jobs:
   rust-cli:
     runs-on: blacksmith-2vcpu-ubuntu-2404
+    timeout-minutes: 20
 
     steps:
       - name: Check out source

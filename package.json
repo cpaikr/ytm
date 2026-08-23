@@ -23,7 +23,7 @@
     "judge": "node judge/run.mjs --product-root packages/node --cli-bin target/debug/ytm",
     "judge:broken": "node judge/prove-deliberate-failure.mjs",
     "contracts:check": "node scripts/validate-contracts.mjs && node scripts/generate-native-packages.mjs --check && bun run rust:fixture-guard",
-    "licenses:generate": "node scripts/check-third-party-licenses.mjs --write",
+    "licenses:generate": "node scripts/check-third-party-licenses.mjs --write && node scripts/generate-native-packages.mjs",
     "licenses:check": "node scripts/check-third-party-licenses.mjs",
     "release:check": "node scripts/validate-release.mjs",
     "pack:node": "npm pack --dry-run --workspace packages/node",

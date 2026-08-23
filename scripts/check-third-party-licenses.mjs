@@ -21,17 +21,19 @@ if (generated.status !== 0) {
   throw new Error(`Could not generate third-party licenses:\n${generated.stderr.trim()}`);
 }
 
-const expected = await readFile(resolve(repositoryRoot, "THIRD_PARTY_LICENSES.html"), "utf8");
+const noticePath = resolve(repositoryRoot, "THIRD_PARTY_LICENSES.html");
 const canonicalGenerated = generated.stdout.replaceAll("\r\n", "\n");
 if (!canonicalGenerated.endsWith("\n")) {
   throw new Error("cargo-about generated an incomplete third-party license notice.");
 }
 const notice = canonicalGenerated.slice(0, -1);
 if (process.argv.includes("--write")) {
-  await writeFile(resolve(repositoryRoot, "THIRD_PARTY_LICENSES.html"), notice, "utf8");
+  await writeFile(noticePath, notice, "utf8");
   console.log("generated THIRD_PARTY_LICENSES.html");
-} else if (notice !== expected.replaceAll("\r\n", "\n")) {
-  throw new Error("THIRD_PARTY_LICENSES.html is stale; run bun run licenses:generate.");
 } else {
+  const expected = await readFile(noticePath, "utf8");
+  if (notice !== expected.replaceAll("\r\n", "\n")) {
+    throw new Error("THIRD_PARTY_LICENSES.html is stale; run bun run licenses:generate.");
+  }
   console.log("third-party license notices are current");
 }

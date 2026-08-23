@@ -1,9 +1,17 @@
-import { readFile } from "node:fs/promises";
+import { access, readFile, readdir } from "node:fs/promises";
 import { Validator } from "@seriousme/openapi-schema-validator";
 import { parseDocument } from "yaml";
 import { isNodeCliArtifact } from "./node-cli-artifact-policy.mjs";
+import { nativeBuildPlan } from "./native-build-policy.mjs";
 
 const failures = [];
+
+try {
+  await access(new URL("../judge/scenarios.json", import.meta.url));
+  failures.push("judge/scenarios.json must remain absent; executable judge coverage belongs in judge/run.mjs");
+} catch (error) {
+  if (error?.code !== "ENOENT") failures.push(`judge/scenarios.json could not be checked: ${error.message}`);
+}
 
 function check(condition, message) {
   if (!condition) failures.push(message);
@@ -123,10 +131,45 @@ for (const value of ["2.500 ", " 2 .500", "\t2.500", "\u00a02.500", " -", "   ",
   check(!yieldCellPattern.test(value), `YieldCell must reject ${JSON.stringify(value)}`);
 }
 
-const evidence = JSON.parse(await readFile(new URL("../contracts/kisnet/cases.json", import.meta.url), "utf8"));
+const evidenceText = await readFile(new URL("../contracts/kisnet/cases.json", import.meta.url), "utf8");
+let evidence = {};
+try {
+  evidence = JSON.parse(evidenceText);
+} catch (error) {
+  failures.push(`Evidence JSON: ${error.message}`);
+}
+const evidenceDocument = parseDocument(evidenceText, { prettyErrors: true, strict: true, uniqueKeys: true });
+for (const error of evidenceDocument.errors) failures.push(`Evidence JSON keys: ${error.message}`);
+
 equal(Object.keys(evidence), ["schemaVersion", "requestExample", "expectedTenors", "fixtures", "xmlCases", "expectations"], "evidence manifest must not become a second wire authority");
+check(evidence.schemaVersion === 1, "evidence manifest schemaVersion must be 1");
 check(!("initEndpoint" in (evidence.requestExample || {})) && !("matrixEndpoint" in (evidence.requestExample || {})), "evidence examples must not own endpoint paths");
 check(!("xmlLimits" in evidence), "evidence manifest must not own parser or transport limits");
+
+const fixtureEntries = Object.entries(evidence.fixtures || {});
+const declaredFixtureFiles = fixtureEntries.map(([, file]) => file);
+for (const [name, file] of fixtureEntries) {
+  check(typeof file === "string" && /^[A-Za-z0-9][A-Za-z0-9._-]*\.xml$/.test(file), `fixture ${name} must name one XML file in contracts/kisnet`);
+}
+check(new Set(declaredFixtureFiles).size === declaredFixtureFiles.length, "every XML fixture file must be declared exactly once");
+const fixtureDirectoryEntries = await readdir(new URL("../contracts/kisnet/", import.meta.url), { withFileTypes: true });
+const xmlEntries = fixtureDirectoryEntries.filter(({ name }) => name.endsWith(".xml"));
+for (const entry of xmlEntries) check(entry.isFile(), `fixture ${entry.name} must be a regular file`);
+equal(
+  [...new Set(declaredFixtureFiles)].sort(),
+  xmlEntries.map(({ name }) => name).sort(),
+  "cases.json fixtures must declare every contracts/kisnet XML file exactly once"
+);
+
+for (const expected of expectedOperations) {
+  const operation = contract?.paths?.[expected.path]?.post;
+  const requestProjection = operation?.["x-ytm-nexacro-request"];
+  const example = operation?.requestBody?.content?.["text/xml; charset=UTF-8"]?.example;
+  check(
+    example === serializeRequestExample(requestProjection, evidence.requestExample),
+    `${expected.path} request example must be the exact serialization of its x-ytm-nexacro-request projection`
+  );
+}
 
 for (const relativePath of ["../SPEC.md", "../packages/node/SPEC.md", "../packages/node/README.md"]) {
   const text = await readFile(new URL(relativePath, import.meta.url), "utf8");
@@ -179,12 +222,27 @@ for (const path of ["dist/toolset.js", "src/client.js", "skills/kisnet-ytm/SKILL
 
 const nativeTargets = JSON.parse(await readFile(new URL("../native-targets.json", import.meta.url), "utf8"));
 const nodePackage = JSON.parse(await readFile(new URL("../packages/node/package.json", import.meta.url), "utf8"));
-check(nativeTargets.schemaVersion === 2, "native target manifest schemaVersion must be 2");
+check(nativeTargets.schemaVersion === 3, "native target manifest schemaVersion must be 3");
 check(nativeTargets.supportClaim === "supported", "native targets must record the clean-install support decision");
 check(Number.isInteger(nativeTargets.minimumNodeMajor) && nativeTargets.minimumNodeMajor > 0, "minimum Node major must be a positive integer");
 check(nodePackage.engines?.node === `>=${nativeTargets.minimumNodeMajor}`, "Node package engine must match the canonical runtime policy");
 check(nativeTargets.validationNodeMajors?.[0] === nativeTargets.minimumNodeMajor, "Node validation must begin with the minimum supported major");
 check(nativeTargets.validationNodeMajors?.every((major) => Number.isInteger(major) && major >= nativeTargets.minimumNodeMajor), "Node validation majors must stay within the supported range");
+equal(nativeTargets.linuxNativeBuild, {
+  cargoZigbuildVersion: "0.23.0",
+  zigVersion: "0.14.1",
+  glibcFloor: "2.28",
+  zigArchives: {
+    x86_64: {
+      url: "https://ziglang.org/download/0.14.1/zig-x86_64-linux-0.14.1.tar.xz",
+      sha256: "24aeeec8af16c381934a6cd7d95c807a8cb2cf7df9fa40d359aa884195c4716c"
+    },
+    aarch64: {
+      url: "https://ziglang.org/download/0.14.1/zig-aarch64-linux-0.14.1.tar.xz",
+      sha256: "f7a654acc967864f7a050ddacfaa778c7504a0eca8d2b678839c21eea47c992b"
+    }
+  }
+}, "Linux native builds must pin cargo-zigbuild, Zig archives, and the glibc floor");
 const expectedRustTargets = [
   "x86_64-unknown-linux-gnu",
   "aarch64-unknown-linux-gnu",
@@ -192,6 +250,12 @@ const expectedRustTargets = [
   "x86_64-pc-windows-msvc"
 ];
 equal(nativeTargets.targets?.map(({ rustTarget }) => rustTarget), expectedRustTargets, "native release target selection must stay explicit");
+equal(nativeTargets.targets?.map(({ buildTarget }) => buildTarget), [
+  "x86_64-unknown-linux-gnu.2.28",
+  "aarch64-unknown-linux-gnu.2.28",
+  "aarch64-apple-darwin",
+  "x86_64-pc-windows-msvc"
+], "native build targets must preserve the explicit Linux glibc floor");
 equal(nativeTargets.targets?.map(({ runner }) => runner), [
   "ubuntu-24.04",
   "ubuntu-24.04-arm",
@@ -206,6 +270,14 @@ check(new Set(nativeTargets.targets?.map((target) => [target.npmPlatform, target
 for (const target of nativeTargets.targets || []) {
   check(target.packageName?.startsWith("@sjunepark/ytm-"), `${target.rustTarget} must use the ytm npm scope`);
   check(target.artifactFile?.endsWith(".node"), `${target.rustTarget} must name a Node-API artifact`);
+  const plan = nativeBuildPlan(nativeTargets, target.rustTarget);
+  check(plan.artifactTarget === target.rustTarget, `${target.rustTarget} native assembly must use its exact Cargo artifact target`);
+  check(
+    target.npmPlatform === "linux" && target.libc === "glibc"
+      ? plan.args[0] === "zigbuild" && plan.args[4] === target.buildTarget && target.buildTarget.endsWith(`.${nativeTargets.linuxNativeBuild.glibcFloor}`)
+      : plan.args[0] === "build" && target.buildTarget === target.rustTarget,
+    `${target.rustTarget} native build must use the declared target policy`
+  );
 }
 
 if (failures.length > 0) {
@@ -213,3 +285,43 @@ if (failures.length > 0) {
   process.exit(1);
 }
 console.log("wire authority, evidence boundary, and native target selection are valid");
+
+function serializeRequestExample(request, requestExample) {
+  if (!request?.search?.orderedColumns || !request?.transaction?.orderedColumns) return undefined;
+  const projectedValues = {
+    baseDateCompact: requestExample?.baseDateCompact,
+    sourceKindCode: requestExample?.kind?.code
+  };
+  const datasets = [
+    [request.search.dataset, request.search.orderedColumns],
+    [request.transaction.dataset, request.transaction.orderedColumns]
+  ];
+  const lines = [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<Root xmlns="http://www.nexacroplatform.com/platform/dataset">',
+    '  <Parameters/>'
+  ];
+  for (const [dataset, columns] of datasets) {
+    lines.push(`  <Dataset id="${escapeXml(dataset)}">`, "    <ColumnInfo>");
+    for (const column of columns) {
+      lines.push(`      <Column id="${escapeXml(column.id)}" type="${escapeXml(column.type)}" size="${escapeXml(column.size)}"/>`);
+    }
+    lines.push("    </ColumnInfo>", "    <Rows><Row>");
+    for (const column of columns) {
+      const value = Object.hasOwn(column, "value") ? column.value : projectedValues[column.valueFrom];
+      lines.push(`      <Col id="${escapeXml(column.id)}">${escapeXml(value)}</Col>`);
+    }
+    lines.push("    </Row></Rows>", "  </Dataset>");
+  }
+  lines.push("</Root>");
+  return lines.join("\n");
+}
+
+function escapeXml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&apos;");
+}
