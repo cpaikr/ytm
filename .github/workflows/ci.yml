@@ -5,8 +5,7 @@ on:
   push:
     branches:
       - main
-      - codex/rewrite-vnext
-      - codex/rust-sdk-node-sdk-rust-cli
+      - dev
 
 permissions:
   contents: read
@@ -38,51 +37,14 @@ jobs:
       - name: Install frozen JavaScript dependencies
         run: bun install --frozen-lockfile
 
-      - name: Install pinned license generator
-        run: cargo install --locked --features cli cargo-about --version 0.9.2
-
-      - name: Validate contracts, generated artifacts, and release configuration
-        run: bun run contracts:check && bun run licenses:check && bun run release:check && bun run build:check
-
-      - name: Check Rust formatting
-        run: cargo fmt --all --check
-
-      - name: Lint Rust workspace
-        run: cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
-
-      - name: Test Rust workspace
-        run: cargo test --locked --workspace --all-targets --all-features
-
-      - name: Test Rust SDK documentation
-        run: cargo test --locked -p ytm-core --doc
-
-      - name: Check external Rust SDK consumer
-        run: bun run rust:consumer:check
-
-      - name: Prove release builds reject judge fixtures
-        run: bun run rust:fixture-guard
-
-      - name: Install pinned Rust security checks
+      - name: Install pinned validation tools
         run: |
+          cargo install --locked --features cli cargo-about --version 0.9.2
           cargo install --locked cargo-audit --version 0.22.2
           cargo install --locked cargo-deny --version 0.19.0
 
-      - name: Audit Rust dependencies and policy
-        run: |
-          cargo audit
-          cargo deny check
-
-      - name: Build fixture-enabled product
-        run: bun run build:judge
-
-      - name: Run product conformance and kind 80 judge
-        run: bun run judge
-
-      - name: Prove judge sensitivity
-        run: bun run judge:broken
-
-      - name: Check npm package contents
-        run: bun run pack:node
+      - name: Validate repository
+        run: bun run validate
 
   cli-metadata:
     name: Standalone CLI matrix

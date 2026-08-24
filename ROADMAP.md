@@ -2,7 +2,7 @@
 
 ## Current
 
-[Standalone CLI release distribution](plans/standalone-cli-release-distribution.md)
+None.
 
 ## Plans
 

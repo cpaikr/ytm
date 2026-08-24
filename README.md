@@ -71,22 +71,17 @@ cargo install --locked cargo-audit --version 0.22.2
 cargo install --locked cargo-deny --version 0.19.0
 bun install --frozen-lockfile
 bun run validate
-bun run build:check
-cargo fmt --all --check
-cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
-cargo test --locked --workspace --all-targets --all-features
-cargo test --locked -p ytm-core --doc
-bun run rust:consumer:check
-cargo audit
-cargo deny check
-bun run test
-bun run judge:broken
-bun run pack:node
 ```
+
+`bun run validate` is the complete uncredentialed repository gate used by local
+development, ordinary CI, and immutable tagged-source validation. It covers
+contracts and generated files, version and release policy, formatting, linting,
+Rust and Node consumers, dependency policy, conformance sensitivity, and
+package contents. Credentialed live source checks remain separate.
 
 Live KIS-NET smoke checks are scheduled and manually dispatchable rather than
 pull-request gates. Release preparation, creation, and publication remain
-disabled. Public GitHub Release distribution is an approved implementation
-target in [`ROADMAP.md`](ROADMAP.md), but selecting or publishing an actual
-version still requires separate authorization; see
+disabled. The GitHub-canonical, npm-secondary distribution lifecycle is
+implemented but has not run for the rewritten product. Selecting or publishing
+an actual version still requires separate authorization; see
 [`docs/release.md`](docs/release.md).
