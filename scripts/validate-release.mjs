@@ -237,7 +237,7 @@ const ciGlibcValidation = findNamedStep(ciNativeJob, "Validate Linux artifact gl
 check(ciGlibcValidation?.if === linuxNativeCondition && activeShell(ciGlibcValidation).includes("scripts/validate-native-artifact.mjs"), "CI Linux native consumers must validate the built artifact glibc floor");
 check(findNamedStep(ciNativeJob, "Smoke standalone Rust CLI") === undefined, "Node consumer jobs must not duplicate standalone CLI artifact coverage");
 const ciPackageAssembly = activeShell(findNamedStep(ciNativeJob, "Assemble product packages"));
-check(ciPackageAssembly.includes("bun run build:facade") && ciPackageAssembly.includes("scripts/assemble-native-package.mjs"), "CI native consumers must build the root facade through its public script and assemble platform packages");
+check(ciPackageAssembly.includes("npm run build:facade") && ciPackageAssembly.includes("scripts/assemble-native-package.mjs"), "CI native consumers must build the root facade through its public script using the runtime already provisioned for every matrix lane");
 check(findNamedStep(ciNativeJob, "Assemble product packages")?.shell === "bash" && activeShell(findNamedStep(ciNativeJob, "Assemble product packages")).includes("npm pack --pack-destination .artifacts/native"), "CI native consumers must pack exact tarballs portably before installation");
 const ciExactNativeConsumer = activeShell(findNamedStep(ciNativeJob, "Test exact packed Node SDK"));
 check(ciExactNativeConsumer.includes("scripts/test-native-consumer.mjs") && ciExactNativeConsumer.includes(".artifacts/native .artifacts/root"), "CI native consumers must install the exact packed SDK tarballs");
