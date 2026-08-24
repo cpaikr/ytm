@@ -38,8 +38,8 @@ Unified version, changelog, tag, visibility, and failure lifecycle.
 
 ### Next in-scope action
 
-Decide and encode the release authority and lifecycle without creating a tag,
-release, or registry publication.
+Deliver the release-authority foundation PR through creation, review, and
+feedback closure before starting CLI artifact generation.
 
 ### Evidence and blockers
 
@@ -48,3 +48,17 @@ release, or registry publication.
 - GitHub reports no branch protection or repository ruleset on `dev`, so the
   direct initialization and terminal bookkeeping pushes required by the goal
   lifecycle are available.
+- Release Please is the selected product version, changelog, release-PR, tag,
+  and draft-Release authority. Its preparation phase is disabled by repository
+  variable and explicitly skips GitHub Release creation.
+- `VERSION` and the root `CHANGELOG.md` are the single human-readable product
+  authorities. Repository validation reconciles their complete Cargo, Node,
+  native-package, Bun, and consumer-lock update set.
+- The protected release phase will force-create an immutable `vX.Y.Z` tag and
+  draft Release; incomplete candidates remain draft, GitHub publication is the
+  canonical completion point, and npm follows as a same-source projection.
+- Marker-based Release Please updates preserve exact internal Rust dependency
+  requirements, and generated third-party notices exclude first-party workspace
+  versions so an approved version bump cannot stale release receipts.
+- The complete repository validation suite and post-fix code review pass for
+  this slice; no Bucket I or Bucket II findings remain.

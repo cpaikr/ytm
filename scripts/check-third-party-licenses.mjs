@@ -26,6 +26,19 @@ const canonicalGenerated = generated.stdout.replaceAll("\r\n", "\n");
 if (!canonicalGenerated.endsWith("\n")) {
   throw new Error("cargo-about generated an incomplete third-party license notice.");
 }
+const metadata = spawnSync("cargo", ["metadata", "--locked", "--no-deps", "--format-version", "1"], {
+  cwd: repositoryRoot,
+  encoding: "utf8",
+});
+if (metadata.status !== 0) {
+  throw new Error(`Could not inspect workspace packages:\n${metadata.stderr.trim()}`);
+}
+for (const packageMetadata of JSON.parse(metadata.stdout).packages) {
+  const firstPartyReceipt = `>${packageMetadata.name} ${packageMetadata.version}<`;
+  if (canonicalGenerated.includes(firstPartyReceipt)) {
+    throw new Error(`Third-party license notice must exclude first-party workspace package ${packageMetadata.name}.`);
+  }
+}
 const notice = canonicalGenerated.slice(0, -1);
 if (process.argv.includes("--write")) {
   await writeFile(noticePath, notice, "utf8");

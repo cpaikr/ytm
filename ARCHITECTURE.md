@@ -150,10 +150,12 @@ version remains separately authorized release work.
 [`docs/release.md`](docs/release.md) is the canonical release-state and
 publication runbook.
 
-No workflow creates release PRs, tags, or GitHub Releases. Release Please and
-the Python release path are absent. The retained Node workflow publishes native
+The disabled Release Please preparation workflow owns one root product release
+PR, `VERSION`, and the root changelog. It explicitly skips tag and GitHub
+Release creation. The retained transitional Node workflow publishes native
 packages before the root npm package through OIDC only after separate version,
-tag, dispatch, and environment approval.
+legacy `node-vX.Y.Z` tag, dispatch, and environment approval. No workflow yet
+creates or publishes the canonical CLI GitHub Release.
 
 The registry release at `0.2.0` predates the rewrite; the checkout retains that
 version until a new release is authorized. The SDK/CLI migration does not

@@ -34,9 +34,7 @@ const [
   ciWorkflow,
   liveWorkflow,
   npmWorkflow,
-  releasePleaseWorkflowPresent,
-  releasePleaseConfigPresent,
-  releasePleaseManifestPresent,
+  releasePleaseWorkflow,
   pythonPackagePresent,
   pythonWorkflowPresent
 ] = await Promise.all([
@@ -47,9 +45,7 @@ const [
   readYaml(".github/workflows/ci.yml"),
   readYaml(".github/workflows/live-smoke.yml"),
   readYaml(".github/workflows/release.yml"),
-  pathExists(".github/workflows/release-please.yml"),
-  pathExists("release-please-config.json"),
-  pathExists(".release-please-manifest.json"),
+  readYaml(".github/workflows/release-please.yml"),
   pathExists("packages/python/pyproject.toml"),
   pathExists(".github/workflows/release-python.yml")
 ]);
@@ -118,7 +114,19 @@ for (const target of nativeTargets.targets) {
   check(await pathExists(`${nativeTargets.nativePackageRoot}/${target.packageDirectory}/THIRD_PARTY_LICENSES.html`), `${target.rustTarget} native package must ship third-party notices`);
 }
 
-check(!releasePleaseWorkflowPresent && !releasePleaseConfigPresent && !releasePleaseManifestPresent, "Release Please workflow and metadata must remain absent");
+equal(Object.keys(releasePleaseWorkflow.jobs || {}), ["release_pr"], "Release Please workflow must only prepare the product release PR");
+check(releasePleaseWorkflow.on?.push?.branches?.includes("main"), "Release Please must update release PRs from main");
+check(releasePleaseWorkflow.on?.workflow_dispatch !== undefined, "Release Please must support an explicit preparation retry");
+check(releasePleaseWorkflow.permissions?.contents === "read", "Release Please workflow default permissions must remain read-only");
+const releasePleaseJob = releasePleaseWorkflow.jobs?.release_pr;
+check(releasePleaseJob?.if === "${{ vars.RELEASE_PLEASE_ENABLED == 'true' }}", "Release Please must remain externally disabled until release preparation is authorized");
+check(releasePleaseJob?.["runs-on"] === "ubuntu-24.04" && releasePleaseJob?.["timeout-minutes"] === 10, "Release Please must use a pinned GitHub-hosted runner with a bounded timeout");
+check(releasePleaseJob?.permissions?.contents === "write" && releasePleaseJob?.permissions?.issues === "write" && releasePleaseJob?.permissions?.["pull-requests"] === "write", "Release Please job permissions must be explicit and sufficient for release PRs");
+const releasePleaseStep = findNamedStep(releasePleaseJob, "Create or update the product release PR");
+check(/^googleapis\/release-please-action@[0-9a-f]{40}$/.test(releasePleaseStep?.uses || ""), "Release Please action must be pinned to a full commit SHA");
+check(releasePleaseStep?.with?.token === "${{ secrets.RELEASE_PLEASE_TOKEN }}", "Release Please must use the configured automation credential so release PR checks run");
+check(releasePleaseStep?.with?.["config-file"] === "release-please-config.json" && releasePleaseStep?.with?.["manifest-file"] === ".release-please-manifest.json", "Release Please must use the repository-owned product config and manifest");
+check(releasePleaseStep?.with?.["skip-github-release"] === true, "Release preparation must not create a tag or GitHub Release before the protected release workflow");
 check(!pythonPackagePresent && !pythonWorkflowPresent, "Python product and publishing workflow must remain absent");
 equal(Object.keys(ciWorkflow.jobs || {}), ["validate", "native-consumer"], "CI must contain only Node/Rust validation and native consumers");
 equal(Object.keys(liveWorkflow.jobs || {}), ["rust-cli"], "live smoke must exercise only the standalone Rust CLI");
@@ -207,4 +215,4 @@ if (failures.length > 0) {
   console.error(failures.map((failure) => `- ${failure}`).join("\n"));
   process.exit(1);
 }
-console.log(`SDK-only Node release configuration is valid at ${nodePackage.version}`);
+console.log(`Transitional release configuration is valid at ${nodePackage.version}`);

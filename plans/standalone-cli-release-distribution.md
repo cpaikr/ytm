@@ -11,11 +11,12 @@ versioned release rather than an independent release line.
 
 ## Current state
 
-The active release workflow is a manually dispatched npm publisher for an
+The active publishing workflow is a manually dispatched npm publisher for an
 already-versioned `node-vX.Y.Z` tag. It builds and publishes four Node-API native
 packages plus the root Node SDK, but it does not choose a version, create a tag,
-create a GitHub Release, or distribute the standalone CLI. Release Please is
-absent and the current release validator requires it to remain absent.
+create a GitHub Release, or distribute the standalone CLI. A disabled,
+PR-preparation-only Release Please workflow now owns the product version and
+changelog foundation without changing external release state.
 
 The existing workflow provides useful foundations: immutable source-SHA
 resolution, GitHub-hosted release builders, pinned actions, npm OIDC, a protected
@@ -23,11 +24,17 @@ publish environment, native target validation, dependency and license checks,
 and clean Node consumer coverage. No post-rewrite product release exists, and
 the current five-package npm workflow has not yet been exercised.
 
-The implemented Node package version and Rust workspace version are both
-`0.2.0`, but they are separate manual authorities and the release validator does
-not reconcile them. `native-targets.json` owns the Node-API matrix; the CLI has
-no distribution matrix, release assets, installers, receipt, managed upgrade,
-or version-discovery command.
+The current checkout remains at the pre-existing `0.2.0`; no new release
+version has been selected. One root Release Please component, `VERSION`, and the
+root `CHANGELOG.md` now define the product authority, and repository validation
+reconciles every Cargo, Node, native-package, Bun, and consumer-lock copy. The
+preparation workflow remains disabled and cannot create tags or Releases; the
+existing `node-vX.Y.Z` npm workflow remains transitional until the tagged-source
+asset and publication slices replace it.
+
+`native-targets.json` owns the Node-API matrix; the CLI has no distribution
+matrix, release assets, installers, receipt, managed upgrade, or
+version-discovery command.
 
 ## Decisions
 
@@ -47,9 +54,9 @@ or version-discovery command.
   Corrections use a newly approved version.
 - Exact distributables, not locally repacked equivalents, are installed and
   exercised in clean consumers for every claimed target.
-- Release Please is not required by the adopted guidance. Selecting it as the
-  version, changelog, and tag authority remains an explicit setup decision; the
-  old linked Node/Python configuration must not be restored.
+- Release Please is the selected version, changelog, release-PR, tag, and draft
+  GitHub Release authority. The old linked Node/Python configuration must not be
+  restored.
 - No release, tag, registry publish, or external release-state change occurs
   during implementation without separate approval of the exact version.
 
@@ -120,9 +127,6 @@ or version-discovery command.
 
 ## Next action
 
-Start the first implementation slice by recording the release authority and
-lifecycle: choose whether Release Please owns version/changelog/tag creation,
-define the single-product version update set, specify how an incomplete release
-remains unavailable, and encode tag and environment protection requirements.
-Do not create a tag, release, or registry publication in that slice.
-
+Deliver the release-authority foundation through review. Then define the CLI
+target authority and deterministic archive, checksum, and installer generation
+without creating a tag, Release, or registry publication.
