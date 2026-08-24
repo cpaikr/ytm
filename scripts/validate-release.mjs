@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { parse } from "yaml";
 import { isNodeCliArtifact } from "./node-cli-artifact-policy.mjs";
 import { nativeBuildPlan } from "./native-build-policy.mjs";
+import { cliArchiveName, cliBuildPlan, validateCliManifest } from "./cli-release-policy.mjs";
 
 const readJson = async (path) => JSON.parse(await readFile(path, "utf8"));
 const readYaml = async (path) => parse(await readFile(path, "utf8"));
@@ -30,6 +31,7 @@ const [
   rootPackage,
   nodePackage,
   nativeTargets,
+  cliTargets,
   bunLock,
   ciWorkflow,
   liveWorkflow,
@@ -41,6 +43,7 @@ const [
   readJson("package.json"),
   readJson("packages/node/package.json"),
   readJson("native-targets.json"),
+  readJson("cli-targets.json"),
   readFile("bun.lock", "utf8"),
   readYaml(".github/workflows/ci.yml"),
   readYaml(".github/workflows/live-smoke.yml"),
@@ -65,6 +68,36 @@ check(nativeTargets.schemaVersion === 3, "native release policy must use the gli
 check(nativeTargets.linuxNativeBuild?.cargoZigbuildVersion === "0.23.0", "native release policy must pin cargo-zigbuild 0.23.0");
 check(nativeTargets.linuxNativeBuild?.zigVersion === "0.14.1", "native release policy must pin Zig 0.14.1");
 check(nativeTargets.linuxNativeBuild?.glibcFloor === "2.28", "native release policy must retain the GLIBC_2.28 floor");
+try {
+  validateCliManifest(cliTargets, nativeTargets.linuxNativeBuild);
+} catch (error) {
+  check(false, `CLI release target policy is invalid: ${error instanceof Error ? error.message : String(error)}`);
+}
+const expectedCliTargets = [
+  "x86_64-unknown-linux-gnu",
+  "aarch64-unknown-linux-gnu",
+  "aarch64-apple-darwin",
+  "x86_64-pc-windows-msvc"
+];
+equal(cliTargets.targets?.map(({ rustTarget }) => rustTarget), expectedCliTargets, "CLI support targets must remain explicit");
+check(new Set(cliTargets.targets?.map((target) => cliArchiveName(cliTargets, target, nodePackage.version))).size === expectedCliTargets.length, "CLI targets must derive unique archive names");
+for (const target of cliTargets.targets || []) {
+  let plan;
+  try {
+    plan = cliBuildPlan(cliTargets, nativeTargets.linuxNativeBuild, target.rustTarget);
+  } catch (error) {
+    check(false, `${target.rustTarget} CLI build policy is invalid: ${error instanceof Error ? error.message : String(error)}`);
+    continue;
+  }
+  check(plan.args.at(-1) === "ytm-cli", `${target.rustTarget} CLI build must select ytm-cli`);
+  check(plan.artifactTarget === target.rustTarget, `${target.rustTarget} CLI artifact must use its exact Rust target directory`);
+  check(plan.usesGlibcFloor ? plan.buildTarget === `${target.rustTarget}.${nativeTargets.linuxNativeBuild.glibcFloor}` : plan.buildTarget === target.rustTarget, `${target.rustTarget} CLI build target must match the shared Linux policy`);
+  const overlappingNative = nativeTargets.targets.find((candidate) => candidate.rustTarget === target.rustTarget);
+  if (overlappingNative) {
+    check(overlappingNative.runner === target.runner, `${target.rustTarget} shared runner fact must agree across Node and CLI targets`);
+    check(overlappingNative.npmArch === target.arch, `${target.rustTarget} shared architecture fact must agree across Node and CLI targets`);
+  }
+}
 for (const target of nativeTargets.targets || []) {
   let plan;
   try {
@@ -128,7 +161,7 @@ check(releasePleaseStep?.with?.token === "${{ secrets.RELEASE_PLEASE_TOKEN }}", 
 check(releasePleaseStep?.with?.["config-file"] === "release-please-config.json" && releasePleaseStep?.with?.["manifest-file"] === ".release-please-manifest.json", "Release Please must use the repository-owned product config and manifest");
 check(releasePleaseStep?.with?.["skip-github-release"] === true, "Release preparation must not create a tag or GitHub Release before the protected release workflow");
 check(!pythonPackagePresent && !pythonWorkflowPresent, "Python product and publishing workflow must remain absent");
-equal(Object.keys(ciWorkflow.jobs || {}), ["validate", "native-consumer"], "CI must contain only Node/Rust validation and native consumers");
+equal(Object.keys(ciWorkflow.jobs || {}), ["validate", "cli-metadata", "cli-archive", "cli-artifact-set", "native-consumer"], "CI must contain validation, CLI artifacts, and native consumers only");
 equal(Object.keys(liveWorkflow.jobs || {}), ["rust-cli"], "live smoke must exercise only the standalone Rust CLI");
 check(ciWorkflow.jobs?.validate?.["timeout-minutes"] === 20, "CI validation must have a bounded timeout");
 check(liveWorkflow.jobs?.["rust-cli"]?.["timeout-minutes"] === 20, "live smoke must have a bounded timeout");
@@ -150,9 +183,33 @@ check(activeShell(ciNativeBuild).includes("scripts/build-native-artifact.mjs"), 
 check(!activeShell(ciNativeBuild).includes("cargo build --locked --release --target"), "CI native consumers must not silently use host-glibc cargo builds");
 const ciGlibcValidation = findNamedStep(ciNativeJob, "Validate Linux artifact glibc floor");
 check(ciGlibcValidation?.if === linuxNativeCondition && activeShell(ciGlibcValidation).includes("scripts/validate-native-artifact.mjs"), "CI Linux native consumers must validate the built artifact glibc floor");
-check(activeShell(findNamedStep(ciNativeJob, "Smoke standalone Rust CLI")).includes("cargo run --locked --release -p ytm-cli -- --help"), "CI native consumers must smoke the standalone CLI on every supported runner");
+check(findNamedStep(ciNativeJob, "Smoke standalone Rust CLI") === undefined, "Node consumer jobs must not duplicate standalone CLI artifact coverage");
 check(activeShell(findNamedStep(ciNativeJob, "Assemble product packages")).includes("scripts/assemble-native-package.mjs"), "CI native consumers must assemble platform packages");
 check(activeShell(findNamedStep(ciNativeJob, "Test clean installed Node SDK")).includes("scripts/test-native-consumer.mjs"), "CI native consumers must exercise clean SDK installs");
+
+const cliMetadataJob = ciWorkflow.jobs?.["cli-metadata"];
+check(cliMetadataJob?.["runs-on"] === "ubuntu-24.04" && cliMetadataJob?.["timeout-minutes"] === 5, "CLI matrix metadata must use a bounded GitHub-hosted job");
+check(cliMetadataJob?.outputs?.matrix === "${{ steps.targets.outputs.matrix }}", "CLI metadata must expose its generated matrix");
+check(activeShell(findNamedStep(cliMetadataJob, "Emit CLI target matrix")).includes("scripts/print-cli-matrix.mjs"), "CI CLI matrix must derive from cli-targets.json");
+const cliArchiveJob = ciWorkflow.jobs?.["cli-archive"];
+check(cliArchiveJob?.needs === "cli-metadata" && cliArchiveJob?.["runs-on"] === "${{ matrix.runner }}", "CLI archive jobs must consume the generated target matrix");
+check(cliArchiveJob?.["timeout-minutes"] === 20 && cliArchiveJob?.strategy?.["fail-fast"] === false, "CLI archive matrix must be bounded and collect every target result");
+check(cliArchiveJob?.strategy?.matrix === "${{ fromJSON(needs.cli-metadata.outputs.matrix) }}", "CLI archive matrix must use only generated target data");
+const cliLinuxCondition = "matrix.usesGlibcFloor";
+check(findNamedStep(cliArchiveJob, "Install pinned Linux native build toolchain")?.if === cliLinuxCondition, "CLI Linux targets must install the shared pinned toolchain");
+check(activeShell(findNamedStep(cliArchiveJob, "Build standalone CLI artifact")) === "node scripts/build-cli-artifact.mjs ${{ matrix.rust }}", "CLI archive jobs must use the repository build policy");
+check(findNamedStep(cliArchiveJob, "Validate Linux CLI glibc floor")?.if === cliLinuxCondition, "CLI Linux artifacts must enforce the shared glibc floor");
+const cliAssembly = activeShell(findNamedStep(cliArchiveJob, "Assemble and inspect standalone CLI archive"));
+check(cliAssembly.includes("scripts/assemble-cli-archive.mjs") && cliAssembly.includes("--source-commit ${{ github.sha }}") && cliAssembly.includes("scripts/validate-cli-archive.mjs") && cliAssembly.includes("--execute"), "CLI archive jobs must reconcile source, inspect the archive, and execute the exact binary");
+check(/^actions\/upload-artifact@[0-9a-f]{40}$/.test(findNamedStep(cliArchiveJob, "Upload standalone CLI archive")?.uses || ""), "CLI archive upload action must be commit-pinned");
+const cliSetJob = ciWorkflow.jobs?.["cli-artifact-set"];
+check(cliSetJob?.needs === "cli-archive" && cliSetJob?.["runs-on"] === "ubuntu-24.04" && cliSetJob?.["timeout-minutes"] === 10, "CLI artifact aggregation must wait for every archive on a bounded GitHub-hosted job");
+check(/^actions\/download-artifact@[0-9a-f]{40}$/.test(findNamedStep(cliSetJob, "Download standalone CLI archives")?.uses || ""), "CLI archive download action must be commit-pinned");
+const cliCandidate = activeShell(findNamedStep(cliSetJob, "Generate and validate complete CLI candidate"));
+for (const command of ["scripts/generate-cli-installers.mjs", "scripts/finalize-cli-artifacts.mjs", "scripts/validate-cli-artifact-set.mjs"]) {
+  check(cliCandidate.includes(command), `complete CLI candidate must invoke ${command}`);
+}
+check(/^actions\/upload-artifact@[0-9a-f]{40}$/.test(findNamedStep(cliSetJob, "Upload complete CLI candidate")?.uses || ""), "complete CLI candidate upload must be commit-pinned");
 
 check(!npmWorkflow.on?.push, "npm publishing must not trigger automatically from pushed tags");
 check(npmWorkflow.on?.workflow_dispatch?.inputs?.tag?.required === true, "npm publishing must require an explicitly authorized tag input");

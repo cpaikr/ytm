@@ -32,9 +32,13 @@ preparation workflow remains disabled and cannot create tags or Releases; the
 existing `node-vX.Y.Z` npm workflow remains transitional until the tagged-source
 asset and publication slices replace it.
 
-`native-targets.json` owns the Node-API matrix; the CLI has no distribution
-matrix, release assets, installers, receipt, managed upgrade, or
-version-discovery command.
+`native-targets.json` owns the Node-API matrix. The independent
+`cli-targets.json` now owns four CLI targets. CI builds normalized archives,
+executes their binary identity, generates version-pinned shell and PowerShell
+installers, and validates a complete sorted checksum set without creating
+external release state. The CLI has a side-effect-free version command, but no
+install receipt, managed upgrade, exact-installer consumer suite, tagged asset
+workflow, or public release yet.
 
 ## Decisions
 
@@ -127,5 +131,5 @@ version-discovery command.
 
 ## Next action
 
-Define the CLI target authority and deterministic archive, checksum, and
-installer generation without creating a tag, Release, or registry publication.
+Add toolchain-free install receipts and safe, recoverable managed upgrade
+behavior without changing structured command output or external release state.
