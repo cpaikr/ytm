@@ -85,8 +85,8 @@ yet.
    command output or noninteractive execution.
 5. Exercise the exact archives, installers, receipts, checksums, and upgrade
    path in clean consumers. Inject download, checksum, replacement, receipt
-   write, interruption, and restoration failures and assert the state left
-   behind.
+   write, interruption, restoration, and Windows terminal-status publication
+   failures and assert the state left behind.
 6. Build the tagged-source release workflow. Publish the validated GitHub
    Release as the canonical completion point, then project the same version and
    source identity to npm through trusted publishing when authorized.

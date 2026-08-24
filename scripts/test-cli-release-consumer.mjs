@@ -71,6 +71,7 @@ try {
   await testManagedUpgrade("receipt");
   await testManagedUpgrade("interruption");
   await testManagedUpgrade("restoration");
+  if (target.os === "win32") await testManagedUpgrade("status");
 } finally {
   await new Promise((resolveClose) => server.close(resolveClose));
   await rm(temporaryRoot, { recursive: true, force: true });
@@ -123,7 +124,7 @@ async function testManagedUpgrade(fault) {
     } finally {
       await stopChild(parent);
     }
-    await waitForWindowsTerminalState(installDir, fault === "interruption");
+    await waitForWindowsTerminalState(installDir, fault);
   } else {
     result = await runInstaller(selectedInstaller, environment);
   }
@@ -159,6 +160,31 @@ async function testManagedUpgrade(fault) {
     }
     for (const path of [executablePath(installDir), receiptPath(installDir)]) {
       if (await pathExists(path)) throw new Error(`interrupted Windows upgrade left ambiguous current state at ${path}.`);
+    }
+    return;
+  }
+  if (fault === "status" && target.os === "win32") {
+    assertSucceeded(result, "Windows status-failure scheduling");
+    const status = JSON.parse(await readFile(statusPath(installDir), "utf8"));
+    if (status.status !== "scheduled" || status.ok !== true || status.version !== version || status.target !== target.key
+      || status.executable !== executablePath(installDir) || status.receipt !== receiptPath(installDir)) {
+      throw new Error("status-publication failure did not preserve its exact scheduled status.");
+    }
+    const marker = await readFile(inProgressPath(installDir), "utf8");
+    if (!marker.includes("status_error=injected status publication failure")) {
+      throw new Error("status-publication failure did not preserve its diagnostic in the ownership marker.");
+    }
+    const entries = await readdir(installDir);
+    const helpers = entries.filter((entry) => entry.startsWith(".ytm.upgrade.") && entry.endsWith(".ps1"));
+    if (helpers.length !== 1 || !(await readFile(join(installDir, helpers[0]), "utf8")).includes("injected status publication failure")) {
+      throw new Error("status-publication failure did not preserve the exact helper source.");
+    }
+    if (entries.some((entry) => entry.includes(".write.") || entry.includes(".backup.") || entry.startsWith(".ytm.install.") || entry.startsWith(".ytm.receipt.install."))) {
+      throw new Error("status-publication failure left transient staging state.");
+    }
+    await assertInstalledPair(installDir);
+    for (const path of [previousPath(installDir), previousReceiptPath(installDir)]) {
+      if (await pathExists(path)) throw new Error(`status-publication failure left obsolete recovery state at ${path}.`);
     }
     return;
   }
@@ -217,7 +243,8 @@ function transformInstaller(source, fault) {
   } else {
     if (fault === "replacement") return replaceOnce(source, "      '  [IO.File]::Move($Staged, $Executable)',", "      '  throw \"injected replacement failure\"',", fault);
     if (fault === "receipt") return replaceOnce(source, "      '  [IO.File]::Move($StagedReceipt, $Receipt)',", "      '  throw \"injected receipt failure\"',", fault);
-    if (fault === "interruption") return replaceOnce(source, "      '$HaveBackup = $true',", "      '$HaveBackup = $true',\n      'Stop-Process -Id $PID -Force',", fault);
+    if (fault === "interruption") return replaceOnce(source, "      '  $HaveBackup = $true',", "      '  $HaveBackup = $true',\n      '  Stop-Process -Id $PID -Force',", fault);
+    if (fault === "status") return replaceOnce(source, "      '      [IO.File]::Replace($StatusTemp, $Path, $StatusBackup)',", "      '      throw \"injected status publication failure\"',", fault);
     if (fault === "restoration") {
       return replaceOnce(
         replaceOnce(source, "      '  [IO.File]::Move($StagedReceipt, $Receipt)',", "      '  throw \"injected receipt failure\"',", fault),
@@ -244,15 +271,24 @@ async function assertNoPublishedState(installDir) {
   }
 }
 
-async function waitForWindowsTerminalState(installDir, interrupted) {
+async function waitForWindowsTerminalState(installDir, fault) {
   const deadline = Date.now() + 30_000;
   while (Date.now() < deadline) {
-    if (interrupted) {
+    if (fault === "interruption") {
       if (
         await pathExists(previousPath(installDir))
         && await pathExists(previousReceiptPath(installDir))
         && await pathExists(inProgressPath(installDir))
       ) return;
+    } else if (fault === "status") {
+      if (await pathExists(inProgressPath(installDir))) {
+        const marker = await readFile(inProgressPath(installDir), "utf8");
+        const entries = await readdir(installDir);
+        const hasHelper = entries.some((entry) => entry.startsWith(".ytm.upgrade.") && entry.endsWith(".ps1"));
+        const hasTransient = entries.some((entry) => entry.includes(".write.") || entry.includes(".backup.")
+          || entry.startsWith(".ytm.install.") || entry.startsWith(".ytm.receipt.install."));
+        if (marker.includes("status_error=") && hasHelper && !hasTransient) return;
+      }
     } else if (await pathExists(statusPath(installDir))) {
       const status = JSON.parse(await readFile(statusPath(installDir), "utf8"));
       if (status.status !== "scheduled" && !(await pathExists(inProgressPath(installDir)))) return;

@@ -234,12 +234,17 @@ function Write-Receipt([string]$Path, [string]$ReceiptVersion, [string]$Digest) 
 }
 function Write-Status([string]$Path, [string]$Json) {
   $StatusTemp = $Path + '.write.' + [Guid]::NewGuid().ToString('N')
+  $StatusBackup = $Path + '.backup.' + [Guid]::NewGuid().ToString('N')
   try {
     [IO.File]::WriteAllText($StatusTemp, $Json, [Text.UTF8Encoding]::new($false))
-    if ([IO.File]::Exists($Path)) { [IO.File]::Replace($StatusTemp, $Path, $null) }
+    if ([IO.File]::Exists($Path)) {
+      [IO.File]::Replace($StatusTemp, $Path, $StatusBackup)
+      [IO.File]::Delete($StatusBackup)
+    }
     else { [IO.File]::Move($StatusTemp, $Path) }
   } finally {
-    if ([IO.File]::Exists($StatusTemp)) { [IO.File]::Delete($StatusTemp) }
+    try { if ([IO.File]::Exists($StatusTemp)) { [IO.File]::Delete($StatusTemp) } } catch {}
+    try { if ([IO.File]::Exists($StatusBackup)) { [IO.File]::Delete($StatusBackup) } } catch {}
   }
 }
 function Get-Sha256([string]$Path) {
@@ -313,12 +318,17 @@ try {
       '$TerminalStatusCommitted = $false',
       'function Write-Status([string]$Path, [string]$Json) {',
       '  $StatusTemp = $Path + ''.write.'' + [Guid]::NewGuid().ToString(''N'')',
+      '  $StatusBackup = $Path + ''.backup.'' + [Guid]::NewGuid().ToString(''N'')',
       '  try {',
       '    [IO.File]::WriteAllText($StatusTemp, $Json, [Text.UTF8Encoding]::new($false))',
-      '    if ([IO.File]::Exists($Path)) { [IO.File]::Replace($StatusTemp, $Path, $null) }',
+      '    if ([IO.File]::Exists($Path)) {',
+      '      [IO.File]::Replace($StatusTemp, $Path, $StatusBackup)',
+      '      [IO.File]::Delete($StatusBackup)',
+      '    }',
       '    else { [IO.File]::Move($StatusTemp, $Path) }',
       '  } finally {',
-      '    if ([IO.File]::Exists($StatusTemp)) { [IO.File]::Delete($StatusTemp) }',
+      '    try { if ([IO.File]::Exists($StatusTemp)) { [IO.File]::Delete($StatusTemp) } } catch {}',
+      '    try { if ([IO.File]::Exists($StatusBackup)) { [IO.File]::Delete($StatusBackup) } } catch {}',
       '  }',
       '}',
       'function Get-Sha256([string]$Path) {',
@@ -372,14 +382,19 @@ try {
       '      $Restored = $true',
       '    } catch { $Reason = $Reason + "; rollback failed: " + $_.Exception.Message }',
       '  }',
-      '  $StatusJson = [ordered]@{ ok = $false; status = "recoverableFailure"; restored = $Restored; reason = $Reason; executable = $Executable; receipt = $Receipt; previous = $Previous; previousReceipt = $PreviousReceipt } | ConvertTo-Json -Compress',
-      '  Write-Status $Status $StatusJson',
-      '  $TerminalStatusCommitted = $true',
+      '  try {',
+      '    $StatusJson = [ordered]@{ ok = $false; status = "recoverableFailure"; restored = $Restored; reason = $Reason; executable = $Executable; receipt = $Receipt; previous = $Previous; previousReceipt = $PreviousReceipt } | ConvertTo-Json -Compress',
+      '    Write-Status $Status $StatusJson',
+      '    $TerminalStatusCommitted = $true',
+      '  } catch {',
+      '    $StatusError = $_.Exception.Message.Replace("\`r", " ").Replace("\`n", " ")',
+      '    try { [IO.File]::AppendAllText($InProgress, "status_error=$StatusError\`r\`n", [Text.UTF8Encoding]::new($false)) } catch {}',
+      '  }',
       '} finally {',
       '  if (Test-Path -LiteralPath $Staged) { Remove-Item -LiteralPath $Staged -Force -ErrorAction SilentlyContinue }',
       '  if (Test-Path -LiteralPath $StagedReceipt) { Remove-Item -LiteralPath $StagedReceipt -Force -ErrorAction SilentlyContinue }',
       '  if ($TerminalStatusCommitted -and (Test-Path -LiteralPath $InProgress)) { Remove-Item -LiteralPath $InProgress -Force -ErrorAction SilentlyContinue }',
-      '  Remove-Item -LiteralPath $Helper -Force -ErrorAction SilentlyContinue',
+      '  if ($TerminalStatusCommitted -and (Test-Path -LiteralPath $Helper)) { Remove-Item -LiteralPath $Helper -Force -ErrorAction SilentlyContinue }',
       '}'
     )
     [IO.File]::WriteAllLines($Helper, $HelperLines, [Text.UTF8Encoding]::new($false))

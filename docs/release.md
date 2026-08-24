@@ -86,9 +86,10 @@ with the archived bytes, validates the exact receipt, and executes version and
 help identity. It also rejects failed downloads and corrupted archives without
 publishing state and exercises managed replacement with the unmodified
 candidate. Single-anchor temporary copies of that validated generated installer
-inject replacement, receipt, interruption, and restoration faults while
-asserting either the restored pair or the fixed recovery evidence and Windows
-status; no test failpoint is shipped in the candidate.
+inject replacement, receipt, interruption, restoration, and Windows terminal
+status-publication faults while asserting either the restored pair or the fixed
+recovery evidence, retained helper diagnostic, and Windows status; no test
+failpoint is shipped in the candidate.
 
 `ytm upgrade --check` is read-only and checks only the latest public stable
 GitHub Release after validating the managed pair. `ytm upgrade` additionally

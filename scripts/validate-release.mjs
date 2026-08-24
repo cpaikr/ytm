@@ -131,7 +131,7 @@ for (const contract of ["schema=1", "installed_sha256", "release_source", "YTM_M
   check(installerGenerator.includes(contract), `generated installers must implement managed-install contract ${contract}`);
 }
 check(cliArtifactTest.includes("testShellManagedInstall") && cliArtifactTest.includes("injected receipt-publication failure"), "CLI artifact tests must execute fresh receipt installation and managed rollback");
-for (const contract of ["assertInstalledPair", "testFreshFailure", 'testManagedUpgrade("success")', 'testManagedUpgrade("interruption")', 'testManagedUpgrade("restoration")', "waitForWindowsTerminalState"]) {
+for (const contract of ["assertInstalledPair", "testFreshFailure", 'testManagedUpgrade("success")', 'testManagedUpgrade("interruption")', 'testManagedUpgrade("restoration")', 'testManagedUpgrade("status")', "status_error=", "waitForWindowsTerminalState"]) {
   check(cliConsumerTest.includes(contract), `exact CLI consumer tests must retain ${contract}`);
 }
 check(specification.includes("ytm upgrade --check") && specification.includes("installed_sha256"), "SPEC must define managed upgrade and its exact receipt fields");

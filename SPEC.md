@@ -136,7 +136,9 @@ be confirmed, then records its structured result in
 `.ytm.exe.upgrade-status.json`. An exclusively created
 `.ytm.exe.upgrade-in-progress` marker prevents concurrent helpers. An
 uncatchable interruption or uncommitted terminal status leaves that marker;
-replacement interruption may also leave fixed `.previous` evidence.
+failed terminal-status publication also retains the helper source and records
+a sanitized `status_error` in the marker. Replacement interruption may also
+leave fixed `.previous` evidence.
 Subsequent checks fail closed and report the exact
 executable, receipt, and recovery paths instead of guessing or deleting
 evidence.
