@@ -46,8 +46,11 @@ try {
   if (!shellInstaller.includes("sha256sum") || !shellInstaller.includes("shasum -a 256") || !shellInstaller.includes('[ "$actual" = "$expected" ]')) {
     throw new Error("Shell installer must verify its pinned archive digest.");
   }
-  if (!powershellInstaller.includes("Get-FileHash -Algorithm SHA256") || !powershellInstaller.includes("$Actual -ne $Expected")) {
+  if (!powershellInstaller.includes("function Get-Sha256") || !powershellInstaller.includes("[Security.Cryptography.SHA256]::Create()") || !powershellInstaller.includes("$Actual -ne $Expected")) {
     throw new Error("PowerShell installer must verify its pinned archive digest.");
+  }
+  if (powershellInstaller.includes("Get-FileHash")) {
+    throw new Error("PowerShell installer must not depend on module-autoloaded hashing commands.");
   }
   for (const marker of ["schema=1", "release_source=https://github.com/", "installed_sha256=", "YTM_MANAGED_UPGRADE", ".ytm.previous", "automatic rollback was incomplete", "same_file", "--max-time 120", "--timeout=30"]) {
     if (!shellInstaller.includes(marker)) throw new Error(`Shell installer is missing managed-install marker ${marker}.`);
