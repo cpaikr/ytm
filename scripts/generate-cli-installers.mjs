@@ -1,7 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { cliArchiveName, loadCliReleasePolicy, releaseBaseUrl } from "./cli-release-policy.mjs";
+import { cliArchiveName, cliArchiveRoot, loadCliReleasePolicy, releaseBaseUrl } from "./cli-release-policy.mjs";
 
 const repositoryRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 
@@ -34,7 +34,8 @@ export function generateShellInstaller(manifest, version, digests, linuxBuild) {
   const cases = manifest.targets.filter((target) => target.shellKernel).flatMap((target) =>
     target.shellMachines.map((machine) => {
       const archive = cliArchiveName(manifest, target, version);
-      return `  ${target.shellKernel}:${machine}) archive='${archive}'; expected='${requiredDigest(digests, archive)}' ;;`;
+      const root = cliArchiveRoot(manifest, target, version);
+      return `  ${target.shellKernel}:${machine}) archive='${archive}'; root='${root}'; expected='${requiredDigest(digests, archive)}' ;;`;
     })
   ).join("\n");
   return `#!/bin/sh
@@ -79,7 +80,6 @@ else printf '%s\\n' 'ytm installer requires sha256sum or shasum' >&2; exit 1
 fi
 [ "$actual" = "$expected" ] || { printf '%s\\n' "checksum mismatch for $archive" >&2; exit 1; }
 tar -xzf "$tmp/$archive" -C "$tmp"
-root="\${archive%.tar.gz}"
 [ -f "$tmp/$root/ytm" ] || { printf '%s\\n' 'archive does not contain ytm' >&2; exit 1; }
 mkdir -p "$install_dir"
 [ ! -e "$install_dir/ytm" ] || { printf '%s\\n' "$install_dir/ytm already exists; managed replacement is not available yet" >&2; exit 1; }
@@ -97,9 +97,11 @@ export function generatePowerShellInstaller(manifest, version, digests) {
   const target = manifest.targets.find((candidate) => candidate.os === "win32" && candidate.arch === "x64");
   if (!target) throw new Error("PowerShell installer requires a Windows x64 target.");
   const archive = cliArchiveName(manifest, target, version);
+  const root = cliArchiveRoot(manifest, target, version);
   const expected = requiredDigest(digests, archive);
   return `# Generated from cli-targets.json. Do not edit.
 $ErrorActionPreference = 'Stop'
+$ProgressPreference = 'SilentlyContinue'
 $Version = '${version}'
 $ReleaseBase = if ($env:YTM_RELEASE_BASE_URL) { $env:YTM_RELEASE_BASE_URL } else { '${releaseBaseUrl(manifest, version)}' }
 if (-not [Runtime.InteropServices.RuntimeInformation]::IsOSPlatform([Runtime.InteropServices.OSPlatform]::Windows)) { throw "ytm v$Version supports Windows x64 only" }
@@ -115,7 +117,7 @@ try {
   $Actual = (Get-FileHash -Algorithm SHA256 (Join-Path $Temp $Archive)).Hash.ToLowerInvariant()
   if ($Actual -ne $Expected) { throw "checksum mismatch for $Archive" }
   Expand-Archive -LiteralPath (Join-Path $Temp $Archive) -DestinationPath $Temp
-  $Root = [IO.Path]::GetFileNameWithoutExtension($Archive)
+  $Root = '${root}'
   $Binary = Join-Path (Join-Path $Temp $Root) 'ytm.exe'
   if (-not (Test-Path -LiteralPath $Binary -PathType Leaf)) { throw 'archive does not contain ytm.exe' }
   New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null

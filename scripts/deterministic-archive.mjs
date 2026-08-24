@@ -122,7 +122,7 @@ export function readZip(archive) {
 }
 
 function sortedEntries(entries) {
-  return [...entries].sort((left, right) => left.name.localeCompare(right.name, "en"));
+  return [...entries].sort((left, right) => left.name < right.name ? -1 : left.name > right.name ? 1 : 0);
 }
 
 function writeTarText(buffer, offset, length, value) {

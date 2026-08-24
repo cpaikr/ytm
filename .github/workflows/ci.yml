@@ -113,9 +113,15 @@ jobs:
     needs: cli-metadata
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.cli-metadata.outputs.matrix) }}
+    env:
+      RUST_TARGET: ${{ matrix.rust }}
+      SOURCE_COMMIT: ${{ github.sha }}
 
     steps:
       - name: Check out source
@@ -135,19 +141,19 @@ jobs:
         run: node scripts/install-linux-native-toolchain.mjs
 
       - name: Install Rust target
-        run: rustup target add ${{ matrix.rust }}
+        run: rustup target add "$RUST_TARGET"
 
       - name: Build standalone CLI artifact
-        run: node scripts/build-cli-artifact.mjs ${{ matrix.rust }}
+        run: node scripts/build-cli-artifact.mjs "$RUST_TARGET"
 
       - name: Validate Linux CLI glibc floor
         if: matrix.usesGlibcFloor
-        run: node scripts/validate-cli-glibc.mjs ${{ matrix.rust }}
+        run: node scripts/validate-cli-glibc.mjs "$RUST_TARGET"
 
       - name: Assemble and inspect standalone CLI archive
         run: |
-          node scripts/assemble-cli-archive.mjs ${{ matrix.rust }} .artifacts/cli --source-commit ${{ github.sha }}
-          node scripts/validate-cli-archive.mjs ${{ matrix.rust }} .artifacts/cli --execute
+          node scripts/assemble-cli-archive.mjs "$RUST_TARGET" .artifacts/cli --source-commit "$SOURCE_COMMIT"
+          node scripts/validate-cli-archive.mjs "$RUST_TARGET" .artifacts/cli --execute
 
       - name: Upload standalone CLI archive
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a

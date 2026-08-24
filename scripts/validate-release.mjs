@@ -79,14 +79,19 @@ const expectedCliTargets = [
   "aarch64-apple-darwin",
   "x86_64-pc-windows-msvc"
 ];
-equal(cliTargets.targets?.map(({ rustTarget }) => rustTarget), expectedCliTargets, "CLI support targets must remain explicit");
-check(new Set(cliTargets.targets?.map((target) => cliArchiveName(cliTargets, target, nodePackage.version))).size === expectedCliTargets.length, "CLI targets must derive unique archive names");
-for (const target of cliTargets.targets || []) {
+const declaredCliTargets = Array.isArray(cliTargets?.targets) ? cliTargets.targets : [];
+equal(declaredCliTargets.map((target) => target?.rustTarget), expectedCliTargets, "CLI support targets must remain explicit");
+try {
+  check(new Set(declaredCliTargets.map((target) => cliArchiveName(cliTargets, target, nodePackage.version))).size === expectedCliTargets.length, "CLI targets must derive unique archive names");
+} catch (error) {
+  check(false, `CLI archive naming policy is invalid: ${error instanceof Error ? error.message : String(error)}`);
+}
+for (const target of declaredCliTargets) {
   let plan;
   try {
-    plan = cliBuildPlan(cliTargets, nativeTargets.linuxNativeBuild, target.rustTarget);
+    plan = cliBuildPlan(cliTargets, nativeTargets.linuxNativeBuild, target?.rustTarget);
   } catch (error) {
-    check(false, `${target.rustTarget} CLI build policy is invalid: ${error instanceof Error ? error.message : String(error)}`);
+    check(false, `${target?.rustTarget || "unknown target"} CLI build policy is invalid: ${error instanceof Error ? error.message : String(error)}`);
     continue;
   }
   check(plan.args.at(-1) === "ytm-cli", `${target.rustTarget} CLI build must select ytm-cli`);
@@ -195,12 +200,14 @@ const cliArchiveJob = ciWorkflow.jobs?.["cli-archive"];
 check(cliArchiveJob?.needs === "cli-metadata" && cliArchiveJob?.["runs-on"] === "${{ matrix.runner }}", "CLI archive jobs must consume the generated target matrix");
 check(cliArchiveJob?.["timeout-minutes"] === 20 && cliArchiveJob?.strategy?.["fail-fast"] === false, "CLI archive matrix must be bounded and collect every target result");
 check(cliArchiveJob?.strategy?.matrix === "${{ fromJSON(needs.cli-metadata.outputs.matrix) }}", "CLI archive matrix must use only generated target data");
+check(cliArchiveJob?.defaults?.run?.shell === "bash", "CLI archive jobs must use one quoted shell contract on every runner");
+check(cliArchiveJob?.env?.RUST_TARGET === "${{ matrix.rust }}" && cliArchiveJob?.env?.SOURCE_COMMIT === "${{ github.sha }}", "CLI archive jobs must pass generated values through the environment");
 const cliLinuxCondition = "matrix.usesGlibcFloor";
 check(findNamedStep(cliArchiveJob, "Install pinned Linux native build toolchain")?.if === cliLinuxCondition, "CLI Linux targets must install the shared pinned toolchain");
-check(activeShell(findNamedStep(cliArchiveJob, "Build standalone CLI artifact")) === "node scripts/build-cli-artifact.mjs ${{ matrix.rust }}", "CLI archive jobs must use the repository build policy");
+check(activeShell(findNamedStep(cliArchiveJob, "Build standalone CLI artifact")) === 'node scripts/build-cli-artifact.mjs "$RUST_TARGET"', "CLI archive jobs must use the repository build policy");
 check(findNamedStep(cliArchiveJob, "Validate Linux CLI glibc floor")?.if === cliLinuxCondition, "CLI Linux artifacts must enforce the shared glibc floor");
 const cliAssembly = activeShell(findNamedStep(cliArchiveJob, "Assemble and inspect standalone CLI archive"));
-check(cliAssembly.includes("scripts/assemble-cli-archive.mjs") && cliAssembly.includes("--source-commit ${{ github.sha }}") && cliAssembly.includes("scripts/validate-cli-archive.mjs") && cliAssembly.includes("--execute"), "CLI archive jobs must reconcile source, inspect the archive, and execute the exact binary");
+check(cliAssembly.includes('scripts/assemble-cli-archive.mjs "$RUST_TARGET"') && cliAssembly.includes('--source-commit "$SOURCE_COMMIT"') && cliAssembly.includes('scripts/validate-cli-archive.mjs "$RUST_TARGET"') && cliAssembly.includes("--execute"), "CLI archive jobs must reconcile source, inspect the archive, and execute the exact binary");
 check(/^actions\/upload-artifact@[0-9a-f]{40}$/.test(findNamedStep(cliArchiveJob, "Upload standalone CLI archive")?.uses || ""), "CLI archive upload action must be commit-pinned");
 const cliSetJob = ciWorkflow.jobs?.["cli-artifact-set"];
 check(cliSetJob?.needs === "cli-archive" && cliSetJob?.["runs-on"] === "ubuntu-24.04" && cliSetJob?.["timeout-minutes"] === 10, "CLI artifact aggregation must wait for every archive on a bounded GitHub-hosted job");

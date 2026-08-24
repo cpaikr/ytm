@@ -102,7 +102,7 @@ async function executeIdentity(target, binary, version) {
       [["--version"], `ytm ${version}\n`],
       [["--help"], "CLI usage:"]
     ]) {
-      const result = spawnSync(executable, args, { encoding: "utf8" });
+      const result = spawnSync(executable, args, { encoding: "utf8", timeout: 30_000 });
       if (result.error) throw result.error;
       if (result.status !== 0 || result.stderr !== "" || (expected.endsWith("\n") ? result.stdout !== expected : !result.stdout.includes(expected))) {
         throw new Error(`${target.key} executable failed ${args.join(" ")} identity validation.`);

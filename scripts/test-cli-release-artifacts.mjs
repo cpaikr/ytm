@@ -6,6 +6,7 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { gzipSync } from "node:zlib";
 import { cliArchiveName, loadCliReleasePolicy, validateCliManifest } from "./cli-release-policy.mjs";
+import { parseChecksumFile } from "./cli-artifact-validation.mjs";
 import { createTarGz, readTarGz } from "./deterministic-archive.mjs";
 
 const repositoryRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
@@ -17,6 +18,12 @@ const temporaryRoot = await mkdtemp(join(tmpdir(), "ytm-cli-release-test-"));
 try {
   const canonicalGzip = createTarGz([{ name: "fixture", mode: 0o644, contents: Buffer.from("fixture") }]);
   assertEqual(canonicalGzip[9], 0xff, "tar.gz archives must use the platform-independent gzip OS marker");
+  const orderedNames = readTarGz(createTarGz([
+    { name: "z", mode: 0o644, contents: Buffer.alloc(0) },
+    { name: "ä", mode: 0o644, contents: Buffer.alloc(0) },
+    { name: "a", mode: 0o644, contents: Buffer.alloc(0) }
+  ])).map(({ name }) => name);
+  assertEqual(orderedNames, ["a", "z", "ä"], "archive entry ordering must use locale-independent code units");
   const matrix = JSON.parse(runNode("scripts/print-cli-matrix.mjs", []).stdout).include;
   assertEqual(
     matrix.map(({ usesGlibcFloor }) => usesGlibcFloor),
@@ -34,6 +41,19 @@ try {
   }
   if (powershellInstaller.indexOf("IsOSPlatform") === -1 || powershellInstaller.indexOf("IsOSPlatform") > powershellInstaller.indexOf("$InstallDir =")) {
     throw new Error("PowerShell installer must reject non-Windows hosts before deriving the install path.");
+  }
+  if (!shellInstaller.includes("sha256sum") || !shellInstaller.includes("shasum -a 256") || !shellInstaller.includes('[ "$actual" = "$expected" ]')) {
+    throw new Error("Shell installer must verify its pinned archive digest.");
+  }
+  if (!powershellInstaller.includes("Get-FileHash -Algorithm SHA256") || !powershellInstaller.includes("$Actual -ne $Expected")) {
+    throw new Error("PowerShell installer must verify its pinned archive digest.");
+  }
+  const publishedChecksums = parseChecksumFile(await readFile(join(first, manifest.checksumFile), "utf8"));
+  for (const target of manifest.targets) {
+    const archive = cliArchiveName(manifest, target, version);
+    const digest = publishedChecksums.get(archive);
+    const installer = target.shellKernel ? shellInstaller : powershellInstaller;
+    if (!digest || !installer.includes(digest)) throw new Error(`Installer for ${target.key} must pin ${archive}.`);
   }
   if (process.platform !== "win32") {
     run("sh", ["-n", join(first, manifest.installerAssets.shell)], repositoryRoot);
