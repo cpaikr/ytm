@@ -45,21 +45,39 @@ The release implementation will follow these stages:
    creates the immutable `vX.Y.Z` tag and a draft GitHub Release. The submitted
    expected version must match `VERSION`, the manifest, changelog, tag, and
    tagged checkout.
-4. **Planned:** All CLI archives, checksums, installers, and npm tarballs build
-   on GitHub-hosted runners from that tag. The workflow uploads only a complete,
-   validated CLI asset set to the draft.
+4. **Partially implemented:** CI builds and validates all CLI archives,
+   checksums, and installers on GitHub-hosted runners. Tagged orchestration and
+   npm tarball integration remain planned; no candidate is uploaded to a draft
+   Release yet.
 5. **Planned:** Publishing the draft GitHub Release is the canonical completion
    point. npm publication may begin only afterward, from the same source SHA and
    version, through the protected `npm` environment and trusted publishing.
 
-Only the disabled preparation mechanics for stage 1 exist today. Stages 3–5,
-including the protected release job, CLI artifact generation, canonical GitHub
-Release publication, and subsequent npm projection, are future implementation
+The disabled preparation mechanics for stage 1 and reusable CLI artifact
+mechanics for part of stage 4 exist today. Stages 3 and 5, plus tagged
+orchestration and the npm portion of stage 4, remain future implementation
 slices. The current `.github/workflows/release.yml` is still the transitional,
 manually dispatched `node-vX.Y.Z` npm publisher. It does not create or publish a
-GitHub Release. Do not use it for a new product release. Its replacement, CLI
-artifacts, installers, and exact-distributable tests are subsequent slices of
-the active plan.
+GitHub Release. Do not use it for a new product release. Its replacement,
+receipts, managed upgrades, and exact-distributable installer tests are
+subsequent slices of the active plan.
+
+## Standalone CLI candidate assets
+
+[`cli-targets.json`](../cli-targets.json) owns four targets independently of the
+Node-API package matrix: GNU/Linux x64 and ARM64 at glibc 2.28, macOS ARM64, and
+Windows x64. CI derives its matrix from that file, builds on each declared
+runner, executes the exact binary's `--version` and `--help`, enforces the Linux
+symbol floor, and packages only the executable plus the canonical license
+files. Archive order and metadata are normalized by repository code.
+
+After all target jobs pass, CI generates version-pinned `install.sh` and
+`install.ps1`, embeds the exact selected archive digest in each, creates sorted
+`SHA256SUMS` for every archive and installer, and validates the complete file
+set before retaining it as a CI artifact. The fresh-install scripts reject
+unsupported platforms, verify SHA-256 before extraction, and refuse to replace
+an existing executable. They intentionally do not write a receipt or implement
+upgrade yet, so they are not a public installation path.
 
 ## Visibility and failure policy
 

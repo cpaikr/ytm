@@ -171,6 +171,12 @@ fn parse_invocation(args: &[OsString], tail: &[String]) -> ParseOutcome {
     }
 
     let first = tail[0].as_str();
+    if matches!(first, "--version" | "-V") && tail.len() == 1 {
+        return ParseOutcome::Immediate(stdout_output(
+            0,
+            format!("ytm {}\n", env!("CARGO_PKG_VERSION")),
+        ));
+    }
     if first == "help" {
         return ParseOutcome::Immediate(help_invocation_output(tail));
     }
@@ -908,7 +914,7 @@ fn stdout_output(code: u8, stdout: String) -> ProcessOutput {
 
 fn root_help() -> String {
     format!(
-        "{}\n\nCLI usage:\n  ytm matrix --base-date <기준일> --kind <종류> [--fallback previous-available] [--lookback-days <days>] [--format json|csv|tsv] [--pretty]\n  ytm kinds [--base-date <기준일>] [--format json|csv|tsv] [--pretty]\n  ytm help <command>\n\nOutput:\n  json is the default and prints one JSON object. csv and tsv print tabular success rows. Command failures print one JSON object to stdout and exit non-zero. Unknown command names given to ytm help print a plain-text message and exit non-zero. Help diagnostics for invalid invocations are written to stderr.\n",
+        "{}\n\nCLI usage:\n  ytm --version\n  ytm matrix --base-date <기준일> --kind <종류> [--fallback previous-available] [--lookback-days <days>] [--format json|csv|tsv] [--pretty]\n  ytm kinds [--base-date <기준일>] [--format json|csv|tsv] [--pretty]\n  ytm help <command>\n\nOutput:\n  json is the default and prints one JSON object. csv and tsv print tabular success rows. Command failures print one JSON object to stdout and exit non-zero. Unknown command names given to ytm help print a plain-text message and exit non-zero. Help diagnostics for invalid invocations are written to stderr.\n",
         tool_help()
     )
 }
@@ -1066,6 +1072,19 @@ mod tests {
         ])
         .await;
         assert_structured_failure(&help_as_value, Some("matrix"));
+    }
+
+    #[tokio::test]
+    async fn version_is_exact_and_side_effect_free() {
+        for flag in ["--version", "-V"] {
+            let output = run(vec!["ytm".into(), flag.into()]).await;
+            assert_eq!(output.code, 0);
+            assert_eq!(
+                output.stdout,
+                format!("ytm {}\n", env!("CARGO_PKG_VERSION"))
+            );
+            assert_eq!(output.stderr, "");
+        }
     }
 
     #[test]

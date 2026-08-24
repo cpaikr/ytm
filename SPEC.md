@@ -81,9 +81,13 @@ Node SDK, and CLI surface must preserve it.
 The standalone Rust CLI is:
 
 ```sh
+ytm --version
 ytm matrix --base-date <기준일> --kind <종류> [--fallback previous-available] [--lookback-days <days>] [--format json|csv|tsv] [--pretty]
 ytm kinds [--base-date <기준일>] [--format json|csv|tsv] [--pretty]
 ```
+
+`ytm --version` is network-free and prints exactly `ytm <product-version>`
+followed by one newline on stdout. It has no update-check or other side effect.
 
 JSON is the default. A successful JSON command prints exactly one
 `{ "ok": true, "operation", "result" }` object. Execution and invalid-invocation

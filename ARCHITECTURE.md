@@ -64,6 +64,8 @@ executable entry, and the repository supports only the Rust `ytm` CLI.
 - [`native-targets.json`](native-targets.json) — canonical Node native support
   matrix and source for optional dependencies, manifests, loader selection,
   and CI.
+- [`cli-targets.json`](cli-targets.json) — independent standalone CLI support
+  matrix and source for archive names, installer selection, and CLI artifact CI.
 - [`docs/provider-qualification.md`](docs/provider-qualification.md) — source
   evidence and enablement decisions that protocol tests cannot establish.
 
@@ -138,12 +140,21 @@ built on its native GitHub-hosted image and clean-installed
 under all three Node majors. The root npm package contains JavaScript only and
 selects an exact-version optional native package at runtime.
 
-The standalone Rust CLI builds and passes black-box tests as a workspace
-binary. CI also runs its help path on every Node-native runner, but that does
-not define a CLI distribution support matrix. Publication targets, installers,
-release assets, and support claims are not implemented. Their approved target
-is tracked in [`ROADMAP.md`](ROADMAP.md); selecting or publishing an actual
-version remains separately authorized release work.
+[`cli-targets.json`](cli-targets.json) independently owns the standalone CLI
+support matrix: GNU/Linux x64 and ARM64 at the shared glibc 2.28 floor, macOS
+ARM64, and Windows x64. The Node and CLI matrices may evolve independently;
+overlapping runner, architecture, and Linux toolchain facts are mechanically
+reconciled. CI builds the exact target binary on its declared GitHub-hosted
+runner, executes its version and help identity, creates a normalized archive,
+and aggregates all four archives with generated shell and PowerShell installers
+plus sorted SHA-256 metadata. Repository-owned packers normalize archive order,
+timestamps, ownership, modes, and ZIP metadata; exact-content validation
+rejects undeclared or private files.
+
+These outputs are CI candidates only. No workflow attaches them to a GitHub
+Release, no public installer URL is active, and no managed install receipt or
+upgrade behavior exists yet. Selecting or publishing an actual version remains
+separately authorized release work.
 
 ## Release boundary
 
@@ -152,10 +163,12 @@ publication runbook.
 
 The disabled Release Please preparation workflow owns one root product release
 PR, `VERSION`, and the root changelog. It explicitly skips tag and GitHub
-Release creation. The retained transitional Node workflow publishes native
-packages before the root npm package through OIDC only after separate version,
-legacy `node-vX.Y.Z` tag, dispatch, and environment approval. No workflow yet
-creates or publishes the canonical CLI GitHub Release.
+Release creation. CI now produces complete standalone CLI artifact candidates,
+but does not create a tag or GitHub Release. The retained transitional Node
+workflow publishes native packages before the root npm package through OIDC
+only after separate version, legacy `node-vX.Y.Z` tag, dispatch, and environment
+approval. No workflow yet creates or publishes the canonical CLI GitHub
+Release.
 
 The registry release at `0.2.0` predates the rewrite; the checkout retains that
 version until a new release is authorized. The SDK/CLI migration does not

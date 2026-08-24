@@ -84,6 +84,124 @@ jobs:
       - name: Check npm package contents
         run: bun run pack:node
 
+  cli-metadata:
+    name: Standalone CLI matrix
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.targets.outputs.matrix }}
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - name: Emit CLI target matrix
+        id: targets
+        shell: bash
+        run: echo "matrix=$(node scripts/print-cli-matrix.mjs)" >> "$GITHUB_OUTPUT"
+
+  cli-archive:
+    name: CLI archive (${{ matrix.key }})
+    needs: cli-metadata
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.cli-metadata.outputs.matrix) }}
+    env:
+      RUST_TARGET: ${{ matrix.rust }}
+      SOURCE_COMMIT: ${{ github.sha }}
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: 24
+          architecture: ${{ matrix.arch }}
+          package-manager-cache: false
+
+      - name: Install pinned Linux native build toolchain
+        if: matrix.usesGlibcFloor
+        run: node scripts/install-linux-native-toolchain.mjs
+
+      - name: Install Rust target
+        run: rustup target add "$RUST_TARGET"
+
+      - name: Build standalone CLI artifact
+        run: node scripts/build-cli-artifact.mjs "$RUST_TARGET"
+
+      - name: Validate Linux CLI glibc floor
+        if: matrix.usesGlibcFloor
+        run: node scripts/validate-cli-glibc.mjs "$RUST_TARGET"
+
+      - name: Assemble and inspect standalone CLI archive
+        run: |
+          node scripts/assemble-cli-archive.mjs "$RUST_TARGET" .artifacts/cli --source-commit "$SOURCE_COMMIT"
+          node scripts/validate-cli-archive.mjs "$RUST_TARGET" .artifacts/cli --execute
+
+      - name: Upload standalone CLI archive
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: cli-${{ matrix.key }}-${{ github.sha }}
+          path: .artifacts/cli/*
+          if-no-files-found: error
+          retention-days: 1
+
+  cli-artifact-set:
+    name: Complete standalone CLI artifact set
+    needs: cli-archive
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - name: Download standalone CLI archives
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          pattern: cli-*-${{ github.sha }}
+          path: dist/cli
+          merge-multiple: true
+
+      - name: Generate and validate complete CLI candidate
+        run: |
+          node scripts/generate-cli-installers.mjs dist/cli
+          node scripts/finalize-cli-artifacts.mjs dist/cli
+          node scripts/validate-cli-artifact-set.mjs dist/cli
+
+      - name: Upload complete CLI candidate
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: cli-candidate-${{ github.sha }}
+          path: dist/cli/*
+          if-no-files-found: error
+          retention-days: 7
+
   native-consumer:
     name: Native consumer (${{ matrix.target.rust }} / Node ${{ matrix.node }})
     timeout-minutes: 20
@@ -125,9 +243,6 @@ jobs:
 
       - name: Install Rust target
         run: rustup target add ${{ matrix.target.rust }}
-
-      - name: Smoke standalone Rust CLI
-        run: cargo run --locked --release -p ytm-cli -- --help
 
       - name: Build production native artifact
         run: node scripts/build-native-artifact.mjs ${{ matrix.target.rust }}

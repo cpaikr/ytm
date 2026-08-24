@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "supportClaim": "supported",
+  "repository": "cpaikr/ytm",
+  "binaryName": "ytm",
+  "assetPrefix": "ytm",
+  "checksumFile": "SHA256SUMS",
+  "installerAssets": {
+    "shell": "install.sh",
+    "powershell": "install.ps1"
+  },
+  "licenseFiles": [
+    "LICENSE.md",
+    "THIRD_PARTY_LICENSES.html"
+  ],
+  "linuxBuildPolicy": {
+    "manifest": "native-targets.json",
+    "field": "linuxNativeBuild"
+  },
+  "targets": [
+    {
+      "key": "linux-x64-gnu",
+      "rustTarget": "x86_64-unknown-linux-gnu",
+      "runner": "ubuntu-24.04",
+      "os": "linux",
+      "arch": "x64",
+      "libc": "glibc",
+      "archiveFormat": "tar.gz",
+      "executableFile": "ytm",
+      "shellKernel": "Linux",
+      "shellMachines": ["x86_64", "amd64"]
+    },
+    {
+      "key": "linux-arm64-gnu",
+      "rustTarget": "aarch64-unknown-linux-gnu",
+      "runner": "ubuntu-24.04-arm",
+      "os": "linux",
+      "arch": "arm64",
+      "libc": "glibc",
+      "archiveFormat": "tar.gz",
+      "executableFile": "ytm",
+      "shellKernel": "Linux",
+      "shellMachines": ["aarch64", "arm64"]
+    },
+    {
+      "key": "darwin-arm64",
+      "rustTarget": "aarch64-apple-darwin",
+      "runner": "macos-15",
+      "os": "darwin",
+      "arch": "arm64",
+      "archiveFormat": "tar.gz",
+      "executableFile": "ytm",
+      "shellKernel": "Darwin",
+      "shellMachines": ["arm64"]
+    },
+    {
+      "key": "windows-x64-msvc",
+      "rustTarget": "x86_64-pc-windows-msvc",
+      "runner": "windows-2025",
+      "os": "win32",
+      "arch": "x64",
+      "archiveFormat": "zip",
+      "executableFile": "ytm.exe"
+    }
+  ]
+}
