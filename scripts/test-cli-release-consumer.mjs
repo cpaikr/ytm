@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { spawn } from "node:child_process";
 import { createServer } from "node:http";
-import { access, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { access, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -259,7 +259,20 @@ async function waitForWindowsTerminalState(installDir, interrupted) {
     }
     await new Promise((resolveWait) => setTimeout(resolveWait, 100));
   }
-  throw new Error("Windows upgrade helper did not reach its expected terminal state.");
+  throw new Error(`Windows upgrade helper did not reach its expected terminal state:\n${await describeWindowsState(installDir)}`);
+}
+
+async function describeWindowsState(installDir) {
+  const entries = await readdir(installDir).catch((error) => [`<directory read failed: ${error.message}>`]);
+  const details = {};
+  for (const entry of entries) {
+    if (entry.startsWith("<")) continue;
+    const contents = await readFile(join(installDir, entry)).catch((error) => Buffer.from(`<read failed: ${error.message}>`));
+    details[entry] = entry.endsWith(".exe")
+      ? { bytes: contents.length, sha256: sha256(contents) }
+      : contents.toString("utf8");
+  }
+  return JSON.stringify({ entries, details }, null, 2);
 }
 
 async function startSacrificialWindowsParent() {
