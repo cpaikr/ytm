@@ -32,30 +32,34 @@ scoped GitHub App or fine-grained token whose pull requests trigger required
 checks. Keep the variable `false` until release preparation is explicitly
 authorized.
 
-## Accepted lifecycle
+## Accepted target lifecycle
 
-The completed release implementation follows these stages:
+The release implementation will follow these stages:
 
 1. Release Please proposes one release PR against `main`. The PR reconciles
    every product-version copy and generates the root changelog entry.
 2. Reviewers validate the exact proposed version and complete artifact plan.
    Merging that specific PR requires explicit approval of that version.
-3. A separately authorized job in the protected `release` environment runs the
-   Release Please release phase for the merged PR. It creates the immutable
-   `vX.Y.Z` tag and a draft GitHub Release. The submitted expected version must
-   match `VERSION`, the manifest, changelog, tag, and tagged checkout.
-4. All CLI archives, checksums, installers, and npm tarballs build on
-   GitHub-hosted runners from that tag. The workflow uploads only a complete,
+3. **Planned:** A separately authorized job in the protected `release`
+   environment runs the Release Please release phase for the merged PR. It
+   creates the immutable `vX.Y.Z` tag and a draft GitHub Release. The submitted
+   expected version must match `VERSION`, the manifest, changelog, tag, and
+   tagged checkout.
+4. **Planned:** All CLI archives, checksums, installers, and npm tarballs build
+   on GitHub-hosted runners from that tag. The workflow uploads only a complete,
    validated CLI asset set to the draft.
-5. Publishing the draft GitHub Release is the canonical completion point. npm
-   publication may begin only afterward, from the same source SHA and version,
-   through the protected `npm` environment and trusted publishing.
+5. **Planned:** Publishing the draft GitHub Release is the canonical completion
+   point. npm publication may begin only afterward, from the same source SHA and
+   version, through the protected `npm` environment and trusted publishing.
 
-The current `.github/workflows/release.yml` has not reached stages 3–5: it is
-still the transitional, manually dispatched `node-vX.Y.Z` npm publisher. It
-does not create or publish a GitHub Release. Do not use it for a new product
-release. Its replacement, CLI artifacts, installers, and exact-distributable
-tests are subsequent slices of the active plan.
+Only the disabled preparation mechanics for stage 1 exist today. Stages 3–5,
+including the protected release job, CLI artifact generation, canonical GitHub
+Release publication, and subsequent npm projection, are future implementation
+slices. The current `.github/workflows/release.yml` is still the transitional,
+manually dispatched `node-vX.Y.Z` npm publisher. It does not create or publish a
+GitHub Release. Do not use it for a new product release. Its replacement, CLI
+artifacts, installers, and exact-distributable tests are subsequent slices of
+the active plan.
 
 ## Visibility and failure policy
 
