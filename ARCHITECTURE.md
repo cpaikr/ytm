@@ -151,10 +151,20 @@ plus sorted SHA-256 metadata. Repository-owned packers normalize archive order,
 timestamps, ownership, modes, and ZIP metadata; exact-content validation
 rejects undeclared or private files.
 
-These outputs are CI candidates only. No workflow attaches them to a GitHub
-Release, no public installer URL is active, and no managed install receipt or
-upgrade behavior exists yet. Selecting or publishing an actual version remains
-separately authorized release work.
+The generated installers now write a strict adjacent executable receipt and own
+fresh-install and managed-replacement transactions. The CLI's isolated release
+management module derives its platform identity from `cli-targets.json` at
+build time, validates the installed pair, and checks GitHub Releases only for
+an explicit `upgrade` command. It verifies release metadata, checksums, and the
+generated installer before delegating archive download and replacement. Unix
+uses an installer transaction with fixed recovery links; Windows uses an
+out-of-process PowerShell helper so the running mapped executable can exit
+before replacement. Matrix, kinds, help, and version execution do not depend on
+release infrastructure.
+
+These outputs remain CI candidates only. No workflow attaches them to a GitHub
+Release and no public installer URL is active. Selecting or publishing an
+actual version remains separately authorized release work.
 
 ## Release boundary
 

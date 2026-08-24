@@ -53,14 +53,13 @@ The release implementation will follow these stages:
    point. npm publication may begin only afterward, from the same source SHA and
    version, through the protected `npm` environment and trusted publishing.
 
-The disabled preparation mechanics for stage 1 and reusable CLI artifact
-mechanics for part of stage 4 exist today. Stages 3 and 5, plus tagged
-orchestration and the npm portion of stage 4, remain future implementation
-slices. The current `.github/workflows/release.yml` is still the transitional,
-manually dispatched `node-vX.Y.Z` npm publisher. It does not create or publish a
-GitHub Release. Do not use it for a new product release. Its replacement,
-receipts, managed upgrades, and exact-distributable installer tests are
-subsequent slices of the active plan.
+The disabled preparation mechanics for stage 1 and reusable CLI artifact and
+managed-install mechanics for part of stage 4 exist today. Stages 3 and 5,
+exact-distributable consumer coverage, tagged orchestration, and the npm portion
+of stage 4 remain future implementation slices. The current
+`.github/workflows/release.yml` is still the transitional, manually dispatched
+`node-vX.Y.Z` npm publisher. It does not create or publish a GitHub Release. Do
+not use it for a new product release.
 
 ## Standalone CLI candidate assets
 
@@ -76,8 +75,22 @@ After all target jobs pass, CI generates version-pinned `install.sh` and
 `SHA256SUMS` for every archive and installer, and validates the complete file
 set before retaining it as a CI artifact. The fresh-install scripts reject
 unsupported platforms, verify SHA-256 before extraction, and refuse to replace
-an existing executable. They intentionally do not write a receipt or implement
-upgrade yet, so they are not a public installation path.
+an existing executable or receipt. A successful install writes a strict
+adjacent receipt containing version, target, executable name, canonical GitHub
+release source, and installed executable digest.
+
+`ytm upgrade --check` is read-only and checks only the latest public stable
+GitHub Release after validating the managed pair. `ytm upgrade` additionally
+verifies release assets, the checksum manifest, the platform installer, and its
+pinned archive digest before invoking that installer in managed mode. Unix
+replacement preserves and rolls back the prior executable/receipt pair;
+Windows schedules an out-of-process helper, exclusively claims an adjacent
+in-progress marker, and writes an adjacent status file. Interrupted upgrades
+either restore the verified pair or retain fixed marker/`.previous` evidence;
+when recovery is required, the command reports the paths to inspect. These
+capabilities are candidate behavior, not a public
+installation path until tagged release orchestration exists and a version is
+separately approved.
 
 ## Visibility and failure policy
 

@@ -38,7 +38,14 @@ const [
   npmWorkflow,
   releasePleaseWorkflow,
   pythonPackagePresent,
-  pythonWorkflowPresent
+  pythonWorkflowPresent,
+  cliCargo,
+  cliBuildScript,
+  cliSource,
+  releaseManagement,
+  installerGenerator,
+  cliArtifactTest,
+  specification
 ] = await Promise.all([
   readJson("package.json"),
   readJson("packages/node/package.json"),
@@ -50,7 +57,14 @@ const [
   readYaml(".github/workflows/release.yml"),
   readYaml(".github/workflows/release-please.yml"),
   pathExists("packages/python/pyproject.toml"),
-  pathExists(".github/workflows/release-python.yml")
+  pathExists(".github/workflows/release-python.yml"),
+  readFile("crates/ytm-cli/Cargo.toml", "utf8"),
+  readFile("crates/ytm-cli/build.rs", "utf8"),
+  readFile("crates/ytm-cli/src/lib.rs", "utf8"),
+  readFile("crates/ytm-cli/src/release_management.rs", "utf8"),
+  readFile("scripts/generate-cli-installers.mjs", "utf8"),
+  readFile("scripts/test-cli-release-artifacts.mjs", "utf8"),
+  readFile("SPEC.md", "utf8")
 ]);
 
 check(rootPackage.private === true, "root package must remain private");
@@ -103,6 +117,19 @@ for (const target of declaredCliTargets) {
     check(overlappingNative.npmArch === target.arch, `${target.rustTarget} shared architecture fact must agree across Node and CLI targets`);
   }
 }
+for (const dependency of ["futures-util.workspace = true", "reqwest.workspace = true", "semver.workspace = true", "sha2.workspace = true"]) {
+  check(cliCargo.includes(dependency), `standalone CLI managed upgrade must declare ${dependency}`);
+}
+for (const identity of ["YTM_CLI_TARGET_KEY", "YTM_CLI_EXECUTABLE_FILE", "YTM_CLI_REPOSITORY", "YTM_CLI_CHECKSUM_FILE", "YTM_CLI_INSTALLER_ASSET", "YTM_CLI_ARCHIVE_ASSET"]) {
+  check(cliBuildScript.includes(identity), `standalone CLI build identity must derive ${identity} from cli-targets.json`);
+  check(releaseManagement.includes(identity), `managed upgrade must consume manifest-derived ${identity}`);
+}
+check(cliSource.includes('first == "upgrade"') && cliSource.includes("UpgradeMode::Check") && cliSource.includes("UpgradeMode::Install"), "standalone CLI must expose explicit upgrade and upgrade --check paths");
+for (const contract of ["schema=1", "installed_sha256", "release_source", "YTM_MANAGED_UPGRADE", ".ytm.previous", ".ytm.exe.previous"]) {
+  check(installerGenerator.includes(contract), `generated installers must implement managed-install contract ${contract}`);
+}
+check(cliArtifactTest.includes("testShellManagedInstall") && cliArtifactTest.includes("injected receipt-publication failure"), "CLI artifact tests must execute fresh receipt installation and managed rollback");
+check(specification.includes("ytm upgrade --check") && specification.includes("installed_sha256"), "SPEC must define managed upgrade and its exact receipt fields");
 for (const target of nativeTargets.targets || []) {
   let plan;
   try {

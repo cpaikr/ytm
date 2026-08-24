@@ -1,9 +1,9 @@
 import { createHash } from "node:crypto";
-import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { access, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { gzipSync } from "node:zlib";
 import { cliArchiveName, loadCliReleasePolicy, validateCliManifest } from "./cli-release-policy.mjs";
 import { parseChecksumFile } from "./cli-artifact-validation.mjs";
@@ -14,6 +14,7 @@ const { manifest, linuxBuild } = await loadCliReleasePolicy(repositoryRoot);
 const version = (await readFile(resolve(repositoryRoot, "VERSION"), "utf8")).trim();
 const sourceCommit = run("git", ["rev-parse", "HEAD"], repositoryRoot).stdout.trim();
 const temporaryRoot = await mkdtemp(join(tmpdir(), "ytm-cli-release-test-"));
+const pathExists = (path) => access(path).then(() => true, () => false);
 
 try {
   const canonicalGzip = createTarGz([{ name: "fixture", mode: 0o644, contents: Buffer.from("fixture") }]);
@@ -48,6 +49,12 @@ try {
   if (!powershellInstaller.includes("Get-FileHash -Algorithm SHA256") || !powershellInstaller.includes("$Actual -ne $Expected")) {
     throw new Error("PowerShell installer must verify its pinned archive digest.");
   }
+  for (const marker of ["schema=1", "release_source=https://github.com/", "installed_sha256=", "YTM_MANAGED_UPGRADE", ".ytm.previous", "automatic rollback was incomplete"]) {
+    if (!shellInstaller.includes(marker)) throw new Error(`Shell installer is missing managed-install marker ${marker}.`);
+  }
+  for (const marker of ["schema=1", "YTM_MANAGED_UPGRADE", ".ytm.exe.previous", "Wait-Process", "recoverableFailure", "upgrade-status.json", "upgrade-in-progress", "FileMode]::CreateNew", "Start-Process", "-PassThru", "preserve the uncommitted executable at ${Executable}"]) {
+    if (!powershellInstaller.includes(marker)) throw new Error(`PowerShell installer is missing managed-install marker ${marker}.`);
+  }
   const publishedChecksums = parseChecksumFile(await readFile(join(first, manifest.checksumFile), "utf8"));
   for (const target of manifest.targets) {
     const archive = cliArchiveName(manifest, target, version);
@@ -57,6 +64,7 @@ try {
   }
   if (process.platform !== "win32") {
     run("sh", ["-n", join(first, manifest.installerAssets.shell)], repositoryRoot);
+    await testShellManagedInstall(first, shellInstaller, publishedChecksums);
   }
   const firstFiles = (await readdir(first)).sort();
   const secondFiles = (await readdir(second)).sort();
@@ -128,6 +136,99 @@ async function copyCandidate(source, destination) {
   for (const file of await readdir(source)) await copyFile(join(source, file), join(destination, file));
 }
 
+async function testShellManagedInstall(candidate, installer, checksums) {
+  const hostTarget = manifest.targets.find((target) =>
+    target.shellKernel === (process.platform === "darwin" ? "Darwin" : "Linux")
+    && target.shellMachines.includes(process.arch === "arm64" ? "arm64" : "x86_64")
+  );
+  if (!hostTarget) return;
+  const installDir = join(temporaryRoot, "managed-install");
+  const installerPath = join(candidate, manifest.installerAssets.shell);
+  const environment = {
+    ...process.env,
+    YTM_INSTALL_DIR: installDir,
+    YTM_RELEASE_BASE_URL: pathToFileURL(candidate).href.replace(/\/$/, "")
+  };
+  run("sh", [installerPath], repositoryRoot, true, environment);
+  const executable = join(installDir, "ytm");
+  const receipt = join(installDir, "ytm.receipt");
+  const executableDigest = createHash("sha256").update(await readFile(executable)).digest("hex");
+  assertEqual(
+    await readFile(receipt, "utf8"),
+    `schema=1\nversion=${version}\ntarget=${hostTarget.key}\nexecutable=ytm\nrelease_source=https://github.com/${manifest.repository}/releases/download/v${version}\ninstalled_sha256=${executableDigest}\n`,
+    "fresh install must publish the exact adjacent receipt"
+  );
+  const originalExecutable = await readFile(executable);
+  const originalReceipt = await readFile(receipt);
+  assertFailed(run("sh", [installerPath], repositoryRoot, false, environment), "already exists");
+  if (!(await readFile(executable)).equals(originalExecutable) || !(await readFile(receipt)).equals(originalReceipt)) {
+    throw new Error("refused fresh install must preserve the installed executable and receipt");
+  }
+
+  const interruptedInstallDir = join(temporaryRoot, "interrupted-fresh-install");
+  const interruptedInstaller = join(temporaryRoot, "install-interrupted.sh");
+  const interrupted = installer.replace(
+    '  ln "$staged" "$executable" || { printf \'%s\\n\' "$executable already exists; installation did not replace it" >&2; exit 1; }',
+    '  ln "$staged" "$executable" || { printf \'%s\\n\' "$executable already exists; installation did not replace it" >&2; exit 1; }\n  kill -TERM $$ # injected interruption before receipt publication'
+  );
+  if (interrupted === installer) throw new Error("could not inject fresh-install interruption");
+  await writeFile(interruptedInstaller, interrupted, { mode: 0o755 });
+  const interruptedEnvironment = { ...environment, YTM_INSTALL_DIR: interruptedInstallDir };
+  assertFailed(run("sh", [interruptedInstaller], repositoryRoot, false, interruptedEnvironment), "");
+  for (const path of [join(interruptedInstallDir, "ytm"), join(interruptedInstallDir, "ytm.receipt")]) {
+    if (await pathExists(path)) throw new Error(`interrupted fresh install left ${path}`);
+  }
+
+  const tamperedInstallDir = join(temporaryRoot, "tampered-copy-install");
+  const tamperedInstaller = join(temporaryRoot, "install-tampered-copy.sh");
+  const tamperedCopy = installer.replace(
+    'chmod 755 "$staged"',
+    'chmod 755 "$staged"\nprintf \'staged-copy-change\' >> "$staged" # injected successful copy alteration'
+  );
+  if (tamperedCopy === installer) throw new Error("could not inject staged-copy alteration");
+  await writeFile(tamperedInstaller, tamperedCopy, { mode: 0o755 });
+  const tamperedEnvironment = { ...environment, YTM_INSTALL_DIR: tamperedInstallDir };
+  run("sh", [tamperedInstaller], repositoryRoot, true, tamperedEnvironment);
+  const tamperedExecutable = join(tamperedInstallDir, "ytm");
+  const tamperedReceipt = await readFile(join(tamperedInstallDir, "ytm.receipt"), "utf8");
+  const tamperedDigest = createHash("sha256").update(await readFile(tamperedExecutable)).digest("hex");
+  if (!tamperedReceipt.endsWith(`installed_sha256=${tamperedDigest}\n`)) {
+    throw new Error("fresh-install receipt must hash the staged executable bytes");
+  }
+
+  const archive = cliArchiveName(manifest, hostTarget, version);
+  const managedEnvironment = {
+    ...environment,
+    YTM_MANAGED_UPGRADE: "1",
+    YTM_CURRENT_VERSION: version,
+    YTM_CURRENT_SHA256: executableDigest,
+    YTM_EXPECTED_VERSION: version,
+    YTM_EXPECTED_ARCHIVE_SHA256: checksums.get(archive)
+  };
+  run("sh", [installerPath], repositoryRoot, true, managedEnvironment);
+  if (!(await readFile(executable)).equals(originalExecutable) || !(await readFile(receipt)).equals(originalReceipt)) {
+    throw new Error("managed replacement must publish the verified executable and receipt pair");
+  }
+  for (const recoveryFile of [join(installDir, ".ytm.previous"), join(installDir, ".ytm.receipt.previous")]) {
+    if (await pathExists(recoveryFile)) throw new Error(`successful managed replacement left ${recoveryFile}`);
+  }
+
+  const failingInstaller = join(temporaryRoot, "install-failing.sh");
+  const injected = installer.replace(
+    '  mv -f "$staged_receipt" "$receipt"',
+    '  false # injected receipt-publication failure\n  mv -f "$staged_receipt" "$receipt"'
+  );
+  if (injected === installer) throw new Error("could not inject shell transaction failure");
+  await writeFile(failingInstaller, injected, { mode: 0o755 });
+  assertFailed(run("sh", [failingInstaller], repositoryRoot, false, managedEnvironment), "");
+  if (!(await readFile(executable)).equals(originalExecutable) || !(await readFile(receipt)).equals(originalReceipt)) {
+    throw new Error("managed replacement failure must restore the prior executable and receipt");
+  }
+  for (const recoveryFile of [join(installDir, ".ytm.previous"), join(installDir, ".ytm.receipt.previous")]) {
+    if (await pathExists(recoveryFile)) throw new Error(`completed rollback left ${recoveryFile}`);
+  }
+}
+
 function fakeExecutable(target) {
   const binary = Buffer.alloc(128);
   if (target.os === "linux") {
@@ -151,8 +252,8 @@ function runNode(script, args, requireSuccess = true) {
   return run(process.execPath, [resolve(repositoryRoot, script), ...args], repositoryRoot, requireSuccess);
 }
 
-function run(command, args, cwd, requireSuccess = true) {
-  const result = spawnSync(command, args, { cwd, encoding: "utf8" });
+function run(command, args, cwd, requireSuccess = true, env = process.env) {
+  const result = spawnSync(command, args, { cwd, encoding: "utf8", env });
   if (requireSuccess && result.status !== 0) {
     throw new Error(`${command} ${args.join(" ")} failed:\n${result.stdout}\n${result.stderr}`);
   }
