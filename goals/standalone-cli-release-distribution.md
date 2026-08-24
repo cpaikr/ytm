@@ -24,7 +24,8 @@ Goal contract
 
 ## Authorized amendments
 
-_None._
+- Unified version, changelog, tag, visibility, and failure lifecycle — merged
+  by PR #20 at `e879f96` after complete CI and feedback closure.
 
 ## Execution status
 
@@ -34,12 +35,13 @@ _None._
 
 ### Current in-scope result
 
-Unified version, changelog, tag, visibility, and failure lifecycle.
+CI-built CLI archives, checksums, and generated installers for every claimed
+target.
 
 ### Next in-scope action
 
-Deliver the release-authority foundation PR through creation, review, and
-feedback closure before starting CLI artifact generation.
+Define the standalone CLI target authority and implement deterministic archive,
+checksum, and installer generation without creating external release state.
 
 ### Evidence and blockers
 
@@ -62,3 +64,5 @@ feedback closure before starting CLI artifact generation.
   versions so an approved version bump cannot stale release receipts.
 - The complete repository validation suite and post-fix code review pass for
   this slice; no Bucket I or Bucket II findings remain.
+- PR #20 merged into `dev` as `e879f96` after all 13 CI jobs passed and both
+  CodeRabbit findings were fixed, replied to, and resolved.

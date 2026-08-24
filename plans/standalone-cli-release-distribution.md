@@ -127,6 +127,5 @@ version-discovery command.
 
 ## Next action
 
-Deliver the release-authority foundation through review. Then define the CLI
-target authority and deterministic archive, checksum, and installer generation
-without creating a tag, Release, or registry publication.
+Define the CLI target authority and deterministic archive, checksum, and
+installer generation without creating a tag, Release, or registry publication.
