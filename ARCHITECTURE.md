@@ -168,9 +168,10 @@ out-of-process PowerShell helper so the running mapped executable can exit
 before replacement. Matrix, kinds, help, and version execution do not depend on
 release infrastructure.
 
-These outputs remain CI candidates only. No workflow attaches them to a GitHub
-Release and no public installer URL is active. Selecting or publishing an
-actual version remains separately authorized release work.
+The disabled tagged-source workflow rebuilds these outputs from one immutable
+approved tag and attaches them only after exact native-consumer validation. No
+public installer URL is active. Selecting or publishing an actual version
+remains separately authorized release work.
 
 ## Release boundary
 
@@ -178,13 +179,14 @@ actual version remains separately authorized release work.
 publication runbook.
 
 The disabled Release Please preparation workflow owns one root product release
-PR, `VERSION`, and the root changelog. It explicitly skips tag and GitHub
-Release creation. CI now produces complete standalone CLI artifact candidates,
-but does not create a tag or GitHub Release. The retained transitional Node
-workflow publishes native packages before the root npm package through OIDC
-only after separate version, legacy `node-vX.Y.Z` tag, dispatch, and environment
-approval. No workflow yet creates or publishes the canonical CLI GitHub
-Release.
+PR, `VERSION`, and the root changelog; it explicitly skips tag and GitHub
+Release creation. A separately gated publication workflow accepts only the
+approved version at the merged PR head, creates exactly its changelog-derived
+`vX.Y.Z` tag and draft, rebuilds and consumes every CLI and npm candidate from
+that SHA, then makes GitHub canonical before publishing native packages and the
+root npm package through OIDC. Draft recovery is additive and byte-identical;
+public-release recovery can continue npm only while every npm version remains
+absent.
 
 The registry release at `0.2.0` predates the rewrite; the checkout retains that
 version until a new release is authorized. The SDK/CLI migration does not

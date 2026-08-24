@@ -11,26 +11,28 @@ versioned release rather than an independent release line.
 
 ## Current state
 
-The active publishing workflow is a manually dispatched npm publisher for an
-already-versioned `node-vX.Y.Z` tag. It builds and publishes four Node-API native
-packages plus the root Node SDK, but it does not choose a version, create a tag,
-create a GitHub Release, or distribute the standalone CLI. A disabled,
-PR-preparation-only Release Please workflow now owns the product version and
-changelog foundation without changing external release state.
+The disabled-by-default publication workflow now accepts one explicitly
+approved stable version, creates only that changelog-derived tag and draft in a
+protected environment, resolves the immutable unified `vX.Y.Z` identity, and
+rebuilds both the standalone CLI and Node SDK candidates from that tagged SHA.
+It does not choose a version, and it has not been enabled or run for an actual
+product release.
 
-The existing workflow provides useful foundations: immutable source-SHA
-resolution, GitHub-hosted release builders, pinned actions, npm OIDC, a protected
-publish environment, native target validation, dependency and license checks,
-and clean Node consumer coverage. No post-rewrite product release exists, and
-the current five-package npm workflow has not yet been exercised.
+The complete workflow keeps immutable source-SHA resolution, GitHub-hosted
+builders, pinned actions, npm OIDC, protected publication environments, native
+target validation, dependency and license checks, and clean Node consumers. It
+adds exact aggregate consumers, recoverable byte-identical draft uploads,
+canonical GitHub publication before npm, and explicit partial npm failure
+reporting. No post-rewrite product release exists, and the five-package npm
+projection has not yet been exercised.
 
 The current checkout remains at the pre-existing `0.2.0`; no new release
 version has been selected. One root Release Please component, `VERSION`, and the
 root `CHANGELOG.md` now define the product authority, and repository validation
 reconciles every Cargo, Node, native-package, Bun, and consumer-lock copy. The
-preparation workflow remains disabled and cannot create tags or Releases; the
-existing `node-vX.Y.Z` npm workflow remains transitional until the tagged-source
-asset and publication slices replace it.
+preparation workflow remains disabled and cannot create tags or Releases. The
+separate release workflow is also gated and requires protected `release` and
+`npm` approvals before it can change external state.
 
 `native-targets.json` owns the Node-API matrix. The independent
 `cli-targets.json` now owns four CLI targets. CI builds normalized archives,
@@ -41,8 +43,9 @@ strict adjacent install receipts and explicit managed upgrade behavior.
 Native clean consumers now download the aggregated candidate on every claimed
 target, install its exact archive through the generated platform installer,
 verify the executable and receipt, and exercise integrity and recoverable
-upgrade failures. Tagged asset orchestration and a public release do not exist
-yet.
+upgrade failures. Tagged orchestration now rebuilds and tests those exact assets,
+publishes GitHub canonically only after full validation, and then projects the
+same candidate to npm; no actual public release has been authorized.
 
 ## Decisions
 
@@ -62,9 +65,11 @@ yet.
   Corrections use a newly approved version.
 - Exact distributables, not locally repacked equivalents, are installed and
   exercised in clean consumers for every claimed target.
-- Release Please is the selected version, changelog, release-PR, tag, and draft
-  GitHub Release authority. The old linked Node/Python configuration must not be
-  restored.
+- Release Please is the selected version, changelog, and release-PR authority.
+  The separately authorized publication phase creates only the exact approved
+  tag and deterministic changelog-derived draft, avoiding Release Please's
+  manifest-wide release mutation. The old linked Node/Python configuration must
+  not be restored.
 - No release, tag, registry publish, or external release-state change occurs
   during implementation without separate approval of the exact version.
 
@@ -135,6 +140,6 @@ yet.
 
 ## Next action
 
-Build the tagged-source release workflow so a separately authorized product
-version produces one validated draft GitHub Release, makes GitHub publication
-the canonical completion point, and projects the same version and source to npm.
+Consolidate the complete local and CI validation path, remove superseded
+release-only checks and wording, and reconcile the roadmap, architecture,
+installation guidance, and release runbook with the implemented lifecycle.
