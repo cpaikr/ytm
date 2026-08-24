@@ -62,5 +62,7 @@ bun run pack:node
 ```
 
 Live KIS-NET smoke checks are scheduled and manually dispatchable rather than
-pull-request gates. Release creation and publication remain disabled pending a
-separate version and release decision; see [`docs/release.md`](docs/release.md).
+pull-request gates. Release creation and publication remain disabled. Public
+GitHub Release distribution is an approved implementation target in the
+[`ROADMAP.md`](ROADMAP.md), but selecting or publishing an actual version still
+requires separate authorization; see [`docs/release.md`](docs/release.md).

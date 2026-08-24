@@ -141,7 +141,9 @@ selects an exact-version optional native package at runtime.
 The standalone Rust CLI builds and passes black-box tests as a workspace
 binary. CI also runs its help path on every Node-native runner, but that does
 not define a CLI distribution support matrix. Publication targets, installers,
-release assets, and support claims require a separate release decision.
+release assets, and support claims are not implemented. Their approved target
+is tracked in [`ROADMAP.md`](ROADMAP.md); selecting or publishing an actual
+version remains separately authorized release work.
 
 ## Release boundary
 

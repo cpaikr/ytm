@@ -1,21 +1,14 @@
 # Roadmap
 
-Implementation delivery is complete on `main`; no active feature plan is
-recorded here.
+## Current
 
-## Current verification
+None. Planning the release refactor does not start its implementation.
 
-The scheduled live-smoke workflow now exercises the standalone Rust CLI, but no
-run from the post-migration `main` revision has completed yet. Confirm its first
-successful scheduled run in [GitHub Actions](https://github.com/cpaikr/ytm/actions/workflows/live-smoke.yml),
-then update the evidence ledger in
-[`docs/provider-qualification.md`](docs/provider-qualification.md). This is
-operational evidence, not production qualification.
+## Plans
 
-## Deferred decisions
+1. [Standalone CLI release distribution](plans/standalone-cli-release-distribution.md)
 
-- Version selection and npm, crates.io, CLI binary, installer, tag, or GitHub
-  Release publication require separate authorization; see
-  [`docs/release.md`](docs/release.md).
-- Production enablement and provider rights remain unresolved; see
-  [`docs/provider-qualification.md`](docs/provider-qualification.md).
+## Tasks
+
+- [Confirm the first post-migration live smoke](tasks/confirm-post-migration-live-smoke.md)
+- [Resolve production provider enablement](tasks/resolve-production-provider-enablement.md)

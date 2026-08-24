@@ -9,9 +9,12 @@ and publishing are separately authorized.
 The repository now contains a public Rust SDK, a standalone Rust/Clap CLI, and
 an SDK-only npm package. This document describes only the implemented Node
 release path.
-Crates.io publication, CLI binaries or installers, a CLI support matrix, and
-GitHub Releases are not authorized by the migration and require a separate
-release decision.
+Crates.io publication remains outside the approved scope. Public GitHub Release
+distribution of CLI binaries, installers, and checksums is now an approved
+implementation target in the
+[`standalone CLI release distribution plan`](../plans/standalone-cli-release-distribution.md),
+but none of it is implemented here yet. Selecting a version, creating a tag or
+release, and publishing remain separately authorized operations.
 
 ## Node package assembly
 
