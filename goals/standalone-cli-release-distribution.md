@@ -26,22 +26,27 @@ Goal contract
 
 - Unified version, changelog, tag, visibility, and failure lifecycle — merged
   by PR #20 at `e879f96` after complete CI and feedback closure.
+- CI-built CLI archives, checksums, and generated installers for every claimed
+  target — merged by PR #21 at `2150e0f` after complete native CI and feedback
+  closure.
 
 ## Execution status
 
 ### Completed included results
 
-_None._
+- Unified version, changelog, tag, visibility, and failure lifecycle.
+- CI-built CLI archives, checksums, and generated installers for every claimed
+  target.
 
 ### Current in-scope result
 
-CI-built CLI archives, checksums, and generated installers for every claimed
-target.
+Toolchain-free receipts and safe, recoverable upgrade behavior.
 
 ### Next in-scope action
 
-Define the standalone CLI target authority and implement deterministic archive,
-checksum, and installer generation without creating external release state.
+Define the receipt schema and install transaction, then implement toolchain-free
+install and upgrade paths that preserve or restore the last known-good binary
+and receipt on every injected failure.
 
 ### Evidence and blockers
 
@@ -66,3 +71,12 @@ checksum, and installer generation without creating external release state.
   this slice; no Bucket I or Bucket II findings remain.
 - PR #20 merged into `dev` as `e879f96` after all 13 CI jobs passed and both
   CodeRabbit findings were fixed, replied to, and resolved.
+- The CLI target manifest now claims Linux x64/arm64 on glibc 2.28, macOS arm64,
+  and Windows x64. CI builds every archive on its native or policy-compatible
+  runner, validates executable identity and archive metadata, then generates a
+  canonical checksum manifest and platform installers from the exact archive
+  set.
+- PR #21 merged into `dev` as `2150e0f` after all 19 CI jobs passed. Seven
+  CodeRabbit findings were fixed, replied to, and resolved; one hidden-path
+  report was rejected with completed-run evidence. A transient Zig AArch64
+  backend failure passed on the isolated retry without a code change.
