@@ -1,6 +1,6 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import { appendFile, readFile } from "node:fs/promises";
-import { approvedReleasePullRequest, classifyReleaseState, expectedReleaseTag } from "./release-state-policy.mjs";
+import { approvedReleasePullRequest, canonicalReleaseUrl, classifyReleaseState, expectedReleaseTag } from "./release-state-policy.mjs";
 import { releaseMetadataFromChangelog } from "./release-metadata-policy.mjs";
 
 const phase = process.argv[2];
@@ -14,6 +14,7 @@ const workflowRef = required("GITHUB_REF");
 const workflowSha = required("GITHUB_SHA");
 const repository = required("GITHUB_REPOSITORY");
 const apiUrl = required("GITHUB_API_URL").replace(/\/$/, "");
+const serverUrl = required("GITHUB_SERVER_URL");
 const token = required("RELEASE_GITHUB_TOKEN");
 const outputPath = required("GITHUB_OUTPUT");
 
@@ -74,7 +75,7 @@ await writeOutputs({
   tag: expectedTag,
   source_sha: tagSha,
   release_id: String(state.release.id),
-  release_url: state.release.html_url,
+  release_url: canonicalReleaseUrl(serverUrl, repository, expectedTag),
   publication_mode: state.mode,
 });
 console.log(`Resolved ${state.mode === "project" ? "public" : "draft"} ${expectedTag} at ${tagSha}.`);

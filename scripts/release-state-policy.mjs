@@ -8,6 +8,20 @@ export function expectedReleaseTag(version) {
   return `v${version}`;
 }
 
+export function canonicalReleaseUrl(serverUrl, repository, tag) {
+  const normalizedServer = serverUrl?.replace(/\/$/, "");
+  if (!/^https?:\/\/[^/]+(?:\/.*)?$/.test(normalizedServer || "")) {
+    throw new Error(`Invalid GitHub server URL ${JSON.stringify(serverUrl)}.`);
+  }
+  if (!/^[^/]+\/[^/]+$/.test(repository || "")) {
+    throw new Error(`Invalid GitHub repository ${JSON.stringify(repository)}.`);
+  }
+  if (!/^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(tag || "")) {
+    throw new Error(`Invalid release tag ${JSON.stringify(tag)}.`);
+  }
+  return `${normalizedServer}/${repository}/releases/tag/${tag}`;
+}
+
 export function approvedReleasePullRequest(pulls, expectedVersion, sourceSha) {
   if (!Array.isArray(pulls)) throw new Error("GitHub pull requests must be an array.");
   assertSha(sourceSha, "release PR merge SHA");
