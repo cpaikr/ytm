@@ -32,6 +32,9 @@ Goal contract
 - Toolchain-free receipts and safe, recoverable upgrade behavior — merged by
   PR #22 at `8c2a31b` after all 19 CI jobs passed and all eight review threads
   were fixed, replied to, and resolved.
+- Exact-distributable consumer tests, integrity checks, and failure injection —
+  merged by PR #23 at `3270024` after all 23 CI jobs passed and feedback intake
+  closed without actionable review findings.
 
 ## Execution status
 
@@ -41,16 +44,19 @@ Goal contract
 - CI-built CLI archives, checksums, and generated installers for every claimed
   target.
 - Toolchain-free receipts and safe, recoverable upgrade behavior.
+- Exact-distributable consumer tests, integrity checks, and failure injection.
 
 ### Current in-scope result
 
-Exact-distributable consumer tests, integrity checks, and failure injection.
+Tagged-source GitHub Release workflow and same-version npm publication.
 
 ### Next in-scope action
 
-Extend native CI to install and exercise the exact produced CLI archives,
-installers, and receipts on every claimed target, including checksum, download,
-replacement, receipt, interruption, and restoration failure injection.
+Replace the transitional release workflow with the tagged-source publication
+phase: rebuild and validate the complete candidate from the immutable tag,
+publish the GitHub Release as the canonical completion point, then project the
+same version and source identity to npm through the authorized trusted-publish
+boundary.
 
 ### Evidence and blockers
 
@@ -94,3 +100,18 @@ replacement, receipt, interruption, and restoration failure injection.
 - PR #22 merged into `dev` as `8c2a31b` after the complete local validation
   suite and a clean four-lens code review. All 19 CI jobs passed, and all eight
   review threads were fixed, replied to, and resolved.
+- The manifest-derived downstream CLI consumer matrix now downloads the exact
+  complete candidate on every claimed native target without rebuilding it. It
+  proves executable and receipt identity, version/help execution, failed
+  downloads, corrupt archives, managed replacement, rollback, interruption,
+  restoration, Windows status ownership, and terminal-status publication
+  failure with bounded single-anchor installer copies.
+- Native Windows execution exposed and closed two distributable defects:
+  module-autoload-dependent hashing and terminal status replacement without an
+  explicit backup path. Uncommitted terminal status now preserves the helper
+  source and a sanitized marker diagnostic while post-commit cleanup cannot
+  misclassify a published result.
+- PR #23 merged into `dev` as `3270024` after all 23 CI jobs passed. Codex
+  approved, CodeRabbit produced no actionable comments, no review threads were
+  opened, and two independent final code-review passes left no Bucket I or
+  Bucket II findings.
