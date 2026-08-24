@@ -405,6 +405,14 @@ runCli("cli-machine-contract:help", ["--help"], undefined, (result, label) => {
 runCli("cli-machine-contract:command-help", ["matrix", "--help"], undefined, (result, label) => {
   check(result.status === 0 && result.stdout.includes("CLI example:") && result.stderr === "", `${label} command help must use stdout and exit zero`);
 });
+runCli("cli-machine-contract:upgrade-help", ["upgrade", "--help"], undefined, (result, label) => {
+  check(result.status === 0 && result.stdout.includes("ytm upgrade --check") && result.stderr === "", `${label} upgrade help must use stdout and exit zero`);
+});
+runCli("cli-machine-contract:invalid-upgrade", ["upgrade", "--pretty"], undefined, (result, label) => {
+  const error = JSON.parse(result.stdout).error;
+  check(result.status === 2 && error?.code === "invalid_request" && error?.operationName === "upgrade", `${label} invalid upgrade invocation must be structured`);
+  check(result.stderr.includes("ytm upgrade --check"), `${label} invalid upgrade invocation must show command help on stderr`);
+});
 runCli("cli-machine-contract:unknown-command-help", ["not-a-command", "--help"], undefined, (result, label) => {
   check(result.status === 2 && JSON.parse(result.stdout).error?.code === "invalid_request" && result.stderr.includes("CLI usage:"), `${label} ordinary unknown commands must remain structured even with --help`);
 });

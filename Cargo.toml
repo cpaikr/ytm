@@ -21,9 +21,11 @@ napi-build = "=2.4.1"
 napi-derive = "=3.6.3"
 quick-xml = "=0.41.0"
 reqwest = { version = "=0.13.4", default-features = false, features = ["brotli", "deflate", "gzip", "http2", "rustls", "stream"] }
+semver = "=1.0.28"
 serde = { version = "=1.0.228", features = ["derive"] }
 serde_json = { version = "=1.0.149", features = ["preserve_order"] }
 serde_yaml_ng = "=0.10.0"
+sha2 = "=0.11.0"
 tokio = { version = "=1.53.1", features = ["macros", "rt-multi-thread", "sync", "time"] }
 tokio-util = "=0.7.18"
 

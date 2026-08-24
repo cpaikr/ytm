@@ -36,9 +36,10 @@ asset and publication slices replace it.
 `cli-targets.json` now owns four CLI targets. CI builds normalized archives,
 executes their binary identity, generates version-pinned shell and PowerShell
 installers, and validates a complete sorted checksum set without creating
-external release state. The CLI has a side-effect-free version command, but no
-install receipt, managed upgrade, exact-installer consumer suite, tagged asset
-workflow, or public release yet.
+external release state. The CLI has a side-effect-free version command plus
+strict adjacent install receipts and explicit managed upgrade behavior.
+Exact-installer consumers on every target, tagged asset orchestration, and a
+public release do not exist yet.
 
 ## Decisions
 
@@ -131,5 +132,7 @@ workflow, or public release yet.
 
 ## Next action
 
-Add toolchain-free install receipts and safe, recoverable managed upgrade
-behavior without changing structured command output or external release state.
+Exercise the exact release archives, installers, receipts, checksums, and
+upgrade path in clean consumers on every claimed target, including injected
+download, integrity, replacement, receipt, interruption, and restoration
+failures.

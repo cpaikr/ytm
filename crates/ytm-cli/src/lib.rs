@@ -8,6 +8,10 @@ use ytm_core::{
     YtmError, YtmService, DEFAULT_LOOKBACK_DAYS, MAX_LOOKBACK_DAYS,
 };
 
+mod release_management;
+
+use release_management::UpgradeMode;
+
 const FORMATS: [&str; 3] = ["json", "csv", "tsv"];
 const MAX_SAFE_INTEGER: f64 = 9_007_199_254_740_991.0;
 
@@ -125,6 +129,7 @@ struct InvocationError {
 #[derive(Debug)]
 enum ParseOutcome {
     Execute(ParsedInvocation),
+    Management(UpgradeMode),
     Immediate(ProcessOutput),
     Invalid(InvocationError),
 }
@@ -139,6 +144,7 @@ pub async fn run(args: Vec<OsString>) -> ProcessOutput {
 
     let invocation = match parse_invocation(&args, &tail) {
         ParseOutcome::Execute(invocation) => invocation,
+        ParseOutcome::Management(mode) => return release_management::run(mode).await,
         ParseOutcome::Immediate(output) => return output,
         ParseOutcome::Invalid(failure) => return invalid_output(failure),
     };
@@ -186,6 +192,16 @@ fn parse_invocation(args: &[OsString], tail: &[String]) -> ParseOutcome {
         } else {
             invalid_help_invocation_output(&tail[1..])
         });
+    }
+    if first == "upgrade" {
+        return match tail {
+            [_] => ParseOutcome::Management(UpgradeMode::Install),
+            [_, flag] if flag == "--check" => ParseOutcome::Management(UpgradeMode::Check),
+            [_, flag] if matches!(flag.as_str(), "--help" | "-h") => {
+                ParseOutcome::Immediate(stdout_output(0, upgrade_help()))
+            }
+            _ => ParseOutcome::Immediate(invalid_upgrade_invocation_output(&tail[1..])),
+        };
     }
     let Some(operation) = Operation::parse(first) else {
         return ParseOutcome::Immediate(unknown_command_output(first));
@@ -847,6 +863,9 @@ fn invalid_output(failure: InvocationError) -> ProcessOutput {
 }
 
 fn command_help_output(command: &str) -> ProcessOutput {
+    if command == "upgrade" {
+        return stdout_output(0, upgrade_help());
+    }
     match Operation::parse(command) {
         Some(operation) => stdout_output(0, command_help(operation)),
         None => stdout_output(
@@ -890,7 +909,7 @@ fn unknown_command_output(command: &str) -> ProcessOutput {
     let error = json!({
         "code": "invalid_request",
         "reason": format!("Unknown command: {command}."),
-        "expected": ["matrix", "kinds"],
+        "expected": ["matrix", "kinds", "upgrade"],
         "actual": command,
         "recoveryHint": "Run ytm --help and retry with a listed command.",
         "recoveryAction": "inspect_tool_help",
@@ -914,16 +933,40 @@ fn stdout_output(code: u8, stdout: String) -> ProcessOutput {
 
 fn root_help() -> String {
     format!(
-        "{}\n\nCLI usage:\n  ytm --version\n  ytm matrix --base-date <기준일> --kind <종류> [--fallback previous-available] [--lookback-days <days>] [--format json|csv|tsv] [--pretty]\n  ytm kinds [--base-date <기준일>] [--format json|csv|tsv] [--pretty]\n  ytm help <command>\n\nOutput:\n  json is the default and prints one JSON object. csv and tsv print tabular success rows. Command failures print one JSON object to stdout and exit non-zero. Unknown command names given to ytm help print a plain-text message and exit non-zero. Help diagnostics for invalid invocations are written to stderr.\n",
+        "{}\n\nCLI usage:\n  ytm --version\n  ytm matrix --base-date <기준일> --kind <종류> [--fallback previous-available] [--lookback-days <days>] [--format json|csv|tsv] [--pretty]\n  ytm kinds [--base-date <기준일>] [--format json|csv|tsv] [--pretty]\n  ytm upgrade [--check]\n  ytm help <command>\n\nOutput:\n  json is the default and prints one JSON object. csv and tsv print tabular success rows. Command failures print one JSON object to stdout and exit non-zero, including upgrade failures. Unknown command names given to ytm help print a plain-text message and exit non-zero. Help diagnostics for invalid invocations are written to stderr.\n",
         tool_help()
     )
 }
 
 fn tool_help() -> String {
     format!(
-        "KIS-NET YTM Matrix CLI\n\nOperations:\n  matrix: fetch YTM Matrix rows for a 기준일 and 종류.\n  kinds: list accepted 종류 codes and Korean labels.\n\nAccepted 종류 values:\n{}\n\nSource terms are preserved where official: 기준일, 종류, and 적용대상채권.\nRun ytm help <command> for command-specific input and output guidance.",
+        "KIS-NET YTM Matrix CLI\n\nOperations:\n  matrix: fetch YTM Matrix rows for a 기준일 and 종류.\n  kinds: list accepted 종류 codes and Korean labels.\n  upgrade: check or replace an official managed installation.\n\nAccepted 종류 values:\n{}\n\nSource terms are preserved where official: 기준일, 종류, and 적용대상채권.\nRun ytm help <command> for command-specific input and output guidance.",
         formatted_kinds("  ")
     )
+}
+
+fn upgrade_help() -> String {
+    "upgrade\n  ytm upgrade --check reads and verifies the adjacent managed-install receipt and installed executable, then checks the latest public stable GitHub Release without changing local files.\n  ytm upgrade verifies release metadata, SHA256SUMS, the generated platform installer, and the target archive digest before replacing the executable and receipt as one recoverable pair.\n  Locally built, renamed, symlinked, receipt-less, or modified executables are not managed.\n  Output: one JSON object. Runtime failures use exit 1; invalid invocations use exit 2.\n"
+        .into()
+}
+
+fn invalid_upgrade_invocation_output(actual: &[String]) -> ProcessOutput {
+    let error = json!({
+        "code": "invalid_request",
+        "operationName": "upgrade",
+        "reason": "Invalid upgrade invocation.",
+        "expected": ["upgrade", "upgrade --check", "upgrade --help"],
+        "actual": actual,
+        "recoveryHint": "Run ytm upgrade --help and retry with one listed form.",
+        "recoveryAction": "inspect_command_help",
+        "recoverable": true,
+        "retryable": false
+    });
+    ProcessOutput {
+        code: 2,
+        stdout: encode_json(&json!({ "ok": false, "error": error }), false),
+        stderr: format!("\n{}", upgrade_help()),
+    }
 }
 
 fn command_help(operation: Operation) -> String {
@@ -1085,6 +1128,42 @@ mod tests {
             );
             assert_eq!(output.stderr, "");
         }
+    }
+
+    #[tokio::test]
+    async fn upgrade_invocation_is_explicit_and_structured() {
+        let help = run(vec!["ytm".into(), "upgrade".into(), "--help".into()]).await;
+        assert_eq!(help.code, 0);
+        assert!(help.stdout.contains("ytm upgrade --check"));
+        assert_eq!(help.stderr, "");
+
+        let delegated_help = run(vec!["ytm".into(), "help".into(), "upgrade".into()]).await;
+        assert_eq!(delegated_help, help);
+
+        let invalid = run(vec!["ytm".into(), "upgrade".into(), "--pretty".into()]).await;
+        assert_eq!(invalid.code, 2);
+        assert_eq!(invalid.stdout.lines().count(), 1);
+        let envelope: Value = serde_json::from_str(&invalid.stdout).unwrap();
+        assert_eq!(envelope["error"]["operationName"], "upgrade");
+        assert_eq!(envelope["error"]["code"], "invalid_request");
+        assert!(invalid.stderr.contains("ytm upgrade --check"));
+
+        let args = vec![OsString::from("ytm"), OsString::from("upgrade")];
+        let tail = vec!["upgrade".to_string()];
+        assert!(matches!(
+            parse_invocation(&args, &tail),
+            ParseOutcome::Management(UpgradeMode::Install)
+        ));
+        let args = vec![
+            OsString::from("ytm"),
+            OsString::from("upgrade"),
+            OsString::from("--check"),
+        ];
+        let tail = vec!["upgrade".to_string(), "--check".to_string()];
+        assert!(matches!(
+            parse_invocation(&args, &tail),
+            ParseOutcome::Management(UpgradeMode::Check)
+        ));
     }
 
     #[test]

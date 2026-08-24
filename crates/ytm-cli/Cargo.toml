@@ -17,10 +17,17 @@ judge-fixtures = ["ytm-core/judge-fixtures"]
 
 [dependencies]
 clap.workspace = true
+futures-util.workspace = true
+reqwest.workspace = true
+semver.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+sha2.workspace = true
 tokio.workspace = true
 ytm-core = { path = "../ytm-core", version = "=0.2.0" } # x-release-please-version
+
+[build-dependencies]
+serde_json.workspace = true
 
 [dev-dependencies]
 pretty_assertions = "=1.4.1"

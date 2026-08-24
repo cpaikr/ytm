@@ -50,7 +50,11 @@ CI builds deterministic standalone CLI candidates for GNU/Linux x64 and ARM64
 (glibc 2.28 or newer), macOS ARM64, and Windows x64. Each candidate contains
 one versioned archive per target, `install.sh`, `install.ps1`, and sorted
 `SHA256SUMS`; [`cli-targets.json`](cli-targets.json) owns that support surface.
-These CI artifacts are release inputs, not a public distribution channel.
+The generated installers verify their selected archive, publish a strict
+adjacent executable receipt, and support explicit, recoverable managed upgrades
+through `ytm upgrade` and the read-only `ytm upgrade --check`. Locally built or
+modified executables are deliberately unmanaged. These CI artifacts are release
+inputs, not a public distribution channel.
 No installer URL is documented until the tagged GitHub Release workflow is
 implemented and an exact version is separately authorized.
 

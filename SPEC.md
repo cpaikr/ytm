@@ -84,12 +84,64 @@ The standalone Rust CLI is:
 ytm --version
 ytm matrix --base-date <기준일> --kind <종류> [--fallback previous-available] [--lookback-days <days>] [--format json|csv|tsv] [--pretty]
 ytm kinds [--base-date <기준일>] [--format json|csv|tsv] [--pretty]
+ytm upgrade [--check]
 ```
 
 `ytm --version` is network-free and prints exactly `ytm <product-version>`
 followed by one newline on stdout. It has no update-check or other side effect.
+Matrix and kinds commands never inspect a receipt, check for updates, wait for
+release infrastructure, or change their stdout or exit status because a newer
+release exists.
 
-JSON is the default. A successful JSON command prints exactly one
+An official installer writes an adjacent `ytm.receipt` on Unix or
+`ytm.exe.receipt` on Windows. The receipt is canonical LF-terminated UTF-8 in
+this exact order:
+
+```text
+schema=1
+version=<stable semantic version>
+target=<cli-targets.json key>
+executable=<ytm or ytm.exe>
+release_source=https://github.com/cpaikr/ytm/releases/download/v<version>
+installed_sha256=<lowercase executable SHA-256>
+```
+
+Receipt fields are closed: missing, duplicated, unknown, reordered, empty, or
+noncanonical values invalidate managed upgrade. A managed executable must be a
+directly installed regular file with the manifest-derived target and name; a
+renamed, symlinked, locally built, receipt-less, or digest-modified executable
+is unmanaged.
+
+`ytm upgrade --check` verifies the receipt and installed executable, then reads
+the latest public, stable GitHub Release. It returns one structured JSON object
+describing `upToDate`, `updateAvailable`, or `aheadOfLatest`; it does not
+download an installer or change local files. `ytm upgrade` verifies the same
+local identity, release tag and required assets, the sorted `SHA256SUMS`, the
+platform installer digest, and the installer-pinned archive digest. It then
+delegates replacement to that verified generated installer. Same-version and
+downgrade results do not replace the install.
+
+Unix replacement stages both files beside the installation, preserves the
+verified prior pair under fixed adjacent `.previous` names, publishes the
+executable followed by the receipt as the commit marker, verifies the new pair,
+and removes recovery files. Ordinary failures and catchable termination restore
+the prior pair. Windows stages the pair and launches an out-of-process
+PowerShell helper, because the running executable cannot replace its mapped
+image; the command returns `scheduled`, the exact `statusPath`, and
+`restartRequired: true`. The installer replaces any prior result with a
+no-BOM UTF-8 `scheduled` status before launch. Status changes commit through a
+same-directory atomic replacement. The helper waits at most 120 seconds for
+that exact parent process identity to exit, failing closed if identity cannot
+be confirmed, then records its structured result in
+`.ytm.exe.upgrade-status.json`. An exclusively created
+`.ytm.exe.upgrade-in-progress` marker prevents concurrent helpers. An
+uncatchable interruption or uncommitted terminal status leaves that marker;
+replacement interruption may also leave fixed `.previous` evidence.
+Subsequent checks fail closed and report the exact
+executable, receipt, and recovery paths instead of guessing or deleting
+evidence.
+
+JSON is the default. A successful data command prints exactly one
 `{ "ok": true, "operation", "result" }` object. Execution and invalid-invocation
 failures print exactly one structured JSON object and exit nonzero; data needed
 to consume the result is never available only on stderr. The help lookup
