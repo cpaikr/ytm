@@ -29,13 +29,15 @@ const listFiles = async (directory, prefix = "") => (await Promise.all(
 
 const [
   rootPackage,
+  repositoryValidation,
+  repositoryValidator,
   nodePackage,
   nativeTargets,
   cliTargets,
   bunLock,
   ciWorkflow,
   liveWorkflow,
-  npmWorkflow,
+  releaseWorkflow,
   releasePleaseWorkflow,
   pythonPackagePresent,
   pythonWorkflowPresent,
@@ -56,6 +58,8 @@ const [
   specification
 ] = await Promise.all([
   readJson("package.json"),
+  readJson("scripts/repository-validation.json"),
+  readFile("scripts/validate-repository.mjs", "utf8"),
   readJson("packages/node/package.json"),
   readJson("native-targets.json"),
   readJson("cli-targets.json"),
@@ -86,6 +90,26 @@ const [
 check(rootPackage.private === true, "root package must remain private");
 check(rootPackage.version === undefined, "root package must not become a release component");
 equal(rootPackage.workspaces, ["packages/node", "packages/native/*"], "root workspaces must contain only the Node root and native packages");
+check(rootPackage.scripts?.validate === "bun run release:check && node scripts/validate-repository.mjs", "root validation must enforce release policy before delegating the remaining repository gate");
+equal(repositoryValidation, [
+  ["bun", ["run", "contracts:check"]],
+  ["bun", ["run", "licenses:check"]],
+  ["bun", ["run", "build:check"]],
+  ["cargo", ["fmt", "--all", "--check"]],
+  ["cargo", ["clippy", "--locked", "--workspace", "--all-targets", "--all-features", "--", "-D", "warnings"]],
+  ["cargo", ["test", "--locked", "--workspace", "--all-targets", "--all-features"]],
+  ["cargo", ["test", "--locked", "-p", "ytm-core", "--doc"]],
+  ["bun", ["run", "rust:consumer:check"]],
+  ["bun", ["run", "validate:node"]],
+  ["cargo", ["audit"]],
+  ["cargo", ["deny", "check"]],
+  ["bun", ["run", "test"]],
+  ["bun", ["run", "judge:broken"]],
+  ["bun", ["run", "pack:node"]]
+], "repository validation must retain the complete local, CI, and release gate");
+check(repositoryValidator.includes('new URL("repository-validation.json", import.meta.url)'), "repository validation must load its command policy relative to the orchestrator");
+check(repositoryValidator.includes("spawnSync(command, args") && repositoryValidator.includes('stdio: "inherit"') && repositoryValidator.includes('shell: false'), "repository validation must execute each command directly with visible output");
+check(repositoryValidator.includes("result.status !== 0") && repositoryValidator.includes("process.exit(result.status ?? 1)"), "repository validation must stop on the first failed command");
 check(nodePackage.name === "@sjunepark/ytm", "Node package identity must remain @sjunepark/ytm");
 check(nodePackage.bin === undefined, "Node package must not own or distribute a CLI bin");
 check(nodePackage.private !== true, "Node package must be publishable");
@@ -214,9 +238,25 @@ check(releasePleaseStep?.with?.["skip-github-release"] === true, "Release prepar
 check(!pythonPackagePresent && !pythonWorkflowPresent, "Python product and publishing workflow must remain absent");
 equal(Object.keys(ciWorkflow.jobs || {}), ["validate", "cli-metadata", "cli-archive", "cli-artifact-set", "cli-consumer", "native-consumer"], "CI must contain validation, CLI artifacts, and native consumers only");
 equal(Object.keys(liveWorkflow.jobs || {}), ["rust-cli"], "live smoke must exercise only the standalone Rust CLI");
+equal(ciWorkflow.on?.push?.branches, ["main", "dev"], "CI pushes must cover only the long-lived main and integration branches");
 check(ciWorkflow.jobs?.validate?.["timeout-minutes"] === 20, "CI validation must have a bounded timeout");
 check(liveWorkflow.jobs?.["rust-cli"]?.["timeout-minutes"] === 20, "live smoke must have a bounded timeout");
-check(activeShell(findNamedStep(ciWorkflow.jobs?.validate, "Validate contracts, generated artifacts, and release configuration")).includes("bun run licenses:check"), "CI validation must check third-party notice freshness");
+equal(ciWorkflow.jobs?.validate?.steps?.map((step) => step.name), [
+  "Check out source",
+  "Set up Bun",
+  "Set up Node",
+  "Install frozen JavaScript dependencies",
+  "Install pinned validation tools",
+  "Validate repository"
+], "CI validation must install its prerequisites and delegate the complete gate once");
+check(activeShell(findNamedStep(ciWorkflow.jobs?.validate, "Validate repository")) === "bun run validate", "CI must invoke the complete repository validation command exactly");
+const requiredValidationToolInstalls = [
+  "cargo install --locked --features cli cargo-about --version 0.9.2",
+  "cargo install --locked cargo-audit --version 0.22.2",
+  "cargo install --locked cargo-deny --version 0.19.0"
+];
+const ciValidationToolInstall = activeShell(findNamedStep(ciWorkflow.jobs?.validate, "Install pinned validation tools"));
+for (const install of requiredValidationToolInstalls) check(ciValidationToolInstall.includes(install), `CI validation must install ${install}`);
 const liveSmoke = activeShell(findNamedStep(liveWorkflow.jobs?.["rust-cli"], "Run live smoke"));
 check(liveSmoke.includes('target/debug/ytm matrix') && liveSmoke.includes("--fallback previous-available") && liveSmoke.includes("jq -e"), "live smoke must use bounded fallback through the standalone Rust CLI");
 const ciNativeJob = ciWorkflow.jobs?.["native-consumer"];
@@ -277,14 +317,14 @@ check(/^actions\/download-artifact@[0-9a-f]{40}$/.test(cliConsumerDownload?.uses
 check(cliConsumerDownload?.with?.name === "cli-candidate-${{ github.sha }}" && cliConsumerDownload?.with?.path === "dist/cli", "CLI consumers must download the exact aggregated candidate without repacking it");
 check(activeShell(findNamedStep(cliConsumerJob, "Test exact standalone CLI consumer")) === "node scripts/test-cli-release-consumer.mjs dist/cli", "CLI consumers must run the repository-owned exact-distributable harness");
 
-check(!npmWorkflow.on?.push, "product publishing must not trigger automatically from pushed tags");
-check(npmWorkflow.on?.workflow_dispatch?.inputs?.expected_version?.required === true, "product publishing must require an explicitly approved expected version");
-check(npmWorkflow.on?.workflow_dispatch?.inputs?.tag === undefined, "the superseded manually supplied tag input must be absent");
-check(npmWorkflow.permissions?.contents === "read", "release workflow defaults must remain read-only");
-check(npmWorkflow.concurrency?.group === "release-${{ inputs.expected_version }}" && npmWorkflow.concurrency?.["cancel-in-progress"] === false, "release runs must serialize per approved version without cancellation");
-equal(Object.keys(npmWorkflow.jobs || {}), ["release_authority", "cli_metadata", "cli_archive", "cli_artifact_set", "cli_consumer", "native_packages", "root_package", "npm_candidate", "npm_consumer", "publish_github", "publish_npm"], "release workflow must contain only the complete tagged-source lifecycle");
+check(!releaseWorkflow.on?.push, "product publishing must not trigger automatically from pushed tags");
+equal(Object.keys(releaseWorkflow.on?.workflow_dispatch?.inputs || {}), ["expected_version"], "product publishing must accept only the approved version input");
+check(releaseWorkflow.on?.workflow_dispatch?.inputs?.expected_version?.required === true, "product publishing must require an explicitly approved expected version");
+check(releaseWorkflow.permissions?.contents === "read", "release workflow defaults must remain read-only");
+check(releaseWorkflow.concurrency?.group === "release-${{ inputs.expected_version }}" && releaseWorkflow.concurrency?.["cancel-in-progress"] === false, "release runs must serialize per approved version without cancellation");
+equal(Object.keys(releaseWorkflow.jobs || {}), ["release_authority", "cli_metadata", "cli_archive", "cli_artifact_set", "cli_consumer", "native_packages", "root_package", "npm_candidate", "npm_consumer", "publish_github", "publish_npm"], "release workflow must contain only the complete tagged-source lifecycle");
 
-const authorityJob = npmWorkflow.jobs?.release_authority;
+const authorityJob = releaseWorkflow.jobs?.release_authority;
 check(authorityJob?.if === "${{ vars.RELEASE_ENABLED == 'true' }}", "external release state must remain disabled until repository settings are authorized");
 check(authorityJob?.["runs-on"] === "ubuntu-24.04" && authorityJob?.["timeout-minutes"] === 15, "release authority must use a bounded GitHub-hosted job");
 check(authorityJob?.environment?.name === "release" && authorityJob?.permissions?.contents === "write", "tag and draft creation must use the protected release environment with explicit write permission");
@@ -312,20 +352,20 @@ check(releasePublicationTest.includes("line one\\r\\nline two") && releaseMetada
 
 const immutableRef = "${{ needs.release_authority.outputs.source_sha }}";
 for (const name of ["cli_metadata", "cli_archive", "cli_artifact_set", "cli_consumer", "native_packages", "root_package", "npm_candidate", "npm_consumer", "publish_github", "publish_npm"]) {
-  check(findNamedStep(npmWorkflow.jobs?.[name], "Check out immutable release source")?.with?.ref === immutableRef, `${name} must check out the verified tagged source`);
+  check(findNamedStep(releaseWorkflow.jobs?.[name], "Check out immutable release source")?.with?.ref === immutableRef, `${name} must check out the verified tagged source`);
 }
-const releaseCliMetadata = npmWorkflow.jobs?.cli_metadata;
+const releaseCliMetadata = releaseWorkflow.jobs?.cli_metadata;
 check(activeShell(findNamedStep(releaseCliMetadata, "Emit CLI target matrix")).includes("scripts/print-cli-matrix.mjs"), "release CLI targets must derive from cli-targets.json");
-const releaseCliArchive = npmWorkflow.jobs?.cli_archive;
+const releaseCliArchive = releaseWorkflow.jobs?.cli_archive;
 check(releaseCliArchive?.strategy?.matrix === "${{ fromJSON(needs.cli_metadata.outputs.matrix) }}" && releaseCliArchive?.["runs-on"] === "${{ matrix.runner }}", "release CLI builders must consume the generated native-runner matrix");
 check(releaseCliArchive?.env?.SOURCE_COMMIT === immutableRef, "release CLI archive identity must use the verified source SHA");
 check(activeShell(findNamedStep(releaseCliArchive, "Assemble and inspect standalone CLI archive")).includes("--source-commit \"$SOURCE_COMMIT\""), "release CLI archives must embed the verified source SHA");
-const releaseCliCandidate = activeShell(findNamedStep(npmWorkflow.jobs?.cli_artifact_set, "Generate and validate complete CLI candidate"));
+const releaseCliCandidate = activeShell(findNamedStep(releaseWorkflow.jobs?.cli_artifact_set, "Generate and validate complete CLI candidate"));
 for (const command of ["scripts/generate-cli-installers.mjs", "scripts/finalize-cli-artifacts.mjs", "scripts/validate-cli-artifact-set.mjs"]) check(releaseCliCandidate.includes(command), `release CLI aggregation must invoke ${command}`);
-check(findNamedStep(npmWorkflow.jobs?.cli_artifact_set, "Upload complete CLI candidate")?.with?.["retention-days"] === 90, "release CLI candidates must outlive protected-environment approval delays");
-check(activeShell(findNamedStep(npmWorkflow.jobs?.cli_consumer, "Test exact standalone CLI consumer")) === "node scripts/test-cli-release-consumer.mjs dist/cli", "release CLI consumers must exercise the exact aggregated candidate");
+check(findNamedStep(releaseWorkflow.jobs?.cli_artifact_set, "Upload complete CLI candidate")?.with?.["retention-days"] === 90, "release CLI candidates must outlive protected-environment approval delays");
+check(activeShell(findNamedStep(releaseWorkflow.jobs?.cli_consumer, "Test exact standalone CLI consumer")) === "node scripts/test-cli-release-consumer.mjs dist/cli", "release CLI consumers must exercise the exact aggregated candidate");
 
-const nativeJob = npmWorkflow.jobs?.native_packages;
+const nativeJob = releaseWorkflow.jobs?.native_packages;
 check(nativeJob?.["timeout-minutes"] === 30, "release native packages must have a bounded timeout");
 equal(nativeJob?.strategy?.matrix?.target?.map(({ rust }) => rust), nativeTargets.targets.map(({ rustTarget }) => rustTarget), "release native matrix must match the target manifest");
 equal(nativeJob?.strategy?.matrix?.target?.map(({ runner }) => runner), nativeTargets.targets.map(({ runner }) => runner), "release native matrix must use the manifest runners");
@@ -334,27 +374,27 @@ check(releaseLinuxToolchain?.if === linuxNativeCondition && activeShell(releaseL
 check(activeShell(findNamedStep(nativeJob, "Build native artifact")).includes("scripts/build-native-artifact.mjs"), "Release native builds must use the target policy build script");
 check(activeShell(findNamedStep(nativeJob, "Assemble and pack native package")).includes("scripts/assemble-native-package.mjs"), "native release jobs must assemble generated packages");
 
-const rootJob = npmWorkflow.jobs?.root_package;
+const rootJob = releaseWorkflow.jobs?.root_package;
 check(rootJob?.["timeout-minutes"] === 45 && rootJob?.["runs-on"] === "ubuntu-24.04", "release root package must allow bounded time for pinned security-tool builds on a GitHub-hosted job");
-const rustSecurityInstall = activeShell(findNamedStep(rootJob, "Install pinned Rust security checks"));
-check(rustSecurityInstall.includes("cargo install --locked cargo-audit --version 0.22.2") && rustSecurityInstall.includes("cargo install --locked cargo-deny --version 0.19.0"), "root package validation must install pinned Rust security checks");
+const validationToolInstall = activeShell(findNamedStep(rootJob, "Install pinned validation tools"));
+for (const install of requiredValidationToolInstalls) check(validationToolInstall.includes(install), `root package validation must install ${install}`);
 const immutableSourceValidation = activeShell(findNamedStep(rootJob, "Validate immutable source"));
-check(immutableSourceValidation.includes("cargo audit") && immutableSourceValidation.includes("cargo deny check"), "root package validation must audit immutable source");
+check(immutableSourceValidation === "bun run validate", "release source validation must invoke the complete repository validation command exactly");
 check(activeShell(findNamedStep(rootJob, "Pack root package without a native binary")).includes("build:facade"), "root release artifact must be packed without a native binary");
 
-const npmCandidateJob = npmWorkflow.jobs?.npm_candidate;
+const npmCandidateJob = releaseWorkflow.jobs?.npm_candidate;
 equal(npmCandidateJob?.needs, ["release_authority", "native_packages", "root_package"], "npm aggregation must wait for every package builder");
 check(activeShell(findNamedStep(npmCandidateJob, "Validate complete npm artifact set")) === "node scripts/validate-release-artifacts.mjs dist/native dist/root", "npm aggregation must validate the exact five-tarball set");
 check(/^actions\/upload-artifact@[0-9a-f]{40}$/.test(findNamedStep(npmCandidateJob, "Upload complete npm candidate")?.uses || ""), "npm candidate upload must be commit-pinned");
 check(findNamedStep(npmCandidateJob, "Upload complete npm candidate")?.with?.["retention-days"] === 90, "npm candidates must outlive protected-environment approval delays");
 check(findNamedStep(npmCandidateJob, "Upload complete npm candidate")?.with?.path?.includes("dist/native/*.tgz") && findNamedStep(npmCandidateJob, "Upload complete npm candidate")?.with?.path?.includes("dist/root/*.tgz"), "npm candidate artifacts must retain native and root directory layout");
-const npmConsumerJob = npmWorkflow.jobs?.npm_consumer;
+const npmConsumerJob = releaseWorkflow.jobs?.npm_consumer;
 equal(npmConsumerJob?.strategy?.matrix?.node, nativeTargets.validationNodeMajors, "exact npm consumers must cover every declared Node major");
 equal(npmConsumerJob?.strategy?.matrix?.target?.map(({ rust }) => rust), nativeTargets.targets.map(({ rustTarget }) => rustTarget), "exact npm consumers must cover every native target");
 check(activeShell(findNamedStep(npmConsumerJob, "Test exact aggregated Node SDK consumer")).includes("dist/native dist/root"), "npm consumers must install downloaded aggregate tarballs without repacking");
 check(nativeConsumerTest.includes("findPackageTarball") && nativeConsumerTest.includes("listTarball(rootTarball)") && nativeConsumerTest.includes("exact aggregated"), "Node consumer harness must inspect exact aggregate tarball contents without repacking");
 
-const githubPublishJob = npmWorkflow.jobs?.publish_github;
+const githubPublishJob = releaseWorkflow.jobs?.publish_github;
 equal(githubPublishJob?.needs, ["release_authority", "cli_artifact_set", "cli_consumer", "npm_candidate", "npm_consumer"], "canonical publication must wait for both exact-distributable consumer matrices");
 check(githubPublishJob?.environment?.name === "release" && githubPublishJob?.permissions?.contents === "write", "canonical publication must use the protected release environment");
 const githubSourceValidation = activeShell(findNamedStep(githubPublishJob, "Validate tagged candidates and source identity"));
@@ -376,7 +416,7 @@ check(releaseMetadataVerifier.includes("release.name !== metadata.name") && rele
 check(releaseAssetPlanner.includes("does not match the rebuilt candidate") && releaseAssetPlanner.includes("unexpected assets"), "draft asset planner must fail closed on replacement or unexpected state");
 check(releasePublicationTest.includes("main has advanced") && releasePublicationTest.includes("unexpected assets"), "release publication tests must inject source-state and draft-asset failures");
 
-const publishJob = npmWorkflow.jobs?.publish_npm;
+const publishJob = releaseWorkflow.jobs?.publish_npm;
 equal(publishJob?.needs, ["release_authority", "npm_candidate", "publish_github"], "npm projection must start only after canonical GitHub publication");
 check(publishJob?.["timeout-minutes"] === 30 && publishJob?.["runs-on"] === "ubuntu-latest", "npm trusted publishing must use a bounded GitHub-hosted job");
 check(publishJob?.environment?.name === "npm", "npm publishing must use the npm environment");

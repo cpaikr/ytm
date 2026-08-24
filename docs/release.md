@@ -59,8 +59,10 @@ The release lifecycle has these stages:
    point. Only then may the protected `npm` job publish the same version and
    source through trusted publishing with provenance.
 
-Both workflows remain disabled by repository variables and no product release
-has been run. `RELEASE_PLEASE_ENABLED=true` enables release-PR preparation;
+Both workflows remain disabled by repository variables, and no unified
+post-rewrite lifecycle release has been run. Historical `v0.1.1`,
+`node-v0.2.0`, and `python-v0.2.0` releases predate this lifecycle.
+`RELEASE_PLEASE_ENABLED=true` enables release-PR preparation;
 `RELEASE_ENABLED=true` permits the publication workflow to reach its protected
 environment gates. Enabling either variable or approving either environment is
 an operational authorization, not a repository-code change.
@@ -188,11 +190,15 @@ unchanged. Deprecating the PyPI project is outside this cutover.
 
 ## Validation
 
-Run the complete [repository validation](../README.md#repository-validation) on
-the exact candidate commit. `bun run release:check` includes product-version,
-Release Please, release-state failure injection, draft-asset recovery,
-native-package, exact-distributable, and publishing-boundary checks. These
-checks do not publish or change external release state.
+Install the pinned validation tools documented in the
+[repository validation](../README.md#repository-validation), install frozen
+JavaScript dependencies, and run `bun run validate` on the exact candidate
+commit. Ordinary CI and the tagged-source root-package job invoke that same
+complete uncredentialed gate. `bun run release:check` is its targeted release
+subset and includes product-version, Release Please, release-state failure
+injection, draft-asset recovery, native-package, exact-distributable, and
+publishing-boundary checks. These checks do not publish or change external
+release state.
 
 `bun run pack:node` rebuilds tracked Node distribution files before inspecting
 the dry-run tarball; use `bun run build:check` when the checkout must remain

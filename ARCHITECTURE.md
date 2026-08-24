@@ -178,6 +178,11 @@ remains separately authorized release work.
 [`docs/release.md`](docs/release.md) is the canonical release-state and
 publication runbook.
 
+`bun run validate` owns the complete uncredentialed repository gate. Local
+development, ordinary CI, and immutable tagged-source validation delegate to
+that same command; credentialed live source checks remain a separate
+operational boundary.
+
 The disabled Release Please preparation workflow owns one root product release
 PR, `VERSION`, and the root changelog; it explicitly skips tag and GitHub
 Release creation. A separately gated publication workflow accepts only the

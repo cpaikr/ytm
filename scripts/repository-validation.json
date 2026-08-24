@@ -1,0 +1,16 @@
+[
+  ["bun", ["run", "contracts:check"]],
+  ["bun", ["run", "licenses:check"]],
+  ["bun", ["run", "build:check"]],
+  ["cargo", ["fmt", "--all", "--check"]],
+  ["cargo", ["clippy", "--locked", "--workspace", "--all-targets", "--all-features", "--", "-D", "warnings"]],
+  ["cargo", ["test", "--locked", "--workspace", "--all-targets", "--all-features"]],
+  ["cargo", ["test", "--locked", "-p", "ytm-core", "--doc"]],
+  ["bun", ["run", "rust:consumer:check"]],
+  ["bun", ["run", "validate:node"]],
+  ["cargo", ["audit"]],
+  ["cargo", ["deny", "check"]],
+  ["bun", ["run", "test"]],
+  ["bun", ["run", "judge:broken"]],
+  ["bun", ["run", "pack:node"]]
+]
