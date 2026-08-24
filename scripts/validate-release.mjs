@@ -45,6 +45,7 @@ const [
   releaseManagement,
   installerGenerator,
   cliArtifactTest,
+  cliConsumerTest,
   specification
 ] = await Promise.all([
   readJson("package.json"),
@@ -64,6 +65,7 @@ const [
   readFile("crates/ytm-cli/src/release_management.rs", "utf8"),
   readFile("scripts/generate-cli-installers.mjs", "utf8"),
   readFile("scripts/test-cli-release-artifacts.mjs", "utf8"),
+  readFile("scripts/test-cli-release-consumer.mjs", "utf8"),
   readFile("SPEC.md", "utf8")
 ]);
 
@@ -129,6 +131,9 @@ for (const contract of ["schema=1", "installed_sha256", "release_source", "YTM_M
   check(installerGenerator.includes(contract), `generated installers must implement managed-install contract ${contract}`);
 }
 check(cliArtifactTest.includes("testShellManagedInstall") && cliArtifactTest.includes("injected receipt-publication failure"), "CLI artifact tests must execute fresh receipt installation and managed rollback");
+for (const contract of ["assertInstalledPair", "testFreshFailure", 'testManagedUpgrade("success")', 'testManagedUpgrade("interruption")', 'testManagedUpgrade("restoration")', "waitForWindowsTerminalState"]) {
+  check(cliConsumerTest.includes(contract), `exact CLI consumer tests must retain ${contract}`);
+}
 check(specification.includes("ytm upgrade --check") && specification.includes("installed_sha256"), "SPEC must define managed upgrade and its exact receipt fields");
 for (const target of nativeTargets.targets || []) {
   let plan;
@@ -193,7 +198,7 @@ check(releasePleaseStep?.with?.token === "${{ secrets.RELEASE_PLEASE_TOKEN }}", 
 check(releasePleaseStep?.with?.["config-file"] === "release-please-config.json" && releasePleaseStep?.with?.["manifest-file"] === ".release-please-manifest.json", "Release Please must use the repository-owned product config and manifest");
 check(releasePleaseStep?.with?.["skip-github-release"] === true, "Release preparation must not create a tag or GitHub Release before the protected release workflow");
 check(!pythonPackagePresent && !pythonWorkflowPresent, "Python product and publishing workflow must remain absent");
-equal(Object.keys(ciWorkflow.jobs || {}), ["validate", "cli-metadata", "cli-archive", "cli-artifact-set", "native-consumer"], "CI must contain validation, CLI artifacts, and native consumers only");
+equal(Object.keys(ciWorkflow.jobs || {}), ["validate", "cli-metadata", "cli-archive", "cli-artifact-set", "cli-consumer", "native-consumer"], "CI must contain validation, CLI artifacts, and native consumers only");
 equal(Object.keys(liveWorkflow.jobs || {}), ["rust-cli"], "live smoke must exercise only the standalone Rust CLI");
 check(ciWorkflow.jobs?.validate?.["timeout-minutes"] === 20, "CI validation must have a bounded timeout");
 check(liveWorkflow.jobs?.["rust-cli"]?.["timeout-minutes"] === 20, "live smoke must have a bounded timeout");
@@ -244,6 +249,15 @@ for (const command of ["scripts/generate-cli-installers.mjs", "scripts/finalize-
   check(cliCandidate.includes(command), `complete CLI candidate must invoke ${command}`);
 }
 check(/^actions\/upload-artifact@[0-9a-f]{40}$/.test(findNamedStep(cliSetJob, "Upload complete CLI candidate")?.uses || ""), "complete CLI candidate upload must be commit-pinned");
+const cliConsumerJob = ciWorkflow.jobs?.["cli-consumer"];
+equal(cliConsumerJob?.needs, ["cli-metadata", "cli-artifact-set"], "CLI consumers must wait for generated metadata and the complete candidate");
+check(cliConsumerJob?.["runs-on"] === "${{ matrix.runner }}" && cliConsumerJob?.["timeout-minutes"] === 20, "CLI consumers must use bounded manifest runners");
+check(cliConsumerJob?.strategy?.["fail-fast"] === false && cliConsumerJob?.strategy?.matrix === "${{ fromJSON(needs.cli-metadata.outputs.matrix) }}", "CLI consumers must reuse the complete generated target matrix");
+check(cliConsumerJob?.env?.RUST_TARGET === "${{ matrix.rust }}", "CLI consumers must receive their generated Rust target through the environment");
+const cliConsumerDownload = findNamedStep(cliConsumerJob, "Download exact complete CLI candidate");
+check(/^actions\/download-artifact@[0-9a-f]{40}$/.test(cliConsumerDownload?.uses || ""), "CLI candidate download action must be commit-pinned");
+check(cliConsumerDownload?.with?.name === "cli-candidate-${{ github.sha }}" && cliConsumerDownload?.with?.path === "dist/cli", "CLI consumers must download the exact aggregated candidate without repacking it");
+check(activeShell(findNamedStep(cliConsumerJob, "Test exact standalone CLI consumer")) === "node scripts/test-cli-release-consumer.mjs dist/cli", "CLI consumers must run the repository-owned exact-distributable harness");
 
 check(!npmWorkflow.on?.push, "npm publishing must not trigger automatically from pushed tags");
 check(npmWorkflow.on?.workflow_dispatch?.inputs?.tag?.required === true, "npm publishing must require an explicitly authorized tag input");

@@ -53,10 +53,10 @@ The release implementation will follow these stages:
    point. npm publication may begin only afterward, from the same source SHA and
    version, through the protected `npm` environment and trusted publishing.
 
-The disabled preparation mechanics for stage 1 and reusable CLI artifact and
-managed-install mechanics for part of stage 4 exist today. Stages 3 and 5,
-exact-distributable consumer coverage, tagged orchestration, and the npm portion
-of stage 4 remain future implementation slices. The current
+The disabled preparation mechanics for stage 1 and reusable CLI artifact,
+managed-install, and exact-distributable consumer mechanics for stage 4 exist
+today. Stages 3 and 5, tagged orchestration, and the npm portion of stage 4
+remain future implementation slices. The current
 `.github/workflows/release.yml` is still the transitional, manually dispatched
 `node-vX.Y.Z` npm publisher. It does not create or publish a GitHub Release. Do
 not use it for a new product release.
@@ -78,6 +78,17 @@ unsupported platforms, verify SHA-256 before extraction, and refuse to replace
 an existing executable or receipt. A successful install writes a strict
 adjacent receipt containing version, target, executable name, canonical GitHub
 release source, and installed executable digest.
+
+A downstream matrix downloads that exact aggregated candidate onto every
+declared native runner. Each clean consumer serves the untouched assets over
+loopback HTTP, runs the platform installer, compares the installed executable
+with the archived bytes, validates the exact receipt, and executes version and
+help identity. It also rejects failed downloads and corrupted archives without
+publishing state and exercises managed replacement with the unmodified
+candidate. Single-anchor temporary copies of that validated generated installer
+inject replacement, receipt, interruption, and restoration faults while
+asserting either the restored pair or the fixed recovery evidence and Windows
+status; no test failpoint is shipped in the candidate.
 
 `ytm upgrade --check` is read-only and checks only the latest public stable
 GitHub Release after validating the managed pair. `ytm upgrade` additionally

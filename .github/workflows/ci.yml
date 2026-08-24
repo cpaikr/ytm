@@ -202,6 +202,39 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  cli-consumer:
+    name: Standalone CLI consumer (${{ matrix.key }})
+    needs: [cli-metadata, cli-artifact-set]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.cli-metadata.outputs.matrix) }}
+    env:
+      RUST_TARGET: ${{ matrix.rust }}
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: 24
+          architecture: ${{ matrix.arch }}
+          package-manager-cache: false
+
+      - name: Download exact complete CLI candidate
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: cli-candidate-${{ github.sha }}
+          path: dist/cli
+
+      - name: Test exact standalone CLI consumer
+        run: node scripts/test-cli-release-consumer.mjs dist/cli
+
   native-consumer:
     name: Native consumer (${{ matrix.target.rust }} / Node ${{ matrix.node }})
     timeout-minutes: 20
