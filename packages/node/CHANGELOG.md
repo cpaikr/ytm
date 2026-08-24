@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.2.0](https://github.com/cpaikr/ytm/compare/node-v0.1.1...node-v0.2.0) (2026-07-17)
+## [0.2.0](https://github.com/cpaikr/ytm/compare/v0.1.1...node-v0.2.0) (2026-07-17)
 
 
 ### ⚠ BREAKING CHANGES

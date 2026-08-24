@@ -25,7 +25,9 @@
     "contracts:check": "node scripts/validate-contracts.mjs && node scripts/generate-native-packages.mjs --check && bun run rust:fixture-guard",
     "licenses:generate": "node scripts/check-third-party-licenses.mjs --write && node scripts/generate-native-packages.mjs",
     "licenses:check": "node scripts/check-third-party-licenses.mjs",
-    "release:check": "node scripts/validate-release.mjs",
+    "release:version:check": "node scripts/validate-product-version.mjs",
+    "release:version:test": "node scripts/test-product-version.mjs",
+    "release:check": "bun run release:version:check && bun run release:version:test && node scripts/validate-release.mjs",
     "pack:node": "npm pack --dry-run --workspace packages/node",
     "cli": "cargo run --locked -p ytm-cli --",
     "smoke:cli": "cargo run --locked -p ytm-cli -- matrix --base-date 2026-06-08 --kind 국채 --format json"

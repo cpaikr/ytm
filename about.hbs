@@ -1,4 +1,5 @@
 <!-- Generated with cargo-about 0.9.2. Template based on cargo-about's MIT/Apache-2.0 example. -->
+<!-- Path dependencies are first-party workspace crates covered by the repository license. -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -25,7 +26,9 @@
       <h4 id="{{id}}-{{@index}}">Used by</h4>
       <ul>
         {{#each used_by}}
+        {{#if crate.source}}
         <li><a href="{{#if crate.repository}}{{crate.repository}}{{else}}https://crates.io/crates/{{crate.name}}{{/if}}">{{crate.name}} {{crate.version}}</a></li>
+        {{/if}}
         {{/each}}
       </ul>
       <pre class="license-text">{{text}}</pre>

@@ -20,7 +20,7 @@ clap.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tokio.workspace = true
-ytm-core = { path = "../ytm-core", version = "=0.2.0" }
+ytm-core = { path = "../ytm-core", version = "=0.2.0" } # x-release-please-version
 
 [dev-dependencies]
 pretty_assertions = "=1.4.1"
