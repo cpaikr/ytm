@@ -35,6 +35,10 @@ Goal contract
 - Exact-distributable consumer tests, integrity checks, and failure injection —
   merged by PR #23 at `3270024` after all 23 CI jobs passed and feedback intake
   closed without actionable review findings.
+- Tagged-source GitHub Release workflow and same-version npm publication —
+  merged by PR #24 at `c04c1332efa4ec5a4b14b262d232da3378de4992`
+  after all 23 CI jobs passed and all ten review threads were fixed, replied to,
+  and resolved.
 
 ## Execution status
 
@@ -45,18 +49,18 @@ Goal contract
   target.
 - Toolchain-free receipts and safe, recoverable upgrade behavior.
 - Exact-distributable consumer tests, integrity checks, and failure injection.
+- Tagged-source GitHub Release workflow and same-version npm publication.
 
 ### Current in-scope result
 
-Tagged-source GitHub Release workflow and same-version npm publication.
+Consolidated validation, superseded-path removal, and truthful documentation.
 
 ### Next in-scope action
 
-Replace the transitional release workflow with the tagged-source publication
-phase: rebuild and validate the complete candidate from the immutable tag,
-publish the GitHub Release as the canonical completion point, then project the
-same version and source identity to npm through the authorized trusted-publish
-boundary.
+Reconcile `ROADMAP.md`, `ARCHITECTURE.md`, `README.md`, the release runbook,
+planning, validation, workflows, and scripts against the delivered lifecycle;
+remove superseded distribution paths and stale claims; then deliver the final
+reviewed consolidation PR.
 
 ### Evidence and blockers
 
@@ -65,15 +69,18 @@ boundary.
 - GitHub reports no branch protection or repository ruleset on `dev`, so the
   direct initialization and terminal bookkeeping pushes required by the goal
   lifecycle are available.
-- Release Please is the selected product version, changelog, release-PR, tag,
-  and draft-Release authority. Its preparation phase is disabled by repository
-  variable and explicitly skips GitHub Release creation.
+- Release Please owns product version, changelog, and release-PR preparation.
+  Its preparation phase is disabled by repository variable and explicitly
+  skips tag and GitHub Release creation; the repository-owned publication
+  policy binds the exact approved merge commit to the tag and deterministic
+  draft.
 - `VERSION` and the root `CHANGELOG.md` are the single human-readable product
   authorities. Repository validation reconciles their complete Cargo, Node,
   native-package, Bun, and consumer-lock update set.
-- The protected release phase will force-create an immutable `vX.Y.Z` tag and
-  draft Release; incomplete candidates remain draft, GitHub publication is the
-  canonical completion point, and npm follows as a same-source projection.
+- The protected release phase creates the exact absent `vX.Y.Z` tag at the
+  approved merge commit and creates or resumes its deterministic draft Release;
+  incomplete candidates remain draft, GitHub publication is the canonical
+  completion point, and npm follows as a same-source projection.
 - Marker-based Release Please updates preserve exact internal Rust dependency
   requirements, and generated third-party notices exclude first-party workspace
   versions so an approved version bump cannot stale release receipts.
@@ -115,3 +122,14 @@ boundary.
   approved, CodeRabbit produced no actionable comments, no review threads were
   opened, and two independent final code-review passes left no Bucket I or
   Bucket II findings.
+- The protected tagged-source workflow now rebuilds the complete standalone CLI
+  and five-tarball npm candidates from the immutable approved tag, validates
+  their exact consumers, publishes GitHub canonically, and only then projects
+  the same version to npm through OIDC. Recovery is fail-closed for divergent
+  tags, assets, metadata, or partial npm state while byte-identical draft assets
+  remain additively recoverable.
+- PR #24 merged into `dev` as
+  `c04c1332efa4ec5a4b14b262d232da3378de4992` after all 23 CI jobs passed.
+  Codex's publication-URL defect and nine CodeRabbit findings were fixed; all
+  ten review threads were replied to and resolved, and the final feedback
+  collector found no new actionable findings on `bda2211`.
