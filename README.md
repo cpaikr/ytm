@@ -53,8 +53,12 @@ one versioned archive per target, `install.sh`, `install.ps1`, and sorted
 The generated installers verify their selected archive, publish a strict
 adjacent executable receipt, and support explicit, recoverable managed upgrades
 through `ytm upgrade` and the read-only `ytm upgrade --check`. Locally built or
-modified executables are deliberately unmanaged. These CI artifacts are release
-inputs, not a public distribution channel.
+modified executables are deliberately unmanaged. Native clean-consumer jobs
+install the exact aggregated candidate on every claimed target and verify its
+identity, receipt, integrity failures, and managed replacement. Transaction
+faults are injected into bounded temporary installer copies to verify rollback
+and recoverable failure evidence without shipping a test failpoint. These CI
+artifacts are release inputs, not a public distribution channel.
 No installer URL is documented until the tagged GitHub Release workflow is
 implemented and an exact version is separately authorized.
 

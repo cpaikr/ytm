@@ -234,19 +234,32 @@ function Write-Receipt([string]$Path, [string]$ReceiptVersion, [string]$Digest) 
 }
 function Write-Status([string]$Path, [string]$Json) {
   $StatusTemp = $Path + '.write.' + [Guid]::NewGuid().ToString('N')
+  $StatusBackup = $Path + '.backup.' + [Guid]::NewGuid().ToString('N')
   try {
     [IO.File]::WriteAllText($StatusTemp, $Json, [Text.UTF8Encoding]::new($false))
-    if ([IO.File]::Exists($Path)) { [IO.File]::Replace($StatusTemp, $Path, $null) }
+    if ([IO.File]::Exists($Path)) {
+      [IO.File]::Replace($StatusTemp, $Path, $StatusBackup)
+      [IO.File]::Delete($StatusBackup)
+    }
     else { [IO.File]::Move($StatusTemp, $Path) }
   } finally {
-    if ([IO.File]::Exists($StatusTemp)) { [IO.File]::Delete($StatusTemp) }
+    try { if ([IO.File]::Exists($StatusTemp)) { [IO.File]::Delete($StatusTemp) } } catch {}
+    try { if ([IO.File]::Exists($StatusBackup)) { [IO.File]::Delete($StatusBackup) } } catch {}
   }
+}
+function Get-Sha256([string]$Path) {
+  $Stream = [IO.File]::OpenRead($Path)
+  try {
+    $Hasher = [Security.Cryptography.SHA256]::Create()
+    try { return ([BitConverter]::ToString($Hasher.ComputeHash($Stream))).Replace('-', '').ToLowerInvariant() }
+    finally { $Hasher.Dispose() }
+  } finally { $Stream.Dispose() }
 }
 function Quote-Literal([string]$Value) { return "'" + $Value.Replace("'", "''") + "'" }
 New-Item -ItemType Directory -Path $Temp | Out-Null
 try {
   Invoke-WebRequest -UseBasicParsing -TimeoutSec 120 -Uri "$ReleaseBase/$Archive" -OutFile (Join-Path $Temp $Archive)
-  $Actual = (Get-FileHash -Algorithm SHA256 (Join-Path $Temp $Archive)).Hash.ToLowerInvariant()
+  $Actual = Get-Sha256 (Join-Path $Temp $Archive)
   if ($Actual -ne $Expected) { throw "checksum mismatch for $Archive" }
   Expand-Archive -LiteralPath (Join-Path $Temp $Archive) -DestinationPath $Temp
   $Root = '${root}'
@@ -256,9 +269,9 @@ try {
   $Staged = Join-Path $InstallDir ('.ytm.install.' + [Guid]::NewGuid().ToString('N') + '.exe')
   $StagedReceipt = Join-Path $InstallDir ('.ytm.receipt.install.' + [Guid]::NewGuid().ToString('N'))
   Copy-Item -LiteralPath $Binary -Destination $Staged
-  $BinaryDigest = (Get-FileHash -Algorithm SHA256 $Staged).Hash.ToLowerInvariant()
+  $BinaryDigest = Get-Sha256 $Staged
   Write-Receipt $StagedReceipt $Version $BinaryDigest
-  $ReceiptDigest = (Get-FileHash -Algorithm SHA256 $StagedReceipt).Hash.ToLowerInvariant()
+  $ReceiptDigest = Get-Sha256 $StagedReceipt
 
   if ($env:YTM_MANAGED_UPGRADE -eq '1') {
     if ($env:YTM_EXPECTED_VERSION -ne $Version) { throw 'verified installer version does not match the requested upgrade' }
@@ -268,10 +281,10 @@ try {
     $ParentStartTicks = $ParentProcess.StartTime.ToUniversalTime().Ticks.ToString()
     if (-not (Test-Path -LiteralPath $Executable -PathType Leaf) -or -not (Test-Path -LiteralPath $Receipt -PathType Leaf)) { throw "$Executable and $Receipt must be directly managed files" }
     if (((Get-Item -LiteralPath $Executable).Attributes -band [IO.FileAttributes]::ReparsePoint) -or ((Get-Item -LiteralPath $Receipt).Attributes -band [IO.FileAttributes]::ReparsePoint)) { throw "$Executable and $Receipt must be directly managed files" }
-    $CurrentDigest = (Get-FileHash -Algorithm SHA256 $Executable).Hash.ToLowerInvariant()
+    $CurrentDigest = Get-Sha256 $Executable
     if ($CurrentDigest -ne $env:YTM_CURRENT_SHA256) { throw "$Executable changed after upgrade validation" }
     if ([IO.File]::ReadAllText($Receipt) -cne (Receipt-Text $env:YTM_CURRENT_VERSION $CurrentDigest)) { throw "$Receipt changed after upgrade validation" }
-    $CurrentReceiptDigest = (Get-FileHash -Algorithm SHA256 $Receipt).Hash.ToLowerInvariant()
+    $CurrentReceiptDigest = Get-Sha256 $Receipt
     if ((Test-Path -LiteralPath $Previous) -or (Test-Path -LiteralPath $PreviousReceipt)) { throw "interrupted upgrade evidence exists at $Previous or $PreviousReceipt; preserve it and restore the verified pair before retrying" }
     try {
       $Marker = [IO.File]::Open($InProgress, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)
@@ -305,13 +318,26 @@ try {
       '$TerminalStatusCommitted = $false',
       'function Write-Status([string]$Path, [string]$Json) {',
       '  $StatusTemp = $Path + ''.write.'' + [Guid]::NewGuid().ToString(''N'')',
+      '  $StatusBackup = $Path + ''.backup.'' + [Guid]::NewGuid().ToString(''N'')',
       '  try {',
       '    [IO.File]::WriteAllText($StatusTemp, $Json, [Text.UTF8Encoding]::new($false))',
-      '    if ([IO.File]::Exists($Path)) { [IO.File]::Replace($StatusTemp, $Path, $null) }',
+      '    if ([IO.File]::Exists($Path)) {',
+      '      [IO.File]::Replace($StatusTemp, $Path, $StatusBackup)',
+      '      [IO.File]::Delete($StatusBackup)',
+      '    }',
       '    else { [IO.File]::Move($StatusTemp, $Path) }',
       '  } finally {',
-      '    if ([IO.File]::Exists($StatusTemp)) { [IO.File]::Delete($StatusTemp) }',
+      '    try { if ([IO.File]::Exists($StatusTemp)) { [IO.File]::Delete($StatusTemp) } } catch {}',
+      '    try { if ([IO.File]::Exists($StatusBackup)) { [IO.File]::Delete($StatusBackup) } } catch {}',
       '  }',
+      '}',
+      'function Get-Sha256([string]$Path) {',
+      '  $Stream = [IO.File]::OpenRead($Path)',
+      '  try {',
+      '    $Hasher = [Security.Cryptography.SHA256]::Create()',
+      '    try { return ([BitConverter]::ToString($Hasher.ComputeHash($Stream))).Replace(''-'', '''').ToLowerInvariant() }',
+      '    finally { $Hasher.Dispose() }',
+      '  } finally { $Stream.Dispose() }',
       '}',
       'try {',
       '  $WaitDeadline = [DateTime]::UtcNow.AddSeconds(120)',
@@ -329,16 +355,16 @@ try {
       '  }',
       '  if (-not (Test-Path -LiteralPath $Executable -PathType Leaf) -or -not (Test-Path -LiteralPath $Receipt -PathType Leaf)) { throw "managed executable and receipt changed before replacement" }',
       '  if (((Get-Item -LiteralPath $Executable).Attributes -band [IO.FileAttributes]::ReparsePoint) -or ((Get-Item -LiteralPath $Receipt).Attributes -band [IO.FileAttributes]::ReparsePoint)) { throw "managed executable and receipt must be directly managed files" }',
-      '  if ((Get-FileHash -Algorithm SHA256 $Executable).Hash.ToLowerInvariant() -ne $ExpectedCurrentDigest) { throw "managed executable changed before replacement" }',
-      '  if ((Get-FileHash -Algorithm SHA256 $Receipt).Hash.ToLowerInvariant() -ne $ExpectedCurrentReceiptDigest) { throw "managed receipt changed before replacement" }',
+      '  if ((Get-Sha256 $Executable) -ne $ExpectedCurrentDigest) { throw "managed executable changed before replacement" }',
+      '  if ((Get-Sha256 $Receipt) -ne $ExpectedCurrentReceiptDigest) { throw "managed receipt changed before replacement" }',
       '  if ((Test-Path -LiteralPath $Previous) -or (Test-Path -LiteralPath $PreviousReceipt)) { throw "recovery files already exist" }',
       '  [IO.File]::Move($Executable, $Previous)',
       '  try { [IO.File]::Move($Receipt, $PreviousReceipt) } catch { [IO.File]::Move($Previous, $Executable); throw }',
       '  $HaveBackup = $true',
       '  [IO.File]::Move($Staged, $Executable)',
       '  [IO.File]::Move($StagedReceipt, $Receipt)',
-      '  if ((Get-FileHash -Algorithm SHA256 $Executable).Hash.ToLowerInvariant() -ne $ExpectedDigest) { throw "replacement digest verification failed" }',
-      '  if ((Get-FileHash -Algorithm SHA256 $Receipt).Hash.ToLowerInvariant() -ne $ExpectedReceiptDigest) { throw "replacement receipt verification failed" }',
+      '  if ((Get-Sha256 $Executable) -ne $ExpectedDigest) { throw "replacement digest verification failed" }',
+      '  if ((Get-Sha256 $Receipt) -ne $ExpectedReceiptDigest) { throw "replacement receipt verification failed" }',
       '  $HaveBackup = $false',
       '  Remove-Item -LiteralPath $Previous, $PreviousReceipt -Force',
       '  $StatusJson = [ordered]@{ ok = $true; status = "upgraded"; version = $Version; target = $Target; installedSha256 = $ExpectedDigest; executable = $Executable; receipt = $Receipt } | ConvertTo-Json -Compress',
@@ -356,14 +382,19 @@ try {
       '      $Restored = $true',
       '    } catch { $Reason = $Reason + "; rollback failed: " + $_.Exception.Message }',
       '  }',
-      '  $StatusJson = [ordered]@{ ok = $false; status = "recoverableFailure"; restored = $Restored; reason = $Reason; executable = $Executable; receipt = $Receipt; previous = $Previous; previousReceipt = $PreviousReceipt } | ConvertTo-Json -Compress',
-      '  Write-Status $Status $StatusJson',
-      '  $TerminalStatusCommitted = $true',
+      '  try {',
+      '    $StatusJson = [ordered]@{ ok = $false; status = "recoverableFailure"; restored = $Restored; reason = $Reason; executable = $Executable; receipt = $Receipt; previous = $Previous; previousReceipt = $PreviousReceipt } | ConvertTo-Json -Compress',
+      '    Write-Status $Status $StatusJson',
+      '    $TerminalStatusCommitted = $true',
+      '  } catch {',
+      '    $StatusError = $_.Exception.Message.Replace("\`r", " ").Replace("\`n", " ")',
+      '    try { [IO.File]::AppendAllText($InProgress, "status_error=$StatusError\`r\`n", [Text.UTF8Encoding]::new($false)) } catch {}',
+      '  }',
       '} finally {',
       '  if (Test-Path -LiteralPath $Staged) { Remove-Item -LiteralPath $Staged -Force -ErrorAction SilentlyContinue }',
       '  if (Test-Path -LiteralPath $StagedReceipt) { Remove-Item -LiteralPath $StagedReceipt -Force -ErrorAction SilentlyContinue }',
       '  if ($TerminalStatusCommitted -and (Test-Path -LiteralPath $InProgress)) { Remove-Item -LiteralPath $InProgress -Force -ErrorAction SilentlyContinue }',
-      '  Remove-Item -LiteralPath $Helper -Force -ErrorAction SilentlyContinue',
+      '  if ($TerminalStatusCommitted -and (Test-Path -LiteralPath $Helper)) { Remove-Item -LiteralPath $Helper -Force -ErrorAction SilentlyContinue }',
       '}'
     )
     [IO.File]::WriteAllLines($Helper, $HelperLines, [Text.UTF8Encoding]::new($false))
@@ -397,7 +428,7 @@ try {
   }
 } finally {
   if ($FreshInstall -and $FreshExecutablePublished -and -not $FreshCommitted -and $FreshStagedPath -and -not (Test-Path -LiteralPath $FreshStagedPath) -and (Test-Path -LiteralPath $Executable) -and -not (Test-Path -LiteralPath $Receipt)) {
-    if ((Get-FileHash -Algorithm SHA256 $Executable).Hash.ToLowerInvariant() -eq $BinaryDigest) {
+    if ((Get-Sha256 $Executable) -eq $BinaryDigest) {
       try {
         Remove-Item -LiteralPath $Executable -Force -ErrorAction Stop
         if (Test-Path -LiteralPath $Executable) { throw 'the executable still exists after removal' }

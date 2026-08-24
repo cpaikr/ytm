@@ -149,7 +149,13 @@ runner, executes its version and help identity, creates a normalized archive,
 and aggregates all four archives with generated shell and PowerShell installers
 plus sorted SHA-256 metadata. Repository-owned packers normalize archive order,
 timestamps, ownership, modes, and ZIP metadata; exact-content validation
-rejects undeclared or private files.
+rejects undeclared or private files. A downstream native matrix downloads that
+single aggregate without rebuilding it, installs through the generated shell or
+PowerShell entrypoint, and verifies exact executable, receipt, command identity,
+integrity rejection, and managed replacement on every claimed target. Bounded
+single-anchor copies of the already-validated installer inject transaction and
+Windows status-publication faults and verify rollback or retained recovery
+evidence without adding a test-only runtime seam to published artifacts.
 
 The generated installers now write a strict adjacent executable receipt and own
 fresh-install and managed-replacement transactions. The CLI's isolated release

@@ -38,8 +38,11 @@ executes their binary identity, generates version-pinned shell and PowerShell
 installers, and validates a complete sorted checksum set without creating
 external release state. The CLI has a side-effect-free version command plus
 strict adjacent install receipts and explicit managed upgrade behavior.
-Exact-installer consumers on every target, tagged asset orchestration, and a
-public release do not exist yet.
+Native clean consumers now download the aggregated candidate on every claimed
+target, install its exact archive through the generated platform installer,
+verify the executable and receipt, and exercise integrity and recoverable
+upgrade failures. Tagged asset orchestration and a public release do not exist
+yet.
 
 ## Decisions
 
@@ -82,8 +85,8 @@ public release do not exist yet.
    command output or noninteractive execution.
 5. Exercise the exact archives, installers, receipts, checksums, and upgrade
    path in clean consumers. Inject download, checksum, replacement, receipt
-   write, interruption, and restoration failures and assert the state left
-   behind.
+   write, interruption, restoration, and Windows terminal-status publication
+   failures and assert the state left behind.
 6. Build the tagged-source release workflow. Publish the validated GitHub
    Release as the canonical completion point, then project the same version and
    source identity to npm through trusted publishing when authorized.
@@ -132,7 +135,6 @@ public release do not exist yet.
 
 ## Next action
 
-Exercise the exact release archives, installers, receipts, checksums, and
-upgrade path in clean consumers on every claimed target, including injected
-download, integrity, replacement, receipt, interruption, and restoration
-failures.
+Build the tagged-source release workflow so a separately authorized product
+version produces one validated draft GitHub Release, makes GitHub publication
+the canonical completion point, and projects the same version and source to npm.

@@ -46,17 +46,26 @@ try {
   if (!shellInstaller.includes("sha256sum") || !shellInstaller.includes("shasum -a 256") || !shellInstaller.includes('[ "$actual" = "$expected" ]')) {
     throw new Error("Shell installer must verify its pinned archive digest.");
   }
-  if (!powershellInstaller.includes("Get-FileHash -Algorithm SHA256") || !powershellInstaller.includes("$Actual -ne $Expected")) {
+  if (!powershellInstaller.includes("function Get-Sha256") || !powershellInstaller.includes("[Security.Cryptography.SHA256]::Create()") || !powershellInstaller.includes("$Actual -ne $Expected")) {
     throw new Error("PowerShell installer must verify its pinned archive digest.");
+  }
+  if (powershellInstaller.includes("Get-FileHash")) {
+    throw new Error("PowerShell installer must not depend on module-autoloaded hashing commands.");
   }
   for (const marker of ["schema=1", "release_source=https://github.com/", "installed_sha256=", "YTM_MANAGED_UPGRADE", ".ytm.previous", "automatic rollback was incomplete", "same_file", "--max-time 120", "--timeout=30"]) {
     if (!shellInstaller.includes(marker)) throw new Error(`Shell installer is missing managed-install marker ${marker}.`);
   }
   if (shellInstaller.includes(' -ef ')) throw new Error("Shell installer must not depend on the non-POSIX test -ef operator.");
-  for (const marker of ["schema=1", "YTM_MANAGED_UPGRADE", ".ytm.exe.previous", "ParentStartTicks", "AddSeconds(120)", "recoverableFailure", "upgrade-status.json", "upgrade-in-progress", "FileMode]::CreateNew", "Start-Process", "-PassThru", "-TimeoutSec 120", "status = \"scheduled\"", "[IO.File]::Replace", "$TerminalStatusCommitted", "$StatusOwned = $true", "preserve the uncommitted executable at ${Executable}"]) {
+  for (const marker of ["schema=1", "YTM_MANAGED_UPGRADE", ".ytm.exe.previous", "ParentStartTicks", "AddSeconds(120)", "recoverableFailure", "upgrade-status.json", "upgrade-in-progress", "FileMode]::CreateNew", "Start-Process", "-PassThru", "-TimeoutSec 120", "status = \"scheduled\"", "[IO.File]::Replace", "$StatusBackup", "status_error=", "$TerminalStatusCommitted -and (Test-Path -LiteralPath $Helper)", "$StatusOwned = $true", "preserve the uncommitted executable at ${Executable}"]) {
     if (!powershellInstaller.includes(marker)) throw new Error(`PowerShell installer is missing managed-install marker ${marker}.`);
   }
   if (powershellInstaller.includes("Set-Content -LiteralPath $Status")) throw new Error("PowerShell status JSON must use no-BOM atomic writes.");
+  for (const anchor of [
+    "      '  $HaveBackup = $true',",
+    "      '      [IO.File]::Replace($StatusTemp, $Path, $StatusBackup)',"
+  ]) {
+    if (powershellInstaller.split(anchor).length !== 2) throw new Error(`PowerShell failure anchor must occur exactly once: ${anchor}`);
+  }
   const publishedChecksums = parseChecksumFile(await readFile(join(first, manifest.checksumFile), "utf8"));
   for (const target of manifest.targets) {
     const archive = cliArchiveName(manifest, target, version);
