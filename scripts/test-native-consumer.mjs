@@ -29,14 +29,14 @@ try {
   const rootTarball = exactRootDirectory
     ? await findPackageTarball(exactRootDirectory, JSON.parse(await readFile(resolve(repositoryRoot, manifest.rootPackage, "package.json"), "utf8")).name)
     : pack(resolve(repositoryRoot, manifest.rootPackage));
-  if (!exactRootDirectory) {
-    const rootPack = JSON.parse(exec(npm, ["pack", "--dry-run", "--json", resolve(repositoryRoot, manifest.rootPackage)], { encoding: "utf8" }))[0];
-    if (rootPack.files.some(({ path }) => path.endsWith(".node"))) {
-      throw new Error("The root package must not embed a native artifact.");
-    }
-    if (rootPack.files.some(({ path }) => isNodeCliArtifact(path))) {
-      throw new Error("The root Node SDK package must not contain a JavaScript CLI entry point.");
-    }
+  const rootEntries = exactRootDirectory
+    ? listTarball(rootTarball)
+    : JSON.parse(exec(npm, ["pack", "--dry-run", "--json", resolve(repositoryRoot, manifest.rootPackage)], { encoding: "utf8" }))[0].files.map(({ path }) => path);
+  if (rootEntries.some((path) => path.endsWith(".node"))) {
+    throw new Error("The root package must not embed a native artifact.");
+  }
+  if (rootEntries.some(isNodeCliArtifact)) {
+    throw new Error("The root Node SDK package must not contain a JavaScript CLI entry point.");
   }
 
   await writeFile(resolve(temporary, "package.json"), `${JSON.stringify({
@@ -85,6 +85,12 @@ function tarballEntry(tarball, entry) {
   const result = spawn("tar", ["-xOf", tarball, entry]);
   if (result.status !== 0) throw new Error(`Could not read ${entry} from ${tarball}:\n${result.stderr}`);
   return result.stdout;
+}
+
+function listTarball(tarball) {
+  const result = spawn("tar", ["-tzf", tarball]);
+  if (result.status !== 0) throw new Error(`Could not list ${tarball}:\n${result.stderr}`);
+  return result.stdout.split(/\r?\n/).filter(Boolean);
 }
 
 function run(command, args, cwd) {

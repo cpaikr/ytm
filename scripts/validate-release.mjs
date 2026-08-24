@@ -236,7 +236,8 @@ check(!activeShell(ciNativeBuild).includes("cargo build --locked --release --tar
 const ciGlibcValidation = findNamedStep(ciNativeJob, "Validate Linux artifact glibc floor");
 check(ciGlibcValidation?.if === linuxNativeCondition && activeShell(ciGlibcValidation).includes("scripts/validate-native-artifact.mjs"), "CI Linux native consumers must validate the built artifact glibc floor");
 check(findNamedStep(ciNativeJob, "Smoke standalone Rust CLI") === undefined, "Node consumer jobs must not duplicate standalone CLI artifact coverage");
-check(activeShell(findNamedStep(ciNativeJob, "Assemble product packages")).includes("scripts/assemble-native-package.mjs"), "CI native consumers must assemble platform packages");
+const ciPackageAssembly = activeShell(findNamedStep(ciNativeJob, "Assemble product packages"));
+check(ciPackageAssembly.includes("bun run build:facade") && ciPackageAssembly.includes("scripts/assemble-native-package.mjs"), "CI native consumers must build the root facade through its public script and assemble platform packages");
 check(findNamedStep(ciNativeJob, "Assemble product packages")?.shell === "bash" && activeShell(findNamedStep(ciNativeJob, "Assemble product packages")).includes("npm pack --pack-destination .artifacts/native"), "CI native consumers must pack exact tarballs portably before installation");
 const ciExactNativeConsumer = activeShell(findNamedStep(ciNativeJob, "Test exact packed Node SDK"));
 check(ciExactNativeConsumer.includes("scripts/test-native-consumer.mjs") && ciExactNativeConsumer.includes(".artifacts/native .artifacts/root"), "CI native consumers must install the exact packed SDK tarballs");
@@ -302,8 +303,12 @@ check(protectedReleaseStep?.if?.includes("create_draft") && activeShell(protecte
 for (const contract of ["git/refs", "target_commitish", "generate_release_notes: false", "releaseMetadataFromChangelog"]) check(releaseDraftCreator.includes(contract), `exact draft creation must retain ${contract}`);
 check(releaseMetadataPolicy.includes("first changelog release") && releaseMetadataPolicy.includes("non-empty body"), "release metadata must derive deterministically from the tagged changelog");
 check(activeShell(findNamedStep(authorityJob, "Resolve immutable release identity")) === "node scripts/resolve-release-state.mjs resolve", "downstream release identity must come only from repository-owned resolution");
-for (const contract of ["approvedReleasePullRequest", "canonicalReleaseUrl", "refs/remotes/origin/main", "merge-base", "publication_mode", "FETCH_HEAD^{commit}"]) check(releaseStateResolver.includes(contract), `release state resolution must retain ${contract}`);
+for (const contract of ["approvedReleasePullRequest", "canonicalReleaseUrl", '/commits/${workflowSha}/pulls?per_page=100', "AbortSignal.timeout", "refs/remotes/origin/main", "merge-base", "publication_mode", "FETCH_HEAD^{commit}"]) check(releaseStateResolver.includes(contract), `release state resolution must retain ${contract}`);
+check(!releaseStateResolver.includes("release_pr:"), "release inspection must not expose an unused release PR output after validating its identity");
 check(releasePublicationTest.includes("ordinary main change") && releaseStateResolver.includes("listPullRequests"), "tag creation must bind the approved version to its exact merged Release Please PR SHA");
+check(releaseDraftCreator.includes("normalizeReleaseBody(release.body)") && releaseDraftCreator.includes("AbortSignal.timeout"), "draft creation must normalize GitHub body line endings and bound every mutation request");
+check(releaseMetadataVerifier.includes("AbortSignal.timeout"), "release metadata verification must use a bounded GitHub request");
+check(releasePublicationTest.includes("line one\\r\\nline two") && releaseMetadataPolicy.includes("normalizeReleaseBody"), "release publication tests must retain CRLF normalization coverage");
 
 const immutableRef = "${{ needs.release_authority.outputs.source_sha }}";
 for (const name of ["cli_metadata", "cli_archive", "cli_artifact_set", "cli_consumer", "native_packages", "root_package", "npm_candidate", "npm_consumer", "publish_github", "publish_npm"]) {
@@ -330,7 +335,7 @@ check(activeShell(findNamedStep(nativeJob, "Build native artifact")).includes("s
 check(activeShell(findNamedStep(nativeJob, "Assemble and pack native package")).includes("scripts/assemble-native-package.mjs"), "native release jobs must assemble generated packages");
 
 const rootJob = npmWorkflow.jobs?.root_package;
-check(rootJob?.["timeout-minutes"] === 30 && rootJob?.["runs-on"] === "ubuntu-24.04", "release root package must use a bounded GitHub-hosted job");
+check(rootJob?.["timeout-minutes"] === 45 && rootJob?.["runs-on"] === "ubuntu-24.04", "release root package must allow bounded time for pinned security-tool builds on a GitHub-hosted job");
 const rustSecurityInstall = activeShell(findNamedStep(rootJob, "Install pinned Rust security checks"));
 check(rustSecurityInstall.includes("cargo install --locked cargo-audit --version 0.22.2") && rustSecurityInstall.includes("cargo install --locked cargo-deny --version 0.19.0"), "root package validation must install pinned Rust security checks");
 const immutableSourceValidation = activeShell(findNamedStep(rootJob, "Validate immutable source"));
@@ -347,7 +352,7 @@ const npmConsumerJob = npmWorkflow.jobs?.npm_consumer;
 equal(npmConsumerJob?.strategy?.matrix?.node, nativeTargets.validationNodeMajors, "exact npm consumers must cover every declared Node major");
 equal(npmConsumerJob?.strategy?.matrix?.target?.map(({ rust }) => rust), nativeTargets.targets.map(({ rustTarget }) => rustTarget), "exact npm consumers must cover every native target");
 check(activeShell(findNamedStep(npmConsumerJob, "Test exact aggregated Node SDK consumer")).includes("dist/native dist/root"), "npm consumers must install downloaded aggregate tarballs without repacking");
-check(nativeConsumerTest.includes("findPackageTarball") && nativeConsumerTest.includes("exact aggregated"), "Node consumer harness must expose exact aggregate mode");
+check(nativeConsumerTest.includes("findPackageTarball") && nativeConsumerTest.includes("listTarball(rootTarball)") && nativeConsumerTest.includes("exact aggregated"), "Node consumer harness must inspect exact aggregate tarball contents without repacking");
 
 const githubPublishJob = npmWorkflow.jobs?.publish_github;
 equal(githubPublishJob?.needs, ["release_authority", "cli_artifact_set", "cli_consumer", "npm_candidate", "npm_consumer"], "canonical publication must wait for both exact-distributable consumer matrices");
@@ -367,7 +372,7 @@ check(canonicalPublish.includes("--method PATCH") && canonicalPublish.includes("
 check(findNamedStep(githubPublishJob, "Publish canonical GitHub Release")?.if === "env.RELEASE_MODE != 'project'", "projection-only recovery must never mutate the public GitHub Release");
 check(activeShell(findNamedStep(githubPublishJob, "Revalidate immutable Release metadata")).includes("verify-release-metadata.mjs"), "canonical publication must revalidate changelog-derived metadata immediately before visibility changes");
 check(activeShell(findNamedStep(githubPublishJob, "Verify canonical GitHub Release is public")).includes("verify-release-metadata.mjs"), "canonical publication and projection recovery must finish by re-reading public metadata");
-check(releaseMetadataVerifier.includes("release.name !== metadata.name") && releaseMetadataVerifier.includes("release.body !== metadata.body"), "Release metadata verification must compare immutable name and body");
+check(releaseMetadataVerifier.includes("release.name !== metadata.name") && releaseMetadataVerifier.includes("normalizeReleaseBody(release.body) !== metadata.body"), "Release metadata verification must compare immutable name and normalized body");
 check(releaseAssetPlanner.includes("does not match the rebuilt candidate") && releaseAssetPlanner.includes("unexpected assets"), "draft asset planner must fail closed on replacement or unexpected state");
 check(releasePublicationTest.includes("main has advanced") && releasePublicationTest.includes("unexpected assets"), "release publication tests must inject source-state and draft-asset failures");
 
@@ -381,7 +386,7 @@ check(npmReleaseVerification.includes("verify-release-metadata.mjs") && npmRelea
 const registryPreflight = activeShell(findNamedStep(publishJob, "Re-prove every npm version is absent"));
 check(registryPreflight.includes("npm view") && registryPreflight.includes("E404") && registryPreflight.includes("Could not prove"), "npm must re-prove complete registry absence before its first publish");
 const publishShell = activeShell(findNamedStep(publishJob, "Publish native packages, then root package"));
-check(publishShell.includes("for tarball in dist/native/*.tgz") && publishShell.indexOf("dist/native/*.tgz") < publishShell.indexOf("root_tarball="), "all native packages must publish before the root package");
+check(publishShell.includes("mapfile -t root_tarballs") && publishShell.includes("Expected exactly one root package tarball") && publishShell.includes("if ! package_name=") && publishShell.includes("for tarball in dist/native/*.tgz") && publishShell.indexOf("dist/native/*.tgz") < publishShell.indexOf('root_tarballs[0]'), "npm publication must validate package identity, require one root tarball, and publish all native packages before it");
 check(publishShell.includes("--provenance --access public") && publishShell.includes("npm projection incomplete") && publishShell.includes("do not repair this version in place"), "npm trusted publication must emit provenance and explicit partial-failure guidance");
 check(!publishShell.includes("npm view") && !publishShell.includes("skipping"), "npm publication must not repair a partial version in place");
 

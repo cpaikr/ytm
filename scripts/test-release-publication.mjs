@@ -4,7 +4,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { approvedReleasePullRequest, canonicalReleaseUrl, classifyReleaseState, expectedReleaseTag } from "./release-state-policy.mjs";
-import { releaseMetadataFromChangelog } from "./release-metadata-policy.mjs";
+import { normalizeReleaseBody, releaseMetadataFromChangelog } from "./release-metadata-policy.mjs";
 import { cliArchiveName, loadCliReleasePolicy } from "./cli-release-policy.mjs";
 
 const sha = "1".repeat(40);
@@ -27,6 +27,7 @@ const state = (overrides = {}) => ({
 assert.equal(expectedReleaseTag("1.2.3"), "v1.2.3");
 assert.throws(() => expectedReleaseTag("1.2.3-rc.1"), /stable SemVer/);
 assert.equal(canonicalReleaseUrl("https://github.com/", "example/ytm", "v1.2.3"), "https://github.com/example/ytm/releases/tag/v1.2.3");
+assert.equal(normalizeReleaseBody("line one\r\nline two\r\n"), "line one\nline two\n");
 const releasePull = {
   number: 42,
   title: "chore(main): release 1.2.3",

@@ -25,6 +25,7 @@ jobs:
       name: release
       url: https://github.com/${{ github.repository }}/releases/tag/v${{ inputs.expected_version }}
     permissions:
+      # Create the exact immutable tag and its recoverable draft Release.
       contents: write
     outputs:
       version: ${{ steps.resolve.outputs.version }}
@@ -276,7 +277,7 @@ jobs:
     name: Root Node SDK package
     needs: release_authority
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - name: Check out immutable release source
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
@@ -412,6 +413,7 @@ jobs:
       name: release
       url: ${{ needs.release_authority.outputs.release_url }}
     permissions:
+      # Upload canonical assets and publish the verified draft Release.
       contents: write
     env:
       RELEASE_TAG: ${{ needs.release_authority.outputs.tag }}
@@ -542,6 +544,7 @@ jobs:
       url: https://www.npmjs.com/package/@sjunepark/ytm/v/${{ needs.release_authority.outputs.version }}
     permissions:
       contents: read
+      # Exchange the GitHub job identity for npm trusted-publishing credentials.
       id-token: write
     env:
       RELEASE_TAG: ${{ needs.release_authority.outputs.tag }}
@@ -605,10 +608,23 @@ jobs:
         shell: bash
         run: |
           published=()
+          mapfile -t root_tarballs < <(find dist/root -maxdepth 1 -type f -name '*.tgz' -print | sort)
+          if [ "${#root_tarballs[@]}" -ne 1 ]; then
+            echo "Expected exactly one root package tarball; found ${#root_tarballs[@]}." >&2
+            exit 1
+          fi
           publish_one() {
             local tarball=$1
             local package_name
-            package_name=$(tar -xOf "$tarball" package/package.json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).name))')
+            if ! package_name=$(tar -xOf "$tarball" package/package.json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const name=JSON.parse(s).name;if(typeof name!=="string"||!name)process.exit(1);process.stdout.write(name)})'); then
+              {
+                echo "### npm projection incomplete"
+                echo
+                echo "Canonical GitHub Release $RELEASE_TAG is public, but package identity could not be read from $tarball."
+                echo "Published before the failure: ${published[*]:-none}. Approve a new version; do not repair this version in place."
+              } >> "$GITHUB_STEP_SUMMARY"
+              return 1
+            fi
             if npm publish "$tarball" --provenance --access public; then
               published+=("$package_name@$RELEASE_VERSION")
               return 0
@@ -624,6 +640,5 @@ jobs:
           for tarball in dist/native/*.tgz; do
             publish_one "$tarball" || exit 1
           done
-          root_tarball=$(find dist/root -maxdepth 1 -name '*.tgz' -print)
-          publish_one "$root_tarball" || exit 1
+          publish_one "${root_tarballs[0]}" || exit 1
           echo "Published npm projection: ${published[*]}" >> "$GITHUB_STEP_SUMMARY"

@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { releaseMetadataFromChangelog } from "./release-metadata-policy.mjs";
+import { normalizeReleaseBody, releaseMetadataFromChangelog } from "./release-metadata-policy.mjs";
 
 const mode = required("RELEASE_MODE");
 if (!new Set(["create", "create_draft"]).has(mode)) throw new Error(`Cannot create a draft from release mode ${JSON.stringify(mode)}.`);
@@ -30,7 +30,7 @@ const release = await api("POST", `/repos/${repository}/releases`, {
   prerelease: false,
   generate_release_notes: false,
 }, 201);
-if (release.tag_name !== metadata.tag || release.name !== metadata.name || release.body !== metadata.body || release.draft !== true || release.prerelease !== false) {
+if (release.tag_name !== metadata.tag || release.name !== metadata.name || normalizeReleaseBody(release.body) !== metadata.body || release.draft !== true || release.prerelease !== false) {
   throw new Error(`GitHub did not create the exact approved draft ${metadata.tag}.`);
 }
 console.log(`Created exact draft ${metadata.tag} at ${sourceSha}.`);
@@ -38,6 +38,7 @@ console.log(`Created exact draft ${metadata.tag} at ${sourceSha}.`);
 async function api(method, path, body, expectedStatus) {
   const response = await fetch(`${apiUrl}${path}`, {
     method,
+    signal: AbortSignal.timeout(30_000),
     headers: {
       accept: "application/vnd.github+json",
       authorization: `Bearer ${token}`,

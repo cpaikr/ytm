@@ -35,7 +35,7 @@ git(["fetch", "--no-tags", "origin", "+refs/heads/main:refs/remotes/origin/main"
 const mainSha = git(["rev-parse", "refs/remotes/origin/main"]);
 const tagSha = remoteTagCommit(expectedTag);
 const releases = (await listReleases()).filter((release) => release.tag_name === expectedTag);
-const releasePull = approvedReleasePullRequest(await listPullRequests(), expectedVersion, workflowSha);
+approvedReleasePullRequest(await listPullRequests(), expectedVersion, workflowSha);
 const metadata = releaseMetadataFromChangelog(await readFile("CHANGELOG.md", "utf8"), expectedVersion);
 const state = classifyReleaseState({
   expectedVersion,
@@ -54,7 +54,7 @@ if (tagSha !== null) {
 }
 
 if (phase === "inspect") {
-  await writeOutputs({ mode: state.mode, expected_version: expectedVersion, expected_tag: expectedTag, release_pr: String(releasePull.number) });
+  await writeOutputs({ mode: state.mode, expected_version: expectedVersion, expected_tag: expectedTag });
   console.log(`${expectedTag} release state: ${state.mode}`);
   process.exit(0);
 }
@@ -89,28 +89,11 @@ function remoteTagCommit(tag) {
 }
 
 async function listReleases() {
-  const releases = [];
-  let url = `${apiUrl}/repos/${repository}/releases?per_page=100`;
-  while (url) {
-    const response = await fetch(url, {
-      headers: {
-        accept: "application/vnd.github+json",
-        authorization: `Bearer ${token}`,
-        "x-github-api-version": "2022-11-28",
-        "user-agent": "ytm-release-workflow",
-      },
-    });
-    if (!response.ok) throw new Error(`GitHub release lookup failed with HTTP ${response.status}.`);
-    const page = await response.json();
-    if (!Array.isArray(page)) throw new Error("GitHub release lookup returned a non-array response.");
-    releases.push(...page);
-    url = nextLink(response.headers.get("link"));
-  }
-  return releases;
+  return paginatedJson(`${apiUrl}/repos/${repository}/releases?per_page=100`, "GitHub release lookup");
 }
 
 async function listPullRequests() {
-  return paginatedJson(`${apiUrl}/repos/${repository}/pulls?state=closed&base=main&sort=updated&direction=desc&per_page=100`, "GitHub pull request lookup");
+  return paginatedJson(`${apiUrl}/repos/${repository}/commits/${workflowSha}/pulls?per_page=100`, "GitHub commit pull request lookup");
 }
 
 async function paginatedJson(initialUrl, label) {
@@ -118,6 +101,7 @@ async function paginatedJson(initialUrl, label) {
   let url = initialUrl;
   while (url) {
     const response = await fetch(url, {
+      signal: AbortSignal.timeout(30_000),
       headers: githubHeaders(),
     });
     if (!response.ok) throw new Error(`${label} failed with HTTP ${response.status}.`);
