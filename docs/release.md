@@ -85,7 +85,10 @@ verifies release assets, the checksum manifest, the platform installer, and its
 pinned archive digest before invoking that installer in managed mode. Unix
 replacement preserves and rolls back the prior executable/receipt pair;
 Windows schedules an out-of-process helper, exclusively claims an adjacent
-in-progress marker, and writes an adjacent status file. Interrupted upgrades
+in-progress marker, replaces any stale result with a `scheduled` status, waits
+at most 120 seconds for the exact parent process to exit, fails closed when
+identity cannot be confirmed, and atomically writes adjacent no-BOM UTF-8
+status states. Interrupted upgrades
 either restore the verified pair or retain fixed marker/`.previous` evidence;
 when recovery is required, the command reports the paths to inspect. These
 capabilities are candidate behavior, not a public

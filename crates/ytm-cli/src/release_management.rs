@@ -681,7 +681,14 @@ fn create_temporary_installer(bytes: &[u8]) -> Result<PathBuf, ManagementError> 
             "ytm-upgrade-{}-{nonce}-{attempt}.{extension}",
             std::process::id()
         ));
-        match OpenOptions::new().write(true).create_new(true).open(&path) {
+        let mut options = OpenOptions::new();
+        options.write(true).create_new(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            options.mode(0o600);
+        }
+        match options.open(&path) {
             Ok(mut file) => {
                 file.write_all(bytes).map_err(|error| {
                     let _ = fs::remove_file(&path);
@@ -1050,5 +1057,16 @@ mod tests {
             hostile.assets[0].browser_download_url = hostile_url;
             assert!(required_assets(&hostile, &version).is_err());
         }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn temporary_installer_is_private() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let path = create_temporary_installer(b"#!/bin/sh\n").unwrap();
+        let mode = fs::metadata(&path).unwrap().permissions().mode() & 0o777;
+        assert_eq!(mode, 0o600);
+        fs::remove_file(path).unwrap();
     }
 }

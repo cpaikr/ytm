@@ -73,6 +73,12 @@ executable="$install_dir/ytm"
 receipt="$install_dir/ytm.receipt"
 previous="$install_dir/.ytm.previous"
 previous_receipt="$install_dir/.ytm.receipt.previous"
+same_file() {
+  [ -e "$1" ] && [ -e "$2" ] || return 1
+  first_inode="$(LC_ALL=C ls -id "$1" 2>/dev/null | awk '{print $1}')"
+  second_inode="$(LC_ALL=C ls -id "$2" 2>/dev/null | awk '{print $1}')"
+  [ -n "$first_inode" ] && [ "$first_inode" = "$second_inode" ]
+}
 cleanup() {
   status=$?
   if [ "$status" -ne 0 ] && [ "$have_backup" = '1' ]; then
@@ -85,8 +91,8 @@ cleanup() {
       printf '%s\\n' "automatic rollback was incomplete; preserve $executable, $receipt, $previous, and $previous_receipt" >&2
     fi
   fi
-  if [ "$fresh_install" = '1' ] && [ -n "$staged" ] && [ -e "$executable" ] && [ "$executable" -ef "$staged" ]; then
-    if ! { [ -n "$staged_receipt" ] && [ -e "$receipt" ] && [ "$receipt" -ef "$staged_receipt" ]; }; then
+  if [ "$fresh_install" = '1' ] && [ -n "$staged" ] && same_file "$executable" "$staged"; then
+    if ! { [ -n "$staged_receipt" ] && same_file "$receipt" "$staged_receipt"; }; then
       rm -f "$executable" || printf '%s\\n' "fresh installation was interrupted; preserve the uncommitted executable at $executable" >&2
     fi
   fi
@@ -99,8 +105,8 @@ trap 'exit 129' HUP
 trap 'exit 130' INT
 trap 'exit 143' TERM
 download() {
-  if command -v curl >/dev/null 2>&1; then curl --fail --location --silent --show-error "$1" --output "$2"
-  elif command -v wget >/dev/null 2>&1; then wget -q "$1" -O "$2"
+  if command -v curl >/dev/null 2>&1; then curl --connect-timeout 10 --max-time 120 --fail --location --silent --show-error "$1" --output "$2"
+  elif command -v wget >/dev/null 2>&1; then wget --timeout=30 --tries=2 -q "$1" -O "$2"
   else printf '%s\\n' 'ytm installer requires curl or wget' >&2; exit 1
   fi
 }
@@ -164,6 +170,10 @@ if [ "\${YTM_MANAGED_UPGRADE:-}" = '1' ]; then
   printf '%s\\n' "upgraded ytm from v$current_version to v$version at $executable"
 else
   fresh_install='1'
+  if [ -e "$previous" ] || [ -e "$previous_receipt" ]; then
+    printf '%s\\n' "interrupted upgrade evidence exists at $previous or $previous_receipt; preserve it and restore the verified pair before installing" >&2
+    exit 1
+  fi
   [ ! -e "$executable" ] && [ ! -e "$receipt" ] || { printf '%s\\n' "$executable or $receipt already exists; installation did not replace it" >&2; exit 1; }
   ln "$staged" "$executable" || { printf '%s\\n' "$executable already exists; installation did not replace it" >&2; exit 1; }
   if ! ln "$staged_receipt" "$receipt"; then
@@ -205,6 +215,7 @@ $StagedReceipt = $null
 $Helper = $null
 $HelperProcess = $null
 $InProgressOwned = $false
+$StatusOwned = $false
 $FreshInstall = $false
 $FreshExecutablePublished = $false
 $FreshCommitted = $false
@@ -221,10 +232,20 @@ function Receipt-Text([string]$ReceiptVersion, [string]$Digest) {
 function Write-Receipt([string]$Path, [string]$ReceiptVersion, [string]$Digest) {
   [IO.File]::WriteAllText($Path, (Receipt-Text $ReceiptVersion $Digest), [Text.UTF8Encoding]::new($false))
 }
+function Write-Status([string]$Path, [string]$Json) {
+  $StatusTemp = $Path + '.write.' + [Guid]::NewGuid().ToString('N')
+  try {
+    [IO.File]::WriteAllText($StatusTemp, $Json, [Text.UTF8Encoding]::new($false))
+    if ([IO.File]::Exists($Path)) { [IO.File]::Replace($StatusTemp, $Path, $null) }
+    else { [IO.File]::Move($StatusTemp, $Path) }
+  } finally {
+    if ([IO.File]::Exists($StatusTemp)) { [IO.File]::Delete($StatusTemp) }
+  }
+}
 function Quote-Literal([string]$Value) { return "'" + $Value.Replace("'", "''") + "'" }
 New-Item -ItemType Directory -Path $Temp | Out-Null
 try {
-  Invoke-WebRequest -UseBasicParsing -Uri "$ReleaseBase/$Archive" -OutFile (Join-Path $Temp $Archive)
+  Invoke-WebRequest -UseBasicParsing -TimeoutSec 120 -Uri "$ReleaseBase/$Archive" -OutFile (Join-Path $Temp $Archive)
   $Actual = (Get-FileHash -Algorithm SHA256 (Join-Path $Temp $Archive)).Hash.ToLowerInvariant()
   if ($Actual -ne $Expected) { throw "checksum mismatch for $Archive" }
   Expand-Archive -LiteralPath (Join-Path $Temp $Archive) -DestinationPath $Temp
@@ -243,6 +264,8 @@ try {
     if ($env:YTM_EXPECTED_VERSION -ne $Version) { throw 'verified installer version does not match the requested upgrade' }
     if ($env:YTM_EXPECTED_ARCHIVE_SHA256 -ne $Expected) { throw 'verified installer archive digest does not match the requested upgrade' }
     if (-not $env:YTM_CURRENT_VERSION -or -not $env:YTM_CURRENT_SHA256 -or -not $env:YTM_PARENT_PID) { throw 'managed upgrade requires current version, digest, and parent process identity' }
+    $ParentProcess = Get-Process -Id ([int]$env:YTM_PARENT_PID) -ErrorAction Stop
+    $ParentStartTicks = $ParentProcess.StartTime.ToUniversalTime().Ticks.ToString()
     if (-not (Test-Path -LiteralPath $Executable -PathType Leaf) -or -not (Test-Path -LiteralPath $Receipt -PathType Leaf)) { throw "$Executable and $Receipt must be directly managed files" }
     if (((Get-Item -LiteralPath $Executable).Attributes -band [IO.FileAttributes]::ReparsePoint) -or ((Get-Item -LiteralPath $Receipt).Attributes -band [IO.FileAttributes]::ReparsePoint)) { throw "$Executable and $Receipt must be directly managed files" }
     $CurrentDigest = (Get-FileHash -Algorithm SHA256 $Executable).Hash.ToLowerInvariant()
@@ -277,9 +300,33 @@ try {
       '$ExpectedCurrentDigest = ' + (Quote-Literal $CurrentDigest),
       '$ExpectedCurrentReceiptDigest = ' + (Quote-Literal $CurrentReceiptDigest),
       '$ParentPid = ' + [int]$env:YTM_PARENT_PID,
+      '$ParentStartTicks = ' + (Quote-Literal $ParentStartTicks),
       '$HaveBackup = $false',
+      '$TerminalStatusCommitted = $false',
+      'function Write-Status([string]$Path, [string]$Json) {',
+      '  $StatusTemp = $Path + ''.write.'' + [Guid]::NewGuid().ToString(''N'')',
+      '  try {',
+      '    [IO.File]::WriteAllText($StatusTemp, $Json, [Text.UTF8Encoding]::new($false))',
+      '    if ([IO.File]::Exists($Path)) { [IO.File]::Replace($StatusTemp, $Path, $null) }',
+      '    else { [IO.File]::Move($StatusTemp, $Path) }',
+      '  } finally {',
+      '    if ([IO.File]::Exists($StatusTemp)) { [IO.File]::Delete($StatusTemp) }',
+      '  }',
+      '}',
       'try {',
-      '  Wait-Process -Id $ParentPid -ErrorAction SilentlyContinue',
+      '  $WaitDeadline = [DateTime]::UtcNow.AddSeconds(120)',
+      '  while ([DateTime]::UtcNow -lt $WaitDeadline) {',
+      '    $Parent = Get-Process -Id $ParentPid -ErrorAction SilentlyContinue',
+      '    if (-not $Parent) { break }',
+      '    try { $ObservedStartTicks = $Parent.StartTime.ToUniversalTime().Ticks.ToString() } catch { throw "could not confirm the parent process identity while waiting" }',
+      '    if ($ObservedStartTicks -ne $ParentStartTicks) { break }',
+      '    Start-Sleep -Milliseconds 200',
+      '  }',
+      '  $Parent = Get-Process -Id $ParentPid -ErrorAction SilentlyContinue',
+      '  if ($Parent) {',
+      '    try { $ObservedStartTicks = $Parent.StartTime.ToUniversalTime().Ticks.ToString() } catch { throw "could not confirm the parent process identity after waiting" }',
+      '    if ($ObservedStartTicks -eq $ParentStartTicks) { throw "the parent process did not exit before the replacement deadline" }',
+      '  }',
       '  if (-not (Test-Path -LiteralPath $Executable -PathType Leaf) -or -not (Test-Path -LiteralPath $Receipt -PathType Leaf)) { throw "managed executable and receipt changed before replacement" }',
       '  if (((Get-Item -LiteralPath $Executable).Attributes -band [IO.FileAttributes]::ReparsePoint) -or ((Get-Item -LiteralPath $Receipt).Attributes -band [IO.FileAttributes]::ReparsePoint)) { throw "managed executable and receipt must be directly managed files" }',
       '  if ((Get-FileHash -Algorithm SHA256 $Executable).Hash.ToLowerInvariant() -ne $ExpectedCurrentDigest) { throw "managed executable changed before replacement" }',
@@ -294,7 +341,9 @@ try {
       '  if ((Get-FileHash -Algorithm SHA256 $Receipt).Hash.ToLowerInvariant() -ne $ExpectedReceiptDigest) { throw "replacement receipt verification failed" }',
       '  $HaveBackup = $false',
       '  Remove-Item -LiteralPath $Previous, $PreviousReceipt -Force',
-      '  [ordered]@{ ok = $true; status = "upgraded"; version = $Version; target = $Target; installedSha256 = $ExpectedDigest; executable = $Executable; receipt = $Receipt } | ConvertTo-Json -Compress | Set-Content -LiteralPath $Status -Encoding UTF8',
+      '  $StatusJson = [ordered]@{ ok = $true; status = "upgraded"; version = $Version; target = $Target; installedSha256 = $ExpectedDigest; executable = $Executable; receipt = $Receipt } | ConvertTo-Json -Compress',
+      '  Write-Status $Status $StatusJson',
+      '  $TerminalStatusCommitted = $true',
       '} catch {',
       '  $Reason = $_.Exception.Message',
       '  $Restored = $false',
@@ -307,23 +356,30 @@ try {
       '      $Restored = $true',
       '    } catch { $Reason = $Reason + "; rollback failed: " + $_.Exception.Message }',
       '  }',
-      '  [ordered]@{ ok = $false; status = "recoverableFailure"; restored = $Restored; reason = $Reason; executable = $Executable; receipt = $Receipt; previous = $Previous; previousReceipt = $PreviousReceipt } | ConvertTo-Json -Compress | Set-Content -LiteralPath $Status -Encoding UTF8',
+      '  $StatusJson = [ordered]@{ ok = $false; status = "recoverableFailure"; restored = $Restored; reason = $Reason; executable = $Executable; receipt = $Receipt; previous = $Previous; previousReceipt = $PreviousReceipt } | ConvertTo-Json -Compress',
+      '  Write-Status $Status $StatusJson',
+      '  $TerminalStatusCommitted = $true',
       '} finally {',
       '  if (Test-Path -LiteralPath $Staged) { Remove-Item -LiteralPath $Staged -Force -ErrorAction SilentlyContinue }',
       '  if (Test-Path -LiteralPath $StagedReceipt) { Remove-Item -LiteralPath $StagedReceipt -Force -ErrorAction SilentlyContinue }',
-      '  if (Test-Path -LiteralPath $InProgress) { Remove-Item -LiteralPath $InProgress -Force -ErrorAction SilentlyContinue }',
+      '  if ($TerminalStatusCommitted -and (Test-Path -LiteralPath $InProgress)) { Remove-Item -LiteralPath $InProgress -Force -ErrorAction SilentlyContinue }',
       '  Remove-Item -LiteralPath $Helper -Force -ErrorAction SilentlyContinue',
       '}'
     )
     [IO.File]::WriteAllLines($Helper, $HelperLines, [Text.UTF8Encoding]::new($false))
+    $ScheduledStatus = [ordered]@{ ok = $true; status = "scheduled"; version = $Version; target = $Target; executable = $Executable; receipt = $Receipt } | ConvertTo-Json -Compress
+    $StatusOwned = $true
+    Write-Status $Status $ScheduledStatus
     $HelperProcess = Start-Process -FilePath 'powershell.exe' -ArgumentList @('-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', ('"' + $Helper + '"')) -WindowStyle Hidden -PassThru
     $InProgressOwned = $false
+    $StatusOwned = $false
     $Staged = $null
     $StagedReceipt = $null
     $Helper = $null
     Write-Output "scheduled ytm upgrade from v$($env:YTM_CURRENT_VERSION) to v$Version at $Executable; status will be written to $Status"
   } else {
     $FreshInstall = $true
+    if ((Test-Path -LiteralPath $Previous) -or (Test-Path -LiteralPath $PreviousReceipt) -or (Test-Path -LiteralPath $InProgress)) { throw "interrupted upgrade evidence exists at $Previous, $PreviousReceipt, or $InProgress; preserve it and restore the verified pair before installing" }
     if ((Test-Path -LiteralPath $Executable) -or (Test-Path -LiteralPath $Receipt)) { throw "$Executable or $Receipt already exists; installation did not replace it" }
     $FreshStagedPath = $Staged
     $FreshExecutablePublished = $true
@@ -351,6 +407,14 @@ try {
   if ($Staged -and (Test-Path -LiteralPath $Staged)) { Remove-Item -LiteralPath $Staged -Force -ErrorAction SilentlyContinue }
   if ($StagedReceipt -and (Test-Path -LiteralPath $StagedReceipt)) { Remove-Item -LiteralPath $StagedReceipt -Force -ErrorAction SilentlyContinue }
   if ($Helper -and (Test-Path -LiteralPath $Helper)) { Remove-Item -LiteralPath $Helper -Force -ErrorAction SilentlyContinue }
+  if ($InProgressOwned -and -not $HelperProcess) {
+    if ($StatusOwned -and (Test-Path -LiteralPath $Status)) {
+      try {
+        Remove-Item -LiteralPath $Status -Force -ErrorAction Stop
+        if (Test-Path -LiteralPath $Status) { throw 'the scheduled status still exists after removal' }
+      } catch { throw "upgrade helper did not start; preserve the ownership marker at \${InProgress} because scheduled-status cleanup failed at \${Status}: $($_.Exception.Message)" }
+    }
+  }
   if ($InProgressOwned -and -not $HelperProcess -and (Test-Path -LiteralPath $InProgress)) {
     try {
       Remove-Item -LiteralPath $InProgress -Force -ErrorAction Stop

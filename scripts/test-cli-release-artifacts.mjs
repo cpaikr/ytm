@@ -49,12 +49,14 @@ try {
   if (!powershellInstaller.includes("Get-FileHash -Algorithm SHA256") || !powershellInstaller.includes("$Actual -ne $Expected")) {
     throw new Error("PowerShell installer must verify its pinned archive digest.");
   }
-  for (const marker of ["schema=1", "release_source=https://github.com/", "installed_sha256=", "YTM_MANAGED_UPGRADE", ".ytm.previous", "automatic rollback was incomplete"]) {
+  for (const marker of ["schema=1", "release_source=https://github.com/", "installed_sha256=", "YTM_MANAGED_UPGRADE", ".ytm.previous", "automatic rollback was incomplete", "same_file", "--max-time 120", "--timeout=30"]) {
     if (!shellInstaller.includes(marker)) throw new Error(`Shell installer is missing managed-install marker ${marker}.`);
   }
-  for (const marker of ["schema=1", "YTM_MANAGED_UPGRADE", ".ytm.exe.previous", "Wait-Process", "recoverableFailure", "upgrade-status.json", "upgrade-in-progress", "FileMode]::CreateNew", "Start-Process", "-PassThru", "preserve the uncommitted executable at ${Executable}"]) {
+  if (shellInstaller.includes(' -ef ')) throw new Error("Shell installer must not depend on the non-POSIX test -ef operator.");
+  for (const marker of ["schema=1", "YTM_MANAGED_UPGRADE", ".ytm.exe.previous", "ParentStartTicks", "AddSeconds(120)", "recoverableFailure", "upgrade-status.json", "upgrade-in-progress", "FileMode]::CreateNew", "Start-Process", "-PassThru", "-TimeoutSec 120", "status = \"scheduled\"", "[IO.File]::Replace", "$TerminalStatusCommitted", "$StatusOwned = $true", "preserve the uncommitted executable at ${Executable}"]) {
     if (!powershellInstaller.includes(marker)) throw new Error(`PowerShell installer is missing managed-install marker ${marker}.`);
   }
+  if (powershellInstaller.includes("Set-Content -LiteralPath $Status")) throw new Error("PowerShell status JSON must use no-BOM atomic writes.");
   const publishedChecksums = parseChecksumFile(await readFile(join(first, manifest.checksumFile), "utf8"));
   for (const target of manifest.targets) {
     const archive = cliArchiveName(manifest, target, version);
@@ -137,9 +139,11 @@ async function copyCandidate(source, destination) {
 }
 
 async function testShellManagedInstall(candidate, installer, checksums) {
+  const hostKernel = { darwin: "Darwin", linux: "Linux" }[process.platform];
+  const hostMachine = { arm64: "arm64", x64: "x86_64" }[process.arch];
+  if (!hostKernel || !hostMachine) return;
   const hostTarget = manifest.targets.find((target) =>
-    target.shellKernel === (process.platform === "darwin" ? "Darwin" : "Linux")
-    && target.shellMachines.includes(process.arch === "arm64" ? "arm64" : "x86_64")
+    target.shellKernel === hostKernel && target.shellMachines.includes(hostMachine)
   );
   if (!hostTarget) return;
   const installDir = join(temporaryRoot, "managed-install");
@@ -163,6 +167,20 @@ async function testShellManagedInstall(candidate, installer, checksums) {
   assertFailed(run("sh", [installerPath], repositoryRoot, false, environment), "already exists");
   if (!(await readFile(executable)).equals(originalExecutable) || !(await readFile(receipt)).equals(originalReceipt)) {
     throw new Error("refused fresh install must preserve the installed executable and receipt");
+  }
+
+  for (const evidenceName of [".ytm.previous", ".ytm.receipt.previous"]) {
+    const evidenceInstallDir = join(temporaryRoot, `fresh-recovery-evidence-${evidenceName.slice(1)}`);
+    const evidence = Buffer.from("preserve recovery evidence");
+    const evidencePath = join(evidenceInstallDir, evidenceName);
+    await mkdir(evidenceInstallDir, { recursive: true });
+    await writeFile(evidencePath, evidence);
+    const evidenceEnvironment = { ...environment, YTM_INSTALL_DIR: evidenceInstallDir };
+    assertFailed(run("sh", [installerPath], repositoryRoot, false, evidenceEnvironment), "interrupted upgrade evidence");
+    if (!(await readFile(evidencePath)).equals(evidence)) throw new Error(`fresh install changed recovery evidence at ${evidencePath}`);
+    for (const path of [join(evidenceInstallDir, "ytm"), join(evidenceInstallDir, "ytm.receipt")]) {
+      if (await pathExists(path)) throw new Error(`fresh install with recovery evidence left ${path}`);
+    }
   }
 
   const interruptedInstallDir = join(temporaryRoot, "interrupted-fresh-install");

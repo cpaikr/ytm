@@ -128,10 +128,15 @@ and removes recovery files. Ordinary failures and catchable termination restore
 the prior pair. Windows stages the pair and launches an out-of-process
 PowerShell helper, because the running executable cannot replace its mapped
 image; the command returns `scheduled`, the exact `statusPath`, and
-`restartRequired: true`, while the helper records its structured result in
+`restartRequired: true`. The installer replaces any prior result with a
+no-BOM UTF-8 `scheduled` status before launch. Status changes commit through a
+same-directory atomic replacement. The helper waits at most 120 seconds for
+that exact parent process identity to exit, failing closed if identity cannot
+be confirmed, then records its structured result in
 `.ytm.exe.upgrade-status.json`. An exclusively created
 `.ytm.exe.upgrade-in-progress` marker prevents concurrent helpers. An
-uncatchable interruption may leave that marker or fixed `.previous` evidence.
+uncatchable interruption or uncommitted terminal status leaves that marker;
+replacement interruption may also leave fixed `.previous` evidence.
 Subsequent checks fail closed and report the exact
 executable, receipt, and recovery paths instead of guessing or deleting
 evidence.
