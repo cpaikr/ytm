@@ -25,7 +25,11 @@ export function createTarGz(entries) {
     chunks.push(header, body, Buffer.alloc((TAR_BLOCK - (body.length % TAR_BLOCK)) % TAR_BLOCK));
   }
   chunks.push(Buffer.alloc(TAR_BLOCK * 2));
-  return gzipSync(Buffer.concat(chunks), { level: 9, mtime: 0 });
+  const archive = gzipSync(Buffer.concat(chunks), { level: 9, mtime: 0 });
+  // zlib writes the host platform into the gzip OS byte. Normalize it so an
+  // archive built on macOS can be reproduced exactly on the Linux release job.
+  archive[9] = 0xff;
+  return archive;
 }
 
 export function readTarGz(archive) {

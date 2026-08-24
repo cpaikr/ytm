@@ -15,6 +15,8 @@ const sourceCommit = run("git", ["rev-parse", "HEAD"], repositoryRoot).stdout.tr
 const temporaryRoot = await mkdtemp(join(tmpdir(), "ytm-cli-release-test-"));
 
 try {
+  const canonicalGzip = createTarGz([{ name: "fixture", mode: 0o644, contents: Buffer.from("fixture") }]);
+  assertEqual(canonicalGzip[9], 0xff, "tar.gz archives must use the platform-independent gzip OS marker");
   const matrix = JSON.parse(runNode("scripts/print-cli-matrix.mjs", []).stdout).include;
   assertEqual(
     matrix.map(({ usesGlibcFloor }) => usesGlibcFloor),
