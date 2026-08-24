@@ -46,6 +46,13 @@ const [
   installerGenerator,
   cliArtifactTest,
   cliConsumerTest,
+  nativeConsumerTest,
+  releaseDraftCreator,
+  releaseMetadataPolicy,
+  releaseMetadataVerifier,
+  releaseStateResolver,
+  releaseAssetPlanner,
+  releasePublicationTest,
   specification
 ] = await Promise.all([
   readJson("package.json"),
@@ -66,6 +73,13 @@ const [
   readFile("scripts/generate-cli-installers.mjs", "utf8"),
   readFile("scripts/test-cli-release-artifacts.mjs", "utf8"),
   readFile("scripts/test-cli-release-consumer.mjs", "utf8"),
+  readFile("scripts/test-native-consumer.mjs", "utf8"),
+  readFile("scripts/create-release-draft.mjs", "utf8"),
+  readFile("scripts/release-metadata-policy.mjs", "utf8"),
+  readFile("scripts/verify-release-metadata.mjs", "utf8"),
+  readFile("scripts/resolve-release-state.mjs", "utf8"),
+  readFile("scripts/plan-cli-release-upload.mjs", "utf8"),
+  readFile("scripts/test-release-publication.mjs", "utf8"),
   readFile("SPEC.md", "utf8")
 ]);
 
@@ -212,6 +226,7 @@ equal(ciNativeJob?.strategy?.matrix?.node, nativeTargets.validationNodeMajors, "
 equal(ciNativeJob?.strategy?.matrix?.target?.map(({ rust }) => rust), nativeTargets.targets.map(({ rustTarget }) => rustTarget), "CI native consumers must cover every supported target");
 equal(ciNativeJob?.strategy?.matrix?.target?.map(({ runner }) => runner), nativeTargets.targets.map(({ runner }) => runner), "CI native consumers must use the manifest runners");
 equal(ciNativeJob?.strategy?.matrix?.target?.map(({ arch }) => arch), nativeTargets.targets.map(({ npmArch }) => npmArch), "CI native consumers must use the manifest architectures");
+equal(ciNativeJob?.strategy?.matrix?.target?.map(({ directory }) => directory), nativeTargets.targets.map(({ packageDirectory }) => packageDirectory), "CI native consumers must use the manifest package directories");
 const ciLinuxToolchain = findNamedStep(ciNativeJob, "Install pinned Linux native build toolchain");
 check(ciLinuxToolchain?.if === linuxNativeCondition, "CI Linux native builds must install their pinned toolchain only on Linux targets");
 check(activeShell(ciLinuxToolchain).includes("scripts/install-linux-native-toolchain.mjs"), "CI Linux native builds must install the pinned cargo-zigbuild and Zig toolchain");
@@ -221,8 +236,11 @@ check(!activeShell(ciNativeBuild).includes("cargo build --locked --release --tar
 const ciGlibcValidation = findNamedStep(ciNativeJob, "Validate Linux artifact glibc floor");
 check(ciGlibcValidation?.if === linuxNativeCondition && activeShell(ciGlibcValidation).includes("scripts/validate-native-artifact.mjs"), "CI Linux native consumers must validate the built artifact glibc floor");
 check(findNamedStep(ciNativeJob, "Smoke standalone Rust CLI") === undefined, "Node consumer jobs must not duplicate standalone CLI artifact coverage");
-check(activeShell(findNamedStep(ciNativeJob, "Assemble product packages")).includes("scripts/assemble-native-package.mjs"), "CI native consumers must assemble platform packages");
-check(activeShell(findNamedStep(ciNativeJob, "Test clean installed Node SDK")).includes("scripts/test-native-consumer.mjs"), "CI native consumers must exercise clean SDK installs");
+const ciPackageAssembly = activeShell(findNamedStep(ciNativeJob, "Assemble product packages"));
+check(ciPackageAssembly.includes("npm run build:facade") && ciPackageAssembly.includes("scripts/assemble-native-package.mjs"), "CI native consumers must build the root facade through its public script using the runtime already provisioned for every matrix lane");
+check(findNamedStep(ciNativeJob, "Assemble product packages")?.shell === "bash" && activeShell(findNamedStep(ciNativeJob, "Assemble product packages")).includes("npm pack --pack-destination .artifacts/native"), "CI native consumers must pack exact tarballs portably before installation");
+const ciExactNativeConsumer = activeShell(findNamedStep(ciNativeJob, "Test exact packed Node SDK"));
+check(ciExactNativeConsumer.includes("scripts/test-native-consumer.mjs") && ciExactNativeConsumer.includes(".artifacts/native .artifacts/root"), "CI native consumers must install the exact packed SDK tarballs");
 
 const cliMetadataJob = ciWorkflow.jobs?.["cli-metadata"];
 check(cliMetadataJob?.["runs-on"] === "ubuntu-24.04" && cliMetadataJob?.["timeout-minutes"] === 5, "CLI matrix metadata must use a bounded GitHub-hosted job");
@@ -259,65 +277,121 @@ check(/^actions\/download-artifact@[0-9a-f]{40}$/.test(cliConsumerDownload?.uses
 check(cliConsumerDownload?.with?.name === "cli-candidate-${{ github.sha }}" && cliConsumerDownload?.with?.path === "dist/cli", "CLI consumers must download the exact aggregated candidate without repacking it");
 check(activeShell(findNamedStep(cliConsumerJob, "Test exact standalone CLI consumer")) === "node scripts/test-cli-release-consumer.mjs dist/cli", "CLI consumers must run the repository-owned exact-distributable harness");
 
-check(!npmWorkflow.on?.push, "npm publishing must not trigger automatically from pushed tags");
-check(npmWorkflow.on?.workflow_dispatch?.inputs?.tag?.required === true, "npm publishing must require an explicitly authorized tag input");
-const metadataJob = npmWorkflow.jobs?.metadata;
-const metadataCheckout = findNamedStep(metadataJob, "Check out source");
-const metadataNode = findNamedStep(metadataJob, "Set up Node");
-const metadataStep = findNamedStep(metadataJob, "Validate release metadata");
-check(metadataJob?.["timeout-minutes"] === 30, "release metadata must have a bounded timeout");
-check(metadataJob?.["runs-on"] === "ubuntu-24.04", "release metadata must run on a GitHub-hosted runner");
-check(metadataCheckout?.with?.ref === "refs/tags/${{ inputs.tag }}" && metadataCheckout?.with?.["fetch-depth"] === 0 && metadataCheckout?.with?.["persist-credentials"] === false, "release metadata must check out the requested immutable tag without persisted credentials");
-check(metadataNode?.with?.["node-version"] === 24 && metadataNode?.with?.["package-manager-cache"] === false, "release metadata must pin Node 24 without package-manager caching");
-check(metadataStep?.env?.RELEASE_TAG === "${{ inputs.tag }}", "release metadata must receive the authorized tag as explicit input");
-check(activeShell(metadataStep).includes('if [ "$GITHUB_REF" != "refs/heads/main" ]; then'), "release metadata must require dispatch from main");
-check(activeShell(metadataStep).includes('if [ "$RELEASE_TAG" != "node-v$PACKAGE_VERSION" ]; then'), "release metadata must verify the requested Node tag and package version");
-check(activeShell(metadataStep).includes('git merge-base --is-ancestor "$SOURCE_SHA" refs/remotes/origin/main'), "release metadata must require the tag commit to be on main");
-check(metadataJob?.outputs?.source_sha === "${{ steps.package.outputs.source_sha }}", "release metadata must expose the immutable source commit");
+check(!npmWorkflow.on?.push, "product publishing must not trigger automatically from pushed tags");
+check(npmWorkflow.on?.workflow_dispatch?.inputs?.expected_version?.required === true, "product publishing must require an explicitly approved expected version");
+check(npmWorkflow.on?.workflow_dispatch?.inputs?.tag === undefined, "the superseded manually supplied tag input must be absent");
+check(npmWorkflow.permissions?.contents === "read", "release workflow defaults must remain read-only");
+check(npmWorkflow.concurrency?.group === "release-${{ inputs.expected_version }}" && npmWorkflow.concurrency?.["cancel-in-progress"] === false, "release runs must serialize per approved version without cancellation");
+equal(Object.keys(npmWorkflow.jobs || {}), ["release_authority", "cli_metadata", "cli_archive", "cli_artifact_set", "cli_consumer", "native_packages", "root_package", "npm_candidate", "npm_consumer", "publish_github", "publish_npm"], "release workflow must contain only the complete tagged-source lifecycle");
+
+const authorityJob = npmWorkflow.jobs?.release_authority;
+check(authorityJob?.if === "${{ vars.RELEASE_ENABLED == 'true' }}", "external release state must remain disabled until repository settings are authorized");
+check(authorityJob?.["runs-on"] === "ubuntu-24.04" && authorityJob?.["timeout-minutes"] === 15, "release authority must use a bounded GitHub-hosted job");
+check(authorityJob?.environment?.name === "release" && authorityJob?.permissions?.contents === "write", "tag and draft creation must use the protected release environment with explicit write permission");
+check(authorityJob?.outputs?.version === "${{ steps.resolve.outputs.version }}", "release authority must expose verified version");
+check(authorityJob?.outputs?.tag === "${{ steps.resolve.outputs.tag }}", "release authority must expose verified tag");
+check(authorityJob?.outputs?.source_sha === "${{ steps.resolve.outputs.source_sha }}", "release authority must expose verified source SHA");
+check(authorityJob?.outputs?.release_id === "${{ steps.resolve.outputs.release_id }}", "release authority must expose verified release ID");
+check(authorityJob?.outputs?.release_url === "${{ steps.resolve.outputs.release_url }}", "release authority must expose verified release URL");
+check(authorityJob?.outputs?.publication_mode === "${{ steps.resolve.outputs.publication_mode }}", "release authority must expose draft or projection-only recovery mode");
+const authorityCheckout = findNamedStep(authorityJob, "Check out submitted source");
+check(authorityCheckout?.with?.ref === "${{ github.sha }}" && authorityCheckout?.with?.["fetch-depth"] === 0 && authorityCheckout?.with?.["persist-credentials"] === false, "release authority must inspect the exact dispatch source without persisted credentials");
+const stateStep = findNamedStep(authorityJob, "Validate approved version and classify release state");
+check(stateStep?.env?.EXPECTED_VERSION === "${{ inputs.expected_version }}" && activeShell(stateStep).includes("scripts/resolve-release-state.mjs inspect"), "release state inspection must reconcile the submitted version through repository policy");
+const protectedReleaseStep = findNamedStep(authorityJob, "Create exact immutable tag and draft");
+check(protectedReleaseStep?.if?.includes("create_draft") && activeShell(protectedReleaseStep) === "node scripts/create-release-draft.mjs", "protected release authority must recover only exact tag-without-draft state");
+for (const contract of ["git/refs", "target_commitish", "generate_release_notes: false", "releaseMetadataFromChangelog"]) check(releaseDraftCreator.includes(contract), `exact draft creation must retain ${contract}`);
+check(releaseMetadataPolicy.includes("first changelog release") && releaseMetadataPolicy.includes("non-empty body"), "release metadata must derive deterministically from the tagged changelog");
+check(activeShell(findNamedStep(authorityJob, "Resolve immutable release identity")) === "node scripts/resolve-release-state.mjs resolve", "downstream release identity must come only from repository-owned resolution");
+for (const contract of ["approvedReleasePullRequest", "canonicalReleaseUrl", '/commits/${workflowSha}/pulls?per_page=100', "AbortSignal.timeout", "refs/remotes/origin/main", "merge-base", "publication_mode", "FETCH_HEAD^{commit}"]) check(releaseStateResolver.includes(contract), `release state resolution must retain ${contract}`);
+check(!releaseStateResolver.includes("release_pr:"), "release inspection must not expose an unused release PR output after validating its identity");
+check(releasePublicationTest.includes("ordinary main change") && releaseStateResolver.includes("listPullRequests"), "tag creation must bind the approved version to its exact merged Release Please PR SHA");
+check(releaseDraftCreator.includes("normalizeReleaseBody(release.body)") && releaseDraftCreator.includes("AbortSignal.timeout"), "draft creation must normalize GitHub body line endings and bound every mutation request");
+check(releaseMetadataVerifier.includes("AbortSignal.timeout"), "release metadata verification must use a bounded GitHub request");
+check(releasePublicationTest.includes("line one\\r\\nline two") && releaseMetadataPolicy.includes("normalizeReleaseBody"), "release publication tests must retain CRLF normalization coverage");
+
+const immutableRef = "${{ needs.release_authority.outputs.source_sha }}";
+for (const name of ["cli_metadata", "cli_archive", "cli_artifact_set", "cli_consumer", "native_packages", "root_package", "npm_candidate", "npm_consumer", "publish_github", "publish_npm"]) {
+  check(findNamedStep(npmWorkflow.jobs?.[name], "Check out immutable release source")?.with?.ref === immutableRef, `${name} must check out the verified tagged source`);
+}
+const releaseCliMetadata = npmWorkflow.jobs?.cli_metadata;
+check(activeShell(findNamedStep(releaseCliMetadata, "Emit CLI target matrix")).includes("scripts/print-cli-matrix.mjs"), "release CLI targets must derive from cli-targets.json");
+const releaseCliArchive = npmWorkflow.jobs?.cli_archive;
+check(releaseCliArchive?.strategy?.matrix === "${{ fromJSON(needs.cli_metadata.outputs.matrix) }}" && releaseCliArchive?.["runs-on"] === "${{ matrix.runner }}", "release CLI builders must consume the generated native-runner matrix");
+check(releaseCliArchive?.env?.SOURCE_COMMIT === immutableRef, "release CLI archive identity must use the verified source SHA");
+check(activeShell(findNamedStep(releaseCliArchive, "Assemble and inspect standalone CLI archive")).includes("--source-commit \"$SOURCE_COMMIT\""), "release CLI archives must embed the verified source SHA");
+const releaseCliCandidate = activeShell(findNamedStep(npmWorkflow.jobs?.cli_artifact_set, "Generate and validate complete CLI candidate"));
+for (const command of ["scripts/generate-cli-installers.mjs", "scripts/finalize-cli-artifacts.mjs", "scripts/validate-cli-artifact-set.mjs"]) check(releaseCliCandidate.includes(command), `release CLI aggregation must invoke ${command}`);
+check(findNamedStep(npmWorkflow.jobs?.cli_artifact_set, "Upload complete CLI candidate")?.with?.["retention-days"] === 90, "release CLI candidates must outlive protected-environment approval delays");
+check(activeShell(findNamedStep(npmWorkflow.jobs?.cli_consumer, "Test exact standalone CLI consumer")) === "node scripts/test-cli-release-consumer.mjs dist/cli", "release CLI consumers must exercise the exact aggregated candidate");
 
 const nativeJob = npmWorkflow.jobs?.native_packages;
 check(nativeJob?.["timeout-minutes"] === 30, "release native packages must have a bounded timeout");
 equal(nativeJob?.strategy?.matrix?.target?.map(({ rust }) => rust), nativeTargets.targets.map(({ rustTarget }) => rustTarget), "release native matrix must match the target manifest");
 equal(nativeJob?.strategy?.matrix?.target?.map(({ runner }) => runner), nativeTargets.targets.map(({ runner }) => runner), "release native matrix must use the manifest runners");
-equal(nativeJob?.strategy?.matrix?.target?.map(({ runner }) => runner), ["ubuntu-24.04", "ubuntu-24.04-arm", "macos-15", "windows-2025"], "release native packages must build on the approved GitHub-hosted runners");
-check(findNamedStep(nativeJob, "Check out immutable release source")?.with?.ref === "${{ needs.metadata.outputs.source_sha }}", "native builds must use the immutable release commit");
 const releaseLinuxToolchain = findNamedStep(nativeJob, "Install pinned Linux native build toolchain");
-check(releaseLinuxToolchain?.if === linuxNativeCondition, "Release Linux native builds must install their pinned toolchain only on Linux targets");
-check(activeShell(releaseLinuxToolchain).includes("scripts/install-linux-native-toolchain.mjs"), "Release Linux native builds must install the pinned cargo-zigbuild and Zig toolchain");
-const releaseNativeBuild = findNamedStep(nativeJob, "Build native artifact");
-check(activeShell(releaseNativeBuild).includes("scripts/build-native-artifact.mjs"), "Release native builds must use the target policy build script");
-check(!activeShell(releaseNativeBuild).includes("cargo build --locked --release --target"), "Release native builds must not silently use host-glibc cargo builds");
-const releaseGlibcValidation = findNamedStep(nativeJob, "Validate Linux artifact glibc floor");
-check(releaseGlibcValidation?.if === linuxNativeCondition && activeShell(releaseGlibcValidation).includes("scripts/validate-native-artifact.mjs"), "Release Linux native builds must validate the built artifact glibc floor");
+check(releaseLinuxToolchain?.if === linuxNativeCondition && activeShell(releaseLinuxToolchain).includes("scripts/install-linux-native-toolchain.mjs"), "Release Linux native builds must install the pinned toolchain");
+check(activeShell(findNamedStep(nativeJob, "Build native artifact")).includes("scripts/build-native-artifact.mjs"), "Release native builds must use the target policy build script");
 check(activeShell(findNamedStep(nativeJob, "Assemble and pack native package")).includes("scripts/assemble-native-package.mjs"), "native release jobs must assemble generated packages");
-check(activeShell(findNamedStep(nativeJob, "Assemble and pack native package")).includes("scripts/test-native-consumer.mjs"), "native release jobs must clean-install their exact artifacts before upload");
 
 const rootJob = npmWorkflow.jobs?.root_package;
-check(rootJob?.["timeout-minutes"] === 30, "release root package must have a bounded timeout");
-check(rootJob?.["runs-on"] === "ubuntu-24.04", "release root package must build on a GitHub-hosted runner");
-check(findNamedStep(rootJob, "Check out immutable release source")?.with?.ref === "${{ needs.metadata.outputs.source_sha }}", "root package validation must use the immutable release commit");
+check(rootJob?.["timeout-minutes"] === 45 && rootJob?.["runs-on"] === "ubuntu-24.04", "release root package must allow bounded time for pinned security-tool builds on a GitHub-hosted job");
 const rustSecurityInstall = activeShell(findNamedStep(rootJob, "Install pinned Rust security checks"));
-check(rustSecurityInstall.includes("cargo install --locked cargo-audit --version 0.22.2") && rustSecurityInstall.includes("cargo install --locked cargo-deny --version 0.19.0"), "root package validation must install the pinned Rust security checks");
+check(rustSecurityInstall.includes("cargo install --locked cargo-audit --version 0.22.2") && rustSecurityInstall.includes("cargo install --locked cargo-deny --version 0.19.0"), "root package validation must install pinned Rust security checks");
 const immutableSourceValidation = activeShell(findNamedStep(rootJob, "Validate immutable source"));
-check(immutableSourceValidation.includes("cargo audit") && immutableSourceValidation.includes("cargo deny check"), "root package validation must audit the immutable source before publication");
+check(immutableSourceValidation.includes("cargo audit") && immutableSourceValidation.includes("cargo deny check"), "root package validation must audit immutable source");
 check(activeShell(findNamedStep(rootJob, "Pack root package without a native binary")).includes("build:facade"), "root release artifact must be packed without a native binary");
 
-const publishJob = npmWorkflow.jobs?.publish;
-check(publishJob?.["timeout-minutes"] === 30, "npm publishing must have a bounded timeout");
-equal(publishJob?.needs, ["metadata", "native_packages", "root_package"], "publishing must wait for metadata and all assembled packages");
-check(publishJob?.["runs-on"] === "ubuntu-latest", "npm trusted publishing must use a GitHub-hosted runner");
+const npmCandidateJob = npmWorkflow.jobs?.npm_candidate;
+equal(npmCandidateJob?.needs, ["release_authority", "native_packages", "root_package"], "npm aggregation must wait for every package builder");
+check(activeShell(findNamedStep(npmCandidateJob, "Validate complete npm artifact set")) === "node scripts/validate-release-artifacts.mjs dist/native dist/root", "npm aggregation must validate the exact five-tarball set");
+check(/^actions\/upload-artifact@[0-9a-f]{40}$/.test(findNamedStep(npmCandidateJob, "Upload complete npm candidate")?.uses || ""), "npm candidate upload must be commit-pinned");
+check(findNamedStep(npmCandidateJob, "Upload complete npm candidate")?.with?.["retention-days"] === 90, "npm candidates must outlive protected-environment approval delays");
+check(findNamedStep(npmCandidateJob, "Upload complete npm candidate")?.with?.path?.includes("dist/native/*.tgz") && findNamedStep(npmCandidateJob, "Upload complete npm candidate")?.with?.path?.includes("dist/root/*.tgz"), "npm candidate artifacts must retain native and root directory layout");
+const npmConsumerJob = npmWorkflow.jobs?.npm_consumer;
+equal(npmConsumerJob?.strategy?.matrix?.node, nativeTargets.validationNodeMajors, "exact npm consumers must cover every declared Node major");
+equal(npmConsumerJob?.strategy?.matrix?.target?.map(({ rust }) => rust), nativeTargets.targets.map(({ rustTarget }) => rustTarget), "exact npm consumers must cover every native target");
+check(activeShell(findNamedStep(npmConsumerJob, "Test exact aggregated Node SDK consumer")).includes("dist/native dist/root"), "npm consumers must install downloaded aggregate tarballs without repacking");
+check(nativeConsumerTest.includes("findPackageTarball") && nativeConsumerTest.includes("listTarball(rootTarball)") && nativeConsumerTest.includes("exact aggregated"), "Node consumer harness must inspect exact aggregate tarball contents without repacking");
+
+const githubPublishJob = npmWorkflow.jobs?.publish_github;
+equal(githubPublishJob?.needs, ["release_authority", "cli_artifact_set", "cli_consumer", "npm_candidate", "npm_consumer"], "canonical publication must wait for both exact-distributable consumer matrices");
+check(githubPublishJob?.environment?.name === "release" && githubPublishJob?.permissions?.contents === "write", "canonical publication must use the protected release environment");
+const githubSourceValidation = activeShell(findNamedStep(githubPublishJob, "Validate tagged candidates and source identity"));
+for (const command of ["validate-product-version.mjs", "validate-cli-artifact-set.mjs", "validate-release-artifacts.mjs", "FETCH_HEAD^{commit}"]) check(githubSourceValidation.includes(command), `canonical publication must revalidate ${command}`);
+const githubRegistryPreflight = activeShell(findNamedStep(githubPublishJob, "Prove every npm version is absent"));
+check(githubRegistryPreflight.includes("npm view") && githubRegistryPreflight.includes("E404") && githubRegistryPreflight.includes("Could not prove"), "canonical publication must fail closed unless every npm package is absent");
+const reconcileAssets = activeShell(findNamedStep(githubPublishJob, "Reconcile canonical assets without replacement"));
+const uploadAssets = activeShell(findNamedStep(githubPublishJob, "Upload only missing CLI assets"));
+const verifyDraft = activeShell(findNamedStep(githubPublishJob, "Re-download and verify canonical assets"));
+check(reconcileAssets.includes("plan-cli-release-upload.mjs") && uploadAssets.includes("gh release upload") && !uploadAssets.includes("--clobber"), "draft recovery must reuse only byte-identical assets and upload only missing assets");
+check(reconcileAssets.includes("RELEASE_MODE") && reconcileAssets.includes(".missing | length == 0"), "projection-only recovery must require the public GitHub asset set to remain exact");
+check(verifyDraft.includes("plan-cli-release-upload.mjs") && verifyDraft.includes("validate-cli-artifact-set.mjs"), "canonical publication must re-download and validate every draft asset");
+const canonicalPublish = activeShell(findNamedStep(githubPublishJob, "Publish canonical GitHub Release"));
+check(canonicalPublish.includes("--method PATCH") && canonicalPublish.includes("draft=false"), "GitHub publication must be the explicit canonical visibility transition");
+check(findNamedStep(githubPublishJob, "Publish canonical GitHub Release")?.if === "env.RELEASE_MODE != 'project'", "projection-only recovery must never mutate the public GitHub Release");
+check(activeShell(findNamedStep(githubPublishJob, "Revalidate immutable Release metadata")).includes("verify-release-metadata.mjs"), "canonical publication must revalidate changelog-derived metadata immediately before visibility changes");
+check(activeShell(findNamedStep(githubPublishJob, "Verify canonical GitHub Release is public")).includes("verify-release-metadata.mjs"), "canonical publication and projection recovery must finish by re-reading public metadata");
+check(releaseMetadataVerifier.includes("release.name !== metadata.name") && releaseMetadataVerifier.includes("normalizeReleaseBody(release.body) !== metadata.body"), "Release metadata verification must compare immutable name and normalized body");
+check(releaseAssetPlanner.includes("does not match the rebuilt candidate") && releaseAssetPlanner.includes("unexpected assets"), "draft asset planner must fail closed on replacement or unexpected state");
+check(releasePublicationTest.includes("main has advanced") && releasePublicationTest.includes("unexpected assets"), "release publication tests must inject source-state and draft-asset failures");
+
+const publishJob = npmWorkflow.jobs?.publish_npm;
+equal(publishJob?.needs, ["release_authority", "npm_candidate", "publish_github"], "npm projection must start only after canonical GitHub publication");
+check(publishJob?.["timeout-minutes"] === 30 && publishJob?.["runs-on"] === "ubuntu-latest", "npm trusted publishing must use a bounded GitHub-hosted job");
 check(publishJob?.environment?.name === "npm", "npm publishing must use the npm environment");
 check(publishJob?.permissions?.contents === "read" && publishJob?.permissions?.["id-token"] === "write", "npm publishing must retain read contents and OIDC permissions");
-check(findNamedStep(publishJob, "Check out immutable release source")?.with?.ref === "${{ needs.metadata.outputs.source_sha }}", "publishing preflight must use the immutable release source");
-check(activeShell(findNamedStep(publishJob, "Validate complete release artifact set")) === "node scripts/validate-release-artifacts.mjs dist/native dist/root", "publishing must validate the complete artifact set before npm publish");
-const registryPreflight = activeShell(findNamedStep(publishJob, "Reject an already-published version"));
-check(registryPreflight.includes("npm view") && registryPreflight.includes("E404") && registryPreflight.includes("Could not prove"), "publishing must reject existing versions and fail closed on registry errors before the first publish");
+const npmReleaseVerification = activeShell(findNamedStep(publishJob, "Verify canonical release and exact npm candidate"));
+check(npmReleaseVerification.includes("verify-release-metadata.mjs") && npmReleaseVerification.includes("validate-release-artifacts.mjs"), "npm must revalidate the public canonical release and exact aggregate");
+const registryPreflight = activeShell(findNamedStep(publishJob, "Re-prove every npm version is absent"));
+check(registryPreflight.includes("npm view") && registryPreflight.includes("E404") && registryPreflight.includes("Could not prove"), "npm must re-prove complete registry absence before its first publish");
 const publishShell = activeShell(findNamedStep(publishJob, "Publish native packages, then root package"));
-check(publishShell.includes("for tarball in dist/native/*.tgz") && publishShell.indexOf("dist/native/*.tgz") < publishShell.indexOf("root_tarball="), "all native packages must publish before the root package");
-check(!publishShell.includes("npm view") && !publishShell.includes("skipping"), "publishing must not repair a partial version in place");
+check(publishShell.includes("mapfile -t root_tarballs") && publishShell.includes("Expected exactly one root package tarball") && publishShell.includes("if ! package_name=") && publishShell.includes("for tarball in dist/native/*.tgz") && publishShell.indexOf("dist/native/*.tgz") < publishShell.indexOf('root_tarballs[0]'), "npm publication must validate package identity, require one root tarball, and publish all native packages before it");
+check(publishShell.includes("--provenance --access public") && publishShell.includes("npm projection incomplete") && publishShell.includes("do not repair this version in place"), "npm trusted publication must emit provenance and explicit partial-failure guidance");
+check(!publishShell.includes("npm view") && !publishShell.includes("skipping"), "npm publication must not repair a partial version in place");
 
 if (failures.length > 0) {
   console.error(failures.map((failure) => `- ${failure}`).join("\n"));
   process.exit(1);
 }
-console.log(`Transitional release configuration is valid at ${nodePackage.version}`);
+console.log(`Tagged-source release configuration is valid at ${nodePackage.version}`);

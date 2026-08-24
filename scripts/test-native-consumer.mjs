@@ -1,5 +1,5 @@
 import { execFileSync, spawnSync } from "node:child_process";
-import { access, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { access, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { delimiter, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -8,6 +8,11 @@ import { isNodeCliArtifact } from "./node-cli-artifact-policy.mjs";
 const repositoryRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const rustTarget = process.argv[2];
 if (!rustTarget) throw new Error("Usage: node scripts/test-native-consumer.mjs <rust-target>");
+const exactNativeDirectory = process.argv[3] ? resolve(process.argv[3]) : null;
+const exactRootDirectory = process.argv[4] ? resolve(process.argv[4]) : null;
+if (Boolean(exactNativeDirectory) !== Boolean(exactRootDirectory)) {
+  throw new Error("Exact consumer mode requires both native and root tarball directories.");
+}
 const manifest = JSON.parse(await readFile(resolve(repositoryRoot, "native-targets.json"), "utf8"));
 const target = manifest.targets.find((candidate) => candidate.rustTarget === rustTarget);
 if (!target) throw new Error(`Unknown native target: ${rustTarget}`);
@@ -18,13 +23,19 @@ if (process.platform !== target.npmPlatform || process.arch !== target.npmArch) 
 const npm = process.platform === "win32" ? await resolveWindowsCommand("npm.cmd") : "npm";
 const temporary = await mkdtemp(resolve(tmpdir(), "ytm-consumer-"));
 try {
-  const nativeTarball = pack(resolve(repositoryRoot, manifest.nativePackageRoot, target.packageDirectory));
-  const rootTarball = pack(resolve(repositoryRoot, manifest.rootPackage));
-  const rootPack = JSON.parse(exec(npm, ["pack", "--dry-run", "--json", resolve(repositoryRoot, manifest.rootPackage)], { encoding: "utf8" }))[0];
-  if (rootPack.files.some(({ path }) => path.endsWith(".node"))) {
+  const nativeTarball = exactNativeDirectory
+    ? await findPackageTarball(exactNativeDirectory, target.packageName)
+    : pack(resolve(repositoryRoot, manifest.nativePackageRoot, target.packageDirectory));
+  const rootTarball = exactRootDirectory
+    ? await findPackageTarball(exactRootDirectory, JSON.parse(await readFile(resolve(repositoryRoot, manifest.rootPackage, "package.json"), "utf8")).name)
+    : pack(resolve(repositoryRoot, manifest.rootPackage));
+  const rootEntries = exactRootDirectory
+    ? listTarball(rootTarball)
+    : JSON.parse(exec(npm, ["pack", "--dry-run", "--json", resolve(repositoryRoot, manifest.rootPackage)], { encoding: "utf8" }))[0].files.map(({ path }) => path);
+  if (rootEntries.some((path) => path.endsWith(".node"))) {
     throw new Error("The root package must not embed a native artifact.");
   }
-  if (rootPack.files.some(({ path }) => isNodeCliArtifact(path))) {
+  if (rootEntries.some(isNodeCliArtifact)) {
     throw new Error("The root Node SDK package must not contain a JavaScript CLI entry point.");
   }
 
@@ -50,7 +61,7 @@ try {
 
   const installedPackage = JSON.parse(await readFile(resolve(temporary, "node_modules/@sjunepark/ytm/package.json"), "utf8"));
   if (installedPackage.bin !== undefined) throw new Error("Installed Node SDK must not declare or distribute a CLI bin.");
-  console.log(`clean Node SDK consumer passed ${rustTarget} on Node ${process.versions.node}`);
+  console.log(`${exactNativeDirectory ? "exact aggregated" : "clean"} Node SDK consumer passed ${rustTarget} on Node ${process.versions.node}`);
 } finally {
   await rm(temporary, { recursive: true, force: true });
 }
@@ -59,6 +70,27 @@ function pack(directory) {
   const result = JSON.parse(exec(npm, ["pack", "--json", "--pack-destination", temporary, directory], { encoding: "utf8" }))[0];
   if (!result?.filename) throw new Error(`npm pack did not report an artifact for ${directory}.`);
   return resolve(temporary, result.filename);
+}
+
+async function findPackageTarball(directory, expectedName) {
+  const candidates = (await readdir(directory, { withFileTypes: true }))
+    .filter((entry) => entry.isFile() && entry.name.endsWith(".tgz"))
+    .map((entry) => resolve(directory, entry.name));
+  const matches = candidates.filter((tarball) => JSON.parse(tarballEntry(tarball, "package/package.json")).name === expectedName);
+  if (matches.length !== 1) throw new Error(`Expected exactly one ${expectedName} tarball in ${directory}, found ${matches.length}.`);
+  return matches[0];
+}
+
+function tarballEntry(tarball, entry) {
+  const result = spawn("tar", ["-xOf", tarball, entry]);
+  if (result.status !== 0) throw new Error(`Could not read ${entry} from ${tarball}:\n${result.stderr}`);
+  return result.stdout;
+}
+
+function listTarball(tarball) {
+  const result = spawn("tar", ["-tzf", tarball]);
+  if (result.status !== 0) throw new Error(`Could not list ${tarball}:\n${result.stderr}`);
+  return result.stdout.split(/\r?\n/).filter(Boolean);
 }
 
 function run(command, args, cwd) {

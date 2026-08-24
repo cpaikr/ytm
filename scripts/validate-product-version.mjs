@@ -41,8 +41,8 @@ const [
 
 equal(manifest["."], version, "Release Please manifest must match VERSION");
 check(config["release-type"] === "simple", "Release Please must use the single-product simple strategy");
-check(config["include-v-in-tag"] === true && config["include-component-in-tag"] === false, "Release Please must create vX.Y.Z product tags");
-check(config.draft === true && config["force-tag-creation"] === true, "Release Please must create an immutable tag with a draft GitHub Release");
+check(config["include-v-in-tag"] === true && config["include-component-in-tag"] === false, "Release Please must retain the unified vX.Y.Z naming policy");
+check(config.draft === undefined && config["force-tag-creation"] === undefined, "Release Please preparation config must not own tag or draft mutation");
 check(config.packages?.["."]?.["version-file"] === "VERSION", "Release Please must update VERSION as the product authority");
 check(config.packages?.["."]?.["changelog-path"] === "CHANGELOG.md", "Release Please must own the root product changelog");
 

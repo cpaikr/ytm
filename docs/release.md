@@ -1,9 +1,9 @@
 # Release
 
 No product release is authorized by this document. Selecting or publishing an
-exact version remains a separate approval. The repository is implementing one
-product lifecycle for the Rust core, standalone CLI, and Node SDK; this section
-states the accepted authority and the current implementation checkpoint.
+exact version remains a separate approval. The repository implements one
+product lifecycle for the Rust core, standalone CLI, and Node SDK; this is the
+runbook for that disabled-by-default lifecycle.
 
 ## Release authority
 
@@ -32,34 +32,49 @@ scoped GitHub App or fine-grained token whose pull requests trigger required
 checks. Keep the variable `false` until release preparation is explicitly
 authorized.
 
-## Accepted target lifecycle
+## Release lifecycle
 
-The release implementation will follow these stages:
+The release lifecycle has these stages:
 
 1. Release Please proposes one release PR against `main`. The PR reconciles
    every product-version copy and generates the root changelog entry.
 2. Reviewers validate the exact proposed version and complete artifact plan.
    Merging that specific PR requires explicit approval of that version.
-3. **Planned:** A separately authorized job in the protected `release`
-   environment runs the Release Please release phase for the merged PR. It
-   creates the immutable `vX.Y.Z` tag and a draft GitHub Release. The submitted
-   expected version must match `VERSION`, the manifest, changelog, tag, and
-   tagged checkout.
-4. **Partially implemented:** CI builds and validates all CLI archives,
-   checksums, and installers on GitHub-hosted runners. Tagged orchestration and
-   npm tarball integration remain planned; no candidate is uploaded to a draft
-   Release yet.
-5. **Planned:** Publishing the draft GitHub Release is the canonical completion
-   point. npm publication may begin only afterward, from the same source SHA and
-   version, through the protected `npm` environment and trusted publishing.
+3. A separately authorized job in the protected `release` environment accepts
+   only an exact stable version from the merged Release Please PR head. It
+   creates exactly that immutable `vX.Y.Z` tag and a deterministic draft GitHub
+   Release whose name and body come from the tagged changelog. This narrow
+   mutation cannot create another pending Release Please candidate. On recovery
+   it may finish a missing draft after exact tag creation or resolve an existing
+   matching draft. Version, manifest, changelog, workflow checkout, tag, main
+   ancestry, and draft identity must all agree.
+4. Every CLI archive and npm native package is rebuilt from that verified tagged
+   SHA on its claimed native runner. Aggregation produces one exact CLI candidate
+   and one exact five-tarball npm candidate. The CLI candidate is tested on every
+   claimed target; the npm candidate is installed without repacking on every
+   target and supported Node major.
+5. A second protected `release` job reconciles existing draft assets byte for
+   byte, uploads only missing assets, re-downloads and validates the complete
+   draft, and makes the GitHub Release public. This is the canonical completion
+   point. Only then may the protected `npm` job publish the same version and
+   source through trusted publishing with provenance.
 
-The disabled preparation mechanics for stage 1 and reusable CLI artifact,
-managed-install, and exact-distributable consumer mechanics for stage 4 exist
-today. Stages 3 and 5, tagged orchestration, and the npm portion of stage 4
-remain future implementation slices. The current
-`.github/workflows/release.yml` is still the transitional, manually dispatched
-`node-vX.Y.Z` npm publisher. It does not create or publish a GitHub Release. Do
-not use it for a new product release.
+Both workflows remain disabled by repository variables and no product release
+has been run. `RELEASE_PLEASE_ENABLED=true` enables release-PR preparation;
+`RELEASE_ENABLED=true` permits the publication workflow to reach its protected
+environment gates. Enabling either variable or approving either environment is
+an operational authorization, not a repository-code change.
+
+For an approved version `X.Y.Z`, dispatch `release.yml` from the exact merged
+release-PR head on `main` with `expected_version=X.Y.Z`. If the immutable tag and
+draft already exist and the workflow must be recovered after `main` advances,
+dispatch the same workflow from ref `vX.Y.Z` with the same expected version. A
+tag-ref recovery can add missing assets only when every retained draft asset is
+byte-identical to the rebuilt candidate. It cannot replace assets or reopen a
+public Release. If GitHub is already public but npm has not started, the same
+tag-ref workflow may rebuild and revalidate the unchanged public assets and
+continue the npm projection only while every npm package version remains absent.
+Any visible npm package makes that version non-recoverable.
 
 ## Standalone CLI candidate assets
 
@@ -103,9 +118,9 @@ identity cannot be confirmed, and atomically writes adjacent no-BOM UTF-8
 status states. Interrupted upgrades
 either restore the verified pair or retain fixed marker/`.previous` evidence;
 when recovery is required, the command reports the paths to inspect. These
-capabilities are candidate behavior, not a public
-installation path until tagged release orchestration exists and a version is
-separately approved.
+capabilities are wired into the tagged publication workflow, but they are not a
+public installation path until an exact version is separately approved and the
+resulting GitHub Release is made public.
 
 ## Visibility and failure policy
 
@@ -114,14 +129,15 @@ Release state is monotonic and corrections use a new approved version:
 | State | Visibility | Permitted recovery |
 | --- | --- | --- |
 | Release PR open | Reviewers only | Update or close the PR; no tag exists. |
-| Tag/draft creation failed | No public release | Fix the workflow and rerun only if the tag and release are still absent. |
-| Draft exists; build or validation failed | Draft is unavailable to normal consumers | Preserve the immutable tag and draft evidence, repair automation, and rerun against the same tagged source only while no asset was replaced and no canonical release or npm package exists. |
-| GitHub Release published | Canonical release is public and immutable | Never move the tag or replace assets; correct with a new version. |
+| Tag/draft creation failed | No public release | Fix the workflow and rerun. If the exact tag was committed but draft creation failed, the same tagged source may create only its missing deterministic draft. |
+| Draft exists; build or validation failed | Draft is unavailable to normal consumers | Preserve the immutable tag and draft evidence. Rerun against the same tagged source only while the Release is still draft, every existing asset is byte-identical, and no npm package exists; the workflow adds only missing assets. |
+| GitHub Release published; npm absent | Canonical release is public and immutable | Never move the tag or replace assets. Rebuild and byte-verify the public assets, then retry the npm projection only while all five npm versions are still absent. |
 | npm projection partially failed | Canonical GitHub Release remains public; npm is explicitly incomplete | Report the failed packages and correct with a new version. Never repair a partially published version in place. |
 
 The release workflow must fail closed when it cannot prove tag ancestry,
-version and source identity, complete expected assets, checksums, installer
-selection, or npm-version absence. It must not delete a draft or tag
+version and source identity, changelog-derived Release metadata, complete
+expected assets, checksums, installer selection, or npm-version absence. It
+must not delete a draft or tag
 automatically: those are recovery evidence and destructive cleanup requires a
 separate decision.
 
@@ -133,7 +149,9 @@ Before enabling release preparation or approving a release:
 2. Add a `v*` tag ruleset that blocks updates and deletion and permits creation
    only by the release automation identity.
 3. Create a `release` environment with required reviewers, prevent self-review,
-   disallow administrator bypass, and restrict deployment to protected `main`.
+   disallow administrator bypass, and restrict deployment to protected `main`
+   plus protected `v*` tags so an immutable tagged draft can be recovered after
+   `main` advances.
 4. Keep the existing `npm` environment equally strict. Its current single
    reviewer plus administrator bypass does not provide two-person approval and
    must be corrected before publication.
@@ -145,7 +163,7 @@ Repository settings are operational prerequisites, not repository code. This
 implementation records and validates their required shape but does not mutate
 them or authorize a release.
 
-## Transitional Node assembly
+## Node assembly and npm projection
 
 [`native-targets.json`](../native-targets.json) currently owns the Node-API
 matrix: Linux GNU x64/ARM64, macOS ARM64, and Windows x64. GNU/Linux artifacts
@@ -153,13 +171,14 @@ target glibc 2.28 or newer. CI builds every target on its declared
 GitHub-hosted runner and clean-installs the packed root and native packages
 under Node 22, 24, and 26.
 
-The retained npm workflow rebuilds those packages from an existing
-`node-vX.Y.Z` tag, rejects versions already visible in npm, and publishes all
-native packages before the root. It remains useful implementation material but
-is superseded as a release entry point by the accepted product lifecycle. A
-failure after its first npm publish can leave a partial registry version; this
-is why the final workflow publishes npm only after the canonical GitHub
-Release and reports partial projection failures explicitly.
+The release workflow rebuilds those packages from the unified `vX.Y.Z` tagged
+source, aggregates the exact tarballs, and clean-installs that untouched set on
+all target and Node-major combinations before GitHub publication. It proves all
+five package versions absent immediately before making GitHub canonical and
+again at the npm boundary, then publishes all native packages before the root.
+A failure after its first npm publish can still leave a partial registry
+version; the job records packages already published and requires correction in
+a newly approved product version.
 
 ## Historical Python release
 
@@ -171,8 +190,9 @@ unchanged. Deprecating the PyPI project is outside this cutover.
 
 Run the complete [repository validation](../README.md#repository-validation) on
 the exact candidate commit. `bun run release:check` includes product-version,
-Release Please, transitional workflow, native-package, and publishing-boundary
-checks. These checks do not publish or change external release state.
+Release Please, release-state failure injection, draft-asset recovery,
+native-package, exact-distributable, and publishing-boundary checks. These
+checks do not publish or change external release state.
 
 `bun run pack:node` rebuilds tracked Node distribution files before inspecting
 the dry-run tarball; use `bun run build:check` when the checkout must remain

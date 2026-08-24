@@ -57,10 +57,11 @@ modified executables are deliberately unmanaged. Native clean-consumer jobs
 install the exact aggregated candidate on every claimed target and verify its
 identity, receipt, integrity failures, and managed replacement. Transaction
 faults are injected into bounded temporary installer copies to verify rollback
-and recoverable failure evidence without shipping a test failpoint. These CI
-artifacts are release inputs, not a public distribution channel.
-No installer URL is documented until the tagged GitHub Release workflow is
-implemented and an exact version is separately authorized.
+and recoverable failure evidence without shipping a test failpoint. The
+disabled tagged-source workflow rebuilds and tests those exact candidates,
+publishes GitHub canonically, and then projects the same source and version to
+npm. No installer URL is active until an exact version is separately authorized
+and published.
 
 ## Repository validation
 

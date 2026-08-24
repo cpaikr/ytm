@@ -246,15 +246,19 @@ jobs:
           - rust: x86_64-unknown-linux-gnu
             runner: ubuntu-24.04
             arch: x64
+            directory: linux-x64-gnu
           - rust: aarch64-unknown-linux-gnu
             runner: ubuntu-24.04-arm
             arch: arm64
+            directory: linux-arm64-gnu
           - rust: aarch64-apple-darwin
             runner: macos-15
             arch: arm64
+            directory: darwin-arm64
           - rust: x86_64-pc-windows-msvc
             runner: windows-2025
             arch: x64
+            directory: win32-x64-msvc
     runs-on: ${{ matrix.target.runner }}
 
     steps:
@@ -285,10 +289,14 @@ jobs:
         run: node scripts/validate-native-artifact.mjs ${{ matrix.target.rust }}
 
       - name: Assemble product packages
+        shell: bash
         run: |
           node scripts/generate-native-packages.mjs
-          node packages/node/scripts/build.mjs --facade-only
+          npm run build:facade
           node scripts/assemble-native-package.mjs ${{ matrix.target.rust }}
+          mkdir -p .artifacts/native .artifacts/root
+          npm pack --pack-destination .artifacts/native packages/native/${{ matrix.target.directory }}
+          npm pack --pack-destination .artifacts/root --workspace packages/node
 
-      - name: Test clean installed Node SDK
-        run: node scripts/test-native-consumer.mjs ${{ matrix.target.rust }}
+      - name: Test exact packed Node SDK
+        run: node scripts/test-native-consumer.mjs ${{ matrix.target.rust }} .artifacts/native .artifacts/root
