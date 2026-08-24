@@ -1,6 +1,6 @@
 # Goal: Standalone CLI release distribution
 
-Status: active
+Status: complete
 Planning scope: ROADMAP.md
 
 ## Original contract
@@ -39,6 +39,10 @@ Goal contract
   merged by PR #24 at `c04c1332efa4ec5a4b14b262d232da3378de4992`
   after all 23 CI jobs passed and all ten review threads were fixed, replied to,
   and resolved.
+- Consolidated validation, superseded-path removal, and truthful documentation
+  — merged by PR #25 at `753dc4dbdae796d2b7d66a35b433b637cf5e9c95`
+  after all 23 CI jobs passed and both automated review surfaces closed without
+  actionable findings.
 
 ## Execution status
 
@@ -50,19 +54,18 @@ Goal contract
 - Toolchain-free receipts and safe, recoverable upgrade behavior.
 - Exact-distributable consumer tests, integrity checks, and failure injection.
 - Tagged-source GitHub Release workflow and same-version npm publication.
+- Consolidated validation, superseded-path removal, and truthful documentation.
 
 ### Current in-scope result
 
-Consolidated validation, superseded-path removal, and truthful documentation.
+None. Every included result is delivered.
 
 ### Next in-scope action
 
-Reconcile `ROADMAP.md`, `ARCHITECTURE.md`, `README.md`, the release runbook,
-planning, validation, workflows, and scripts against the delivered lifecycle;
-remove superseded distribution paths and stale claims; then deliver the final
-reviewed consolidation PR.
+None. Selecting or publishing a release and enabling production providers
+remain explicitly excluded from this goal.
 
-### Evidence and blockers
+### Evidence and exclusions
 
 - `dev` is the integration branch. It was fast-forwarded to the accepted
   planning state before goal initialization.
@@ -133,3 +136,18 @@ reviewed consolidation PR.
   Codex's publication-URL defect and nine CodeRabbit findings were fixed; all
   ten review threads were replied to and resolved, and the final feedback
   collector found no new actionable findings on `bda2211`.
+- `bun run validate` is the single complete uncredentialed repository gate for
+  local development, ordinary CI, and immutable tagged-source validation. Its
+  manifest, fail-fast runner, callers, command set, pinned prerequisites, and
+  long-lived CI branches are statically enforced by release validation.
+- Superseded migration-branch triggers and stale roadmap or release claims are
+  removed. `README.md`, `ARCHITECTURE.md`, `docs/release.md`, `ROADMAP.md`, and
+  the completed delivery plan now describe the implemented but deliberately
+  disabled lifecycle and its operational boundary.
+- PR #25 merged into `dev` as
+  `753dc4dbdae796d2b7d66a35b433b637cf5e9c95` after all 23 CI jobs passed.
+  Codex approved, CodeRabbit generated no actionable comments, no review
+  threads were opened, and two independent final code-review passes found no
+  Bucket I or Bucket II issues.
+- No release version was selected or published, and no production provider was
+  enabled, consistent with the goal's explicit exclusions.
