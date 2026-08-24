@@ -29,6 +29,9 @@ Goal contract
 - CI-built CLI archives, checksums, and generated installers for every claimed
   target — merged by PR #21 at `2150e0f` after complete native CI and feedback
   closure.
+- Toolchain-free receipts and safe, recoverable upgrade behavior — merged by
+  PR #22 at `8c2a31b` after all 19 CI jobs passed and all eight review threads
+  were fixed, replied to, and resolved.
 
 ## Execution status
 
@@ -37,16 +40,17 @@ Goal contract
 - Unified version, changelog, tag, visibility, and failure lifecycle.
 - CI-built CLI archives, checksums, and generated installers for every claimed
   target.
+- Toolchain-free receipts and safe, recoverable upgrade behavior.
 
 ### Current in-scope result
 
-Toolchain-free receipts and safe, recoverable upgrade behavior.
+Exact-distributable consumer tests, integrity checks, and failure injection.
 
 ### Next in-scope action
 
-Define the receipt schema and install transaction, then implement toolchain-free
-install and upgrade paths that preserve or restore the last known-good binary
-and receipt on every injected failure.
+Extend native CI to install and exercise the exact produced CLI archives,
+installers, and receipts on every claimed target, including checksum, download,
+replacement, receipt, interruption, and restoration failure injection.
 
 ### Evidence and blockers
 
@@ -80,3 +84,13 @@ and receipt on every injected failure.
   CodeRabbit findings were fixed, replied to, and resolved; one hidden-path
   report was rejected with completed-run evidence. A transient Zig AArch64
   backend failure passed on the isolated retry without a code change.
+- The shared managed-install receipt records the installed version, target,
+  binary path, canonical GitHub Release URL, and SHA-256. `upgrade --check` and
+  `upgrade` validate canonical release assets before replacing either state.
+- Unix and Windows installers use recoverable binary-and-receipt transactions.
+  Windows adds atomic no-BOM status commits plus ownership markers so
+  interrupted detached upgrades can restore the last known-good state without
+  consuming stale evidence.
+- PR #22 merged into `dev` as `8c2a31b` after the complete local validation
+  suite and a clean four-lens code review. All 19 CI jobs passed, and all eight
+  review threads were fixed, replied to, and resolved.
