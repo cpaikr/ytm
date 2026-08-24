@@ -2,11 +2,11 @@
 
 ## Current
 
-None. Planning the release refactor does not start its implementation.
+[Standalone CLI release distribution](plans/standalone-cli-release-distribution.md)
 
 ## Plans
 
-1. [Standalone CLI release distribution](plans/standalone-cli-release-distribution.md)
+None.
 
 ## Tasks
 
