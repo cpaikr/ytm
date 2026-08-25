@@ -6,7 +6,7 @@ None.
 
 ## Plans
 
-None.
+1. [Rust-backed Python SDK](plans/rust-backed-python-sdk.md)
 
 ## Tasks
 
