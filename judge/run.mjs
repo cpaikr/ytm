@@ -72,16 +72,16 @@ function assertGolden(name, surface, actual) {
   }
 }
 
-function publicToolsetResult(result) {
+function publicNodeResult(result) {
   return { ok: result.ok, value: result.value, error: result.error };
 }
 
-function runToolset(name, requestPayload, fixture, assertResult, runnerOptions = {}) {
+function runNode(name, requestPayload, fixture, assertResult, runnerOptions = {}) {
   if (!surfaceEnabled("node") || !scenarioEnabled(name)) return;
   scenariosRun += 1;
   recordFixtureUse(fixture);
-  const product = invokeToolset(productRoot, requestPayload, fixture);
-  assertGolden(name, "toolset", publicToolsetResult(product));
+  const product = invokeNode(productRoot, requestPayload, fixture);
+  assertGolden(name, "node", publicNodeResult(product));
   assertResult?.(product, `${name}: product`);
   assertRequests(
     product.requests,
@@ -104,23 +104,18 @@ function runCli(name, args, fixture, assertResult) {
   assertResult?.(product, `${name}: product`);
 }
 
-runToolset("toolset-discovery", { action: "inspect" }, undefined, (result, label) => {
+runNode("client-surface", { action: "inspect" }, undefined, (result, label) => {
   check(result.ok, `${label} must inspect successfully`);
-  check(result.value?.methods?.length === 7, `${label} must expose all seven public methods`);
-  check(result.value?.operations?.map(({ name }) => name).join(",") === "matrix,kinds", `${label} must preserve operation order`);
-  for (const operation of result.value?.operations || []) {
-    check(operation.inputJsonSchema && operation.resultJsonSchema, `${label} ${operation.name} must expose schemas`);
-    check(Array.isArray(operation.examples) && Array.isArray(operation.limitations), `${label} ${operation.name} must expose examples and limitations`);
-  }
+  check(result.value?.exports?.join(",") === "YtmClient,YtmError,serializeYtmError,validateKindsInput,validateMatrixInput", `${label} must expose only the complete root SDK interface`);
+  check(result.value?.methods?.join(",") === "matrix,kinds", `${label} must expose only typed domain methods on the client`);
 });
 
 for (const validation of [
   { id: "missing-base-date", operation: "matrix", input: { kind: "국채" }, code: "missing_parameter", parameter: "baseDate" },
   { id: "unknown-parameter", operation: "matrix", input: { baseDate: request.baseDate, kind: "국채", extra: true }, code: "unknown_parameter", parameter: "extra" },
-  { id: "invalid-date", operation: "matrix", input: { baseDate: "2026-99-99", kind: "국채" }, code: "invalid_parameter", parameter: "baseDate" },
-  { id: "unknown-operation", operation: "unknown", input: {}, code: "invalid_request" }
+  { id: "invalid-date", operation: "matrix", input: { baseDate: "2026-99-99", kind: "국채" }, code: "invalid_parameter", parameter: "baseDate" }
 ]) {
-  runToolset(`validation-recovery:${validation.id}`, { action: "validate", operation: validation.operation, input: validation.input }, undefined, (result, label) => {
+  runNode(`validation-recovery:${validation.id}`, { action: "validate", operation: validation.operation, input: validation.input }, undefined, (result, label) => {
     const error = result.value?.error;
     check(result.ok && error?.code === validation.code, `${label} must preserve ${validation.code}`);
     check(error?.recoverable === true && error?.retryable === false && error?.recoveryAction?.kind, `${label} must preserve machine recovery metadata`);
@@ -129,29 +124,22 @@ for (const validation of [
 }
 
 for (const [dateValue, normalized] of [["2026-06-08", "2026-06-08"], ["2026.06.08", "2026-06-08"], ["20260608", "2026-06-08"]]) {
-  runToolset(`validation-recovery:date-${dateValue}`, { action: "validate", operation: "matrix", input: { baseDate: dateValue, kind: "10" } }, undefined, (result, label) => {
+  runNode(`validation-recovery:date-${dateValue}`, { action: "validate", operation: "matrix", input: { baseDate: dateValue, kind: "10" } }, undefined, (result, label) => {
     check(result.value?.ok === true && result.value?.input?.baseDate === normalized, `${label} must normalize supported dates`);
   });
 }
 
 for (const dateValue of ["2026.06-08", "2026-0608", "202606-08", "2026..06.08"]) {
-  runToolset(`validation-recovery:reject-date-${dateValue}`, { action: "validate", operation: "matrix", input: { baseDate: dateValue, kind: "10" } }, undefined, (result, label) => {
+  runNode(`validation-recovery:reject-date-${dateValue}`, { action: "validate", operation: "matrix", input: { baseDate: dateValue, kind: "10" } }, undefined, (result, label) => {
     check(result.value?.ok === false && result.value?.error?.parameter === "baseDate", `${label} must reject an undocumented date shape`);
   });
 }
 
-runToolset("toolset-operation-immutability", { action: "operation-mutation" }, undefined, (result, label) => {
-  check(result.ok, `${label} must complete the mutation probe`);
-  check(result.value?.operation?.examples?.[0]?.baseDate === "2026-06-08", `${label} getOperation must return a deep copy`);
-  check(result.value?.listed?.limitations?.[0] !== "mutated", `${label} listOperations must return a deep copy`);
-});
-
-runToolset("node-facade-regressions", { action: "facade-regressions", baseDate: request.baseDate }, undefined, (result, label) => {
+runNode("node-client-regressions", { action: "client-regressions", baseDate: request.baseDate }, undefined, (result, label) => {
   const value = result.value;
-  check(result.ok, `${label} must exercise the pure Node facade without native transport`);
-  check(value?.commandHelp?.name === "matrix" && value?.commandHelp?.resultSummary, `${label} command help must be a structured operation spec`);
+  check(result.ok, `${label} must exercise the pure Node client without native transport`);
   check(value?.kindsWithoutInput?.kinds?.some(({ code }) => code === "80"), `${label} kinds execution must accept omitted input`);
-  check(value?.nonObject?.error?.code === "invalid_request" && value?.nonObject?.error?.recoveryAction?.kind === "inspect_command_help", `${label} non-object input must direct recovery to command help`);
+  check(value?.nonObject?.error?.code === "invalid_request" && value?.nonObject?.error?.recoveryAction?.kind === "review_method_input", `${label} non-object input must direct recovery to method documentation`);
   check(value?.blankKind?.error?.code === "missing_parameter" && value?.blankKind?.error?.parameter === "kind", `${label} blank kind input must remain missing`);
   check(value?.earlyYearDates?.every(({ ok }) => ok === true), `${label} four-digit years 0000 through 0099 must match the Rust date domain`);
   check(value?.invalidEarlyLeapDay?.ok === false, `${label} early four-digit years must still enforce Gregorian leap days`);
@@ -171,7 +159,7 @@ const successFixture = fixture([
   { path: initPath, fixture: evidence.fixtures.init },
   { path: matrixPath, fixture: evidence.fixtures.matrix }
 ]);
-runToolset("matrix-success", { action: "execute", operation: "matrix", input: { baseDate: request.baseDate, kind: request.kind.name } }, successFixture, (result, label) => {
+runNode("matrix-success", { action: "execute", operation: "matrix", input: { baseDate: request.baseDate, kind: request.kind.name } }, successFixture, (result, label) => {
   check(result.ok, `${label} must succeed`);
   check(result.value?.tenors?.join(",") === evidence.expectedTenors.map(({ label: tenor }) => tenor).join(","), `${label} must preserve tenor order`);
   check(result.value?.rows?.[0]?.pricingGroupCode === evidence.expectations.matrix.pricingGroupCode, `${label} must preserve pricing group code`);
@@ -180,7 +168,7 @@ runToolset("matrix-success", { action: "execute", operation: "matrix", input: { 
   check(result.requests?.[1]?.body.includes(`<Col id="cboYtmSort">${request.kind.code}</Col>`), `${label} must project the resolved kind code`);
 });
 
-runToolset("missing-values", { action: "execute", operation: "matrix", input: { baseDate: request.baseDate, kind: request.kind.name } }, fixture([
+runNode("missing-values", { action: "execute", operation: "matrix", input: { baseDate: request.baseDate, kind: request.kind.name } }, fixture([
   { path: initPath, fixture: evidence.fixtures.init },
   { path: matrixPath, fixture: evidence.fixtures.missingValues }
 ]), (result, label) => {
@@ -190,16 +178,16 @@ runToolset("missing-values", { action: "execute", operation: "matrix", input: { 
   }
 });
 
-runToolset("unknown-kind-recovery", { action: "execute", operation: "matrix", input: { baseDate: request.baseDate, kind: "not-a-kind" } }, fixture([
+runNode("unknown-kind-recovery", { action: "execute", operation: "matrix", input: { baseDate: request.baseDate, kind: "not-a-kind" } }, fixture([
   { path: initPath, fixture: evidence.fixtures.init }
 ]), (result, label) => {
   check(!result.ok && result.error?.code === "invalid_parameter" && result.error?.parameter === "kind", `${label} must reject the unknown kind`);
   check(result.error?.expected?.some(({ code }) => code === "80"), `${label} must expose the accepted catalog`);
   check(result.error?.exampleInput?.baseDate === request.baseDate && result.error?.exampleInput?.kind, `${label} must expose a usable example`);
-  check(result.error?.recoveryAction?.kind === "inspect_command_help" && result.error?.retryable === false, `${label} must preserve kind-specific recovery metadata`);
+  check(result.error?.recoveryAction?.kind === "review_method_input" && result.error?.recoveryAction?.method === "matrix" && result.error?.retryable === false, `${label} must translate kind-specific recovery metadata to the client interface`);
 });
 
-runToolset("fallback-order", { action: "execute", operation: "matrix", input: { baseDate: "2026-06-07", kind: "국채", fallback: "previous-available", lookbackDays: 2 } }, fixture([
+runNode("fallback-order", { action: "execute", operation: "matrix", input: { baseDate: "2026-06-07", kind: "국채", fallback: "previous-available", lookbackDays: 2 } }, fixture([
   { path: initPath, fixture: evidence.fixtures.init }, { path: matrixPath, fixture: evidence.fixtures.unavailable },
   { path: initPath, fixture: evidence.fixtures.init }, { path: matrixPath, fixture: evidence.fixtures.unavailable },
   { path: initPath, fixture: evidence.fixtures.init }, { path: matrixPath, fixture: evidence.fixtures.matrix }
@@ -208,7 +196,7 @@ runToolset("fallback-order", { action: "execute", operation: "matrix", input: { 
   check(result.value?.dateResolution?.attemptedDates?.join(",") === "2026-06-07,2026-06-06,2026-06-05", `${label} must preserve attempted-date order`);
 });
 
-runToolset("cancellation", { action: "execute", operation: "matrix", input: { baseDate: request.baseDate, kind: request.kind.name }, abortBeforeExecute: true }, fixture([
+runNode("cancellation", { action: "execute", operation: "matrix", input: { baseDate: request.baseDate, kind: request.kind.name }, abortBeforeExecute: true }, fixture([
   { path: initPath, fixture: evidence.fixtures.init }
 ]), (result, label) => {
   check(!result.ok && result.error?.code === evidence.expectations.transportError, `${label} must preserve cancellation as ${evidence.expectations.transportError}`);
@@ -224,7 +212,7 @@ for (const failure of [
   { name: "transport-error", second: { transportError: "deliberate fixture transport failure" }, code: evidence.expectations.transportError },
   { name: "unavailable-data", second: { fixture: evidence.fixtures.unavailable }, code: evidence.expectations.unavailableError }
 ]) {
-  runToolset(failure.name, { action: "execute", operation: "matrix", input: { baseDate: request.baseDate, kind: request.kind.name } }, fixture([
+  runNode(failure.name, { action: "execute", operation: "matrix", input: { baseDate: request.baseDate, kind: request.kind.name } }, fixture([
     { path: initPath, fixture: evidence.fixtures.init },
     { path: matrixPath, ...failure.second }
   ]), (result, label) => {
@@ -237,7 +225,7 @@ for (const failure of [
 }
 
 for (const malformedKinds of ["initMalformedMixed", "initMalformedAll"]) {
-  runToolset(`fixture-behavior:${malformedKinds}`, { action: "execute", operation: "kinds", input: { baseDate: request.baseDate } }, fixture([
+  runNode(`fixture-behavior:${malformedKinds}`, { action: "execute", operation: "kinds", input: { baseDate: request.baseDate } }, fixture([
     { path: initPath, fixture: evidence.fixtures[malformedKinds] }
   ]), (result, label) => {
     check(!result.ok && result.error?.code === evidence.expectations.formatError, `${label} malformed kind rows must fail closed`);
@@ -245,14 +233,14 @@ for (const malformedKinds of ["initMalformedMixed", "initMalformedAll"]) {
   });
 }
 
-runToolset("fixture-behavior:invalid-error-code", { action: "execute", operation: "kinds", input: { baseDate: request.baseDate } }, fixture([
+runNode("fixture-behavior:invalid-error-code", { action: "execute", operation: "kinds", input: { baseDate: request.baseDate } }, fixture([
   { path: initPath, fixture: evidence.fixtures.invalidErrorCode }
 ]), (result, label) => {
   check(!result.ok && result.error?.code === evidence.expectations.formatError, `${label} non-integer ErrorCode must fail closed`);
   check(result.error?.reason === "KIS-NET ErrorCode is not a textual integer.", `${label} must identify the invalid ErrorCode grammar`);
 });
 
-runToolset("fixture-behavior:missing-matrix-column", { action: "execute", operation: "matrix", input: { baseDate: request.baseDate, kind: request.kind.name } }, fixture([
+runNode("fixture-behavior:missing-matrix-column", { action: "execute", operation: "matrix", input: { baseDate: request.baseDate, kind: request.kind.name } }, fixture([
   { path: initPath, fixture: evidence.fixtures.init },
   { path: matrixPath, fixture: evidence.fixtures.missingColumn }
 ]), (result, label) => {
@@ -260,7 +248,7 @@ runToolset("fixture-behavior:missing-matrix-column", { action: "execute", operat
   check(result.error?.reason === "KIS-NET matrix row is missing required column y50.", `${label} must identify the missing y50 wire column`);
 });
 
-runToolset("protocol-status:warning", { action: "execute", operation: "kinds", input: { baseDate: request.baseDate } }, fixture([
+runNode("protocol-status:warning", { action: "execute", operation: "kinds", input: { baseDate: request.baseDate } }, fixture([
   { path: initPath, fixture: evidence.fixtures.protocolWarning }
 ]), (result, label) => {
   const expected = evidence.expectations.protocolStatuses.protocolWarning;
@@ -268,7 +256,7 @@ runToolset("protocol-status:warning", { action: "execute", operation: "kinds", i
   check(result.error?.sourceErrorCode === expected.errorCode && result.error?.sourceErrorMessage === expected.errorMessage, `${label} must preserve ErrorMessage-only source status`);
 });
 
-runToolset("protocol-status:error-message-precedence", { action: "execute", operation: "kinds", input: { baseDate: request.baseDate } }, fixture([
+runNode("protocol-status:error-message-precedence", { action: "execute", operation: "kinds", input: { baseDate: request.baseDate } }, fixture([
   {
     path: initPath,
     fixture: evidence.fixtures.protocolWarning,
@@ -283,7 +271,7 @@ runToolset("protocol-status:error-message-precedence", { action: "execute", oper
   check(result.error?.sourceErrorMessage === "higher-priority message", `${label} ErrorMsg must take precedence over ErrorMessage`);
 });
 
-runToolset("protocol-status:duplicate-error-message", { action: "execute", operation: "kinds", input: { baseDate: request.baseDate } }, fixture([
+runNode("protocol-status:duplicate-error-message", { action: "execute", operation: "kinds", input: { baseDate: request.baseDate } }, fixture([
   {
     path: initPath,
     fixture: evidence.fixtures.protocolWarning,
@@ -301,7 +289,7 @@ for (const stop of [
   { id: "protocol-error", second: { fixture: evidence.fixtures.protocolError }, code: evidence.expectations.protocolError },
   { id: "transport-error", second: { transportError: "deliberate fixture transport failure" }, code: evidence.expectations.transportError }
 ]) {
-  runToolset(`fallback-stops-on-${stop.id}`, { action: "execute", operation: "matrix", input: {
+  runNode(`fallback-stops-on-${stop.id}`, { action: "execute", operation: "matrix", input: {
     baseDate: request.baseDate,
     kind: request.kind.name,
     fallback: "previous-available",
@@ -323,7 +311,7 @@ for (const stop of [
   });
 }
 
-runToolset("fallback-stops-on-validation-error", { action: "execute", operation: "matrix", input: {
+runNode("fallback-stops-on-validation-error", { action: "execute", operation: "matrix", input: {
   baseDate: "not-a-date",
   kind: request.kind.name,
   fallback: "previous-available",
@@ -333,7 +321,7 @@ runToolset("fallback-stops-on-validation-error", { action: "execute", operation:
   check(result.requests?.length === 0, `${label} validation must fail before any fallback request`);
 });
 
-runToolset("fallback-stops-on-kind-resolution-error", { action: "execute", operation: "matrix", input: {
+runNode("fallback-stops-on-kind-resolution-error", { action: "execute", operation: "matrix", input: {
   baseDate: request.baseDate,
   kind: "not-a-kind",
   fallback: "previous-available",
@@ -357,7 +345,7 @@ for (const xmlCase of evidence.xmlCases.valid) {
     ? [{ path: initPath, fixture: evidence.fixtures.init }, { path: matrixPath, fixture: evidence.fixtures[xmlCase.fixture] }]
     : [{ path: initPath, fixture: evidence.fixtures[xmlCase.fixture], ...replacement }];
   const input = operation === "matrix" ? { baseDate: request.baseDate, kind: request.kind.name } : { baseDate: request.baseDate };
-  runToolset(`xml-fixture-corpus:valid-${xmlCase.fixture}`, { action: "execute", operation, input }, fixture(steps), (result, label) => {
+  runNode(`xml-fixture-corpus:valid-${xmlCase.fixture}`, { action: "execute", operation, input }, fixture(steps), (result, label) => {
     check(result.ok, `${label} must accept the valid XML evidence`);
     const kind = operation === "matrix"
       ? result.value?.kind
@@ -375,7 +363,7 @@ for (const xmlCase of evidence.xmlCases.valid) {
   });
 }
 for (const fixtureName of evidence.xmlCases.invalid) {
-  runToolset(`xml-fixture-corpus:invalid-${fixtureName}`, { action: "execute", operation: "kinds", input: { baseDate: request.baseDate } }, fixture([
+  runNode(`xml-fixture-corpus:invalid-${fixtureName}`, { action: "execute", operation: "kinds", input: { baseDate: request.baseDate } }, fixture([
     { path: initPath, fixture: evidence.fixtures[fixtureName] }
   ]), (result, label) => {
     check(!result.ok && result.error?.code === evidence.expectations.formatError, `${label} must reject invalid XML evidence`);
@@ -391,7 +379,7 @@ for (const boundary of [
   { id: "exact-depth-limit", step: { depth: maxDepth }, succeeds: true },
   { id: "depth-limit-plus-one", step: { depth: maxDepth + 1 }, succeeds: false }
 ]) {
-  runToolset(`xml-generated-bounds:${boundary.id}`, { action: "execute", operation: "kinds", input: { baseDate: request.baseDate } }, fixture([
+  runNode(`xml-generated-bounds:${boundary.id}`, { action: "execute", operation: "kinds", input: { baseDate: request.baseDate } }, fixture([
     { path: initPath, ...boundary.step }
   ]), (result, label) => {
     check(result.ok === boundary.succeeds, `${label} must ${boundary.succeeds ? "accept" : "reject"} the boundary`);
@@ -538,7 +526,7 @@ runCli("cli-machine-contract:invalid-fallback", ["matrix", "--base-date", reques
 });
 
 runNativePreabort();
-runToolset("abort-handler-preservation", {
+runNode("abort-handler-preservation", {
   action: "abort-handler-preservation",
   input: { baseDate: request.baseDate }
 }, fixture([{ path: initPath, waitForCancellation: true }]), (result, label) => {
@@ -551,20 +539,20 @@ runToolset("abort-handler-preservation", {
 });
 runWithoutNative();
 
-runToolset("kind-80:offline-catalog", { action: "execute", operation: "kinds", input: {} }, undefined, (result, label) => {
+runNode("kind-80:offline-catalog", { action: "execute", operation: "kinds", input: {} }, undefined, (result, label) => {
   check(result.ok, `${label} must return the offline canonical catalog`);
   const privateBond = result.value?.kinds?.find(({ code }) => code === "80");
   check(privateBond?.name === "회사채(사모)", `${label} must include canonical kind 80`);
 });
 
-runToolset("kind-80:dated-catalog", { action: "execute", operation: "kinds", input: { baseDate: request.baseDate } }, fixture([
+runNode("kind-80:dated-catalog", { action: "execute", operation: "kinds", input: { baseDate: request.baseDate } }, fixture([
   { path: initPath, fixture: evidence.fixtures.init }
 ]), (result, label) => {
   check(result.ok && result.value?.kinds?.at(-1)?.code === "80", `${label} must retain kind 80 when discovery omits it`);
 });
 
 for (const [id, kind] of [["code", "80"], ["number", 80], ["label", "회사채(사모)"], ["normalized-label", "회사채 (사모)"]]) {
-  runToolset(`kind-80:matrix-${id}`, { action: "execute", operation: "matrix", input: { baseDate: request.baseDate, kind } }, fixture([
+  runNode(`kind-80:matrix-${id}`, { action: "execute", operation: "matrix", input: { baseDate: request.baseDate, kind } }, fixture([
     { path: initPath, fixture: evidence.fixtures.init },
     { path: matrixPath, fixture: evidence.fixtures.privateBondPadded }
   ]), (result, label) => {
@@ -576,7 +564,7 @@ for (const [id, kind] of [["code", "80"], ["number", 80], ["label", "회사채(�
   });
 }
 
-runToolset("kind-80:unavailable", { action: "execute", operation: "matrix", input: { baseDate: request.baseDate, kind: "80" } }, fixture([
+runNode("kind-80:unavailable", { action: "execute", operation: "matrix", input: { baseDate: request.baseDate, kind: "80" } }, fixture([
   { path: initPath, fixture: evidence.fixtures.init },
   { path: matrixPath, fixture: evidence.fixtures.unavailable }
 ]), (result, label) => {
@@ -584,7 +572,7 @@ runToolset("kind-80:unavailable", { action: "execute", operation: "matrix", inpu
   check(result.requests?.[1]?.body.includes('<Col id="cboYtmSort">80</Col>'), `${label} must attempt code 80 directly`);
 });
 
-runToolset("kind-80:fallback-preserves-kind", { action: "execute", operation: "matrix", input: {
+runNode("kind-80:fallback-preserves-kind", { action: "execute", operation: "matrix", input: {
   baseDate: request.baseDate,
   kind: "80",
   fallback: "previous-available",
@@ -604,7 +592,7 @@ runToolset("kind-80:fallback-preserves-kind", { action: "execute", operation: "m
   }
 });
 
-runToolset("kind-80:discovery-conflict", { action: "execute", operation: "kinds", input: { baseDate: request.baseDate } }, fixture([
+runNode("kind-80:discovery-conflict", { action: "execute", operation: "kinds", input: { baseDate: request.baseDate } }, fixture([
   {
     path: initPath,
     fixture: evidence.fixtures.init,
@@ -631,7 +619,8 @@ if (surfaceEnabled("node") && scenarioEnabled("package-surface")) {
   assertGolden("package-surface", "package", product);
   check(product.name === "@sjunepark/ytm", "package-surface: product must preserve package identity");
   check(product.engine === ">=22", "package-surface: product must require Node 22 or newer");
-  check(product.bin === null && product.toolset === "./dist/toolset.js", "package-surface: Node SDK must omit a bin and preserve the toolset export");
+  check(product.exportKeys.join(",") === ".,./package.json", "package-surface: Node SDK must expose only the root client and package metadata");
+  check(product.bin === null && product.client === "./dist/client.js", "package-surface: Node SDK must omit a bin and expose the root client interface");
   check(product.cliFiles.length === 0, "package-surface: Node SDK must not retain JavaScript CLI source or distribution files");
   check(product.files.every(({ exists }) => exists), "package-surface: product must ship all required public files");
 }
@@ -736,8 +725,8 @@ function runWithoutNative() {
   try {
     cpSync(resolve(productRoot, "src"), resolve(isolatedRoot, "src"), { recursive: true });
     writeFileSync(resolve(isolatedRoot, "package.json"), '{"type":"module"}\n');
-    const toolsetUrl = pathToFileURL(resolve(isolatedRoot, "src/toolset.js")).href;
-    const code = `const m=await import(${JSON.stringify(toolsetUrl)});const t=m.createKisnetYtmToolset();const validation=t.validateInput('matrix',{baseDate:'20260820',kind:'80'});let failure;try{await t.execute('kinds',{});}catch(error){failure=t.serializeError(error)}process.stdout.write(JSON.stringify({help:t.help(),validation,failure}));`;
+    const clientUrl = pathToFileURL(resolve(isolatedRoot, "src/client.js")).href;
+    const code = `const m=await import(${JSON.stringify(clientUrl)});const client=new m.YtmClient();const validation=m.validateMatrixInput({baseDate:'20260820',kind:'80'});let failure;try{await client.kinds()}catch(error){failure=m.serializeYtmError(error)}process.stdout.write(JSON.stringify({validation,failure}));`;
     result = spawnSync(process.execPath, ["--input-type=module", "-e", code], {
       encoding: "utf8",
       env: childEnvironment(),
@@ -792,13 +781,12 @@ function runWithoutNative() {
     : undefined;
   check(runtimeKey === (currentTarget ? nativeRuntimeKey(currentTarget) : undefined), `${name}: the unavailable package must identify the exact manifest runtime`);
   check(value?.failure?.reason === runtimeReason && value?.failure?.message === runtimeReason, `${name}: the unavailable package message must identify the current runtime`);
-  assertGolden(name, "toolset", {
+  assertGolden(name, "node", {
     status: result.status,
     value: normalizeMissingNativeGolden(value, runtimeKey),
     stderr: result.stderr === "" ? "empty" : "nonempty"
   });
-  check(result.stderr === "", `${name}: toolset must not write to stderr`);
-  check(result.status === 0 && value?.help?.availableKinds?.some((entry) => entry.includes("Native capabilities unavailable")), `${name}: help must remain available without a native package`);
+  check(result.stderr === "", `${name}: client must not write to stderr`);
   check(value?.validation?.ok === true, `${name}: pure validation must remain available without a native package`);
   check(value?.failure?.code === "native_package_unavailable" && value?.failure?.recoveryAction?.kind === "update_package" && value?.failure?.retryable === false, `${name}: execution must return an actionable native-package failure`);
 }
@@ -829,7 +817,7 @@ function parseJson(value, label) {
   }
 }
 
-function invokeToolset(packageRoot, requestPayload, fixtureConfig) {
+function invokeNode(packageRoot, requestPayload, fixtureConfig) {
   const captureDirectory = mkdtempSync(resolve(tmpdir(), "ytm-judge-"));
   const capturePath = resolve(captureDirectory, "requests.json");
   const result = spawnSync(process.execPath, [resolve(root, "judge/surface-runner.mjs")], {
@@ -949,9 +937,9 @@ function authorityRequestBody(path, expectedCells, label) {
 async function inspectPackage(packageRoot) {
   const pkg = JSON.parse(await readFile(resolve(packageRoot, "package.json"), "utf8"));
   const bin = typeof pkg.bin === "string" ? pkg.bin : pkg.bin?.ytm;
-  const toolset = pkg.exports?.["./toolset"]?.import;
-  const types = pkg.exports?.["./toolset"]?.types;
-  const required = [toolset, types, "README.md", "SPEC.md", "LICENSE.md", "skills/kisnet-ytm/SKILL.md"];
+  const client = pkg.exports?.["."]?.import;
+  const types = pkg.exports?.["."]?.types;
+  const required = [client, types, "README.md", "SPEC.md", "LICENSE.md", "skills/kisnet-ytm/SKILL.md"];
   const cliFiles = (await Promise.all(["src", "dist"].map(async (directory) => {
     const absolute = resolve(packageRoot, directory);
     return existsSync(absolute) ? listFiles(absolute, directory) : [];
@@ -959,7 +947,8 @@ async function inspectPackage(packageRoot) {
   return {
     name: pkg.name,
     bin: bin ?? null,
-    toolset,
+    exportKeys: Object.keys(pkg.exports || {}).sort(),
+    client,
     types,
     packageJsonExport: pkg.exports?.["./package.json"],
     engine: pkg.engines?.node,

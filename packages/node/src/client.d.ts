@@ -1,38 +1,21 @@
-export interface ToolRunContext {
+export interface RequestOptions {
   readonly signal?: AbortSignal;
 }
 
-export interface OperationSpec {
-  readonly name: string;
-  readonly label: string;
-  readonly description: string;
-  readonly inputJsonSchema: Record<string, unknown>;
-  readonly resultJsonSchema: Record<string, unknown>;
-  readonly requiredInputKeys: readonly string[];
-  /** Direct input objects; pass an example to validateInput without unwrapping it. */
-  readonly examples: readonly Record<string, unknown>[];
-  readonly limitations: readonly string[];
-  readonly resultSummary: string;
+export interface MatrixInput {
+  readonly baseDate: string;
+  readonly kind: string | number;
+  readonly fallback?: "previous-available";
+  readonly lookbackDays?: number;
 }
 
-export type OperationSummary = Pick<
-  OperationSpec,
-  "name" | "label" | "description" | "resultSummary"
->;
-
-export interface ToolsetHelp {
-  readonly id: string;
-  readonly label: string;
-  readonly description: string;
-  readonly operations: readonly OperationSpec[];
-  readonly availableKinds: readonly string[];
-  readonly guidance: readonly string[];
-  readonly sourceTerms: readonly string[];
+export interface KindsInput {
+  readonly baseDate?: string;
 }
 
-export type ValidationRecoveryAction =
-  | { readonly kind: "inspect_tool_help" }
-  | { readonly kind: "inspect_command_help"; readonly operationName: string }
+export type RecoveryAction =
+  | { readonly kind: "review_client_usage" }
+  | { readonly kind: "review_method_input"; readonly method: "matrix" | "kinds" }
   | { readonly kind: "use_previous_available_fallback" }
   | { readonly kind: "try_nearby_business_day" }
   | { readonly kind: "start_new_request" }
@@ -69,7 +52,7 @@ export interface SerializedError {
   readonly lookbackDays?: number;
   readonly cause?: string;
   readonly recoveryHint?: string;
-  readonly recoveryAction?: ValidationRecoveryAction;
+  readonly recoveryAction?: RecoveryAction;
   readonly recoverable?: boolean;
   readonly retryable?: boolean;
   readonly [key: string]: unknown;
@@ -80,13 +63,13 @@ export interface ValidationErrorDetails extends SerializedError {
   readonly code: ErrorCode;
   readonly reason: string;
   readonly recoveryHint: string;
-  readonly recoveryAction: ValidationRecoveryAction;
+  readonly recoveryAction: RecoveryAction;
   readonly recoverable: boolean;
   readonly retryable: boolean;
 }
 
-export type ValidationResult =
-  | { readonly ok: true; readonly input: Record<string, unknown> }
+export type ValidationResult<Input> =
+  | { readonly ok: true; readonly input: Input }
   | { readonly ok: false; readonly error: ValidationErrorDetails };
 
 export interface YtmKind {
@@ -131,48 +114,22 @@ export interface ListYtmKindsResult {
 /** @deprecated Use ListYtmKindsResult. */
 export type ListYtmSortsResult = ListYtmKindsResult;
 
-export interface KisnetYtmToolset {
-  readonly id: "ytm";
-  readonly label: string;
-  readonly description: string;
-  help(): ToolsetHelp;
-  listOperations(): readonly OperationSpec[];
-  getOperation(name: string): OperationSpec | undefined;
-  getCommandHelp(name: string): OperationSpec | undefined;
-  validateInput(
-    operationName: string,
-    input: unknown
-  ): ValidationResult;
-  execute(
-    operationName: "matrix",
-    input: {
-      baseDate: string;
-      kind: string | number;
-      fallback?: "previous-available";
-      lookbackDays?: number;
-    },
-    context?: ToolRunContext
+export class YtmClient {
+  matrix(
+    input: MatrixInput,
+    options?: RequestOptions
   ): Promise<LookupYtmMatrixResult>;
-  execute(
-    operationName: "kinds",
-    input?: { baseDate?: string },
-    context?: ToolRunContext
+  kinds(
+    input?: KindsInput,
+    options?: RequestOptions
   ): Promise<ListYtmKindsResult>;
-  execute(
-    operationName: string,
-    input?: Record<string, unknown>,
-    context?: ToolRunContext
-  ): Promise<unknown>;
-  serializeError(error: unknown): SerializedError;
 }
 
-export class KisnetYtmError extends Error {
+export class YtmError extends Error {
   readonly details: SerializedError;
   constructor(details: SerializedError | Record<string, unknown>);
 }
 
-export function createKisnetYtmToolset(): KisnetYtmToolset;
-export function validateInput(
-  operationName: string,
-  input: unknown
-): ValidationResult;
+export function validateMatrixInput(input: unknown): ValidationResult<MatrixInput>;
+export function validateKindsInput(input?: unknown): ValidationResult<KindsInput>;
+export function serializeYtmError(error: unknown): SerializedError;

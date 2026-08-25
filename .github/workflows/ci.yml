@@ -254,7 +254,7 @@ jobs:
         shell: bash
         run: |
           node scripts/generate-native-packages.mjs
-          npm run build:facade
+          npm run build:sdk
           node scripts/assemble-native-package.mjs ${{ matrix.target.rust }}
           mkdir -p .artifacts/native .artifacts/root
           npm pack --pack-destination .artifacts/native packages/native/${{ matrix.target.directory }}

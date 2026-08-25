@@ -51,8 +51,9 @@ executable entry, and the repository supports only the Rust `ytm` CLI.
 - [`crates/ytm-node`](crates/ytm-node) — async Node-API projection over the
   public Rust SDK. It owns JavaScript cancellation and stable boundary
   serialization, but no source rules.
-- [`packages/node/src`](packages/node/src) — public Node SDK validation,
-  discovery, type declarations, and error ergonomics. It has no CLI adapter.
+- [`packages/node/src`](packages/node/src) — public Node SDK validation, typed
+  client interface, type declarations, and error ergonomics. It has no CLI
+  adapter.
 - [`crates/ytm-cli`](crates/ytm-cli) — workspace crate producing the standalone `ytm`
   binary. It owns Clap parsing, command help, terminal diagnostics, tabular
   rendering, and exit statuses while delegating product behavior to
@@ -88,7 +89,7 @@ For a Node SDK call:
    forwards normalized input plus `AbortSignal` cancellation to Node-API.
 2. The binding calls the same public Rust SDK used by the CLI and projects its
    result without raw bodies, dependency errors, or panics.
-3. The Node adapter returns the typed toolset result or stable JavaScript
+3. The Node adapter returns the typed client result or stable JavaScript
    error. It does not render or dispatch a command-line interface.
 
 ## Ownership and invariants

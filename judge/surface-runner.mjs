@@ -5,39 +5,24 @@ import { pathToFileURL } from "node:url";
 const request = JSON.parse(process.env.YTM_JUDGE_REQUEST || "{}");
 const packageRoot = resolve(request.packageRoot);
 const pkg = JSON.parse(await readFile(resolve(packageRoot, "package.json"), "utf8"));
-const exportTarget = pkg.exports?.["./toolset"]?.import;
-if (!exportTarget) throw new Error("Package does not declare the ./toolset import export");
+const exportTarget = pkg.exports?.["."]?.import;
+if (!exportTarget) throw new Error("Package does not declare the root Node SDK export");
 const module = await import(pathToFileURL(resolve(packageRoot, exportTarget)).href);
-const toolset = module.createKisnetYtmToolset();
+const client = new module.YtmClient();
 
 let value;
 let error;
 try {
   if (request.action === "inspect") {
-    const operations = toolset.listOperations();
     value = {
-      id: toolset.id,
-      label: toolset.label,
-      description: toolset.description,
-      methods: ["help", "listOperations", "getOperation", "getCommandHelp", "validateInput", "execute", "serializeError"]
-        .filter((name) => typeof toolset[name] === "function"),
-      help: toolset.help(),
-      operations,
-      commandHelp: Object.fromEntries(operations.map(({ name }) => [name, toolset.getCommandHelp(name)]))
+      exports: Object.keys(module).sort(),
+      methods: ["matrix", "kinds"].filter((name) => typeof client[name] === "function")
     };
   } else if (request.action === "validate") {
-    value = toolset.validateInput(request.operation, request.input);
-  } else if (request.action === "operation-mutation") {
-    const operation = toolset.getOperation("matrix");
-    operation.inputJsonSchema.properties.baseDate.description = "mutated";
-    operation.examples[0].baseDate = "mutated";
-    const listed = toolset.listOperations();
-    listed[0].limitations[0] = "mutated";
-    value = {
-      operation: toolset.getOperation("matrix"),
-      listed: toolset.listOperations()[0]
-    };
-  } else if (request.action === "facade-regressions") {
+    value = request.operation === "matrix"
+      ? module.validateMatrixInput(request.input)
+      : module.validateKindsInput(request.input);
+  } else if (request.action === "client-regressions") {
     const circularDetails = {
       ok: true,
       code: "foreign_error",
@@ -56,25 +41,24 @@ try {
     revoked.revoke();
     let hostileConstructor;
     try {
-      hostileConstructor = new module.KisnetYtmError(revoked.proxy).details;
+      hostileConstructor = new module.YtmError(revoked.proxy).details;
     } catch (caught) {
       hostileConstructor = { threw: true, name: caught?.name };
     }
     value = {
-      commandHelp: toolset.getCommandHelp("matrix"),
-      kindsWithoutInput: await toolset.execute("kinds"),
-      nonObject: toolset.validateInput("matrix", null),
-      blankKind: toolset.validateInput("matrix", { baseDate: request.baseDate, kind: "   " }),
+      kindsWithoutInput: await client.kinds(),
+      nonObject: module.validateMatrixInput(null),
+      blankKind: module.validateMatrixInput({ baseDate: request.baseDate, kind: "   " }),
       earlyYearDates: ["0000-02-29", "0001-01-01", "0099-12-31"]
-        .map((baseDate) => toolset.validateInput("matrix", { baseDate, kind: "10" })),
-      invalidEarlyLeapDay: toolset.validateInput("matrix", { baseDate: "0001-02-29", kind: "10" }),
+        .map((baseDate) => module.validateMatrixInput({ baseDate, kind: "10" })),
+      invalidEarlyLeapDay: module.validateMatrixInput({ baseDate: "0001-02-29", kind: "10" }),
       nonFiniteKinds: [Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]
-        .map((kind) => toolset.validateInput("matrix", { baseDate: request.baseDate, kind })),
-      scalarDetails: toolset.serializeError({ details: "not-an-error-envelope" }),
-      arrayDetails: toolset.serializeError({ details: ["not-an-error-envelope"] }),
-      objectDetails: toolset.serializeError({ details: { code: "sentinel" } }),
-      foreignDetails: toolset.serializeError({ details: circularDetails }),
-      sharedReferences: toolset.serializeError({
+        .map((kind) => module.validateMatrixInput({ baseDate: request.baseDate, kind })),
+      scalarDetails: module.serializeYtmError({ details: "not-an-error-envelope" }),
+      arrayDetails: module.serializeYtmError({ details: ["not-an-error-envelope"] }),
+      objectDetails: module.serializeYtmError({ details: { code: "sentinel" } }),
+      foreignDetails: module.serializeYtmError({ details: circularDetails }),
+      sharedReferences: module.serializeYtmError({
         details: {
           code: "foreign_error",
           reason: "Shared diagnostics",
@@ -82,7 +66,7 @@ try {
           actual: sharedDetails
         }
       }),
-      hostileDetails: toolset.serializeError(hostileError),
+      hostileDetails: module.serializeYtmError(hostileError),
       hostileConstructor
     };
   } else if (request.action === "execute") {
@@ -92,14 +76,14 @@ try {
       controller.abort(new Error("judge cancellation"));
       context = { signal: controller.signal };
     }
-    value = await toolset.execute(request.operation, request.input, context);
+    value = await client[request.operation](request.input, context);
   } else if (request.action === "abort-handler-preservation") {
     const controller = new AbortController();
     let handlerCalls = 0;
     const handler = () => { handlerCalls += 1; };
     controller.signal.onabort = handler;
-    const execution = toolset
-      .execute("kinds", request.input, { signal: controller.signal })
+    const execution = client
+      .kinds(request.input, { signal: controller.signal })
       .then(
         () => ({ ok: true }),
         (caught) => ({ ok: false, caught })
@@ -110,7 +94,7 @@ try {
     const outcome = await execution;
     const cancellation = outcome.ok
       ? { code: "unexpected_success" }
-      : toolset.serializeError(outcome.caught);
+      : module.serializeYtmError(outcome.caught);
     value = {
       preservedDuringExecution,
       preservedAfterAbort: controller.signal.onabort === handler,
@@ -122,7 +106,7 @@ try {
     throw new Error(`Unknown runner action: ${request.action}`);
   }
 } catch (caught) {
-  error = toolset.serializeError(caught);
+  error = module.serializeYtmError(caught);
 }
 
 let requests = [];

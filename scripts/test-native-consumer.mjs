@@ -52,11 +52,11 @@ try {
   const inspection = run(process.execPath, [
     "--input-type=module",
     "-e",
-    "const m=await import('@sjunepark/ytm/toolset');const t=m.createKisnetYtmToolset();const v=t.validateInput('matrix',{baseDate:'20260820',kind:'80'});const kinds=await t.execute('kinds');console.log(JSON.stringify({methods:['help','listOperations','getOperation','getCommandHelp','validateInput','execute','serializeError'].every(k=>typeof t[k]==='function'),operations:t.listOperations().map(x=>x.name),kind80:t.help().availableKinds.includes('80 = 회사채(사모)'),valid:v.ok,baseDate:v.input?.baseDate,nativeKinds:kinds.kinds?.map(x=>x.code)}));"
+    "const m=await import('@sjunepark/ytm');const client=new m.YtmClient();const v=m.validateMatrixInput({baseDate:'20260820',kind:'80'});const kinds=await client.kinds();console.log(JSON.stringify({exports:['YtmClient','YtmError','validateMatrixInput','validateKindsInput','serializeYtmError'].every(k=>typeof m[k]==='function'),methods:['matrix','kinds'].every(k=>typeof client[k]==='function'),valid:v.ok,baseDate:v.input?.baseDate,nativeKinds:kinds.kinds?.map(x=>x.code)}));"
   ], temporary);
-  const capability = parseJson(inspection, "installed toolset inspection");
-  if (!capability.methods || capability.operations.join(",") !== "matrix,kinds" || !capability.kind80 || !capability.valid || capability.baseDate !== "2026-08-20" || capability.nativeKinds?.[0] !== "10" || !capability.nativeKinds.includes("80")) {
-    throw new Error(`Installed toolset capability check failed: ${inspection.stdout}`);
+  const capability = parseJson(inspection, "installed client inspection");
+  if (!capability.exports || !capability.methods || !capability.valid || capability.baseDate !== "2026-08-20" || capability.nativeKinds?.[0] !== "10" || !capability.nativeKinds.includes("80")) {
+    throw new Error(`Installed client capability check failed: ${inspection.stdout}`);
   }
 
   const installedPackage = JSON.parse(await readFile(resolve(temporary, "node_modules/@sjunepark/ytm/package.json"), "utf8"));

@@ -183,7 +183,7 @@ for (const relativePath of ["../SPEC.md", "../packages/node/SPEC.md", "../packag
   }
 }
 
-for (const relativePath of ["../packages/node/src/toolset.js", "../packages/node/src/native.js", "../packages/node/src/native.cjs"]) {
+for (const relativePath of ["../packages/node/src/client.js", "../packages/node/src/native.js", "../packages/node/src/native.cjs"]) {
   const text = await readFile(new URL(relativePath, import.meta.url), "utf8");
   for (const forbidden of [
     "https://kis-net.kr",
@@ -202,7 +202,7 @@ const repositorySkill = await readFile(new URL("../skills/kisnet-ytm/SKILL.md", 
 const packagedSkill = await readFile(new URL("../packages/node/skills/kisnet-ytm/SKILL.md", import.meta.url), "utf8");
 const nodeReadme = await readFile(new URL("../packages/node/README.md", import.meta.url), "utf8");
 check(!repositorySkill.includes("Python") && repositorySkill.includes("ytm matrix") && repositorySkill.includes("80` 회사채(사모)"), "the repository skill must cover the active Rust CLI and canonical kind 80");
-check(packagedSkill.includes("@sjunepark/ytm/toolset") && !packagedSkill.includes("ytm matrix") && !packagedSkill.includes("package-provided"), "the packaged Node skill must describe the SDK without claiming a CLI");
+check(packagedSkill.includes("@sjunepark/ytm") && !packagedSkill.includes("ytm matrix") && !packagedSkill.includes("package-provided"), "the packaged Node skill must describe the root client SDK without claiming a CLI");
 for (const [label, example] of [
   ["repository skill", repositorySkill],
   ["packaged skill", packagedSkill],
@@ -225,7 +225,7 @@ for (const path of [
 ]) {
   check(isNodeCliArtifact(path), `the Node CLI artifact guard must reject ${path}`);
 }
-for (const path of ["dist/toolset.js", "src/client.js", "skills/kisnet-ytm/SKILL.md"]) {
+for (const path of ["dist/client.js", "src/client.js", "skills/kisnet-ytm/SKILL.md"]) {
   check(!isNodeCliArtifact(path), `the Node CLI artifact guard must allow ${path}`);
 }
 

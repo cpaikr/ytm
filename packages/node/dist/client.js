@@ -1,20 +1,11 @@
-import { describeNative, invokeNative } from "./native.js";
+import { invokeNative } from "./native.js";
 
 const FALLBACK_PREVIOUS_AVAILABLE = "previous-available";
 const DEFAULT_LOOKBACK_DAYS = 10;
 const MAX_LOOKBACK_DAYS = 31;
 
-const TOOLSET_ID = "ytm";
-const TOOLSET_LABEL = "KIS-NET YTM Matrix";
-const TOOLSET_DESCRIPTION =
-  "Deterministic lookup of KIS-NET YTM Matrix data with source and resolution metadata.";
-
-const operationSpecs = [
-  {
-    name: "matrix",
-    label: "Lookup KIS-NET YTM Matrix",
-    description:
-      "Fetch YTM Matrix rows from KIS-NET for a 기준일 and 종류. The source-native 종류 may be a Korean label such as 국채 or a source code such as 10.",
+const methodSpecs = {
+  matrix: {
     requiredInputKeys: ["baseDate", "kind"],
     inputJsonSchema: {
       type: "object",
@@ -45,27 +36,6 @@ const operationSpecs = [
         }
       }
     },
-    resultJsonSchema: {
-      type: "object",
-      required: [
-        "baseDate",
-        "kind",
-        "tenors",
-        "rows",
-        "source",
-        "requestedBaseDate",
-        "dateResolution"
-      ],
-      properties: {
-        baseDate: { type: "string" },
-        requestedBaseDate: { type: "string" },
-        dateResolution: { type: "object" },
-        kind: { type: "object" },
-        tenors: { type: "array", items: { type: "string" } },
-        rows: { type: "array" },
-        source: { type: "object" }
-      }
-    },
     examples: [
       { baseDate: "2026-06-08", kind: "국채" },
       { baseDate: "20260608", kind: "10" },
@@ -75,20 +45,9 @@ const operationSpecs = [
         fallback: FALLBACK_PREVIOUS_AVAILABLE,
         lookbackDays: 10
       }
-    ],
-    limitations: [
-      "KIS-NET decides available 기준일 data and may return an empty matrix for non-business days, holidays, or unavailable dates.",
-      `With fallback=${FALLBACK_PREVIOUS_AVAILABLE}, the requested 기준일 is still tried first; previous dates are probed only after KIS-NET returns no rows.`,
-      "Exact '-' yield cells are returned as null; leading ASCII-space padding on numeric yields is parsed without changing yieldText or raw."
-    ],
-    resultSummary:
-      "Returns the resolved 종류, tenor labels, one row per 적용대상채권, numeric yield values, raw source cells, source request metadata, and date-resolution metadata."
+    ]
   },
-  {
-    name: "kinds",
-    label: "List KIS-NET YTM 종류 values",
-    description:
-      "List source 종류 codes and Korean labels for the KIS-NET YTM Matrix. When baseDate is supplied, values are refreshed from KIS-NET's init endpoint; otherwise the inspected source list is returned without a network request.",
+  kinds: {
     requiredInputKeys: [],
     inputJsonSchema: {
       type: "object",
@@ -101,22 +60,9 @@ const operationSpecs = [
         }
       }
     },
-    resultJsonSchema: {
-      type: "object",
-      required: ["kinds", "source"],
-      properties: {
-        baseDate: { type: ["string", "null"] },
-        kinds: { type: "array" },
-        source: { type: "object" }
-      }
-    },
-    examples: [{}, { baseDate: "2026-06-08" }],
-    limitations: [
-      "Without baseDate this command returns the source list observed during tool inspection instead of performing a live request."
-    ],
-    resultSummary: "Returns accepted 종류 codes and labels."
+    examples: [{}, { baseDate: "2026-06-08" }]
   }
-];
+};
 
 const ERROR_NAMES = {
   invalid_request: "ValidationError",
@@ -133,7 +79,7 @@ const ERROR_NAMES = {
   internal_error: "InternalError"
 };
 
-export class KisnetYtmError extends Error {
+export class YtmError extends Error {
   constructor(details) {
     const serialized = normalizeSerializedError(details);
     super(serialized.message);
@@ -142,76 +88,65 @@ export class KisnetYtmError extends Error {
   }
 }
 
-export function createKisnetYtmToolset() {
-  return {
-    id: TOOLSET_ID,
-    label: TOOLSET_LABEL,
-    description: TOOLSET_DESCRIPTION,
-    help() {
-      return buildHelp();
-    },
-    listOperations() {
-      return clone(operationSpecs);
-    },
-    getOperation(name) {
-      const spec = operationSpecs.find((candidate) => candidate.name === name);
-      return spec ? clone(spec) : undefined;
-    },
-    getCommandHelp(name) {
-      const spec = operationSpecs.find((candidate) => candidate.name === name);
-      return spec ? clone(spec) : undefined;
-    },
-    validateInput(operationName, input) {
-      return validateInput(operationName, input);
-    },
-    async execute(operationName, input, context = {}) {
-      const effectiveInput =
-        operationName === "kinds" && input === undefined ? {} : input;
-      const validation = validateInput(operationName, effectiveInput);
-      if (!validation.ok) throw new KisnetYtmError(validation.error);
+export class YtmClient {
+  matrix(input, options = {}) {
+    return executeOperation("matrix", input, options);
+  }
 
-      // A pre-aborted request is a caller cancellation, not a transient source
-      // failure. Keep the historical source_transport_error code while making
-      // the retry policy explicit and non-retryable.
-      if (context.signal?.aborted) {
-        throw new KisnetYtmError({
-          ok: false,
-          name: "AbortError",
-          code: "source_transport_error",
-          operationName,
-          reason: "The KIS-NET request was cancelled before it started.",
-          expected: "A non-aborted request signal",
-          recoveryHint: "Create a new request with a non-aborted AbortSignal.",
-          recoveryAction: { kind: "start_new_request" },
-          recoverable: false,
-          retryable: false,
-          cause: "AbortError"
-        });
-      }
-
-      if (operationName !== "matrix" && operationName !== "kinds") {
-        throw new KisnetYtmError(unknownOperationError(operationName));
-      }
-
-      const envelope = await invokeNative(
-        operationName,
-        validation.input,
-        context.signal
-      );
-      if (!envelope || envelope.ok !== true) {
-        throw new KisnetYtmError(envelope?.error ?? nativeEnvelopeError());
-      }
-      return envelope.value;
-    },
-    serializeError(error) {
-      return serializeError(error);
-    }
-  };
+  kinds(input = {}, options = {}) {
+    return executeOperation("kinds", input, options);
+  }
 }
 
-export function validateInput(operationName, input) {
-  const spec = operationSpecs.find((candidate) => candidate.name === operationName);
-  if (!spec) return { ok: false, error: unknownOperationError(operationName) };
+export function validateMatrixInput(input) {
+  return validateInput("matrix", input);
+}
+
+export function validateKindsInput(input = {}) {
+  return validateInput("kinds", input);
+}
+
+export function serializeYtmError(error) {
+  return serializeError(error);
+}
+
+async function executeOperation(operationName, input, options) {
+  const validation = validateInput(operationName, input);
+  if (!validation.ok) throw new YtmError(validation.error);
+
+  // A pre-aborted request is a caller cancellation, not a transient source
+  // failure. Keep the historical source_transport_error code while making
+  // the retry policy explicit and non-retryable.
+  if (options.signal?.aborted) {
+    throw new YtmError({
+      ok: false,
+      name: "AbortError",
+      code: "source_transport_error",
+      operationName,
+      reason: "The KIS-NET request was cancelled before it started.",
+      expected: "A non-aborted request signal",
+      recoveryHint: "Create a new request with a non-aborted AbortSignal.",
+      recoveryAction: { kind: "start_new_request" },
+      recoverable: false,
+      retryable: false,
+      cause: "AbortError"
+    });
+  }
+
+  const envelope = await invokeNative(
+    operationName,
+    validation.input,
+    options.signal
+  );
+  if (!envelope || envelope.ok !== true) {
+    throw new YtmError(envelope?.error ?? nativeEnvelopeError());
+  }
+  return envelope.value;
+}
+
+function validateInput(operationName, input) {
+  const spec = methodSpecs[operationName];
+  if (!spec) throw new Error(`Unsupported client method: ${operationName}`);
 
   if (!input || typeof input !== "object" || Array.isArray(input)) {
     return {
@@ -223,10 +158,10 @@ export function validateInput(operationName, input) {
         expected: "object",
         actual: safeActual(input),
         exampleInput: spec.examples[0],
-        recoveryHint: "Pass a JSON object matching the command input schema.",
+        recoveryHint: "Pass a JSON object matching the method input schema.",
         recoveryAction: {
-          kind: "inspect_command_help",
-          operationName
+          kind: "review_method_input",
+          method: operationName
         }
       })
     };
@@ -245,7 +180,7 @@ export function validateInput(operationName, input) {
           expected: allowed,
           actual: key,
           exampleInput: spec.examples[0],
-          recoveryHint: `Remove ${key} or inspect command help for supported parameters.`
+          recoveryHint: `Remove ${key} or review the documented ${operationName} input.`
         })
       };
     }
@@ -412,22 +347,6 @@ export function validateInput(operationName, input) {
   return { ok: true, input: normalized };
 }
 
-function buildHelp() {
-  return clone({
-    id: TOOLSET_ID,
-    label: TOOLSET_LABEL,
-    description: TOOLSET_DESCRIPTION,
-    operations: operationSpecs,
-    availableKinds: formatKindsForHelp(),
-    guidance: [
-      "Call getCommandHelp(operationName) for the complete input and result contract.",
-      "Validate a direct input object before execute; validation returns normalized input or structured recovery metadata.",
-      "Results preserve source metadata, references where available, and date-resolution warnings in the operation payload."
-    ],
-    sourceTerms: ["기준일", "종류", "적용대상채권"]
-  });
-}
-
 function normalizeLookbackDays(value) {
   if (!Number.isInteger(value) || value < 1 || value > MAX_LOOKBACK_DAYS) {
     return null;
@@ -499,26 +418,10 @@ function validationError(details) {
     recoveryAction:
       details.recoveryAction ||
       (details.parameter
-        ? { kind: "inspect_command_help", operationName: details.operationName }
-        : { kind: "inspect_tool_help" }),
+        ? { kind: "review_method_input", method: details.operationName }
+        : { kind: "review_client_usage" }),
     recoverable: true,
     retryable: false
-  });
-}
-
-function unknownOperationError(operationName) {
-  return validationError({
-    operationName,
-    code: "invalid_request",
-    reason: `Unknown operation: ${operationName}.`,
-    expected: operationSpecs.map((spec) => spec.name),
-    actual: safeActual(operationName),
-    exampleInput: {
-      operationName: "matrix",
-      input: { baseDate: "2026-06-08", kind: "국채" }
-    },
-    recoveryHint: "Inspect tool help and retry with a listed operation name.",
-    recoveryAction: { kind: "inspect_tool_help" }
   });
 }
 
@@ -605,7 +508,7 @@ function normalizeSerializedError(details) {
         ? sanitized.name
         : sanitized.cause === "AbortError"
           ? "AbortError"
-        : ERROR_NAMES[code] || "KisnetYtmError",
+        : ERROR_NAMES[code] || "YtmError",
     message,
     code,
     reason,
@@ -618,27 +521,33 @@ function normalizeSerializedError(details) {
     normalized.recoveryHint =
       code === "internal_error"
         ? "Update the package for this platform, then report the failure if it persists."
-        : "Inspect tool help and retry with the documented recovery action.";
+        : "Review the client method documentation and retry with the documented recovery action.";
   }
   return normalized;
 }
 
 function normalizeRecoveryAction(action, operationName) {
   if (isRecord(action) && typeof action.kind === "string") {
+    if (action.kind === "inspect_command_help") {
+      return operationName
+        ? { kind: "review_method_input", method: operationName }
+        : { kind: "review_client_usage" };
+    }
+    if (action.kind === "inspect_tool_help") return { kind: "review_client_usage" };
     return action;
   }
   if (typeof action === "string") {
     if (action === "inspect_command_help") {
-      return {
-        kind: action,
-        ...(operationName ? { operationName } : {})
-      };
+      return operationName
+        ? { kind: "review_method_input", method: operationName }
+        : { kind: "review_client_usage" };
     }
+    if (action === "inspect_tool_help") return { kind: "review_client_usage" };
     return { kind: action };
   }
   return operationName
-    ? { kind: "inspect_command_help", operationName }
-    : { kind: "inspect_tool_help" };
+    ? { kind: "review_method_input", method: operationName }
+    : { kind: "review_client_usage" };
 }
 
 function isRecord(value) {
@@ -655,10 +564,6 @@ function safeActual(value) {
   if (["string", "number", "boolean"].includes(typeof value)) return value;
   if (Array.isArray(value)) return `[array:${value.length}]`;
   return "[object]";
-}
-
-function clone(value) {
-  return structuredClone(value);
 }
 
 function jsonSafeClone(value, seen = new WeakSet()) {
@@ -690,14 +595,4 @@ function jsonSafeClone(value, seen = new WeakSet()) {
   }
   seen.delete(value);
   return output;
-}
-
-function formatKindsForHelp() {
-  try {
-    return describeNative().kinds.map((kind) => `${kind.code} = ${kind.name}`);
-  } catch {
-    return [
-      "Native capabilities unavailable; install the platform package before executing source-backed operations."
-    ];
-  }
 }

@@ -1,6 +1,6 @@
 ---
 name: kisnet-ytm
-description: Use when retrieving Korean KIS-NET YTM Matrix rows or listing supported bond kinds through the standalone ytm CLI or @sjunepark/ytm toolset.
+description: Use when retrieving Korean KIS-NET YTM Matrix rows or listing supported bond kinds through the standalone ytm CLI or @sjunepark/ytm Node SDK.
 ---
 
 # KIS-NET YTM
@@ -8,7 +8,7 @@ description: Use when retrieving Korean KIS-NET YTM Matrix rows or listing suppo
 Publication is not yet authorized. In the repository checkout, replace `ytm`
 below with `bun run cli --`; this invokes the standalone Rust/Clap binary. The
 Node package is SDK-only. For an in-process Node integration, import
-`createKisnetYtmToolset` from `@sjunepark/ytm/toolset`.
+`YtmClient` and the operation-specific validation helpers from `@sjunepark/ytm`.
 
 ```sh
 ytm kinds --format json
@@ -31,13 +31,13 @@ ytm matrix --base-date 2026-06-07 --kind 80 --fallback previous-available --look
   Source `-` or empty yields become `null` while raw text remains available.
 
 ```js
-import { createKisnetYtmToolset } from "@sjunepark/ytm/toolset";
+import { YtmClient, validateMatrixInput } from "@sjunepark/ytm";
 
-const toolset = createKisnetYtmToolset();
-const validation = toolset.validateInput("matrix", {
+const client = new YtmClient();
+const validation = validateMatrixInput({
   baseDate: "2026-06-08",
   kind: "회사채(사모)"
 });
 if (!validation.ok) throw validation.error;
-const result = await toolset.execute("matrix", validation.input);
+const result = await client.matrix(validation.input);
 ```

@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 const packageRoot = resolve(import.meta.dirname, "..");
 const repositoryRoot = resolve(packageRoot, "../..");
 const dist = resolve(packageRoot, "dist");
-const facadeOnly = process.argv.includes("--facade-only");
+const sdkOnly = process.argv.includes("--sdk-only");
 const extension = process.platform === "win32" ? "dll" : process.platform === "darwin" ? "dylib" : "so";
 const prefix = process.platform === "win32" ? "" : "lib";
 const native = resolve(repositoryRoot, `target/debug/${prefix}ytm_node.${extension}`);
@@ -18,4 +18,4 @@ const sourceFiles = (await readdir(resolve(packageRoot, "src"), { withFileTypes:
 for (const filename of sourceFiles) {
   await copyFile(resolve(packageRoot, "src", filename), resolve(dist, filename));
 }
-if (!facadeOnly) await copyFile(native, resolve(dist, "ytm.node"));
+if (!sdkOnly) await copyFile(native, resolve(dist, "ytm.node"));

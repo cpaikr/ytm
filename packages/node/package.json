@@ -10,17 +10,17 @@
     "directory": "packages/node"
   },
   "exports": {
-    "./toolset": {
-      "types": "./dist/toolset.d.ts",
-      "import": "./dist/toolset.js"
+    ".": {
+      "types": "./dist/client.d.ts",
+      "import": "./dist/client.js"
     },
     "./package.json": "./package.json"
   },
   "files": [
     "dist/native.cjs",
     "dist/native.js",
-    "dist/toolset.d.ts",
-    "dist/toolset.js",
+    "dist/client.d.ts",
+    "dist/client.js",
     "skills",
     "CHANGELOG.md",
     "README.md",
@@ -36,9 +36,9 @@
   },
   "scripts": {
     "build": "cargo build --manifest-path ../../Cargo.toml --locked -p ytm-node && node scripts/build.mjs",
-    "build:facade": "node scripts/build.mjs --facade-only",
-    "prepack": "node scripts/build.mjs --facade-only",
-    "prepublishOnly": "node scripts/build.mjs --facade-only && node ../../judge/run.mjs --product-root . --scenario package-surface",
+    "build:sdk": "node scripts/build.mjs --sdk-only",
+    "prepack": "node scripts/build.mjs --sdk-only",
+    "prepublishOnly": "node scripts/build.mjs --sdk-only && node ../../judge/run.mjs --product-root . --scenario package-surface",
     "validate": "node ../../judge/run.mjs --product-root . --scenario package-surface",
     "test": "cargo build --manifest-path ../../Cargo.toml --locked -p ytm-node --features judge-fixtures && node scripts/build.mjs && node ../../judge/run.mjs --product-root . --surface node"
   },
