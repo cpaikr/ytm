@@ -2,7 +2,7 @@
 
 Rust-backed KIS-NET YTM Matrix SDK for Node.js.
 
-This package exports the runtime-neutral toolset and uses the shipped platform
+This package exports a typed `YtmClient` and uses the shipped platform
 Node-API loader internally. It has no `bin` entry or JavaScript CLI; the
 standalone `ytm` executable is the Rust/Clap workspace binary in
 `crates/ytm-cli`.
@@ -14,20 +14,21 @@ This rewrite has not been published yet. For the current checkout, follow the
 root README instead of installing the historical npm `latest` release.
 
 ```js
-import { createKisnetYtmToolset } from "@sjunepark/ytm/toolset";
+import { YtmClient, validateMatrixInput } from "@sjunepark/ytm";
 
-const ytm = createKisnetYtmToolset();
-const matrixHelp = ytm.getCommandHelp("matrix");
-const validation = ytm.validateInput("matrix", matrixHelp.examples[0]);
+const ytm = new YtmClient();
+const validation = validateMatrixInput({
+  baseDate: "2026-06-08",
+  kind: "국채"
+});
 if (!validation.ok) throw validation.error;
-const result = await ytm.execute("matrix", validation.input);
+const result = await ytm.matrix(validation.input);
 ```
 
-`help()` and `getCommandHelp()` return cloned structured objects. Operation
-examples are direct input objects, and validation returns either
-`{ ok: true, input }` or `{ ok: false, error }`. Error serialization preserves
-stable `name` and `message` fields alongside the source `code`, `reason`, and
-tagged `recoveryAction`.
+`validateMatrixInput()` and `validateKindsInput()` return either
+`{ ok: true, input }` or `{ ok: false, error }` without network I/O. `YtmError`
+and `serializeYtmError()` preserve stable `name` and `message` fields alongside
+the source `code`, `reason`, and tagged `recoveryAction`.
 
 The source is protocol-feasible but not production-qualified. See the
 repository [`SPEC.md`](https://github.com/cpaikr/ytm/blob/main/SPEC.md),

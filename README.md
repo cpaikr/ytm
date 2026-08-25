@@ -32,7 +32,7 @@ bun run cli -- kinds --format json
 ```
 
 `bun run cli --` invokes the Rust binary. The Node package requires Node.js 22
-or newer and exports `@sjunepark/ytm/toolset` for in-process use, but it has no
+or newer and exports a root `YtmClient` for in-process use, but it has no
 executable entry. Its GNU/Linux x64 and ARM64 artifacts target glibc 2.28 or
 newer. Run `bun run cli -- --help` and
 `bun run cli -- <command> --help` for the checkout CLI contract. See

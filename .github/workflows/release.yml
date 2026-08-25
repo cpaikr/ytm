@@ -303,7 +303,7 @@ jobs:
       - name: Pack root package without a native binary
         shell: bash
         run: |
-          bun run build:facade
+          bun run build:sdk
           mkdir -p .artifacts
           npm pack --pack-destination .artifacts --workspace packages/node
       - name: Upload root package

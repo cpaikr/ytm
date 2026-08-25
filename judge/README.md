@@ -1,7 +1,7 @@
 # Public-product judge
 
 The judge runs the standalone Rust `ytm` binary and the built
-`@sjunepark/ytm/toolset` surface in isolated processes. It does not import the
+`@sjunepark/ytm` client interface in isolated processes. It does not import the
 Rust core, binding internals, request builders, or parsers.
 
 The external Rust SDK consumer is checked separately under

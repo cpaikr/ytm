@@ -1,6 +1,6 @@
 # Current Node package boundary
 
-The public toolset contract is defined by the repository
+The public Node client contract is defined by the repository
 [`SPEC.md`](https://github.com/cpaikr/ytm/blob/main/SPEC.md). External HTTP
 and Nexacro details are owned only by
 [`contracts/kisnet/openapi.yaml`](https://github.com/cpaikr/ytm/blob/main/contracts/kisnet/openapi.yaml).
@@ -8,14 +8,11 @@ and Nexacro details are owned only by
 The package requires Node.js 22 or newer and supports Linux GNU x64/ARM64,
 macOS ARM64, and Windows x64 through exact-version optional native packages.
 The GNU/Linux artifacts require glibc 2.28 or newer.
-Use toolset discovery methods for the current public operation contract.
-
-`help()` returns a structured, cloned toolset description and
-`getCommandHelp(name)` returns a cloned operation spec. Operation `examples`
-are direct input objects. `validateInput()` returns `{ ok: true, input }` or
-`{ ok: false, error }`; validation and execution errors expose stable `name`
-and `message` fields, project `code`/`reason`, and a tagged
-`recoveryAction`.
+The root package export provides `YtmClient` with typed `matrix()` and `kinds()`
+methods. `validateMatrixInput()` and `validateKindsInput()` return
+`{ ok: true, input }` or `{ ok: false, error }` without network I/O;
+validation and execution errors expose stable `name` and `message` fields,
+project `code`/`reason`, and a tagged `recoveryAction`.
 
 The package is the Rust-backed Node SDK and has no `bin` entry or JavaScript
 CLI. It mirrors public fallback-input validation but does not own HTTP, XML,

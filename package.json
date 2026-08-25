@@ -11,7 +11,7 @@
     "build:node": "cargo build --locked -p ytm-node && node packages/node/scripts/build.mjs",
     "build:cli": "cargo build --locked -p ytm-cli",
     "build:judge": "cargo build --locked -p ytm-node -p ytm-cli --features ytm-node/judge-fixtures,ytm-cli/judge-fixtures && node packages/node/scripts/build.mjs",
-    "build:facade": "node packages/node/scripts/build.mjs --facade-only",
+    "build:sdk": "node packages/node/scripts/build.mjs --sdk-only",
     "build:check": "node scripts/generate-native-packages.mjs --check && node scripts/check-node-build.mjs",
     "rust:fixture-guard": "node scripts/check-release-fixture-guard.mjs",
     "rust:consumer:check": "cargo check --locked --manifest-path tests/rust-sdk-consumer/Cargo.toml",

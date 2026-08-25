@@ -216,52 +216,18 @@
     "stdout": "{\"ok\":true,\"operation\":\"matrix\",\"result\":{\"baseDate\":\"2026-06-08\",\"kind\":{\"code\":\"80\",\"name\":\"회사채(사모)\"},\"tenors\":[\"3M\",\"6M\",\"9M\",\"1Y\",\"1.5Y\",\"2Y\",\"2.5Y\",\"3Y\",\"5Y\",\"7Y\",\"10Y\",\"15Y\",\"20Y\",\"30Y\",\"50Y\"],\"rows\":[{\"groupName\":\"회사채(사모)\",\"pricingGroupCode\":\"8010110\",\"pricingGroupName\":\"회사채AAA(사모/무)\",\"yields\":{\"3M\":2.5,\"6M\":2.51,\"9M\":2.52,\"1Y\":2.53,\"1.5Y\":2.54,\"2Y\":2.55,\"2.5Y\":2.56,\"3Y\":2.57,\"5Y\":2.6,\"7Y\":2.7,\"10Y\":2.8,\"15Y\":2.9,\"20Y\":3,\"30Y\":null,\"50Y\":null},\"yieldText\":{\"3M\":\"   2.500\",\"6M\":\"  2.510\",\"9M\":\" 2.520\",\"1Y\":\"    2.530\",\"1.5Y\":\"   2.540\",\"2Y\":\"  2.550\",\"2.5Y\":\" 2.560\",\"3Y\":\"    2.570\",\"5Y\":\"   2.600\",\"7Y\":\"  2.700\",\"10Y\":\" 2.800\",\"15Y\":\"    2.900\",\"20Y\":\"   3.000\",\"30Y\":\"-\",\"50Y\":\"-\"},\"raw\":{\"pricingGroupCode\":\"8010110\",\"pricingGroupName\":\"회사채AAA(사모/무)\",\"m3\":\"   2.500\",\"m6\":\"  2.510\",\"m9\":\" 2.520\",\"y1\":\"    2.530\",\"y15a\":\"   2.540\",\"y2\":\"  2.550\",\"y25\":\" 2.560\",\"y3\":\"    2.570\",\"y5\":\"   2.600\",\"y7\":\"  2.700\",\"y10\":\" 2.800\",\"y15\":\"    2.900\",\"y20\":\"   3.000\",\"y30\":\"-\",\"y50\":\"-\"}},{\"groupName\":\"회사채(사모)\",\"pricingGroupCode\":\"8010223\",\"pricingGroupName\":\"회사채BB-(사모/무)\",\"yields\":{\"3M\":3.7,\"6M\":3.71,\"9M\":3.72,\"1Y\":3.73,\"1.5Y\":3.74,\"2Y\":3.75,\"2.5Y\":3.76,\"3Y\":3.77,\"5Y\":3.8,\"7Y\":3.9,\"10Y\":4,\"15Y\":4.1,\"20Y\":4.2,\"30Y\":null,\"50Y\":null},\"yieldText\":{\"3M\":\"   3.700\",\"6M\":\"  3.710\",\"9M\":\" 3.720\",\"1Y\":\"    3.730\",\"1.5Y\":\"   3.740\",\"2Y\":\"  3.750\",\"2.5Y\":\" 3.760\",\"3Y\":\"    3.770\",\"5Y\":\"   3.800\",\"7Y\":\"  3.900\",\"10Y\":\" 4.000\",\"15Y\":\"    4.100\",\"20Y\":\"   4.200\",\"30Y\":\"-\",\"50Y\":\"-\"},\"raw\":{\"pricingGroupCode\":\"8010223\",\"pricingGroupName\":\"회사채BB-(사모/무)\",\"m3\":\"   3.700\",\"m6\":\"  3.710\",\"m9\":\" 3.720\",\"y1\":\"    3.730\",\"y15a\":\"   3.740\",\"y2\":\"  3.750\",\"y25\":\" 3.760\",\"y3\":\"    3.770\",\"y5\":\"   3.800\",\"y7\":\"  3.900\",\"y10\":\" 4.000\",\"y15\":\"    4.100\",\"y20\":\"   4.200\",\"y30\":\"-\",\"y50\":\"-\"}}],\"source\":{\"pageUrl\":\"https://kis-net.kr/kisnet_mobile/index.html\",\"endpoint\":\"https://kis-net.kr/rateInfo/ytmMatrixMobileList.do\",\"method\":\"POST\",\"request\":{\"format\":\"Nexacro XML PlatformData\",\"inDatasets\":\"ds_search=ds_search gds_tranInfo=gds_tranInfo\",\"outDatasets\":\"ds_list=output1\",\"parameters\":{\"calBaseDt\":\"20260608\",\"cboYtmSort\":\"80\"}},\"inspectedWorkflow\":\"The mobile page posts ds_search to /rateInfo/ytmMatrixMobileList.do when 검색 is clicked.\"},\"requestedBaseDate\":\"2026-06-08\",\"dateResolution\":{\"mode\":\"exact\",\"requestedBaseDate\":\"2026-06-08\",\"resolvedBaseDate\":\"2026-06-08\",\"usedFallback\":false,\"attemptedDates\":[\"2026-06-08\"],\"lookbackDays\":0}}}\n",
     "stderr": ""
   },
-  "package:package-surface": {
-    "name": "@sjunepark/ytm",
-    "bin": null,
-    "toolset": "./dist/toolset.js",
-    "types": "./dist/toolset.d.ts",
-    "packageJsonExport": "./package.json",
-    "engine": ">=22",
-    "cliFiles": [],
-    "files": [
-      {
-        "path": "./dist/toolset.js",
-        "exists": true
-      },
-      {
-        "path": "./dist/toolset.d.ts",
-        "exists": true
-      },
-      {
-        "path": "README.md",
-        "exists": true
-      },
-      {
-        "path": "SPEC.md",
-        "exists": true
-      },
-      {
-        "path": "LICENSE.md",
-        "exists": true
-      },
-      {
-        "path": "skills/kisnet-ytm/SKILL.md",
-        "exists": true
-      }
-    ]
-  },
-  "toolset:abort-handler-preservation": {
+  "node:abort-handler-preservation": {
     "ok": true,
     "value": {
       "preservedDuringExecution": true,
       "preservedAfterAbort": true,
       "handlerCalls": 1,
       "signalAbortedAtEntry": false,
-      "cancellationCode": "source_transport_error"
+      "cancellationCode": "source_transport_error",
+      "cancellationIsYtmError": true
     }
   },
-  "toolset:cancellation": {
+  "node:cancellation": {
     "ok": false,
     "error": {
       "ok": false,
@@ -280,7 +246,23 @@
       "message": "The KIS-NET request was cancelled before it started."
     }
   },
-  "toolset:fallback-order": {
+  "node:client-surface": {
+    "ok": true,
+    "value": {
+      "exports": [
+        "YtmClient",
+        "YtmError",
+        "serializeYtmError",
+        "validateKindsInput",
+        "validateMatrixInput"
+      ],
+      "methods": [
+        "matrix",
+        "kinds"
+      ]
+    }
+  },
+  "node:fallback-order": {
     "ok": true,
     "value": {
       "baseDate": "2026-06-05",
@@ -395,7 +377,7 @@
       }
     }
   },
-  "toolset:fallback-stops-on-format-error": {
+  "node:fallback-stops-on-format-error": {
     "ok": false,
     "error": {
       "ok": false,
@@ -405,7 +387,7 @@
       "expected": "A valid KIS-NET Nexacro response matching the documented YTM Matrix schema",
       "recoveryHint": "The KIS-NET source format may have changed; update this client before retrying.",
       "recoveryAction": {
-        "kind": "inspect_tool_help"
+        "kind": "review_client_usage"
       },
       "recoverable": false,
       "retryable": false,
@@ -417,7 +399,7 @@
       "message": "KIS-NET matrix column m3 contains an invalid numeric value."
     }
   },
-  "toolset:fallback-stops-on-kind-resolution-error": {
+  "node:fallback-stops-on-kind-resolution-error": {
     "ok": false,
     "error": {
       "ok": false,
@@ -466,8 +448,8 @@
       },
       "recoveryHint": "Use kinds to inspect accepted 종류 values, then retry with a listed code or label.",
       "recoveryAction": {
-        "kind": "inspect_command_help",
-        "operationName": "matrix"
+        "kind": "review_method_input",
+        "method": "matrix"
       },
       "recoverable": true,
       "retryable": false,
@@ -475,7 +457,7 @@
       "message": "Unknown 종류: not-a-kind."
     }
   },
-  "toolset:fallback-stops-on-protocol-error": {
+  "node:fallback-stops-on-protocol-error": {
     "ok": false,
     "error": {
       "ok": false,
@@ -486,7 +468,7 @@
       "actual": "-1",
       "recoveryHint": "Inspect the preserved KIS-NET status before deciding whether the request can be retried.",
       "recoveryAction": {
-        "kind": "inspect_tool_help"
+        "kind": "review_client_usage"
       },
       "recoverable": false,
       "retryable": false,
@@ -500,7 +482,7 @@
       "message": "KIS-NET returned nonzero Nexacro ErrorCode -1 (Request rejected)."
     }
   },
-  "toolset:fallback-stops-on-transport-error": {
+  "node:fallback-stops-on-transport-error": {
     "ok": false,
     "error": {
       "ok": false,
@@ -510,7 +492,7 @@
       "expected": "A successful HTTP response from KIS-NET",
       "recoveryHint": "Retry later or inspect whether KIS-NET is available.",
       "recoveryAction": {
-        "kind": "inspect_tool_help"
+        "kind": "review_client_usage"
       },
       "recoverable": true,
       "retryable": true,
@@ -523,7 +505,7 @@
       "message": "KIS-NET request failed before a response was received."
     }
   },
-  "toolset:fallback-stops-on-validation-error": {
+  "node:fallback-stops-on-validation-error": {
     "ok": false,
     "error": {
       "ok": false,
@@ -541,14 +523,14 @@
       },
       "recoveryHint": "Use the official 기준일 date shown by KIS-NET, for example 2026-06-08.",
       "recoveryAction": {
-        "kind": "inspect_command_help",
-        "operationName": "matrix"
+        "kind": "review_method_input",
+        "method": "matrix"
       },
       "recoverable": true,
       "retryable": false
     }
   },
-  "toolset:fixture-behavior:initMalformedAll": {
+  "node:fixture-behavior:initMalformedAll": {
     "ok": false,
     "error": {
       "ok": false,
@@ -558,7 +540,7 @@
       "expected": "A valid KIS-NET Nexacro response matching the documented YTM Matrix schema",
       "recoveryHint": "The KIS-NET source format may have changed; update this client before retrying.",
       "recoveryAction": {
-        "kind": "inspect_tool_help"
+        "kind": "review_client_usage"
       },
       "recoverable": false,
       "retryable": false,
@@ -570,7 +552,7 @@
       "message": "KIS-NET kind row is missing divCode or divName."
     }
   },
-  "toolset:fixture-behavior:initMalformedMixed": {
+  "node:fixture-behavior:initMalformedMixed": {
     "ok": false,
     "error": {
       "ok": false,
@@ -580,7 +562,7 @@
       "expected": "A valid KIS-NET Nexacro response matching the documented YTM Matrix schema",
       "recoveryHint": "The KIS-NET source format may have changed; update this client before retrying.",
       "recoveryAction": {
-        "kind": "inspect_tool_help"
+        "kind": "review_client_usage"
       },
       "recoverable": false,
       "retryable": false,
@@ -592,7 +574,7 @@
       "message": "KIS-NET kind row is missing divCode or divName."
     }
   },
-  "toolset:fixture-behavior:invalid-error-code": {
+  "node:fixture-behavior:invalid-error-code": {
     "ok": false,
     "error": {
       "ok": false,
@@ -602,7 +584,7 @@
       "expected": "A valid KIS-NET Nexacro response matching the documented YTM Matrix schema",
       "recoveryHint": "The KIS-NET source format may have changed; update this client before retrying.",
       "recoveryAction": {
-        "kind": "inspect_tool_help"
+        "kind": "review_client_usage"
       },
       "recoverable": false,
       "retryable": false,
@@ -614,7 +596,7 @@
       "message": "KIS-NET ErrorCode is not a textual integer."
     }
   },
-  "toolset:fixture-behavior:missing-matrix-column": {
+  "node:fixture-behavior:missing-matrix-column": {
     "ok": false,
     "error": {
       "ok": false,
@@ -624,7 +606,7 @@
       "expected": "A valid KIS-NET Nexacro response matching the documented YTM Matrix schema",
       "recoveryHint": "The KIS-NET source format may have changed; update this client before retrying.",
       "recoveryAction": {
-        "kind": "inspect_tool_help"
+        "kind": "review_client_usage"
       },
       "recoverable": false,
       "retryable": false,
@@ -636,7 +618,7 @@
       "message": "KIS-NET matrix row is missing required column y50."
     }
   },
-  "toolset:format-error": {
+  "node:format-error": {
     "ok": false,
     "error": {
       "ok": false,
@@ -646,7 +628,7 @@
       "expected": "A valid KIS-NET Nexacro response matching the documented YTM Matrix schema",
       "recoveryHint": "The KIS-NET source format may have changed; update this client before retrying.",
       "recoveryAction": {
-        "kind": "inspect_tool_help"
+        "kind": "review_client_usage"
       },
       "recoverable": false,
       "retryable": false,
@@ -658,7 +640,7 @@
       "message": "KIS-NET response root or namespace is invalid."
     }
   },
-  "toolset:kind-80:dated-catalog": {
+  "node:kind-80:dated-catalog": {
     "ok": true,
     "value": {
       "baseDate": "2026-06-08",
@@ -713,7 +695,7 @@
       }
     }
   },
-  "toolset:kind-80:discovery-conflict": {
+  "node:kind-80:discovery-conflict": {
     "ok": false,
     "error": {
       "ok": false,
@@ -723,7 +705,7 @@
       "expected": "A valid KIS-NET Nexacro response matching the documented YTM Matrix schema",
       "recoveryHint": "The KIS-NET source format may have changed; update this client before retrying.",
       "recoveryAction": {
-        "kind": "inspect_tool_help"
+        "kind": "review_client_usage"
       },
       "recoverable": false,
       "retryable": false,
@@ -735,7 +717,7 @@
       "message": "KIS-NET discovery assigned canonical label 회사채(무보증) to conflicting code 80 instead of 70."
     }
   },
-  "toolset:kind-80:fallback-preserves-kind": {
+  "node:kind-80:fallback-preserves-kind": {
     "ok": true,
     "value": {
       "baseDate": "2026-06-07",
@@ -907,7 +889,7 @@
       }
     }
   },
-  "toolset:kind-80:matrix-code": {
+  "node:kind-80:matrix-code": {
     "ok": true,
     "value": {
       "baseDate": "2026-06-08",
@@ -1078,7 +1060,7 @@
       }
     }
   },
-  "toolset:kind-80:matrix-label": {
+  "node:kind-80:matrix-label": {
     "ok": true,
     "value": {
       "baseDate": "2026-06-08",
@@ -1249,7 +1231,7 @@
       }
     }
   },
-  "toolset:kind-80:matrix-normalized-label": {
+  "node:kind-80:matrix-normalized-label": {
     "ok": true,
     "value": {
       "baseDate": "2026-06-08",
@@ -1420,7 +1402,7 @@
       }
     }
   },
-  "toolset:kind-80:matrix-number": {
+  "node:kind-80:matrix-number": {
     "ok": true,
     "value": {
       "baseDate": "2026-06-08",
@@ -1591,7 +1573,7 @@
       }
     }
   },
-  "toolset:kind-80:offline-catalog": {
+  "node:kind-80:offline-catalog": {
     "ok": true,
     "value": {
       "baseDate": null,
@@ -1637,7 +1619,7 @@
       }
     }
   },
-  "toolset:kind-80:unavailable": {
+  "node:kind-80:unavailable": {
     "ok": false,
     "error": {
       "ok": false,
@@ -1667,7 +1649,7 @@
       "message": "KIS-NET returned no YTM Matrix rows for 2026-06-08. It may be a weekend, holiday, or unavailable source date."
     }
   },
-  "toolset:matrix-success": {
+  "node:matrix-success": {
     "ok": true,
     "value": {
       "baseDate": "2026-06-08",
@@ -1780,7 +1762,7 @@
       }
     }
   },
-  "toolset:missing-values": {
+  "node:missing-values": {
     "ok": true,
     "value": {
       "baseDate": "2026-06-08",
@@ -1893,179 +1875,9 @@
       }
     }
   },
-  "toolset:node-adapter:missing-native": {
+  "node:node-adapter:missing-native": {
     "status": 0,
     "value": {
-      "help": {
-        "id": "ytm",
-        "label": "KIS-NET YTM Matrix",
-        "description": "Deterministic lookup of KIS-NET YTM Matrix data with source and resolution metadata.",
-        "operations": [
-          {
-            "name": "matrix",
-            "label": "Lookup KIS-NET YTM Matrix",
-            "description": "Fetch YTM Matrix rows from KIS-NET for a 기준일 and 종류. The source-native 종류 may be a Korean label such as 국채 or a source code such as 10.",
-            "requiredInputKeys": [
-              "baseDate",
-              "kind"
-            ],
-            "inputJsonSchema": {
-              "type": "object",
-              "additionalProperties": false,
-              "required": [
-                "baseDate",
-                "kind"
-              ],
-              "properties": {
-                "baseDate": {
-                  "type": "string",
-                  "description": "기준일. Accepted forms: YYYY-MM-DD, YYYY.MM.DD, or YYYYMMDD."
-                },
-                "kind": {
-                  "type": [
-                    "string",
-                    "number"
-                  ],
-                  "description": "종류. Use a Korean source label such as 국채 or a source code such as 10."
-                },
-                "fallback": {
-                  "type": "string",
-                  "enum": [
-                    "previous-available"
-                  ],
-                  "description": "Optional unavailable-date policy. Use previous-available to try the requested 기준일 once, then walk backward until KIS-NET returns matrix rows."
-                },
-                "lookbackDays": {
-                  "type": "integer",
-                  "minimum": 1,
-                  "maximum": 31,
-                  "description": "Maximum prior calendar days to try when fallback is previous-available. Defaults to 10."
-                }
-              }
-            },
-            "resultJsonSchema": {
-              "type": "object",
-              "required": [
-                "baseDate",
-                "kind",
-                "tenors",
-                "rows",
-                "source",
-                "requestedBaseDate",
-                "dateResolution"
-              ],
-              "properties": {
-                "baseDate": {
-                  "type": "string"
-                },
-                "requestedBaseDate": {
-                  "type": "string"
-                },
-                "dateResolution": {
-                  "type": "object"
-                },
-                "kind": {
-                  "type": "object"
-                },
-                "tenors": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
-                },
-                "rows": {
-                  "type": "array"
-                },
-                "source": {
-                  "type": "object"
-                }
-              }
-            },
-            "examples": [
-              {
-                "baseDate": "2026-06-08",
-                "kind": "국채"
-              },
-              {
-                "baseDate": "20260608",
-                "kind": "10"
-              },
-              {
-                "baseDate": "2026-06-07",
-                "kind": "국채",
-                "fallback": "previous-available",
-                "lookbackDays": 10
-              }
-            ],
-            "limitations": [
-              "KIS-NET decides available 기준일 data and may return an empty matrix for non-business days, holidays, or unavailable dates.",
-              "With fallback=previous-available, the requested 기준일 is still tried first; previous dates are probed only after KIS-NET returns no rows.",
-              "Exact '-' yield cells are returned as null; leading ASCII-space padding on numeric yields is parsed without changing yieldText or raw."
-            ],
-            "resultSummary": "Returns the resolved 종류, tenor labels, one row per 적용대상채권, numeric yield values, raw source cells, source request metadata, and date-resolution metadata."
-          },
-          {
-            "name": "kinds",
-            "label": "List KIS-NET YTM 종류 values",
-            "description": "List source 종류 codes and Korean labels for the KIS-NET YTM Matrix. When baseDate is supplied, values are refreshed from KIS-NET's init endpoint; otherwise the inspected source list is returned without a network request.",
-            "requiredInputKeys": [],
-            "inputJsonSchema": {
-              "type": "object",
-              "additionalProperties": false,
-              "properties": {
-                "baseDate": {
-                  "type": "string",
-                  "description": "Optional 기준일 used to refresh 종류 values from KIS-NET. Accepted forms: YYYY-MM-DD, YYYY.MM.DD, or YYYYMMDD."
-                }
-              }
-            },
-            "resultJsonSchema": {
-              "type": "object",
-              "required": [
-                "kinds",
-                "source"
-              ],
-              "properties": {
-                "baseDate": {
-                  "type": [
-                    "string",
-                    "null"
-                  ]
-                },
-                "kinds": {
-                  "type": "array"
-                },
-                "source": {
-                  "type": "object"
-                }
-              }
-            },
-            "examples": [
-              {},
-              {
-                "baseDate": "2026-06-08"
-              }
-            ],
-            "limitations": [
-              "Without baseDate this command returns the source list observed during tool inspection instead of performing a live request."
-            ],
-            "resultSummary": "Returns accepted 종류 codes and labels."
-          }
-        ],
-        "availableKinds": [
-          "Native capabilities unavailable; install the platform package before executing source-backed operations."
-        ],
-        "guidance": [
-          "Call getCommandHelp(operationName) for the complete input and result contract.",
-          "Validate a direct input object before execute; validation returns normalized input or structured recovery metadata.",
-          "Results preserve source metadata, references where available, and date-resolution warnings in the operation payload."
-        ],
-        "sourceTerms": [
-          "기준일",
-          "종류",
-          "적용대상채권"
-        ]
-      },
       "validation": {
         "ok": true,
         "input": {
@@ -2090,114 +1902,67 @@
         "cause": "MODULE_NOT_FOUND"
       }
     },
-    "stderr": "empty"
+    "boundaryValue": {
+      "missingKindsValue": {
+        "isYtmError": true,
+        "error": {
+          "ok": false,
+          "code": "internal_error",
+          "operationName": "kinds",
+          "reason": "The native ytm adapter returned an invalid result envelope.",
+          "recoveryHint": "Update the package for this platform, then report the failure if it persists.",
+          "recoveryAction": {
+            "kind": "update_package"
+          },
+          "recoverable": false,
+          "retryable": false,
+          "cause": "InvalidNativeEnvelope",
+          "name": "InternalError",
+          "message": "The native ytm adapter returned an invalid result envelope."
+        }
+      },
+      "nullMatrixValue": {
+        "isYtmError": true,
+        "error": {
+          "ok": false,
+          "code": "internal_error",
+          "operationName": "matrix",
+          "reason": "The native ytm adapter returned an invalid result envelope.",
+          "recoveryHint": "Update the package for this platform, then report the failure if it persists.",
+          "recoveryAction": {
+            "kind": "update_package"
+          },
+          "recoverable": false,
+          "retryable": false,
+          "cause": "InvalidNativeEnvelope",
+          "name": "InternalError",
+          "message": "The native ytm adapter returned an invalid result envelope."
+        }
+      },
+      "nativeRejection": {
+        "isYtmError": true,
+        "error": {
+          "ok": false,
+          "code": "native_package_corrupt",
+          "operationName": "kinds",
+          "reason": "Deliberate native rejection",
+          "recoveryAction": {
+            "kind": "update_package"
+          },
+          "recoverable": true,
+          "retryable": false,
+          "name": "NativePackageCorruptError",
+          "message": "Deliberate native rejection",
+          "recoveryHint": "Review the client method documentation and retry with the documented recovery action."
+        }
+      }
+    },
+    "stderr": "empty",
+    "boundaryStderr": "empty"
   },
-  "toolset:node-facade-regressions": {
+  "node:node-client-regressions": {
     "ok": true,
     "value": {
-      "commandHelp": {
-        "name": "matrix",
-        "label": "Lookup KIS-NET YTM Matrix",
-        "description": "Fetch YTM Matrix rows from KIS-NET for a 기준일 and 종류. The source-native 종류 may be a Korean label such as 국채 or a source code such as 10.",
-        "requiredInputKeys": [
-          "baseDate",
-          "kind"
-        ],
-        "inputJsonSchema": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "baseDate",
-            "kind"
-          ],
-          "properties": {
-            "baseDate": {
-              "type": "string",
-              "description": "기준일. Accepted forms: YYYY-MM-DD, YYYY.MM.DD, or YYYYMMDD."
-            },
-            "kind": {
-              "type": [
-                "string",
-                "number"
-              ],
-              "description": "종류. Use a Korean source label such as 국채 or a source code such as 10."
-            },
-            "fallback": {
-              "type": "string",
-              "enum": [
-                "previous-available"
-              ],
-              "description": "Optional unavailable-date policy. Use previous-available to try the requested 기준일 once, then walk backward until KIS-NET returns matrix rows."
-            },
-            "lookbackDays": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 31,
-              "description": "Maximum prior calendar days to try when fallback is previous-available. Defaults to 10."
-            }
-          }
-        },
-        "resultJsonSchema": {
-          "type": "object",
-          "required": [
-            "baseDate",
-            "kind",
-            "tenors",
-            "rows",
-            "source",
-            "requestedBaseDate",
-            "dateResolution"
-          ],
-          "properties": {
-            "baseDate": {
-              "type": "string"
-            },
-            "requestedBaseDate": {
-              "type": "string"
-            },
-            "dateResolution": {
-              "type": "object"
-            },
-            "kind": {
-              "type": "object"
-            },
-            "tenors": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            "rows": {
-              "type": "array"
-            },
-            "source": {
-              "type": "object"
-            }
-          }
-        },
-        "examples": [
-          {
-            "baseDate": "2026-06-08",
-            "kind": "국채"
-          },
-          {
-            "baseDate": "20260608",
-            "kind": "10"
-          },
-          {
-            "baseDate": "2026-06-07",
-            "kind": "국채",
-            "fallback": "previous-available",
-            "lookbackDays": 10
-          }
-        ],
-        "limitations": [
-          "KIS-NET decides available 기준일 data and may return an empty matrix for non-business days, holidays, or unavailable dates.",
-          "With fallback=previous-available, the requested 기준일 is still tried first; previous dates are probed only after KIS-NET returns no rows.",
-          "Exact '-' yield cells are returned as null; leading ASCII-space padding on numeric yields is parsed without changing yieldText or raw."
-        ],
-        "resultSummary": "Returns the resolved 종류, tenor labels, one row per 적용대상채권, numeric yield values, raw source cells, source request metadata, and date-resolution metadata."
-      },
       "kindsWithoutInput": {
         "baseDate": null,
         "kinds": [
@@ -2256,10 +2021,10 @@
             "baseDate": "2026-06-08",
             "kind": "국채"
           },
-          "recoveryHint": "Pass a JSON object matching the command input schema.",
+          "recoveryHint": "Pass a JSON object matching the method input schema.",
           "recoveryAction": {
-            "kind": "inspect_command_help",
-            "operationName": "matrix"
+            "kind": "review_method_input",
+            "method": "matrix"
           },
           "recoverable": true,
           "retryable": false
@@ -2289,8 +2054,8 @@
           },
           "recoveryHint": "Provide kind.",
           "recoveryAction": {
-            "kind": "inspect_command_help",
-            "operationName": "matrix"
+            "kind": "review_method_input",
+            "method": "matrix"
           },
           "recoverable": true,
           "retryable": false
@@ -2337,8 +2102,8 @@
           },
           "recoveryHint": "Use the official 기준일 date shown by KIS-NET, for example 2026-06-08.",
           "recoveryAction": {
-            "kind": "inspect_command_help",
-            "operationName": "matrix"
+            "kind": "review_method_input",
+            "method": "matrix"
           },
           "recoverable": true,
           "retryable": false
@@ -2363,8 +2128,8 @@
             },
             "recoveryHint": "Use kinds to inspect accepted 종류 values, then retry with a code like 10 or label like 국채.",
             "recoveryAction": {
-              "kind": "inspect_command_help",
-              "operationName": "matrix"
+              "kind": "review_method_input",
+              "method": "matrix"
             },
             "recoverable": true,
             "retryable": false
@@ -2388,8 +2153,8 @@
             },
             "recoveryHint": "Use kinds to inspect accepted 종류 values, then retry with a code like 10 or label like 국채.",
             "recoveryAction": {
-              "kind": "inspect_command_help",
-              "operationName": "matrix"
+              "kind": "review_method_input",
+              "method": "matrix"
             },
             "recoverable": true,
             "retryable": false
@@ -2413,8 +2178,8 @@
             },
             "recoveryHint": "Use kinds to inspect accepted 종류 values, then retry with a code like 10 or label like 국채.",
             "recoveryAction": {
-              "kind": "inspect_command_help",
-              "operationName": "matrix"
+              "kind": "review_method_input",
+              "method": "matrix"
             },
             "recoverable": true,
             "retryable": false
@@ -2452,15 +2217,45 @@
       "objectDetails": {
         "code": "sentinel",
         "ok": false,
-        "name": "KisnetYtmError",
+        "name": "YtmError",
         "message": "The operation failed.",
         "reason": "The operation failed.",
         "recoveryAction": {
-          "kind": "inspect_tool_help"
+          "kind": "review_client_usage"
         },
         "recoverable": false,
         "retryable": false,
-        "recoveryHint": "Inspect tool help and retry with the documented recovery action."
+        "recoveryHint": "Review the client method documentation and retry with the documented recovery action."
+      },
+      "unknownRecoveryAction": {
+        "code": "foreign_error",
+        "operationName": "matrix",
+        "recoveryAction": {
+          "kind": "review_method_input",
+          "method": "matrix"
+        },
+        "ok": false,
+        "name": "YtmError",
+        "message": "The operation failed.",
+        "reason": "The operation failed.",
+        "recoverable": false,
+        "retryable": false,
+        "recoveryHint": "Review the client method documentation and retry with the documented recovery action."
+      },
+      "invalidMethodRecoveryAction": {
+        "code": "foreign_error",
+        "operationName": "kinds",
+        "recoveryAction": {
+          "kind": "review_method_input",
+          "method": "kinds"
+        },
+        "ok": false,
+        "name": "YtmError",
+        "message": "The operation failed.",
+        "reason": "The operation failed.",
+        "recoverable": false,
+        "retryable": false,
+        "recoveryHint": "Review the client method documentation and retry with the documented recovery action."
       },
       "foreignDetails": {
         "ok": false,
@@ -2471,14 +2266,14 @@
         },
         "large": "42",
         "self": "[Circular]",
-        "name": "KisnetYtmError",
+        "name": "YtmError",
         "message": "Foreign failure",
         "recoveryAction": {
-          "kind": "inspect_tool_help"
+          "kind": "review_client_usage"
         },
         "recoverable": false,
         "retryable": false,
-        "recoveryHint": "Inspect tool help and retry with the documented recovery action."
+        "recoveryHint": "Review the client method documentation and retry with the documented recovery action."
       },
       "sharedReferences": {
         "code": "foreign_error",
@@ -2490,14 +2285,14 @@
           "value": 11
         },
         "ok": false,
-        "name": "KisnetYtmError",
+        "name": "YtmError",
         "message": "Shared diagnostics",
         "recoveryAction": {
-          "kind": "inspect_tool_help"
+          "kind": "review_client_usage"
         },
         "recoverable": false,
         "retryable": false,
-        "recoveryHint": "Inspect tool help and retry with the documented recovery action."
+        "recoveryHint": "Review the client method documentation and retry with the documented recovery action."
       },
       "hostileDetails": {
         "ok": false,
@@ -2529,7 +2324,7 @@
       }
     }
   },
-  "toolset:protocol-error": {
+  "node:protocol-error": {
     "ok": false,
     "error": {
       "ok": false,
@@ -2540,7 +2335,7 @@
       "actual": "-1",
       "recoveryHint": "Inspect the preserved KIS-NET status before deciding whether the request can be retried.",
       "recoveryAction": {
-        "kind": "inspect_tool_help"
+        "kind": "review_client_usage"
       },
       "recoverable": false,
       "retryable": false,
@@ -2554,7 +2349,7 @@
       "message": "KIS-NET returned nonzero Nexacro ErrorCode -1 (Request rejected)."
     }
   },
-  "toolset:protocol-status:duplicate-error-message": {
+  "node:protocol-status:duplicate-error-message": {
     "ok": false,
     "error": {
       "ok": false,
@@ -2564,7 +2359,7 @@
       "expected": "A valid KIS-NET Nexacro response matching the documented YTM Matrix schema",
       "recoveryHint": "The KIS-NET source format may have changed; update this client before retrying.",
       "recoveryAction": {
-        "kind": "inspect_tool_help"
+        "kind": "review_client_usage"
       },
       "recoverable": false,
       "retryable": false,
@@ -2576,7 +2371,7 @@
       "message": "KIS-NET response contains duplicate ErrorMessage."
     }
   },
-  "toolset:protocol-status:error-message-precedence": {
+  "node:protocol-status:error-message-precedence": {
     "ok": false,
     "error": {
       "ok": false,
@@ -2587,7 +2382,7 @@
       "actual": "+1",
       "recoveryHint": "Inspect the preserved KIS-NET status before deciding whether the request can be retried.",
       "recoveryAction": {
-        "kind": "inspect_tool_help"
+        "kind": "review_client_usage"
       },
       "recoverable": false,
       "retryable": false,
@@ -2601,7 +2396,7 @@
       "message": "KIS-NET returned nonzero Nexacro ErrorCode +1 (higher-priority message)."
     }
   },
-  "toolset:protocol-status:warning": {
+  "node:protocol-status:warning": {
     "ok": false,
     "error": {
       "ok": false,
@@ -2612,7 +2407,7 @@
       "actual": "+1",
       "recoveryHint": "Inspect the preserved KIS-NET status before deciding whether the request can be retried.",
       "recoveryAction": {
-        "kind": "inspect_tool_help"
+        "kind": "review_client_usage"
       },
       "recoverable": false,
       "retryable": false,
@@ -2626,716 +2421,7 @@
       "message": "KIS-NET returned nonzero Nexacro ErrorCode +1 (Result requires review)."
     }
   },
-  "toolset:toolset-discovery": {
-    "ok": true,
-    "value": {
-      "id": "ytm",
-      "label": "KIS-NET YTM Matrix",
-      "description": "Deterministic lookup of KIS-NET YTM Matrix data with source and resolution metadata.",
-      "methods": [
-        "help",
-        "listOperations",
-        "getOperation",
-        "getCommandHelp",
-        "validateInput",
-        "execute",
-        "serializeError"
-      ],
-      "help": {
-        "id": "ytm",
-        "label": "KIS-NET YTM Matrix",
-        "description": "Deterministic lookup of KIS-NET YTM Matrix data with source and resolution metadata.",
-        "operations": [
-          {
-            "name": "matrix",
-            "label": "Lookup KIS-NET YTM Matrix",
-            "description": "Fetch YTM Matrix rows from KIS-NET for a 기준일 and 종류. The source-native 종류 may be a Korean label such as 국채 or a source code such as 10.",
-            "requiredInputKeys": [
-              "baseDate",
-              "kind"
-            ],
-            "inputJsonSchema": {
-              "type": "object",
-              "additionalProperties": false,
-              "required": [
-                "baseDate",
-                "kind"
-              ],
-              "properties": {
-                "baseDate": {
-                  "type": "string",
-                  "description": "기준일. Accepted forms: YYYY-MM-DD, YYYY.MM.DD, or YYYYMMDD."
-                },
-                "kind": {
-                  "type": [
-                    "string",
-                    "number"
-                  ],
-                  "description": "종류. Use a Korean source label such as 국채 or a source code such as 10."
-                },
-                "fallback": {
-                  "type": "string",
-                  "enum": [
-                    "previous-available"
-                  ],
-                  "description": "Optional unavailable-date policy. Use previous-available to try the requested 기준일 once, then walk backward until KIS-NET returns matrix rows."
-                },
-                "lookbackDays": {
-                  "type": "integer",
-                  "minimum": 1,
-                  "maximum": 31,
-                  "description": "Maximum prior calendar days to try when fallback is previous-available. Defaults to 10."
-                }
-              }
-            },
-            "resultJsonSchema": {
-              "type": "object",
-              "required": [
-                "baseDate",
-                "kind",
-                "tenors",
-                "rows",
-                "source",
-                "requestedBaseDate",
-                "dateResolution"
-              ],
-              "properties": {
-                "baseDate": {
-                  "type": "string"
-                },
-                "requestedBaseDate": {
-                  "type": "string"
-                },
-                "dateResolution": {
-                  "type": "object"
-                },
-                "kind": {
-                  "type": "object"
-                },
-                "tenors": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
-                },
-                "rows": {
-                  "type": "array"
-                },
-                "source": {
-                  "type": "object"
-                }
-              }
-            },
-            "examples": [
-              {
-                "baseDate": "2026-06-08",
-                "kind": "국채"
-              },
-              {
-                "baseDate": "20260608",
-                "kind": "10"
-              },
-              {
-                "baseDate": "2026-06-07",
-                "kind": "국채",
-                "fallback": "previous-available",
-                "lookbackDays": 10
-              }
-            ],
-            "limitations": [
-              "KIS-NET decides available 기준일 data and may return an empty matrix for non-business days, holidays, or unavailable dates.",
-              "With fallback=previous-available, the requested 기준일 is still tried first; previous dates are probed only after KIS-NET returns no rows.",
-              "Exact '-' yield cells are returned as null; leading ASCII-space padding on numeric yields is parsed without changing yieldText or raw."
-            ],
-            "resultSummary": "Returns the resolved 종류, tenor labels, one row per 적용대상채권, numeric yield values, raw source cells, source request metadata, and date-resolution metadata."
-          },
-          {
-            "name": "kinds",
-            "label": "List KIS-NET YTM 종류 values",
-            "description": "List source 종류 codes and Korean labels for the KIS-NET YTM Matrix. When baseDate is supplied, values are refreshed from KIS-NET's init endpoint; otherwise the inspected source list is returned without a network request.",
-            "requiredInputKeys": [],
-            "inputJsonSchema": {
-              "type": "object",
-              "additionalProperties": false,
-              "properties": {
-                "baseDate": {
-                  "type": "string",
-                  "description": "Optional 기준일 used to refresh 종류 values from KIS-NET. Accepted forms: YYYY-MM-DD, YYYY.MM.DD, or YYYYMMDD."
-                }
-              }
-            },
-            "resultJsonSchema": {
-              "type": "object",
-              "required": [
-                "kinds",
-                "source"
-              ],
-              "properties": {
-                "baseDate": {
-                  "type": [
-                    "string",
-                    "null"
-                  ]
-                },
-                "kinds": {
-                  "type": "array"
-                },
-                "source": {
-                  "type": "object"
-                }
-              }
-            },
-            "examples": [
-              {},
-              {
-                "baseDate": "2026-06-08"
-              }
-            ],
-            "limitations": [
-              "Without baseDate this command returns the source list observed during tool inspection instead of performing a live request."
-            ],
-            "resultSummary": "Returns accepted 종류 codes and labels."
-          }
-        ],
-        "availableKinds": [
-          "10 = 국채",
-          "20 = 지방채",
-          "30 = 특수채",
-          "40 = 통안채",
-          "50 = 은행채",
-          "60 = 기타금융채",
-          "70 = 회사채(무보증)",
-          "80 = 회사채(사모)"
-        ],
-        "guidance": [
-          "Call getCommandHelp(operationName) for the complete input and result contract.",
-          "Validate a direct input object before execute; validation returns normalized input or structured recovery metadata.",
-          "Results preserve source metadata, references where available, and date-resolution warnings in the operation payload."
-        ],
-        "sourceTerms": [
-          "기준일",
-          "종류",
-          "적용대상채권"
-        ]
-      },
-      "operations": [
-        {
-          "name": "matrix",
-          "label": "Lookup KIS-NET YTM Matrix",
-          "description": "Fetch YTM Matrix rows from KIS-NET for a 기준일 and 종류. The source-native 종류 may be a Korean label such as 국채 or a source code such as 10.",
-          "requiredInputKeys": [
-            "baseDate",
-            "kind"
-          ],
-          "inputJsonSchema": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": [
-              "baseDate",
-              "kind"
-            ],
-            "properties": {
-              "baseDate": {
-                "type": "string",
-                "description": "기준일. Accepted forms: YYYY-MM-DD, YYYY.MM.DD, or YYYYMMDD."
-              },
-              "kind": {
-                "type": [
-                  "string",
-                  "number"
-                ],
-                "description": "종류. Use a Korean source label such as 국채 or a source code such as 10."
-              },
-              "fallback": {
-                "type": "string",
-                "enum": [
-                  "previous-available"
-                ],
-                "description": "Optional unavailable-date policy. Use previous-available to try the requested 기준일 once, then walk backward until KIS-NET returns matrix rows."
-              },
-              "lookbackDays": {
-                "type": "integer",
-                "minimum": 1,
-                "maximum": 31,
-                "description": "Maximum prior calendar days to try when fallback is previous-available. Defaults to 10."
-              }
-            }
-          },
-          "resultJsonSchema": {
-            "type": "object",
-            "required": [
-              "baseDate",
-              "kind",
-              "tenors",
-              "rows",
-              "source",
-              "requestedBaseDate",
-              "dateResolution"
-            ],
-            "properties": {
-              "baseDate": {
-                "type": "string"
-              },
-              "requestedBaseDate": {
-                "type": "string"
-              },
-              "dateResolution": {
-                "type": "object"
-              },
-              "kind": {
-                "type": "object"
-              },
-              "tenors": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              },
-              "rows": {
-                "type": "array"
-              },
-              "source": {
-                "type": "object"
-              }
-            }
-          },
-          "examples": [
-            {
-              "baseDate": "2026-06-08",
-              "kind": "국채"
-            },
-            {
-              "baseDate": "20260608",
-              "kind": "10"
-            },
-            {
-              "baseDate": "2026-06-07",
-              "kind": "국채",
-              "fallback": "previous-available",
-              "lookbackDays": 10
-            }
-          ],
-          "limitations": [
-            "KIS-NET decides available 기준일 data and may return an empty matrix for non-business days, holidays, or unavailable dates.",
-            "With fallback=previous-available, the requested 기준일 is still tried first; previous dates are probed only after KIS-NET returns no rows.",
-            "Exact '-' yield cells are returned as null; leading ASCII-space padding on numeric yields is parsed without changing yieldText or raw."
-          ],
-          "resultSummary": "Returns the resolved 종류, tenor labels, one row per 적용대상채권, numeric yield values, raw source cells, source request metadata, and date-resolution metadata."
-        },
-        {
-          "name": "kinds",
-          "label": "List KIS-NET YTM 종류 values",
-          "description": "List source 종류 codes and Korean labels for the KIS-NET YTM Matrix. When baseDate is supplied, values are refreshed from KIS-NET's init endpoint; otherwise the inspected source list is returned without a network request.",
-          "requiredInputKeys": [],
-          "inputJsonSchema": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "baseDate": {
-                "type": "string",
-                "description": "Optional 기준일 used to refresh 종류 values from KIS-NET. Accepted forms: YYYY-MM-DD, YYYY.MM.DD, or YYYYMMDD."
-              }
-            }
-          },
-          "resultJsonSchema": {
-            "type": "object",
-            "required": [
-              "kinds",
-              "source"
-            ],
-            "properties": {
-              "baseDate": {
-                "type": [
-                  "string",
-                  "null"
-                ]
-              },
-              "kinds": {
-                "type": "array"
-              },
-              "source": {
-                "type": "object"
-              }
-            }
-          },
-          "examples": [
-            {},
-            {
-              "baseDate": "2026-06-08"
-            }
-          ],
-          "limitations": [
-            "Without baseDate this command returns the source list observed during tool inspection instead of performing a live request."
-          ],
-          "resultSummary": "Returns accepted 종류 codes and labels."
-        }
-      ],
-      "commandHelp": {
-        "matrix": {
-          "name": "matrix",
-          "label": "Lookup KIS-NET YTM Matrix",
-          "description": "Fetch YTM Matrix rows from KIS-NET for a 기준일 and 종류. The source-native 종류 may be a Korean label such as 국채 or a source code such as 10.",
-          "requiredInputKeys": [
-            "baseDate",
-            "kind"
-          ],
-          "inputJsonSchema": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": [
-              "baseDate",
-              "kind"
-            ],
-            "properties": {
-              "baseDate": {
-                "type": "string",
-                "description": "기준일. Accepted forms: YYYY-MM-DD, YYYY.MM.DD, or YYYYMMDD."
-              },
-              "kind": {
-                "type": [
-                  "string",
-                  "number"
-                ],
-                "description": "종류. Use a Korean source label such as 국채 or a source code such as 10."
-              },
-              "fallback": {
-                "type": "string",
-                "enum": [
-                  "previous-available"
-                ],
-                "description": "Optional unavailable-date policy. Use previous-available to try the requested 기준일 once, then walk backward until KIS-NET returns matrix rows."
-              },
-              "lookbackDays": {
-                "type": "integer",
-                "minimum": 1,
-                "maximum": 31,
-                "description": "Maximum prior calendar days to try when fallback is previous-available. Defaults to 10."
-              }
-            }
-          },
-          "resultJsonSchema": {
-            "type": "object",
-            "required": [
-              "baseDate",
-              "kind",
-              "tenors",
-              "rows",
-              "source",
-              "requestedBaseDate",
-              "dateResolution"
-            ],
-            "properties": {
-              "baseDate": {
-                "type": "string"
-              },
-              "requestedBaseDate": {
-                "type": "string"
-              },
-              "dateResolution": {
-                "type": "object"
-              },
-              "kind": {
-                "type": "object"
-              },
-              "tenors": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              },
-              "rows": {
-                "type": "array"
-              },
-              "source": {
-                "type": "object"
-              }
-            }
-          },
-          "examples": [
-            {
-              "baseDate": "2026-06-08",
-              "kind": "국채"
-            },
-            {
-              "baseDate": "20260608",
-              "kind": "10"
-            },
-            {
-              "baseDate": "2026-06-07",
-              "kind": "국채",
-              "fallback": "previous-available",
-              "lookbackDays": 10
-            }
-          ],
-          "limitations": [
-            "KIS-NET decides available 기준일 data and may return an empty matrix for non-business days, holidays, or unavailable dates.",
-            "With fallback=previous-available, the requested 기준일 is still tried first; previous dates are probed only after KIS-NET returns no rows.",
-            "Exact '-' yield cells are returned as null; leading ASCII-space padding on numeric yields is parsed without changing yieldText or raw."
-          ],
-          "resultSummary": "Returns the resolved 종류, tenor labels, one row per 적용대상채권, numeric yield values, raw source cells, source request metadata, and date-resolution metadata."
-        },
-        "kinds": {
-          "name": "kinds",
-          "label": "List KIS-NET YTM 종류 values",
-          "description": "List source 종류 codes and Korean labels for the KIS-NET YTM Matrix. When baseDate is supplied, values are refreshed from KIS-NET's init endpoint; otherwise the inspected source list is returned without a network request.",
-          "requiredInputKeys": [],
-          "inputJsonSchema": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "baseDate": {
-                "type": "string",
-                "description": "Optional 기준일 used to refresh 종류 values from KIS-NET. Accepted forms: YYYY-MM-DD, YYYY.MM.DD, or YYYYMMDD."
-              }
-            }
-          },
-          "resultJsonSchema": {
-            "type": "object",
-            "required": [
-              "kinds",
-              "source"
-            ],
-            "properties": {
-              "baseDate": {
-                "type": [
-                  "string",
-                  "null"
-                ]
-              },
-              "kinds": {
-                "type": "array"
-              },
-              "source": {
-                "type": "object"
-              }
-            }
-          },
-          "examples": [
-            {},
-            {
-              "baseDate": "2026-06-08"
-            }
-          ],
-          "limitations": [
-            "Without baseDate this command returns the source list observed during tool inspection instead of performing a live request."
-          ],
-          "resultSummary": "Returns accepted 종류 codes and labels."
-        }
-      }
-    }
-  },
-  "toolset:toolset-operation-immutability": {
-    "ok": true,
-    "value": {
-      "operation": {
-        "name": "matrix",
-        "label": "Lookup KIS-NET YTM Matrix",
-        "description": "Fetch YTM Matrix rows from KIS-NET for a 기준일 and 종류. The source-native 종류 may be a Korean label such as 국채 or a source code such as 10.",
-        "requiredInputKeys": [
-          "baseDate",
-          "kind"
-        ],
-        "inputJsonSchema": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "baseDate",
-            "kind"
-          ],
-          "properties": {
-            "baseDate": {
-              "type": "string",
-              "description": "기준일. Accepted forms: YYYY-MM-DD, YYYY.MM.DD, or YYYYMMDD."
-            },
-            "kind": {
-              "type": [
-                "string",
-                "number"
-              ],
-              "description": "종류. Use a Korean source label such as 국채 or a source code such as 10."
-            },
-            "fallback": {
-              "type": "string",
-              "enum": [
-                "previous-available"
-              ],
-              "description": "Optional unavailable-date policy. Use previous-available to try the requested 기준일 once, then walk backward until KIS-NET returns matrix rows."
-            },
-            "lookbackDays": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 31,
-              "description": "Maximum prior calendar days to try when fallback is previous-available. Defaults to 10."
-            }
-          }
-        },
-        "resultJsonSchema": {
-          "type": "object",
-          "required": [
-            "baseDate",
-            "kind",
-            "tenors",
-            "rows",
-            "source",
-            "requestedBaseDate",
-            "dateResolution"
-          ],
-          "properties": {
-            "baseDate": {
-              "type": "string"
-            },
-            "requestedBaseDate": {
-              "type": "string"
-            },
-            "dateResolution": {
-              "type": "object"
-            },
-            "kind": {
-              "type": "object"
-            },
-            "tenors": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            "rows": {
-              "type": "array"
-            },
-            "source": {
-              "type": "object"
-            }
-          }
-        },
-        "examples": [
-          {
-            "baseDate": "2026-06-08",
-            "kind": "국채"
-          },
-          {
-            "baseDate": "20260608",
-            "kind": "10"
-          },
-          {
-            "baseDate": "2026-06-07",
-            "kind": "국채",
-            "fallback": "previous-available",
-            "lookbackDays": 10
-          }
-        ],
-        "limitations": [
-          "KIS-NET decides available 기준일 data and may return an empty matrix for non-business days, holidays, or unavailable dates.",
-          "With fallback=previous-available, the requested 기준일 is still tried first; previous dates are probed only after KIS-NET returns no rows.",
-          "Exact '-' yield cells are returned as null; leading ASCII-space padding on numeric yields is parsed without changing yieldText or raw."
-        ],
-        "resultSummary": "Returns the resolved 종류, tenor labels, one row per 적용대상채권, numeric yield values, raw source cells, source request metadata, and date-resolution metadata."
-      },
-      "listed": {
-        "name": "matrix",
-        "label": "Lookup KIS-NET YTM Matrix",
-        "description": "Fetch YTM Matrix rows from KIS-NET for a 기준일 and 종류. The source-native 종류 may be a Korean label such as 국채 or a source code such as 10.",
-        "requiredInputKeys": [
-          "baseDate",
-          "kind"
-        ],
-        "inputJsonSchema": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "baseDate",
-            "kind"
-          ],
-          "properties": {
-            "baseDate": {
-              "type": "string",
-              "description": "기준일. Accepted forms: YYYY-MM-DD, YYYY.MM.DD, or YYYYMMDD."
-            },
-            "kind": {
-              "type": [
-                "string",
-                "number"
-              ],
-              "description": "종류. Use a Korean source label such as 국채 or a source code such as 10."
-            },
-            "fallback": {
-              "type": "string",
-              "enum": [
-                "previous-available"
-              ],
-              "description": "Optional unavailable-date policy. Use previous-available to try the requested 기준일 once, then walk backward until KIS-NET returns matrix rows."
-            },
-            "lookbackDays": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 31,
-              "description": "Maximum prior calendar days to try when fallback is previous-available. Defaults to 10."
-            }
-          }
-        },
-        "resultJsonSchema": {
-          "type": "object",
-          "required": [
-            "baseDate",
-            "kind",
-            "tenors",
-            "rows",
-            "source",
-            "requestedBaseDate",
-            "dateResolution"
-          ],
-          "properties": {
-            "baseDate": {
-              "type": "string"
-            },
-            "requestedBaseDate": {
-              "type": "string"
-            },
-            "dateResolution": {
-              "type": "object"
-            },
-            "kind": {
-              "type": "object"
-            },
-            "tenors": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            "rows": {
-              "type": "array"
-            },
-            "source": {
-              "type": "object"
-            }
-          }
-        },
-        "examples": [
-          {
-            "baseDate": "2026-06-08",
-            "kind": "국채"
-          },
-          {
-            "baseDate": "20260608",
-            "kind": "10"
-          },
-          {
-            "baseDate": "2026-06-07",
-            "kind": "국채",
-            "fallback": "previous-available",
-            "lookbackDays": 10
-          }
-        ],
-        "limitations": [
-          "KIS-NET decides available 기준일 data and may return an empty matrix for non-business days, holidays, or unavailable dates.",
-          "With fallback=previous-available, the requested 기준일 is still tried first; previous dates are probed only after KIS-NET returns no rows.",
-          "Exact '-' yield cells are returned as null; leading ASCII-space padding on numeric yields is parsed without changing yieldText or raw."
-        ],
-        "resultSummary": "Returns the resolved 종류, tenor labels, one row per 적용대상채권, numeric yield values, raw source cells, source request metadata, and date-resolution metadata."
-      }
-    }
-  },
-  "toolset:transport-error": {
+  "node:transport-error": {
     "ok": false,
     "error": {
       "ok": false,
@@ -3345,7 +2431,7 @@
       "expected": "A successful HTTP response from KIS-NET",
       "recoveryHint": "Retry later or inspect whether KIS-NET is available.",
       "recoveryAction": {
-        "kind": "inspect_tool_help"
+        "kind": "review_client_usage"
       },
       "recoverable": true,
       "retryable": true,
@@ -3358,7 +2444,7 @@
       "message": "KIS-NET request failed before a response was received."
     }
   },
-  "toolset:unavailable-data": {
+  "node:unavailable-data": {
     "ok": false,
     "error": {
       "ok": false,
@@ -3388,7 +2474,7 @@
       "message": "KIS-NET returned no YTM Matrix rows for 2026-06-08. It may be a weekend, holiday, or unavailable source date."
     }
   },
-  "toolset:unknown-kind-recovery": {
+  "node:unknown-kind-recovery": {
     "ok": false,
     "error": {
       "ok": false,
@@ -3437,8 +2523,8 @@
       },
       "recoveryHint": "Use kinds to inspect accepted 종류 values, then retry with a listed code or label.",
       "recoveryAction": {
-        "kind": "inspect_command_help",
-        "operationName": "matrix"
+        "kind": "review_method_input",
+        "method": "matrix"
       },
       "recoverable": true,
       "retryable": false,
@@ -3446,7 +2532,7 @@
       "message": "Unknown 종류: not-a-kind."
     }
   },
-  "toolset:validation-recovery:date-2026-06-08": {
+  "node:validation-recovery:date-2026-06-08": {
     "ok": true,
     "value": {
       "ok": true,
@@ -3456,7 +2542,7 @@
       }
     }
   },
-  "toolset:validation-recovery:date-2026.06.08": {
+  "node:validation-recovery:date-2026.06.08": {
     "ok": true,
     "value": {
       "ok": true,
@@ -3466,7 +2552,7 @@
       }
     }
   },
-  "toolset:validation-recovery:date-20260608": {
+  "node:validation-recovery:date-20260608": {
     "ok": true,
     "value": {
       "ok": true,
@@ -3476,7 +2562,7 @@
       }
     }
   },
-  "toolset:validation-recovery:invalid-date": {
+  "node:validation-recovery:invalid-date": {
     "ok": true,
     "value": {
       "ok": false,
@@ -3496,15 +2582,15 @@
         },
         "recoveryHint": "Use the official 기준일 date shown by KIS-NET, for example 2026-06-08.",
         "recoveryAction": {
-          "kind": "inspect_command_help",
-          "operationName": "matrix"
+          "kind": "review_method_input",
+          "method": "matrix"
         },
         "recoverable": true,
         "retryable": false
       }
     }
   },
-  "toolset:validation-recovery:missing-base-date": {
+  "node:validation-recovery:missing-base-date": {
     "ok": true,
     "value": {
       "ok": false,
@@ -3527,15 +2613,15 @@
         },
         "recoveryHint": "Provide baseDate.",
         "recoveryAction": {
-          "kind": "inspect_command_help",
-          "operationName": "matrix"
+          "kind": "review_method_input",
+          "method": "matrix"
         },
         "recoverable": true,
         "retryable": false
       }
     }
   },
-  "toolset:validation-recovery:reject-date-2026-0608": {
+  "node:validation-recovery:reject-date-2026-0608": {
     "ok": true,
     "value": {
       "ok": false,
@@ -3555,15 +2641,15 @@
         },
         "recoveryHint": "Use the official 기준일 date shown by KIS-NET, for example 2026-06-08.",
         "recoveryAction": {
-          "kind": "inspect_command_help",
-          "operationName": "matrix"
+          "kind": "review_method_input",
+          "method": "matrix"
         },
         "recoverable": true,
         "retryable": false
       }
     }
   },
-  "toolset:validation-recovery:reject-date-2026..06.08": {
+  "node:validation-recovery:reject-date-2026..06.08": {
     "ok": true,
     "value": {
       "ok": false,
@@ -3583,15 +2669,15 @@
         },
         "recoveryHint": "Use the official 기준일 date shown by KIS-NET, for example 2026-06-08.",
         "recoveryAction": {
-          "kind": "inspect_command_help",
-          "operationName": "matrix"
+          "kind": "review_method_input",
+          "method": "matrix"
         },
         "recoverable": true,
         "retryable": false
       }
     }
   },
-  "toolset:validation-recovery:reject-date-2026.06-08": {
+  "node:validation-recovery:reject-date-2026.06-08": {
     "ok": true,
     "value": {
       "ok": false,
@@ -3611,15 +2697,15 @@
         },
         "recoveryHint": "Use the official 기준일 date shown by KIS-NET, for example 2026-06-08.",
         "recoveryAction": {
-          "kind": "inspect_command_help",
-          "operationName": "matrix"
+          "kind": "review_method_input",
+          "method": "matrix"
         },
         "recoverable": true,
         "retryable": false
       }
     }
   },
-  "toolset:validation-recovery:reject-date-202606-08": {
+  "node:validation-recovery:reject-date-202606-08": {
     "ok": true,
     "value": {
       "ok": false,
@@ -3639,47 +2725,15 @@
         },
         "recoveryHint": "Use the official 기준일 date shown by KIS-NET, for example 2026-06-08.",
         "recoveryAction": {
-          "kind": "inspect_command_help",
-          "operationName": "matrix"
+          "kind": "review_method_input",
+          "method": "matrix"
         },
         "recoverable": true,
         "retryable": false
       }
     }
   },
-  "toolset:validation-recovery:unknown-operation": {
-    "ok": true,
-    "value": {
-      "ok": false,
-      "error": {
-        "ok": false,
-        "name": "ValidationError",
-        "message": "Unknown operation: unknown.",
-        "code": "invalid_request",
-        "operationName": "unknown",
-        "reason": "Unknown operation: unknown.",
-        "expected": [
-          "matrix",
-          "kinds"
-        ],
-        "actual": "unknown",
-        "exampleInput": {
-          "operationName": "matrix",
-          "input": {
-            "baseDate": "2026-06-08",
-            "kind": "국채"
-          }
-        },
-        "recoveryHint": "Inspect tool help and retry with a listed operation name.",
-        "recoveryAction": {
-          "kind": "inspect_tool_help"
-        },
-        "recoverable": true,
-        "retryable": false
-      }
-    }
-  },
-  "toolset:validation-recovery:unknown-parameter": {
+  "node:validation-recovery:unknown-parameter": {
     "ok": true,
     "value": {
       "ok": false,
@@ -3702,17 +2756,17 @@
           "baseDate": "2026-06-08",
           "kind": "국채"
         },
-        "recoveryHint": "Remove extra or inspect command help for supported parameters.",
+        "recoveryHint": "Remove extra or review the documented matrix input.",
         "recoveryAction": {
-          "kind": "inspect_command_help",
-          "operationName": "matrix"
+          "kind": "review_method_input",
+          "method": "matrix"
         },
         "recoverable": true,
         "retryable": false
       }
     }
   },
-  "toolset:xml-fixture-corpus:invalid-xmlDeclarationDuplicateEncoding": {
+  "node:xml-fixture-corpus:invalid-xmlDeclarationDuplicateEncoding": {
     "ok": false,
     "error": {
       "ok": false,
@@ -3722,7 +2776,7 @@
       "expected": "A valid KIS-NET Nexacro response matching the documented YTM Matrix schema",
       "recoveryHint": "The KIS-NET source format may have changed; update this client before retrying.",
       "recoveryAction": {
-        "kind": "inspect_tool_help"
+        "kind": "review_client_usage"
       },
       "recoverable": false,
       "retryable": false,
@@ -3734,7 +2788,7 @@
       "message": "KIS-NET XML declaration attributes are duplicated, unknown, or out of order."
     }
   },
-  "toolset:xml-fixture-corpus:invalid-xmlDeclarationNonXmlWhitespace": {
+  "node:xml-fixture-corpus:invalid-xmlDeclarationNonXmlWhitespace": {
     "ok": false,
     "error": {
       "ok": false,
@@ -3744,7 +2798,7 @@
       "expected": "A valid KIS-NET Nexacro response matching the documented YTM Matrix schema",
       "recoveryHint": "The KIS-NET source format may have changed; update this client before retrying.",
       "recoveryAction": {
-        "kind": "inspect_tool_help"
+        "kind": "review_client_usage"
       },
       "recoverable": false,
       "retryable": false,
@@ -3756,7 +2810,7 @@
       "message": "KIS-NET XML declaration attributes are duplicated, unknown, or out of order."
     }
   },
-  "toolset:xml-fixture-corpus:invalid-xmlDeclarationUnknownAttribute": {
+  "node:xml-fixture-corpus:invalid-xmlDeclarationUnknownAttribute": {
     "ok": false,
     "error": {
       "ok": false,
@@ -3766,7 +2820,7 @@
       "expected": "A valid KIS-NET Nexacro response matching the documented YTM Matrix schema",
       "recoveryHint": "The KIS-NET source format may have changed; update this client before retrying.",
       "recoveryAction": {
-        "kind": "inspect_tool_help"
+        "kind": "review_client_usage"
       },
       "recoverable": false,
       "retryable": false,
@@ -3778,7 +2832,7 @@
       "message": "KIS-NET XML declaration attributes are duplicated, unknown, or out of order."
     }
   },
-  "toolset:xml-fixture-corpus:invalid-xmlDeclarationWrongOrder": {
+  "node:xml-fixture-corpus:invalid-xmlDeclarationWrongOrder": {
     "ok": false,
     "error": {
       "ok": false,
@@ -3788,7 +2842,7 @@
       "expected": "A valid KIS-NET Nexacro response matching the documented YTM Matrix schema",
       "recoveryHint": "The KIS-NET source format may have changed; update this client before retrying.",
       "recoveryAction": {
-        "kind": "inspect_tool_help"
+        "kind": "review_client_usage"
       },
       "recoverable": false,
       "retryable": false,
@@ -3800,7 +2854,7 @@
       "message": "KIS-NET XML declaration must contain version in the required order."
     }
   },
-  "toolset:xml-fixture-corpus:invalid-xmlDoctypeEntity": {
+  "node:xml-fixture-corpus:invalid-xmlDoctypeEntity": {
     "ok": false,
     "error": {
       "ok": false,
@@ -3810,7 +2864,7 @@
       "expected": "A valid KIS-NET Nexacro response matching the documented YTM Matrix schema",
       "recoveryHint": "The KIS-NET source format may have changed; update this client before retrying.",
       "recoveryAction": {
-        "kind": "inspect_tool_help"
+        "kind": "review_client_usage"
       },
       "recoverable": false,
       "retryable": false,
@@ -3822,7 +2876,7 @@
       "message": "KIS-NET response must not contain a DOCTYPE declaration."
     }
   },
-  "toolset:xml-fixture-corpus:invalid-xmlDuplicateColumn": {
+  "node:xml-fixture-corpus:invalid-xmlDuplicateColumn": {
     "ok": false,
     "error": {
       "ok": false,
@@ -3832,7 +2886,7 @@
       "expected": "A valid KIS-NET Nexacro response matching the documented YTM Matrix schema",
       "recoveryHint": "The KIS-NET source format may have changed; update this client before retrying.",
       "recoveryAction": {
-        "kind": "inspect_tool_help"
+        "kind": "review_client_usage"
       },
       "recoverable": false,
       "retryable": false,
@@ -3844,7 +2898,7 @@
       "message": "KIS-NET row contains a duplicate column."
     }
   },
-  "toolset:xml-fixture-corpus:invalid-xmlDuplicateDataset": {
+  "node:xml-fixture-corpus:invalid-xmlDuplicateDataset": {
     "ok": false,
     "error": {
       "ok": false,
@@ -3854,7 +2908,7 @@
       "expected": "A valid KIS-NET Nexacro response matching the documented YTM Matrix schema",
       "recoveryHint": "The KIS-NET source format may have changed; update this client before retrying.",
       "recoveryAction": {
-        "kind": "inspect_tool_help"
+        "kind": "review_client_usage"
       },
       "recoverable": false,
       "retryable": false,
@@ -3866,7 +2920,7 @@
       "message": "KIS-NET response must contain exactly one direct Dataset named output1."
     }
   },
-  "toolset:xml-fixture-corpus:invalid-xmlDuplicateErrorCode": {
+  "node:xml-fixture-corpus:invalid-xmlDuplicateErrorCode": {
     "ok": false,
     "error": {
       "ok": false,
@@ -3876,7 +2930,7 @@
       "expected": "A valid KIS-NET Nexacro response matching the documented YTM Matrix schema",
       "recoveryHint": "The KIS-NET source format may have changed; update this client before retrying.",
       "recoveryAction": {
-        "kind": "inspect_tool_help"
+        "kind": "review_client_usage"
       },
       "recoverable": false,
       "retryable": false,
@@ -3888,7 +2942,7 @@
       "message": "KIS-NET response contains duplicate ErrorCode."
     }
   },
-  "toolset:xml-fixture-corpus:invalid-xmlDuplicateErrorMessage": {
+  "node:xml-fixture-corpus:invalid-xmlDuplicateErrorMessage": {
     "ok": false,
     "error": {
       "ok": false,
@@ -3898,7 +2952,7 @@
       "expected": "A valid KIS-NET Nexacro response matching the documented YTM Matrix schema",
       "recoveryHint": "The KIS-NET source format may have changed; update this client before retrying.",
       "recoveryAction": {
-        "kind": "inspect_tool_help"
+        "kind": "review_client_usage"
       },
       "recoverable": false,
       "retryable": false,
@@ -3910,7 +2964,7 @@
       "message": "KIS-NET response contains duplicate ErrorMsg."
     }
   },
-  "toolset:xml-fixture-corpus:invalid-xmlMalformedNesting": {
+  "node:xml-fixture-corpus:invalid-xmlMalformedNesting": {
     "ok": false,
     "error": {
       "ok": false,
@@ -3920,7 +2974,7 @@
       "expected": "A valid KIS-NET Nexacro response matching the documented YTM Matrix schema",
       "recoveryHint": "The KIS-NET source format may have changed; update this client before retrying.",
       "recoveryAction": {
-        "kind": "inspect_tool_help"
+        "kind": "review_client_usage"
       },
       "recoverable": false,
       "retryable": false,
@@ -3932,7 +2986,7 @@
       "message": "KIS-NET response contains malformed Nexacro XML."
     }
   },
-  "toolset:xml-fixture-corpus:invalid-xmlMissingNamespace": {
+  "node:xml-fixture-corpus:invalid-xmlMissingNamespace": {
     "ok": false,
     "error": {
       "ok": false,
@@ -3942,7 +2996,7 @@
       "expected": "A valid KIS-NET Nexacro response matching the documented YTM Matrix schema",
       "recoveryHint": "The KIS-NET source format may have changed; update this client before retrying.",
       "recoveryAction": {
-        "kind": "inspect_tool_help"
+        "kind": "review_client_usage"
       },
       "recoverable": false,
       "retryable": false,
@@ -3954,7 +3008,7 @@
       "message": "KIS-NET response root or namespace is invalid."
     }
   },
-  "toolset:xml-fixture-corpus:invalid-xmlNestedColumn": {
+  "node:xml-fixture-corpus:invalid-xmlNestedColumn": {
     "ok": false,
     "error": {
       "ok": false,
@@ -3964,7 +3018,7 @@
       "expected": "A valid KIS-NET Nexacro response matching the documented YTM Matrix schema",
       "recoveryHint": "The KIS-NET source format may have changed; update this client before retrying.",
       "recoveryAction": {
-        "kind": "inspect_tool_help"
+        "kind": "review_client_usage"
       },
       "recoverable": false,
       "retryable": false,
@@ -3976,7 +3030,7 @@
       "message": "KIS-NET scalar elements must not contain nested elements."
     }
   },
-  "toolset:xml-fixture-corpus:invalid-xmlNestedErrorMessage": {
+  "node:xml-fixture-corpus:invalid-xmlNestedErrorMessage": {
     "ok": false,
     "error": {
       "ok": false,
@@ -3986,7 +3040,7 @@
       "expected": "A valid KIS-NET Nexacro response matching the documented YTM Matrix schema",
       "recoveryHint": "The KIS-NET source format may have changed; update this client before retrying.",
       "recoveryAction": {
-        "kind": "inspect_tool_help"
+        "kind": "review_client_usage"
       },
       "recoverable": false,
       "retryable": false,
@@ -3998,7 +3052,7 @@
       "message": "KIS-NET scalar elements must not contain nested elements."
     }
   },
-  "toolset:xml-fixture-corpus:invalid-xmlWrongNamespace": {
+  "node:xml-fixture-corpus:invalid-xmlWrongNamespace": {
     "ok": false,
     "error": {
       "ok": false,
@@ -4008,7 +3062,7 @@
       "expected": "A valid KIS-NET Nexacro response matching the documented YTM Matrix schema",
       "recoveryHint": "The KIS-NET source format may have changed; update this client before retrying.",
       "recoveryAction": {
-        "kind": "inspect_tool_help"
+        "kind": "review_client_usage"
       },
       "recoverable": false,
       "retryable": false,
@@ -4020,7 +3074,7 @@
       "message": "KIS-NET response root or namespace is invalid."
     }
   },
-  "toolset:xml-fixture-corpus:valid-xmlAstralEntity": {
+  "node:xml-fixture-corpus:valid-xmlAstralEntity": {
     "ok": true,
     "value": {
       "baseDate": "2026-06-08",
@@ -4079,7 +3133,7 @@
       }
     }
   },
-  "toolset:xml-fixture-corpus:valid-xmlAttributeOrder": {
+  "node:xml-fixture-corpus:valid-xmlAttributeOrder": {
     "ok": true,
     "value": {
       "baseDate": "2026-06-08",
@@ -4134,7 +3188,7 @@
       }
     }
   },
-  "toolset:xml-fixture-corpus:valid-xmlCdata": {
+  "node:xml-fixture-corpus:valid-xmlCdata": {
     "ok": true,
     "value": {
       "baseDate": "2026-06-08",
@@ -4189,7 +3243,7 @@
       }
     }
   },
-  "toolset:xml-fixture-corpus:valid-xmlColumnInfo": {
+  "node:xml-fixture-corpus:valid-xmlColumnInfo": {
     "ok": true,
     "value": {
       "baseDate": "2026-06-08",
@@ -4244,7 +3298,7 @@
       }
     }
   },
-  "toolset:xml-fixture-corpus:valid-xmlEpilogComment": {
+  "node:xml-fixture-corpus:valid-xmlEpilogComment": {
     "ok": true,
     "value": {
       "baseDate": "2026-06-08",
@@ -4299,7 +3353,7 @@
       }
     }
   },
-  "toolset:xml-fixture-corpus:valid-xmlNonrecursiveEntity": {
+  "node:xml-fixture-corpus:valid-xmlNonrecursiveEntity": {
     "ok": true,
     "value": {
       "baseDate": "2026-06-08",
@@ -4358,7 +3412,7 @@
       }
     }
   },
-  "toolset:xml-fixture-corpus:valid-xmlPrefixedNamespace": {
+  "node:xml-fixture-corpus:valid-xmlPrefixedNamespace": {
     "ok": true,
     "value": {
       "baseDate": "2026-06-08",
@@ -4413,7 +3467,7 @@
       }
     }
   },
-  "toolset:xml-fixture-corpus:valid-xmlSelfClosingCell": {
+  "node:xml-fixture-corpus:valid-xmlSelfClosingCell": {
     "ok": true,
     "value": {
       "baseDate": "2026-06-08",
@@ -4527,7 +3581,7 @@
       }
     }
   },
-  "toolset:xml-fixture-corpus:valid-xmlStandaloneDeclaration": {
+  "node:xml-fixture-corpus:valid-xmlStandaloneDeclaration": {
     "ok": true,
     "value": {
       "baseDate": "2026-06-08",
@@ -4582,7 +3636,7 @@
       }
     }
   },
-  "toolset:xml-generated-bounds:body-limit-plus-one": {
+  "node:xml-generated-bounds:body-limit-plus-one": {
     "ok": false,
     "error": {
       "ok": false,
@@ -4592,7 +3646,7 @@
       "expected": "A valid KIS-NET Nexacro response matching the documented YTM Matrix schema",
       "recoveryHint": "The KIS-NET source format may have changed; update this client before retrying.",
       "recoveryAction": {
-        "kind": "inspect_tool_help"
+        "kind": "review_client_usage"
       },
       "recoverable": false,
       "retryable": false,
@@ -4604,7 +3658,7 @@
       "message": "KIS-NET response exceeds the maximum body size of 1048576 bytes."
     }
   },
-  "toolset:xml-generated-bounds:depth-limit-plus-one": {
+  "node:xml-generated-bounds:depth-limit-plus-one": {
     "ok": false,
     "error": {
       "ok": false,
@@ -4614,7 +3668,7 @@
       "expected": "A valid KIS-NET Nexacro response matching the documented YTM Matrix schema",
       "recoveryHint": "The KIS-NET source format may have changed; update this client before retrying.",
       "recoveryAction": {
-        "kind": "inspect_tool_help"
+        "kind": "review_client_usage"
       },
       "recoverable": false,
       "retryable": false,
@@ -4626,7 +3680,7 @@
       "message": "KIS-NET response exceeds the maximum XML element depth of 64."
     }
   },
-  "toolset:xml-generated-bounds:double-bom": {
+  "node:xml-generated-bounds:double-bom": {
     "ok": false,
     "error": {
       "ok": false,
@@ -4636,7 +3690,7 @@
       "expected": "A valid KIS-NET Nexacro response matching the documented YTM Matrix schema",
       "recoveryHint": "The KIS-NET source format may have changed; update this client before retrying.",
       "recoveryAction": {
-        "kind": "inspect_tool_help"
+        "kind": "review_client_usage"
       },
       "recoverable": false,
       "retryable": false,
@@ -4648,7 +3702,7 @@
       "message": "KIS-NET response contains more than one UTF-8 BOM."
     }
   },
-  "toolset:xml-generated-bounds:exact-body-limit": {
+  "node:xml-generated-bounds:exact-body-limit": {
     "ok": true,
     "value": {
       "baseDate": "2026-06-08",
@@ -4703,7 +3757,7 @@
       }
     }
   },
-  "toolset:xml-generated-bounds:exact-depth-limit": {
+  "node:xml-generated-bounds:exact-depth-limit": {
     "ok": true,
     "value": {
       "baseDate": "2026-06-08",
@@ -4758,7 +3812,7 @@
       }
     }
   },
-  "toolset:xml-generated-bounds:invalid-utf8": {
+  "node:xml-generated-bounds:invalid-utf8": {
     "ok": false,
     "error": {
       "ok": false,
@@ -4768,7 +3822,7 @@
       "expected": "A valid KIS-NET Nexacro response matching the documented YTM Matrix schema",
       "recoveryHint": "The KIS-NET source format may have changed; update this client before retrying.",
       "recoveryAction": {
-        "kind": "inspect_tool_help"
+        "kind": "review_client_usage"
       },
       "recoverable": false,
       "retryable": false,
@@ -4780,7 +3834,7 @@
       "message": "KIS-NET response is not valid UTF-8."
     }
   },
-  "toolset:xml-generated-bounds:single-bom": {
+  "node:xml-generated-bounds:single-bom": {
     "ok": true,
     "value": {
       "baseDate": "2026-06-08",
@@ -4834,5 +3888,44 @@
         "inspectedWorkflow": "The mobile page posts ds_search to /rateInfo/ytmMatrixMobileInitList.do on initial YTM Matrix load."
       }
     }
+  },
+  "package:package-surface": {
+    "name": "@sjunepark/ytm",
+    "bin": null,
+    "exportKeys": [
+      ".",
+      "./package.json"
+    ],
+    "client": "./dist/client.js",
+    "types": "./dist/client.d.ts",
+    "packageJsonExport": "./package.json",
+    "engine": ">=22",
+    "cliFiles": [],
+    "files": [
+      {
+        "path": "./dist/client.js",
+        "exists": true
+      },
+      {
+        "path": "./dist/client.d.ts",
+        "exists": true
+      },
+      {
+        "path": "README.md",
+        "exists": true
+      },
+      {
+        "path": "SPEC.md",
+        "exists": true
+      },
+      {
+        "path": "LICENSE.md",
+        "exists": true
+      },
+      {
+        "path": "skills/kisnet-ytm/SKILL.md",
+        "exists": true
+      }
+    ]
   }
 }

@@ -150,15 +150,13 @@ to consume the result is never available only on stderr. The help lookup
 `ytm help <unknown>` is the sole plain-text failure: it reports the unknown help
 topic and exits with status 2.
 
-`@sjunepark/ytm/toolset` is the Rust-backed Node SDK. It exports
-`createKisnetYtmToolset()` with `help`,
-`listOperations`, `getOperation`, `getCommandHelp`, `validateInput`, `execute`,
-and `serializeError`. `help()` and command help return cloned structured
-objects; examples are direct operation inputs. Validation returns either
-`{ ok: true, input }` or `{ ok: false, error }`. Serialized errors retain stable
-`name`, `message`, project error fields, and a tagged `recoveryAction` object.
-Discovery, help, and validation remain network-free.
-Execution accepts cancellation through `AbortSignal`. The rewrite intentionally
+`@sjunepark/ytm` is the Rust-backed Node SDK. Its root export provides
+`YtmClient` with typed `matrix()` and `kinds()` methods. The operation-specific
+`validateMatrixInput()` and `validateKindsInput()` helpers return either
+`{ ok: true, input }` or `{ ok: false, error }` without performing network I/O.
+`YtmError` and `serializeYtmError()` preserve stable `name`, `message`, project
+error fields, and a tagged `recoveryAction` object. Client methods accept
+cancellation through `AbortSignal`. The rewrite intentionally
 removes the legacy public `context.fetch` injection seam because allowing a
 JavaScript transport would violate the single Rust conformer boundary.
 
