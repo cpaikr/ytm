@@ -147,6 +147,8 @@ runNode("node-client-regressions", { action: "client-regressions", baseDate: req
   check(value?.nonFiniteKinds?.map(({ error }) => error?.actual).join(",") === "NaN,Infinity,-Infinity", `${label} non-finite numeric diagnostics must preserve each source spelling`);
   check(value?.scalarDetails?.code === "internal_error" && value?.arrayDetails?.code === "internal_error", `${label} malformed error details must not escape as public envelopes`);
   check(value?.objectDetails?.code === "sentinel", `${label} object error details must remain serializable`);
+  check(value?.unknownRecoveryAction?.recoveryAction?.kind === "review_method_input" && value?.unknownRecoveryAction?.recoveryAction?.method === "matrix", `${label} unknown recovery actions must normalize to the declared method fallback`);
+  check(value?.invalidMethodRecoveryAction?.recoveryAction?.kind === "review_method_input" && value?.invalidMethodRecoveryAction?.recoveryAction?.method === "kinds", `${label} invalid method recovery actions must normalize to the current operation`);
   check(value?.foreignDetails?.ok === false && value?.foreignDetails?.code === "foreign_error", `${label} foreign error details must remain a failure envelope`);
   check(value?.foreignDetails?.retained?.value === 7 && value?.foreignDetails?.large === "42", `${label} JSON-safe foreign fields must be retained`);
   check(value?.foreignDetails?.self === "[Circular]" && value?.foreignDetails?.ignored === undefined, `${label} cyclic and callable foreign fields must be sanitized`);
@@ -536,6 +538,7 @@ runNode("abort-handler-preservation", {
   check(result.value?.handlerCalls === 1, `${label} must call the consumer handler exactly once`);
   check(result.value?.signalAbortedAtEntry === false, `${label} must cancel after transport work begins`);
   check(result.value?.cancellationCode === evidence.expectations.transportError, `${label} must forward cancellation into the native operation`);
+  check(result.value?.cancellationIsYtmError === true, `${label} must expose in-flight cancellation as YtmError`);
 });
 runWithoutNative();
 
@@ -722,6 +725,8 @@ function runWithoutNative() {
     .find((target) => target.npmPlatform === process.platform && target.npmArch === process.arch);
   let result;
   let value;
+  let boundaryResult;
+  let boundaryValue;
   try {
     cpSync(resolve(productRoot, "src"), resolve(isolatedRoot, "src"), { recursive: true });
     writeFileSync(resolve(isolatedRoot, "package.json"), '{"type":"module"}\n');
@@ -772,6 +777,47 @@ function runWithoutNative() {
       const unknownLibcValue = parseSuccessfulJson(unknownLibc, `${name}: unknown libc`);
       check(unknownLibc.status === 0 && unknownLibcValue?.failure?.actual?.endsWith("-unknown-libc"), `${name}: inconclusive Linux reports must not be classified as musl`);
     }
+
+    writeFileSync(resolve(isolatedRoot, "src/native.js"), `
+export async function invokeNative(operation, input) {
+  if (input.baseDate === "2026-08-20") return { ok: true };
+  if (input.baseDate === "2026-08-21") return { ok: true, value: null };
+  const error = new Error("Deliberate native rejection");
+  error.details = {
+    ok: false,
+    code: "native_package_corrupt",
+    operationName: operation,
+    reason: "Deliberate native rejection",
+    recoveryAction: { kind: "update_package" },
+    recoverable: true,
+    retryable: false
+  };
+  throw error;
+}
+`);
+    const boundaryCode = `
+const m = await import(${JSON.stringify(clientUrl)});
+const client = new m.YtmClient();
+async function capture(execution) {
+  try {
+    await execution;
+    return { unexpectedSuccess: true };
+  } catch (error) {
+    return { isYtmError: error instanceof m.YtmError, error: m.serializeYtmError(error) };
+  }
+}
+const missingKindsValue = await capture(client.kinds({ baseDate: "2026-08-20" }));
+const nullMatrixValue = await capture(client.matrix({ baseDate: "2026-08-21", kind: "80" }));
+const nativeRejection = await capture(client.kinds({ baseDate: "2026-08-22" }));
+process.stdout.write(JSON.stringify({ missingKindsValue, nullMatrixValue, nativeRejection }));
+`;
+    boundaryResult = spawnSync(process.execPath, ["--input-type=module", "-e", boundaryCode], {
+      encoding: "utf8",
+      env: childEnvironment(),
+      maxBuffer: 4 * 1024 * 1024,
+      timeout: childTimeoutMilliseconds
+    });
+    boundaryValue = parseSuccessfulJson(boundaryResult, `${name}: client boundaries`);
   } finally {
     rmSync(isolatedRoot, { recursive: true, force: true });
   }
@@ -784,11 +830,17 @@ function runWithoutNative() {
   assertGolden(name, "node", {
     status: result.status,
     value: normalizeMissingNativeGolden(value, runtimeKey),
-    stderr: result.stderr === "" ? "empty" : "nonempty"
+    boundaryValue,
+    stderr: result.stderr === "" ? "empty" : "nonempty",
+    boundaryStderr: boundaryResult?.stderr === "" ? "empty" : "nonempty"
   });
   check(result.stderr === "", `${name}: client must not write to stderr`);
   check(value?.validation?.ok === true, `${name}: pure validation must remain available without a native package`);
   check(value?.failure?.code === "native_package_unavailable" && value?.failure?.recoveryAction?.kind === "update_package" && value?.failure?.retryable === false, `${name}: execution must return an actionable native-package failure`);
+  check(boundaryResult?.status === 0 && boundaryResult.stderr === "", `${name}: client boundary probes must complete without stderr`);
+  check(boundaryValue?.missingKindsValue?.isYtmError === true && boundaryValue?.missingKindsValue?.error?.code === "internal_error" && boundaryValue?.missingKindsValue?.error?.operationName === "kinds", `${name}: a missing kinds result must reject as YtmError`);
+  check(boundaryValue?.nullMatrixValue?.isYtmError === true && boundaryValue?.nullMatrixValue?.error?.code === "internal_error" && boundaryValue?.nullMatrixValue?.error?.operationName === "matrix", `${name}: a null matrix result must reject as YtmError`);
+  check(boundaryValue?.nativeRejection?.isYtmError === true && boundaryValue?.nativeRejection?.error?.code === "native_package_corrupt", `${name}: a structured native rejection must reject as YtmError`);
 }
 
 function normalizeMissingNativeGolden(value, runtimeKey) {

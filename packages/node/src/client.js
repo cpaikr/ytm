@@ -133,13 +133,21 @@ async function executeOperation(operationName, input, options) {
     });
   }
 
-  const envelope = await invokeNative(
-    operationName,
-    validation.input,
-    options.signal
-  );
+  let envelope;
+  try {
+    envelope = await invokeNative(
+      operationName,
+      validation.input,
+      options.signal
+    );
+  } catch (cause) {
+    throw cause instanceof YtmError ? cause : new YtmError(serializeError(cause));
+  }
   if (!envelope || envelope.ok !== true) {
-    throw new YtmError(envelope?.error ?? nativeEnvelopeError());
+    throw new YtmError(envelope?.error ?? nativeEnvelopeError(operationName));
+  }
+  if (!isOperationResult(operationName, envelope.value)) {
+    throw new YtmError(nativeEnvelopeError(operationName));
   }
   return envelope.value;
 }
@@ -425,10 +433,11 @@ function validationError(details) {
   });
 }
 
-function nativeEnvelopeError() {
+function nativeEnvelopeError(operationName) {
   return {
     ok: false,
     code: "internal_error",
+    operationName,
     reason: "The native ytm adapter returned an invalid result envelope.",
     recoveryHint:
       "Update the package for this platform, then report the failure if it persists.",
@@ -527,27 +536,89 @@ function normalizeSerializedError(details) {
 }
 
 function normalizeRecoveryAction(action, operationName) {
-  if (isRecord(action) && typeof action.kind === "string") {
-    if (action.kind === "inspect_command_help") {
-      return operationName
-        ? { kind: "review_method_input", method: operationName }
-        : { kind: "review_client_usage" };
-    }
-    if (action.kind === "inspect_tool_help") return { kind: "review_client_usage" };
-    return action;
-  }
-  if (typeof action === "string") {
-    if (action === "inspect_command_help") {
-      return operationName
-        ? { kind: "review_method_input", method: operationName }
-        : { kind: "review_client_usage" };
-    }
-    if (action === "inspect_tool_help") return { kind: "review_client_usage" };
-    return { kind: action };
-  }
-  return operationName
+  const fallback = isMethodName(operationName)
     ? { kind: "review_method_input", method: operationName }
     : { kind: "review_client_usage" };
+  const kind = isRecord(action) ? action.kind : action;
+
+  if (kind === "inspect_command_help") return fallback;
+  if (kind === "inspect_tool_help" || kind === "review_client_usage") {
+    return { kind: "review_client_usage" };
+  }
+  if (kind === "review_method_input") {
+    return isRecord(action) && isMethodName(action.method)
+      ? { kind: "review_method_input", method: action.method }
+      : fallback;
+  }
+  if ([
+    "use_previous_available_fallback",
+    "try_nearby_business_day",
+    "start_new_request",
+    "update_package"
+  ].includes(kind)) {
+    return { kind };
+  }
+  return fallback;
+}
+
+function isOperationResult(operationName, value) {
+  if (!isRecord(value) || !isRecord(value.source)) return false;
+  if (operationName === "kinds") {
+    return (
+      (value.baseDate === null || typeof value.baseDate === "string") &&
+      Array.isArray(value.kinds) &&
+      value.kinds.every(isYtmKind)
+    );
+  }
+  if (operationName !== "matrix") return false;
+  return (
+    typeof value.baseDate === "string" &&
+    typeof value.requestedBaseDate === "string" &&
+    isDateResolution(value.dateResolution) &&
+    isYtmKind(value.kind) &&
+    Array.isArray(value.tenors) &&
+    value.tenors.every((tenor) => typeof tenor === "string") &&
+    Array.isArray(value.rows) &&
+    value.rows.every(isYtmMatrixRow)
+  );
+}
+
+function isDateResolution(value) {
+  return (
+    isRecord(value) &&
+    ["exact", "previous-available"].includes(value.mode) &&
+    typeof value.requestedBaseDate === "string" &&
+    typeof value.resolvedBaseDate === "string" &&
+    typeof value.usedFallback === "boolean" &&
+    Array.isArray(value.attemptedDates) &&
+    value.attemptedDates.every((date) => typeof date === "string") &&
+    Number.isInteger(value.lookbackDays)
+  );
+}
+
+function isYtmKind(value) {
+  return isRecord(value) && typeof value.code === "string" && typeof value.name === "string";
+}
+
+function isYtmMatrixRow(value) {
+  return (
+    isRecord(value) &&
+    typeof value.groupName === "string" &&
+    typeof value.pricingGroupCode === "string" &&
+    typeof value.pricingGroupName === "string" &&
+    isRecord(value.yields) &&
+    Object.values(value.yields).every((yieldValue) => yieldValue === null || typeof yieldValue === "number") &&
+    isStringRecord(value.yieldText) &&
+    isStringRecord(value.raw)
+  );
+}
+
+function isStringRecord(value) {
+  return isRecord(value) && Object.values(value).every((entry) => typeof entry === "string");
+}
+
+function isMethodName(value) {
+  return value === "matrix" || value === "kinds";
 }
 
 function isRecord(value) {

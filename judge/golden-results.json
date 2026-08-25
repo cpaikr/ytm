@@ -223,7 +223,8 @@
       "preservedAfterAbort": true,
       "handlerCalls": 1,
       "signalAbortedAtEntry": false,
-      "cancellationCode": "source_transport_error"
+      "cancellationCode": "source_transport_error",
+      "cancellationIsYtmError": true
     }
   },
   "node:cancellation": {
@@ -1901,7 +1902,63 @@
         "cause": "MODULE_NOT_FOUND"
       }
     },
-    "stderr": "empty"
+    "boundaryValue": {
+      "missingKindsValue": {
+        "isYtmError": true,
+        "error": {
+          "ok": false,
+          "code": "internal_error",
+          "operationName": "kinds",
+          "reason": "The native ytm adapter returned an invalid result envelope.",
+          "recoveryHint": "Update the package for this platform, then report the failure if it persists.",
+          "recoveryAction": {
+            "kind": "update_package"
+          },
+          "recoverable": false,
+          "retryable": false,
+          "cause": "InvalidNativeEnvelope",
+          "name": "InternalError",
+          "message": "The native ytm adapter returned an invalid result envelope."
+        }
+      },
+      "nullMatrixValue": {
+        "isYtmError": true,
+        "error": {
+          "ok": false,
+          "code": "internal_error",
+          "operationName": "matrix",
+          "reason": "The native ytm adapter returned an invalid result envelope.",
+          "recoveryHint": "Update the package for this platform, then report the failure if it persists.",
+          "recoveryAction": {
+            "kind": "update_package"
+          },
+          "recoverable": false,
+          "retryable": false,
+          "cause": "InvalidNativeEnvelope",
+          "name": "InternalError",
+          "message": "The native ytm adapter returned an invalid result envelope."
+        }
+      },
+      "nativeRejection": {
+        "isYtmError": true,
+        "error": {
+          "ok": false,
+          "code": "native_package_corrupt",
+          "operationName": "kinds",
+          "reason": "Deliberate native rejection",
+          "recoveryAction": {
+            "kind": "update_package"
+          },
+          "recoverable": true,
+          "retryable": false,
+          "name": "NativePackageCorruptError",
+          "message": "Deliberate native rejection",
+          "recoveryHint": "Review the client method documentation and retry with the documented recovery action."
+        }
+      }
+    },
+    "stderr": "empty",
+    "boundaryStderr": "empty"
   },
   "node:node-client-regressions": {
     "ok": true,
@@ -2166,6 +2223,36 @@
         "recoveryAction": {
           "kind": "review_client_usage"
         },
+        "recoverable": false,
+        "retryable": false,
+        "recoveryHint": "Review the client method documentation and retry with the documented recovery action."
+      },
+      "unknownRecoveryAction": {
+        "code": "foreign_error",
+        "operationName": "matrix",
+        "recoveryAction": {
+          "kind": "review_method_input",
+          "method": "matrix"
+        },
+        "ok": false,
+        "name": "YtmError",
+        "message": "The operation failed.",
+        "reason": "The operation failed.",
+        "recoverable": false,
+        "retryable": false,
+        "recoveryHint": "Review the client method documentation and retry with the documented recovery action."
+      },
+      "invalidMethodRecoveryAction": {
+        "code": "foreign_error",
+        "operationName": "kinds",
+        "recoveryAction": {
+          "kind": "review_method_input",
+          "method": "kinds"
+        },
+        "ok": false,
+        "name": "YtmError",
+        "message": "The operation failed.",
+        "reason": "The operation failed.",
         "recoverable": false,
         "retryable": false,
         "recoveryHint": "Review the client method documentation and retry with the documented recovery action."

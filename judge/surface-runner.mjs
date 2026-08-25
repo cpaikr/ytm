@@ -16,7 +16,11 @@ try {
   if (request.action === "inspect") {
     value = {
       exports: Object.keys(module).sort(),
-      methods: ["matrix", "kinds"].filter((name) => typeof client[name] === "function")
+      methods: Object.entries(
+        Object.getOwnPropertyDescriptors(Object.getPrototypeOf(client))
+      )
+        .filter(([name, descriptor]) => name !== "constructor" && typeof descriptor.value === "function")
+        .map(([name]) => name)
     };
   } else if (request.action === "validate") {
     value = request.operation === "matrix"
@@ -57,6 +61,20 @@ try {
       scalarDetails: module.serializeYtmError({ details: "not-an-error-envelope" }),
       arrayDetails: module.serializeYtmError({ details: ["not-an-error-envelope"] }),
       objectDetails: module.serializeYtmError({ details: { code: "sentinel" } }),
+      unknownRecoveryAction: module.serializeYtmError({
+        details: {
+          code: "foreign_error",
+          operationName: "matrix",
+          recoveryAction: { kind: "restart_database" }
+        }
+      }),
+      invalidMethodRecoveryAction: module.serializeYtmError({
+        details: {
+          code: "foreign_error",
+          operationName: "kinds",
+          recoveryAction: { kind: "review_method_input", method: "sorts" }
+        }
+      }),
       foreignDetails: module.serializeYtmError({ details: circularDetails }),
       sharedReferences: module.serializeYtmError({
         details: {
@@ -100,7 +118,8 @@ try {
       preservedAfterAbort: controller.signal.onabort === handler,
       handlerCalls,
       signalAbortedAtEntry: requestAtEntry.signalAborted,
-      cancellationCode: cancellation.code
+      cancellationCode: cancellation.code,
+      cancellationIsYtmError: outcome.ok ? false : outcome.caught instanceof module.YtmError
     };
   } else {
     throw new Error(`Unknown runner action: ${request.action}`);

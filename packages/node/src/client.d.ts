@@ -111,9 +111,6 @@ export interface ListYtmKindsResult {
   readonly source: Record<string, unknown>;
 }
 
-/** @deprecated Use ListYtmKindsResult. */
-export type ListYtmSortsResult = ListYtmKindsResult;
-
 export class YtmClient {
   matrix(
     input: MatrixInput,
