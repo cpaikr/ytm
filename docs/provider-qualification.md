@@ -76,11 +76,16 @@ without fallback. The result was streamed into a metadata-only checker; no
 response body, normalized row, raw cell, or yield was written to disk or logs.
 
 The scheduled [`live-smoke.yml`](../.github/workflows/live-smoke.yml) workflow
-now calls the standalone Rust CLI. As of 2026-08-23, no run from the
-post-migration `main` revision has completed; the latest successful scheduled
-run predates that cutover. The first successful Rust-CLI run remains an
-operational evidence task in [`ROADMAP.md`](../ROADMAP.md), not a prerequisite
-for treating the source as production-qualified.
+calls the standalone Rust CLI. Run
+[33842308744](https://github.com/cpaikr/ytm/actions/runs/33842308744)
+completed successfully on `2026-09-04T05:56:49Z` from `main` at
+`810250dbf5e9b105cfc1955fe7b94ba7a612b361`. That revision contains the public
+Rust SDK (`dd683fc`) and standalone CLI migration (`8465077`). The `rust-cli`
+job built the CLI and passed its check for a successful matrix result with
+nonempty rows; its workflow prints only bounded date/count metadata. This is
+confirmed post-migration availability evidence, not production qualification
+or a claim about the first successful run. No new provider request was made
+to reconcile this record.
 
 ## Unknowns requiring provider or owner confirmation
 
