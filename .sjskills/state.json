@@ -1,0 +1,257 @@
+{
+  "version": 1,
+  "records": [
+    {
+      "scope": "project",
+      "skill": "address-pr-feedback",
+      "target": ".agents",
+      "sourceIdentity": "github:sjunepark/agent-scripts",
+      "treeHashAlgorithm": "tree-sha256-v2",
+      "treeHash": "ad2e57b23ac7771ef648d5b30e496fd042c2a121d1b6cedb7e60b1ddd91417ac",
+      "recordedAt": "2026-09-04T06:30:38.943343Z"
+    },
+    {
+      "scope": "project",
+      "skill": "agents-md-writer",
+      "target": ".agents",
+      "sourceIdentity": "github:sjunepark/agent-scripts",
+      "treeHashAlgorithm": "tree-sha256-v2",
+      "treeHash": "e8b93274788f17f262495a0438917c479abbde1041fe7f4b4428981a5241d508",
+      "recordedAt": "2026-09-04T06:30:38.943343Z"
+    },
+    {
+      "scope": "project",
+      "skill": "clear-rust",
+      "target": ".agents",
+      "sourceIdentity": "github:sjunepark/agent-scripts",
+      "treeHashAlgorithm": "tree-sha256-v2",
+      "treeHash": "cee8000b106120c9a54f8172f1ea110ca8fa12100059ed48a72b5797b1bf1e44",
+      "recordedAt": "2026-09-04T06:30:38.943343Z"
+    },
+    {
+      "scope": "project",
+      "skill": "code-review",
+      "target": ".agents",
+      "sourceIdentity": "github:sjunepark/agent-scripts",
+      "treeHashAlgorithm": "tree-sha256-v2",
+      "treeHash": "c907ad2eb7146dace6c5168f9f9ea8fba37a365c91dc650eb5cbc59983c185c5",
+      "recordedAt": "2026-09-04T06:30:38.943343Z"
+    },
+    {
+      "scope": "project",
+      "skill": "context7-cli",
+      "target": ".agents",
+      "sourceIdentity": "github:upstash/context7",
+      "treeHashAlgorithm": "tree-sha256-v2",
+      "treeHash": "e89cd1359e6ec38eb7fc8412d12f64c5e93f12816a3ba368fe09eb816269aada",
+      "recordedAt": "2026-09-04T06:30:38.943343Z"
+    },
+    {
+      "scope": "project",
+      "skill": "create-pr",
+      "target": ".agents",
+      "sourceIdentity": "github:sjunepark/agent-scripts",
+      "treeHashAlgorithm": "tree-sha256-v2",
+      "treeHash": "5eee7df88f3b975bb6940e42240cfc252d6efe7d17d08e5c0edf49309d69383d",
+      "recordedAt": "2026-09-04T06:30:38.943343Z"
+    },
+    {
+      "scope": "project",
+      "skill": "delegate",
+      "target": ".agents",
+      "sourceIdentity": "github:sjunepark/agent-scripts",
+      "treeHashAlgorithm": "tree-sha256-v2",
+      "treeHash": "a93c2861835cb1364940a933a392f9bab913300c87489123e126f815286c9c88",
+      "recordedAt": "2026-09-04T06:30:38.943343Z"
+    },
+    {
+      "scope": "project",
+      "skill": "delegate-ui-to-claude",
+      "target": ".agents",
+      "sourceIdentity": "github:sjunepark/agent-scripts",
+      "treeHashAlgorithm": "tree-sha256-v2",
+      "treeHash": "bdfe4a52af26482e993ee26beff67737f048b4d9bc6390d99b8bdeee0038effd",
+      "recordedAt": "2026-09-04T06:30:38.943343Z"
+    },
+    {
+      "scope": "project",
+      "skill": "develop-skills",
+      "target": ".agents",
+      "sourceIdentity": "github:sjunepark/agent-scripts",
+      "treeHashAlgorithm": "tree-sha256-v2",
+      "treeHash": "91680a6edad9b4c390f3ce78ef6cb66e6c497c0b195f31ac404790c7da31608c",
+      "recordedAt": "2026-09-04T06:30:38.943343Z"
+    },
+    {
+      "scope": "project",
+      "skill": "explore-repo",
+      "target": ".agents",
+      "sourceIdentity": "github:sjunepark/agent-scripts",
+      "treeHashAlgorithm": "tree-sha256-v2",
+      "treeHash": "9dc35d0fced955b192239d8d5f417ee01a2988e721d5937b23bef6f52dac87ca",
+      "recordedAt": "2026-09-04T06:30:38.943343Z"
+    },
+    {
+      "scope": "project",
+      "skill": "harmonize-docs",
+      "target": ".agents",
+      "sourceIdentity": "github:sjunepark/agent-scripts",
+      "treeHashAlgorithm": "tree-sha256-v2",
+      "treeHash": "9e581e3a6826046c1aa4c8ecd4814d7b05ee374288b40962f87ce7e408f1a37b",
+      "recordedAt": "2026-09-04T06:30:38.943343Z"
+    },
+    {
+      "scope": "project",
+      "skill": "merge-branch",
+      "target": ".agents",
+      "sourceIdentity": "github:sjunepark/agent-scripts",
+      "treeHashAlgorithm": "tree-sha256-v2",
+      "treeHash": "9edad20ab25cb3be33ec5e4a8fb3ca8a70933b44f6e77e930ce554612cbb12c5",
+      "recordedAt": "2026-09-04T06:30:38.943343Z"
+    },
+    {
+      "scope": "project",
+      "skill": "modern-rust",
+      "target": ".agents",
+      "sourceIdentity": "github:sjunepark/agent-scripts",
+      "treeHashAlgorithm": "tree-sha256-v2",
+      "treeHash": "6377808a86caca24bfc3c01172e37a94621d541b6e16b2dd8df6078983a4405d",
+      "recordedAt": "2026-09-04T06:30:38.943343Z"
+    },
+    {
+      "scope": "project",
+      "skill": "teach",
+      "target": ".agents",
+      "sourceIdentity": "github:sjunepark/agent-scripts",
+      "treeHashAlgorithm": "tree-sha256-v2",
+      "treeHash": "5fd5a60cbda96d953e3e23b2aa2310131c856b56ce0b922ded50a5f0f47963ec",
+      "recordedAt": "2026-09-04T06:30:38.943343Z"
+    },
+    {
+      "scope": "project",
+      "skill": "update-base-branch",
+      "target": ".agents",
+      "sourceIdentity": "github:sjunepark/agent-scripts",
+      "treeHashAlgorithm": "tree-sha256-v2",
+      "treeHash": "09ce913f4034a06d565fad3984b4c64940c6475c305f0f5622e31880fa5be0d8",
+      "recordedAt": "2026-09-04T06:30:38.943343Z"
+    },
+    {
+      "scope": "project",
+      "skill": "address-pr-feedback",
+      "target": ".claude",
+      "sourceIdentity": "github:sjunepark/agent-scripts",
+      "treeHashAlgorithm": "tree-sha256-v2",
+      "treeHash": "ad2e57b23ac7771ef648d5b30e496fd042c2a121d1b6cedb7e60b1ddd91417ac",
+      "recordedAt": "2026-09-04T06:30:38.943343Z"
+    },
+    {
+      "scope": "project",
+      "skill": "agents-md-writer",
+      "target": ".claude",
+      "sourceIdentity": "github:sjunepark/agent-scripts",
+      "treeHashAlgorithm": "tree-sha256-v2",
+      "treeHash": "e8b93274788f17f262495a0438917c479abbde1041fe7f4b4428981a5241d508",
+      "recordedAt": "2026-09-04T06:30:38.943343Z"
+    },
+    {
+      "scope": "project",
+      "skill": "clear-rust",
+      "target": ".claude",
+      "sourceIdentity": "github:sjunepark/agent-scripts",
+      "treeHashAlgorithm": "tree-sha256-v2",
+      "treeHash": "cee8000b106120c9a54f8172f1ea110ca8fa12100059ed48a72b5797b1bf1e44",
+      "recordedAt": "2026-09-04T06:30:38.943343Z"
+    },
+    {
+      "scope": "project",
+      "skill": "code-review",
+      "target": ".claude",
+      "sourceIdentity": "github:sjunepark/agent-scripts",
+      "treeHashAlgorithm": "tree-sha256-v2",
+      "treeHash": "c907ad2eb7146dace6c5168f9f9ea8fba37a365c91dc650eb5cbc59983c185c5",
+      "recordedAt": "2026-09-04T06:30:38.943343Z"
+    },
+    {
+      "scope": "project",
+      "skill": "context7-cli",
+      "target": ".claude",
+      "sourceIdentity": "github:upstash/context7",
+      "treeHashAlgorithm": "tree-sha256-v2",
+      "treeHash": "e89cd1359e6ec38eb7fc8412d12f64c5e93f12816a3ba368fe09eb816269aada",
+      "recordedAt": "2026-09-04T06:30:38.943343Z"
+    },
+    {
+      "scope": "project",
+      "skill": "create-pr",
+      "target": ".claude",
+      "sourceIdentity": "github:sjunepark/agent-scripts",
+      "treeHashAlgorithm": "tree-sha256-v2",
+      "treeHash": "5eee7df88f3b975bb6940e42240cfc252d6efe7d17d08e5c0edf49309d69383d",
+      "recordedAt": "2026-09-04T06:30:38.943343Z"
+    },
+    {
+      "scope": "project",
+      "skill": "develop-skills",
+      "target": ".claude",
+      "sourceIdentity": "github:sjunepark/agent-scripts",
+      "treeHashAlgorithm": "tree-sha256-v2",
+      "treeHash": "91680a6edad9b4c390f3ce78ef6cb66e6c497c0b195f31ac404790c7da31608c",
+      "recordedAt": "2026-09-04T06:30:38.943343Z"
+    },
+    {
+      "scope": "project",
+      "skill": "explore-repo",
+      "target": ".claude",
+      "sourceIdentity": "github:sjunepark/agent-scripts",
+      "treeHashAlgorithm": "tree-sha256-v2",
+      "treeHash": "9dc35d0fced955b192239d8d5f417ee01a2988e721d5937b23bef6f52dac87ca",
+      "recordedAt": "2026-09-04T06:30:38.943343Z"
+    },
+    {
+      "scope": "project",
+      "skill": "harmonize-docs",
+      "target": ".claude",
+      "sourceIdentity": "github:sjunepark/agent-scripts",
+      "treeHashAlgorithm": "tree-sha256-v2",
+      "treeHash": "9e581e3a6826046c1aa4c8ecd4814d7b05ee374288b40962f87ce7e408f1a37b",
+      "recordedAt": "2026-09-04T06:30:38.943343Z"
+    },
+    {
+      "scope": "project",
+      "skill": "merge-branch",
+      "target": ".claude",
+      "sourceIdentity": "github:sjunepark/agent-scripts",
+      "treeHashAlgorithm": "tree-sha256-v2",
+      "treeHash": "9edad20ab25cb3be33ec5e4a8fb3ca8a70933b44f6e77e930ce554612cbb12c5",
+      "recordedAt": "2026-09-04T06:30:38.943343Z"
+    },
+    {
+      "scope": "project",
+      "skill": "modern-rust",
+      "target": ".claude",
+      "sourceIdentity": "github:sjunepark/agent-scripts",
+      "treeHashAlgorithm": "tree-sha256-v2",
+      "treeHash": "6377808a86caca24bfc3c01172e37a94621d541b6e16b2dd8df6078983a4405d",
+      "recordedAt": "2026-09-04T06:30:38.943343Z"
+    },
+    {
+      "scope": "project",
+      "skill": "teach",
+      "target": ".claude",
+      "sourceIdentity": "github:sjunepark/agent-scripts",
+      "treeHashAlgorithm": "tree-sha256-v2",
+      "treeHash": "5fd5a60cbda96d953e3e23b2aa2310131c856b56ce0b922ded50a5f0f47963ec",
+      "recordedAt": "2026-09-04T06:30:38.943343Z"
+    },
+    {
+      "scope": "project",
+      "skill": "update-base-branch",
+      "target": ".claude",
+      "sourceIdentity": "github:sjunepark/agent-scripts",
+      "treeHashAlgorithm": "tree-sha256-v2",
+      "treeHash": "09ce913f4034a06d565fad3984b4c64940c6475c305f0f5622e31880fa5be0d8",
+      "recordedAt": "2026-09-04T06:30:38.943343Z"
+    }
+  ]
+}
