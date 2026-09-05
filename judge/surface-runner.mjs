@@ -61,6 +61,17 @@ try {
       scalarDetails: module.serializeYtmError({ details: "not-an-error-envelope" }),
       arrayDetails: module.serializeYtmError({ details: ["not-an-error-envelope"] }),
       objectDetails: module.serializeYtmError({ details: { code: "sentinel" } }),
+      inheritedErrorCodes: ["toString", "constructor", "__proto__", "hasOwnProperty"]
+        .map((code) => {
+          const error = new module.YtmError({ code });
+          return {
+            code,
+            serialized: module.serializeYtmError({ details: { code } }),
+            name: error.name,
+            details: error.details,
+            text: String(error)
+          };
+        }),
       unknownRecoveryAction: module.serializeYtmError({
         details: {
           code: "foreign_error",

@@ -87,6 +87,10 @@ ytm kinds [--base-date <기준일>] [--format json|csv|tsv] [--pretty]
 ytm upgrade [--check]
 ```
 
+For `matrix` and `kinds`, `--help` or `-h` prints command help without network
+I/O while validating supplied options. Value options accept `--option value`
+and `--option=value`; repeated `--pretty` is allowed.
+
 `ytm --version` is network-free and prints exactly `ytm <product-version>`
 followed by one newline on stdout. It has no update-check or other side effect.
 Matrix and kinds commands never inspect a receipt, check for updates, wait for

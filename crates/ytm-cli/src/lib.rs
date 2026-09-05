@@ -333,16 +333,21 @@ fn help_requested(operation: Operation, args: &[String]) -> bool {
         .collect::<std::collections::HashMap<_, _>>();
     let mut index = 0;
     let mut requested = false;
-    let mut seen = std::collections::HashSet::new();
     while index < args.len() {
+        let (option, inline_value) = args[index]
+            .split_once('=')
+            .map_or((args[index].as_str(), None), |(option, value)| {
+                (option, Some(value))
+            });
         if matches!(args[index].as_str(), "--help" | "-h") {
             requested = true;
             index += 1;
-        } else if let Some(takes_value) = recognized.get(args[index].as_str()) {
-            if !seen.insert(args[index].as_str()) {
-                return false;
-            }
+        } else if let Some(takes_value) = recognized.get(option) {
             if *takes_value {
+                if inline_value.is_some() {
+                    index += 1;
+                    continue;
+                }
                 let Some(value) = args.get(index + 1) else {
                     return false;
                 };
@@ -351,6 +356,9 @@ fn help_requested(operation: Operation, args: &[String]) -> bool {
                 }
                 index += 2;
             } else {
+                if inline_value.is_some() {
+                    return false;
+                }
                 index += 1;
             }
         } else {

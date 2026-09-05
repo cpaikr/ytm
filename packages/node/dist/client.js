@@ -517,7 +517,9 @@ function normalizeSerializedError(details) {
         ? sanitized.name
         : sanitized.cause === "AbortError"
           ? "AbortError"
-        : ERROR_NAMES[code] || "YtmError",
+          : Object.hasOwn(ERROR_NAMES, code)
+            ? ERROR_NAMES[code]
+            : "YtmError",
     message,
     code,
     reason,
