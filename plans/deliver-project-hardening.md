@@ -1,6 +1,6 @@
 # Deliver project hardening
 
-Status: planned
+Status: in progress
 
 ## Outcome
 
@@ -10,12 +10,16 @@ coverage. Downstream Python work starts from the accepted core behavior.
 
 ## Current state
 
-At planning time, `codex/project-hardening` is clean and contains commit
-`e6c63503cd5c7d59a617129870b147ed2b8b13db`, one commit beyond local and remote
-`dev` (`e3b42e4`). The commit is not available on GitHub and there is no open PR.
-Its commit message records a successful `bun run validate` with 120 conformance
-scenarios and an independent review; this is recorded evidence, not a fresh
-validation run by this planning task.
+The original hardening commit `e6c63503cd5c7d59a617129870b147ed2b8b13db`
+is preserved on `codex/python-sdk-hardening-reviewed`, together with the
+previously local planning merge. Remote `dev` contains the durable goal
+initialization; the implementation awaits reviewed remote integration.
+
+Fresh `bun run validate` passed, including all 120 conformance scenarios. A
+bounded four-lens code review found no actionable issues. Source and generated
+Node output agree. Existing audit warnings remain non-fatal under repository
+policy. Live-smoke evidence reconciliation shares this PR as documentation-only
+work; no provider call was executed.
 
 ## Delivery scope
 
@@ -30,12 +34,12 @@ validation run by this planning task.
 
 ## Execution and acceptance
 
-- [ ] Refresh branch/remote/PR evidence and inspect the exact diff against
+- [x] Refresh branch/remote/PR evidence and inspect the exact diff against
   `dev`; preserve unrelated work and avoid duplicating an already delivered PR.
-- [ ] Reconcile the existing validation/review record with the exact commit.
+- [x] Reconcile the existing validation/review record with the exact commit.
   Run required checks lacking trustworthy evidence and checks needed by any
   new edits; the complete gate is `bun run validate`.
-- [ ] Run one bounded code review of the delivery diff and reconcile affected
+- [x] Run one bounded code review of the delivery diff and reconcile affected
   documentation. Fix actionable in-scope defects and validate changed behavior.
 - [ ] When delivery is authorized, push the branch and create a PR targeting
   `dev`, with the initial CodeRabbit review and concrete validation evidence.
@@ -51,5 +55,5 @@ is part of this item. This plan itself authorizes no push, PR, or merge.
 
 ## Next action
 
-On execution authorization, refresh `dev` and PR evidence and inspect the
-existing commit's validation record before preparing its delivery diff.
+Finish the affected-documentation review, create the ready PR to `dev`, then
+resolve CI and review feedback and merge preserving the existing commits.

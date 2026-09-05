@@ -1,6 +1,6 @@
 # Reconcile post-migration live-smoke evidence
 
-Status: planned
+Status: in progress
 
 ## Outcome
 
@@ -16,23 +16,26 @@ succeeded on 2026-09-04 from `main` at
 CLI and passed the live smoke. The workflow at that SHA checks a successful
 matrix result with nonempty rows and prints bounded date/count metadata.
 
-`docs/provider-qualification.md` still says no post-migration run has completed.
-The operational check has evidence; source-lineage confirmation and durable
-ledger reconciliation remain. No new provider request is needed to establish
-this already observed result.
+GitHub metadata and the workflow at the exact SHA confirm the `rust-cli` job
+built the CLI and passed its nonempty successful-result assertion, completing
+at `2026-09-04T05:56:49Z`. Git ancestry confirms both public SDK `dd683fc` and
+CLI migration `8465077` precede this revision. The provider ledger now records
+that verified result while preserving the qualification decision; reviewed
+remote integration remains pending. No provider request or response-body
+collection was used during reconciliation.
 
 ## Execution and acceptance
 
-- [ ] Verify the cited run's conclusion, source SHA, workflow, and ancestry
+- [x] Verify the cited run's conclusion, source SHA, workflow, and ancestry
   include the public Rust SDK and standalone CLI migration. Use bounded
   metadata; do not collect response bodies, rows, or yields.
-- [ ] Replace the obsolete pending-run paragraph in the provider ledger with
+- [x] Replace the obsolete pending-run paragraph in the provider ledger with
   the verified run URL, UTC date, SHA, and operational conclusion. Describe it
   as a confirmed post-migration success; do not claim it was chronologically
   first unless run history establishes that fact.
-- [ ] Preserve the provider's `protocol-feasible; not production-qualified`
+- [x] Preserve the provider's `protocol-feasible; not production-qualified`
   decision and all unresolved rights-and-operations questions.
-- [ ] Check local links and evidence consistency, run one bounded documentation
+- [x] Check local links and evidence consistency, run one bounded documentation
   review, and reconcile references affected by the task-to-plan move.
 - [ ] Deliver the documentation change through the authorized repository
   workflow; record its accepted revision. Mark this item complete and remove
@@ -44,5 +47,6 @@ executing a fresh live request is not a fallback authorized by this plan.
 
 ## Next action
 
-Confirm source ancestry for the cited successful run, then prepare the precise
-provider-ledger replacement when execution is authorized.
+Finish the bounded documentation review and deliver the ledger update with the
+hardening PR. Record the accepted revision after merge, then remove this plan
+from the active roadmap.

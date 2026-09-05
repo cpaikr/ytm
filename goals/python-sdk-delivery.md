@@ -35,15 +35,30 @@ Hardening validation and integration.
 
 ### Next in-scope action
 
-Review and validate the existing hardening, then deliver it through a PR to dev.
+Deliver the validated hardening and reconciled smoke evidence through the first
+PR to dev, resolve CI/review feedback, and merge preserving individual commits.
 
 ### Evidence and blockers
 
 - Candidate: hardening delivery. Classification: included. Contract basis:
   hardening validation and integration. Action: proceed.
+- Candidate: live-smoke evidence reconciliation in the hardening PR.
+  Classification: included. Contract basis: post-migration smoke evidence
+  reconciliation. Action: proceed. This documentation-only result shares the
+  first delivery PR; no new live request is authorized or needed.
 - Integration branch: dev. GitHub reports no branch protection or repository
   rules on dev. Initialization uses origin/dev to avoid directly pushing the
   three existing local commits; those commits will travel through PR delivery.
 - Existing local dev is 5be08eb; origin/dev is e3b42e4. The working tree is clean.
 - Actual release selection, activation, publication, and production provider
   enablement remain excluded.
+
+- Fresh `bun run validate` passed, including 120 conformance scenarios; the
+  bounded implementation review found no actionable issues. Smoke run metadata
+  and ancestry were verified; affected documentation passed bounded review.
+- Concurrently staged skill-sync changes were accidentally included in pushed
+  commit `9d34c9d` on `codex/python-sdk-hardening-delivery`. That branch is
+  preserved, has no PR, and must not be merged for this goal. Authorized files
+  are isolated in `/tmp/ytm-python-sdk-delivery` on
+  `codex/python-sdk-hardening-reviewed`; its parent retains the original
+  hardening commits. The original workspace and unrelated files remain intact.
