@@ -69,7 +69,7 @@ synchronized secondary projection of the same version and tagged source.
 
 ## Implementation slices
 
-The accepted [mytech guidance](../../mytech/architecture/rust-cores-for-python-packages.md)
+The accepted [mytech guidance](https://github.com/sjunepark/mytech/blob/73dac554c5fb74da0fba7a986b4c55e2234d8859/architecture/rust-cores-for-python-packages.md)
 is the architecture baseline. It is reusable guidance, not a downstream
 application or a requirement to preserve the old Python API. The existing
 public Rust exports in `crates/ytm-core/src/lib.rs` are the binding seam;
