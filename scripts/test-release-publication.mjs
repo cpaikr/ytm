@@ -92,3 +92,99 @@ function runUploadPlan(candidate, remote, success = true) {
   if (!success && result.status === 0) throw new Error("Expected release upload planning to fail.");
   return result;
 }
+
+// Canonical bytes and independent registries are tested without credentials or writes.
+const { sha256, projectionState, productManifest } = await import('./product-artifact-policy.mjs');
+const pyTargets = JSON.parse(await readFile('python-targets.json', 'utf8'));
+const nativeTargets = JSON.parse(await readFile('native-targets.json', 'utf8'));
+const packageMetadata = JSON.parse(await readFile(`${nativeTargets.rootPackage}/package.json`, 'utf8'));
+const productVersion = (await readFile('VERSION', 'utf8')).trim();
+const sourceCommit = spawnSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).stdout.trim();
+const { manifest: cliPolicy } = await loadCliReleasePolicy(process.cwd());
+const productNames = [
+  ...cliPolicy.targets.map(t => cliArchiveName(cliPolicy, t, productVersion)),
+  cliPolicy.installerAssets.shell, cliPolicy.installerAssets.powershell, cliPolicy.checksumFile,
+  ...[...nativeTargets.targets.map(t => t.packageName), packageMetadata.name].map(n => `${n.replace(/^@/, '').replace('/', '-')}-${productVersion}.tgz`),
+  ...pyTargets.targets.flatMap(t => [`kisnet_ytm-${productVersion}-cp311-abi3-${t.platform}.whl`, `${t.key}.json`]),
+].sort();
+const productTemp = await mkdtemp(resolve(tmpdir(), 'ytm-product-publication-'));
+try {
+  const candidate = resolve(productTemp, 'candidate');
+  const remote = resolve(productTemp, 'remote');
+  await mkdir(candidate); await mkdir(remote);
+  const assets = [];
+  for (const name of productNames) {
+    const data = Buffer.from(`immutable:${name}\n`);
+    await writeFile(resolve(candidate, name), data);
+    assets.push({ name, size: data.length, sha256: sha256(data) });
+  }
+  const metadata = { schemaVersion: 1, version: productVersion, sourceCommit, assets };
+  const save = (data) => writeFile(resolve(candidate, productManifest), JSON.stringify(data));
+  await save(metadata);
+  const execute = (action, success = true) => {
+    const result = spawnSync(process.execPath, ['scripts/product-artifacts.mjs', action, candidate, remote], { encoding: 'utf8' });
+    assert.equal(result.status === 0, success, result.stderr);
+    return result;
+  };
+  execute('validate');
+  assert.equal(JSON.parse(execute('plan').stdout).missing.length, productNames.length + 1);
+  const wheel = productNames.find(n => n.endsWith('.whl'));
+  await writeFile(resolve(remote, wheel), `immutable:${wheel}\n`);
+  assert.equal(JSON.parse(execute('plan').stdout).missing.length, productNames.length);
+  await writeFile(resolve(remote, wheel), 'corrupt');
+  execute('plan', false);
+  await save({ ...metadata, sourceCommit: otherSha });
+  execute('validate', false);
+  await save(metadata);
+  await writeFile(resolve(candidate, wheel), 'corrupt');
+  execute('validate', false);
+  await writeFile(resolve(candidate, wheel), `immutable:${wheel}\n`);
+  await rm(resolve(candidate, wheel));
+  execute('validate', false);
+  await save({ ...metadata, assets: assets.filter(a => a.name !== wheel) });
+  execute('validate', false); // A self-consistent manifest still cannot omit a claimed wheel.
+} finally { await rm(productTemp, { recursive: true, force: true }); }
+
+const npmExpected = [{ name: 'native.tgz', sha256: 'a' }, { name: 'root.tgz', sha256: 'b' }];
+const pypiExpected = [{ name: 'linux.whl', sha256: 'c' }, { name: 'macos.whl', sha256: 'd' }];
+for (const expected of [npmExpected, pypiExpected]) {
+  for (const publicRelease of [false, true]) {
+    assert.equal(projectionState(expected, [], { publicRelease }), 'absent');
+    for (const observed of [null, expected.slice(0, 1), [...expected, expected[0]], [expected[0], { ...expected[1], sha256: 'corrupt' }]]) {
+      assert.throws(() => projectionState(expected, observed, { publicRelease }));
+    }
+  }
+  assert.throws(() => projectionState(expected, expected, { publicRelease: false }), /before canonical visibility/);
+  assert.equal(projectionState(expected, expected, { publicRelease: true }), 'complete');
+}
+// Failure after either projection must leave the other complete and allow only total absence.
+for (const [complete, missing] of [[npmExpected, pypiExpected], [pypiExpected, npmExpected]]) {
+  assert.equal(projectionState(complete, complete, { publicRelease: true }), 'complete');
+  assert.equal(projectionState(missing, [], { publicRelease: true }), 'absent');
+  assert.throws(() => projectionState(missing, missing.slice(0, 1), { publicRelease: true }), /partial or conflicting/);
+}
+console.log('Unified candidate integrity and independent npm/PyPI failure policy passed');
+
+// Eventual registry visibility must not republish or accept conflicting bytes.
+const { waitForProjection, TransientRegistryError } = await import('./registry-projection-policy.mjs');
+const wantedProjection = [{ name: 'one.whl', sha256: 'a' }, { name: 'two.whl', sha256: 'b' }];
+let tick = 0;
+const pollingClock = { timeoutMs: 30, intervalMs: 10, now: () => tick, sleep: async ms => { tick += ms; } };
+const observations = [new TransientRegistryError('HTTP 503'), [], [wantedProjection[0]], wantedProjection];
+assert.equal(await waitForProjection(wantedProjection, async () => {
+  const next = observations.shift();
+  if (next instanceof Error) throw next;
+  return next;
+}, { ...pollingClock, timeoutMs: 40 }), 'complete');
+assert.equal(observations.length, 0);
+for (const observed of [[], [wantedProjection[0]]]) {
+  tick = 0;
+  await assert.rejects(waitForProjection(wantedProjection, async () => observed, pollingClock), /deadline expired/);
+  assert.equal(tick, 30);
+}
+for (const observed of [[{ name: 'one.whl', sha256: 'wrong' }], [wantedProjection[0], wantedProjection[0]], null]) {
+  tick = 0;
+  await assert.rejects(waitForProjection(wantedProjection, async () => observed, pollingClock), /Conflicting|unknown/);
+  assert.equal(tick, 0);
+}
+await assert.rejects(waitForProjection(wantedProjection, async () => { throw new Error('Malformed identity'); }, pollingClock), /Malformed/);

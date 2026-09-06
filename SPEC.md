@@ -179,7 +179,8 @@ machine-readable recovery metadata.
 The repository contains a public Rust SDK, Rust-backed Node and Python SDKs,
 and a standalone Rust CLI over the same core. The
 [Python API contract](packages/python/SPEC.md) defines its typed sync/async
-clients, values, cancellation, lifecycle, and errors. Local mixed-wheel
-validation is implemented; portable wheels and unified PyPI projection remain
-in progress. Historical Python releases and component tags remain immutable
+clients, values, cancellation, lifecycle, and errors. The
+[Python matrix](python-targets.json) owns the conventional CPython and native
+wheel coverage. Exact consumers and the disabled unified release/PyPI
+projection validate that distribution boundary. Historical Python releases and component tags remain immutable
 registry and Git history and do not expose the new Python API.

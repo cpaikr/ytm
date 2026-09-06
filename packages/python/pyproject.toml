@@ -16,3 +16,9 @@ authors = [{ name = "Sejun Park" }]
 manifest-path = "../../crates/ytm-python/Cargo.toml"
 python-source = "src"
 module-name = "kisnet_ytm._native"
+
+# Canonical legal notices are validated separately. Generated SBOM UUIDs,
+# timestamps and host paths would make the immutable wheel candidate vary.
+[tool.maturin.sbom]
+rust = false
+auditwheel = false

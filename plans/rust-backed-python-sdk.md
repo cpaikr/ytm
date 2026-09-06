@@ -18,10 +18,18 @@ synchronized secondary projection of the same version and tagged source.
   offline consumer and strict typing checks on local macOS ARM64/CPython 3.11.
 - Python package and binding versions join the single `VERSION` reconciliation.
   Repository validation includes the Python foundation and release fixture guard.
-- The foundation passed full repository validation and bounded code/documentation
-  review; PR delivery remains before acceptance into dev.
-  Portable target/interpreter coverage, deterministic wheel aggregation, and
-  unified GitHub/PyPI infrastructure remain unimplemented.
+- The foundation was accepted through PR #29 at `8ad5ddeec0b3564e9270ab0111c9fa10a1809149`
+  after full repository validation, bounded reviews, resolved bot feedback,
+  and all 23 final-head CI jobs.
+- Portable wheel build/inspection, shared CI/tagged matrix, exact consumers,
+  unified canonical assets, and independent gated PyPI projection are implemented
+  in PR #30. Two fresh macOS builds are byte-identical; exact local consumers pass
+  on CPython 3.11–3.14. Full repository validation, artifact/publication fault
+  injection, bounded code review and documentation reconciliation pass.
+  Initial native CI built all four targets reproducibly. Aggregation rejected
+  Windows CRLF source bytes; the follow-up enforces LF and tests Windows checkout
+  conversion. Review fixes tighten source attribution and bound registry
+  propagation checks. Final CI consumers and PR acceptance remain required.
 - Historical PyPI `kisnet-ytm` 0.2.0 has a different pure-Python API and remains
   unchanged. No new product version is selected or published.
 
@@ -113,15 +121,15 @@ wheel matrix; do not claim compatibility solely from this plan.
 
 ### Portable wheels and exact consumers
 
-- [ ] Add one machine-readable Python target authority covering declared
+- [x] Add one machine-readable Python target authority covering declared
   OS/CPU/libc targets and supported stable CPython versions starting at 3.11.
   Explicitly enumerate the versions validated at delivery; future interpreter
   releases require evidence before joining the supported matrix. Alternative
   interpreters and free-threaded builds are outside the initial claim.
-- [ ] Use maturin to build mixed wheels, preferring `abi3` only when the
+- [x] Use maturin to build mixed wheels, preferring `abi3` only when the
   binding/runtime combination passes its compatibility gate. Otherwise build
   version-specific wheels without reducing declared interpreter coverage.
-- [ ] Enforce glibc 2.28, architecture identity, native dependencies, metadata,
+- [x] Enforce glibc 2.28, architecture identity, native dependencies, metadata,
   typing files (`py.typed` and any required stubs), licenses, and package version.
   Verify derived binding artifacts are fresh. Normalize build inputs and
   candidate metadata and validate the untouched wheel bytes by checksum.
@@ -141,20 +149,20 @@ than introduce a second release framework.
 
 ### Unified release candidate and PyPI projection
 
-- [ ] Extend `VERSION` reconciliation, Release Please update paths, changelog
+- [x] Extend `VERSION` reconciliation, Release Please update paths, changelog
   checks, and lock/metadata validation to Python without creating an independent
   Python version authority or reviving `python-v*` release selection.
-- [ ] Extend tagged-source builds and aggregation to require the complete wheel
+- [x] Extend tagged-source builds and aggregation to require the complete wheel
   set alongside existing CLI and npm assets. Validate checksums, exact version,
   source identity, missing/extra artifacts, and exact consumers before canonical
   GitHub visibility. Keep existing CLI/Node acceptance gates intact.
-- [ ] Add disabled-by-default PyPI trusted publication after canonical GitHub
+- [x] Add disabled-by-default PyPI trusted publication after canonical GitHub
   publication, with exact version-absence checks and immutable asset identity.
   Extend the release state model to cover independent npm/PyPI projection
   outcomes. A completed projection is verified and left intact; a missing
   projection may proceed only under its absence rules; conflicting or partial
   registry state fails closed with explicit recovery guidance.
-- [ ] Exercise publication logic without credentials or external writes using
+- [x] Exercise publication logic without credentials or external writes using
   missing/corrupt wheels, duplicate versions, divergent tagged source, partial
   uploads, and failures before/after canonical visibility and either registry
   projection. State precisely which cases can resume and which need a newly
@@ -166,14 +174,14 @@ separately authorized operations.
 
 ### Documentation and delivery closure
 
-- [ ] Extend `bun run validate` through the existing validation owner; add
+- [x] Extend `bun run validate` through the existing validation owner; add
   targeted Python behavior, artifact, and release checks rather than a parallel
   all-checks entry point. Preserve existing Rust/CLI/Node checks.
-- [ ] Update root architecture/specification, Python API and installation docs,
+- [x] Update root architecture/specification, Python API and installation docs,
   development commands, and `docs/release.md` to match implemented behavior.
   Clearly distinguish installable historical registry artifacts from the new
   source until an actual rewritten release exists.
-- [ ] Remove superseded Python-absence claims only as each claim becomes false.
+- [x] Remove superseded Python-absence claims only as each claim becomes false.
   Preserve historical artifacts and tags; do not add compatibility wrappers,
   another HTTP implementation, or Python-specific provider policy.
 - [ ] Deliver the fewest coherent reviewable slices to `dev` under separately
@@ -209,6 +217,6 @@ separately authorized operations.
 
 ## Next action
 
-Resolve PR #29 feedback and its remaining CI checks, then merge the foundation
-into dev preserving commits. Begin the portable-wheel and unified-release
-slice only after that merge is accepted.
+Push the reviewed PR #30 follow-up, complete every native/interpreter CI gate,
+resolve reviewer threads, and merge preserving commits. Then record accepted
+evidence and close this plan with the terminal goal metadata.

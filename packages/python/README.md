@@ -2,9 +2,23 @@
 
 Typed synchronous and asyncio Python clients over the shared Rust YTM core.
 This new source API is not published yet; historical PyPI 0.2.0 is a different
-implementation. Portable release wheels and PyPI integration remain in progress.
+implementation. The repository builds portable wheel candidates; installation
+from PyPI uses the new API only after a separately authorized release.
 
-Build from the repository root with conventional CPython 3.11+ and Rust:
+The declared target/interpreter matrix is owned by
+[`python-targets.json`](../../python-targets.json): conventional CPython
+3.11–3.14 on GNU/Linux x64/ARM64 (glibc 2.28+), macOS ARM64 (11.0+), and
+Windows x64. The [delivery plan](../../plans/rust-backed-python-sdk.md) tracks
+native CI acceptance evidence. Free-threaded and alternative interpreters are
+not claimed.
+
+Install an exact candidate wheel without a build toolchain:
+
+```sh
+python -m pip install --no-index --no-deps /path/to/kisnet_ytm-<version>-cp311-abi3-<platform>.whl
+```
+
+Or build from the repository root with conventional CPython 3.11+ and Rust:
 
 ```sh
 python3.11 -m venv .venv
@@ -16,7 +30,11 @@ On Windows, activate `.venv\Scripts\Activate.ps1` in PowerShell instead.
 Building uses the pinned maturin backend in `pyproject.toml`. An installed wheel
 needs no Rust toolchain. `PYO3_PYTHON` selects the interpreter for
 `bun run validate:python`, which builds fixture and release wheels and runs
-isolated behavior and strict installed-package typing checks.
+isolated behavior, wheel-integrity failure injection, and strict installed-package
+typing checks. CI builds each target twice from fresh native output, requires
+identical bytes, and exercises every declared interpreter against the untouched
+aggregate. [Release documentation](../../docs/release.md#python-wheels-and-pypi-projection)
+owns integrity policy and disabled publication gates.
 
 ```python
 from kisnet_ytm import Client

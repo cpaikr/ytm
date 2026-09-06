@@ -1,0 +1,129 @@
+name: Python wheel candidate
+
+on:
+  workflow_call:
+    inputs:
+      source_sha:
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  matrix:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      builds: ${{ steps.matrix.outputs.builds }}
+      consumers: ${{ steps.matrix.outputs.consumers }}
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
+        with:
+          ref: ${{ inputs.source_sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: '3.11'
+      - id: matrix
+        run: |
+          echo "builds=$(python scripts/python-artifacts.py matrix)" >> "$GITHUB_OUTPUT"
+          echo "consumers=$(python scripts/python-artifacts.py matrix --consumers)" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: Python wheel (${{ matrix.key }})
+    needs: matrix
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.matrix.outputs.builds) }}
+    defaults:
+      run:
+        shell: bash
+    env:
+      SOURCE_COMMIT: ${{ inputs.source_sha }}
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
+        with:
+          ref: ${{ inputs.source_sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: '3.11'
+          architecture: ${{ matrix.arch }}
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - name: Install pinned Linux native toolchain
+        if: matrix.system == 'Linux'
+        run: node scripts/install-linux-native-toolchain.mjs
+      - name: Install binding build tools
+        run: |
+          rustup target add '${{ matrix.rust }}'
+          python -c 'import subprocess,sys,tomllib; subprocess.run([sys.executable,"-m","pip","install",*tomllib.load(open("packages/python/pyproject.toml","rb"))["build-system"]["requires"]],check=True)'
+      - name: Build and inspect fresh release wheel
+        run: python scripts/python-artifacts.py build .artifacts/python --target '${{ matrix.key }}'
+      - name: Test isolated fixture runtime on native host
+        run: python scripts/validate-python.py --fixtures-only
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: python-wheel-${{ matrix.key }}-${{ inputs.source_sha }}
+          path: .artifacts/python/*
+          if-no-files-found: error
+          retention-days: 1
+
+  aggregate:
+    name: Complete Python wheel candidate
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      SOURCE_COMMIT: ${{ inputs.source_sha }}
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
+        with:
+          ref: ${{ inputs.source_sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: '3.11'
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          pattern: python-wheel-*-${{ inputs.source_sha }}
+          path: dist/python
+          merge-multiple: true
+      - run: python scripts/python-artifacts.py validate dist/python
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: python-candidate-${{ inputs.source_sha }}
+          path: dist/python/*
+          if-no-files-found: error
+          retention-days: 90
+
+  consumer:
+    name: Python consumer (${{ matrix.key }} / ${{ matrix.python }})
+    needs: [matrix, aggregate]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.matrix.outputs.consumers) }}
+    env:
+      SOURCE_COMMIT: ${{ inputs.source_sha }}
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
+        with:
+          ref: ${{ inputs.source_sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: ${{ matrix.python }}
+          architecture: ${{ matrix.arch }}
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: python-candidate-${{ inputs.source_sha }}
+          path: dist/python
+      - name: Install and test untouched candidate outside checkout
+        run: python scripts/python-artifacts.py consume dist/python --target '${{ matrix.key }}'

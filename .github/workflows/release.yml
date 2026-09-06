@@ -80,6 +80,12 @@ jobs:
           RELEASE_MODE: ${{ steps.state.outputs.mode }}
         run: node scripts/resolve-release-state.mjs resolve
 
+  python_candidate:
+    needs: release_authority
+    uses: ./.github/workflows/python-candidate.yml
+    with:
+      source_sha: ${{ needs.release_authority.outputs.source_sha }}
+
   cli_metadata:
     name: Standalone CLI matrix
     needs: release_authority
@@ -407,7 +413,7 @@ jobs:
 
   publish_github:
     name: Publish canonical GitHub Release
-    needs: [release_authority, cli_artifact_set, cli_consumer, npm_candidate, npm_consumer]
+    needs: [release_authority, cli_artifact_set, cli_consumer, npm_candidate, npm_consumer, python_candidate]
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     environment:
@@ -445,6 +451,15 @@ jobs:
         with:
           name: npm-candidate-${{ needs.release_authority.outputs.source_sha }}
           path: dist/npm
+      - name: Set up Python for wheel integrity checks
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: '3.11'
+      - name: Download exact complete Python candidate
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: python-candidate-${{ needs.release_authority.outputs.source_sha }}
+          path: dist/python
       - name: Validate tagged candidates and source identity
         shell: bash
         run: |
@@ -455,27 +470,13 @@ jobs:
           node scripts/validate-product-version.mjs
           node scripts/validate-cli-artifact-set.mjs dist/cli
           node scripts/validate-release-artifacts.mjs dist/npm/native dist/npm/root
-      - name: Use pinned npm for registry preflight
-        run: npm install --global npm@11.6.2
-      - name: Prove every npm version is absent
-        shell: bash
-        run: |
-          registry_error=$(mktemp)
-          trap 'rm -f "$registry_error"' EXIT
-          for tarball in dist/npm/native/*.tgz dist/npm/root/*.tgz; do
-            package_name=$(tar -xOf "$tarball" package/package.json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).name))')
-            package_version=$(tar -xOf "$tarball" package/package.json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).version))')
-            if npm view "$package_name@$package_version" version >/dev/null 2>"$registry_error"; then
-              echo "$package_name@$package_version already exists; approve a new version instead of repairing publication in place." >&2
-              exit 1
-            fi
-            if ! grep -q 'E404' "$registry_error"; then
-              cat "$registry_error" >&2
-              echo "Could not prove $package_name@$package_version is absent from npm." >&2
-              exit 1
-            fi
-            : > "$registry_error"
-          done
+          node scripts/product-artifacts.mjs assemble dist/product
+          node scripts/product-artifacts.mjs validate dist/product
+      - name: Verify npm projection state before visibility
+        run: node scripts/registry-projection.mjs npm dist/product "${{ env.RELEASE_MODE == 'project' && 'public' || 'draft' }}"
+      - name: Verify enabled PyPI projection state before visibility
+        if: vars.PYPI_RELEASE_ENABLED == 'true'
+        run: node scripts/registry-projection.mjs pypi dist/product "${{ env.RELEASE_MODE == 'project' && 'public' || 'draft' }}"
       - name: Reconcile canonical assets without replacement
         id: assets
         shell: bash
@@ -491,28 +492,28 @@ jobs:
           if [ "$(jq '.assets | length' <<<"$release_json")" -gt 0 ]; then
             gh release download "$RELEASE_TAG" --dir dist/current-release
           fi
-          plan=$(node scripts/plan-cli-release-upload.mjs dist/cli dist/current-release)
+          plan=$(node scripts/product-artifacts.mjs plan dist/product dist/current-release)
           if [ "$RELEASE_MODE" = project ]; then
             jq -e '.missing | length == 0' <<<"$plan" >/dev/null
           fi
           echo "plan=$plan" >> "$GITHUB_OUTPUT"
-      - name: Upload only missing CLI assets
+      - name: Upload only missing canonical assets
         if: env.RELEASE_MODE != 'project'
         shell: bash
         env:
           UPLOAD_PLAN: ${{ steps.assets.outputs.plan }}
         run: |
           jq -r '.missing[]' <<<"$UPLOAD_PLAN" | while IFS= read -r asset; do
-            gh release upload "$RELEASE_TAG" "dist/cli/$asset"
+            gh release upload "$RELEASE_TAG" "dist/product/$asset"
           done
       - name: Re-download and verify canonical assets
         shell: bash
         run: |
           mkdir -p dist/verified-release
           gh release download "$RELEASE_TAG" --dir dist/verified-release
-          plan=$(node scripts/plan-cli-release-upload.mjs dist/cli dist/verified-release)
+          plan=$(node scripts/product-artifacts.mjs plan dist/product dist/verified-release)
           jq -e '.missing | length == 0' <<<"$plan" >/dev/null
-          node scripts/validate-cli-artifact-set.mjs dist/verified-release
+          node scripts/product-artifacts.mjs validate dist/verified-release
       - name: Revalidate immutable Release metadata
         shell: bash
         run: |
@@ -560,11 +561,8 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
           ref: ${{ needs.release_authority.outputs.source_sha }}
-      - name: Download exact complete npm candidate
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
-        with:
-          name: npm-candidate-${{ needs.release_authority.outputs.source_sha }}
-          path: dist
+      - name: Download immutable canonical product assets
+        run: gh release download "$RELEASE_TAG" --dir dist/product
       - name: Set up Node for npm trusted publishing
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
         with:
@@ -585,29 +583,23 @@ jobs:
           EXPECTED_RELEASE_VISIBILITY=public node scripts/verify-release-metadata.mjs
           release_json=$(gh api "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID")
           jq -e --arg tag "$RELEASE_TAG" '(.tag_name == $tag) and (.draft == false) and (.prerelease == false)' <<<"$release_json" >/dev/null
-          node scripts/validate-release-artifacts.mjs dist/native dist/root
-      - name: Re-prove every npm version is absent
-        shell: bash
-        run: |
-          registry_error=$(mktemp)
-          trap 'rm -f "$registry_error"' EXIT
-          for tarball in dist/native/*.tgz dist/root/*.tgz; do
-            package_name=$(tar -xOf "$tarball" package/package.json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).name))')
-            package_version=$(tar -xOf "$tarball" package/package.json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).version))')
-            if npm view "$package_name@$package_version" version >/dev/null 2>"$registry_error"; then
-              echo "$package_name@$package_version already exists; npm projection cannot repair a partial version." >&2
-              exit 1
-            fi
-            if ! grep -q 'E404' "$registry_error"; then
-              cat "$registry_error" >&2
-              echo "Could not prove $package_name@$package_version is absent from npm." >&2
-              exit 1
-            fi
-            : > "$registry_error"
-          done
+          node scripts/product-artifacts.mjs validate dist/product
+      - name: Classify exact npm projection
+        id: registry
+        run: node scripts/registry-projection.mjs npm dist/product public
       - name: Publish native packages, then root package
+        if: steps.registry.outputs.state == 'absent'
         shell: bash
         run: |
+          mkdir -p dist/native dist/root
+          root_name=$(node -p "require('./packages/node/package.json').name.replace('@','').replace('/','-')")
+          for tarball in dist/product/*.tgz; do
+            if [ "$(basename "$tarball")" = "$root_name-$RELEASE_VERSION.tgz" ]; then
+              cp "$tarball" dist/root/
+            else
+              cp "$tarball" dist/native/
+            fi
+          done
           published=()
           mapfile -t root_tarballs < <(find dist/root -maxdepth 1 -type f -name '*.tgz' -print | sort)
           if [ "${#root_tarballs[@]}" -ne 1 ]; then
@@ -622,7 +614,7 @@ jobs:
                 echo "### npm projection incomplete"
                 echo
                 echo "Canonical GitHub Release $RELEASE_TAG is public, but package identity could not be read from $tarball."
-                echo "Published before the failure: ${published[*]:-none}. Approve a new version; do not repair this version in place."
+                echo "Published before the failure: ${published[*]:-none}. Recheck registry state: wholly absent permits an exact-tag retry; partial or conflicting requires a new version; complete is preserved. Never repair published bytes."
               } >> "$GITHUB_STEP_SUMMARY"
               return 1
             fi
@@ -634,7 +626,7 @@ jobs:
               echo "### npm projection incomplete"
               echo
               echo "Canonical GitHub Release $RELEASE_TAG is public, but npm failed at $package_name@$RELEASE_VERSION."
-              echo "Published before the failure: ${published[*]:-none}. Approve a new version; do not repair this version in place."
+              echo "Published before the failure: ${published[*]:-none}. Recheck registry state: wholly absent permits an exact-tag retry; partial or conflicting requires a new version; complete is preserved. Never repair published bytes."
             } >> "$GITHUB_STEP_SUMMARY"
             return 1
           }
@@ -643,3 +635,63 @@ jobs:
           done
           publish_one "${root_tarballs[0]}" || exit 1
           echo "Published npm projection: ${published[*]}" >> "$GITHUB_STEP_SUMMARY"
+      - name: Verify complete npm projection
+        id: verified
+        run: node scripts/registry-projection.mjs npm dist/product public --wait-complete
+      - name: Require complete npm projection
+        run: test '${{ steps.verified.outputs.state }}' = complete
+
+  publish_pypi:
+    name: Publish synchronized PyPI projection
+    if: vars.PYPI_RELEASE_ENABLED == 'true'
+    needs: [release_authority, publish_github]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: pypi
+      url: https://pypi.org/project/kisnet-ytm/${{ needs.release_authority.outputs.version }}/
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      RELEASE_TAG: ${{ needs.release_authority.outputs.tag }}
+      RELEASE_VERSION: ${{ needs.release_authority.outputs.version }}
+      RELEASE_SHA: ${{ needs.release_authority.outputs.source_sha }}
+      RELEASE_ID: ${{ needs.release_authority.outputs.release_id }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          ref: ${{ needs.release_authority.outputs.source_sha }}
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - name: Verify public canonical release identity
+        run: |
+          test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
+          git fetch --no-tags origin "refs/tags/$RELEASE_TAG"
+          test "$(git rev-parse 'FETCH_HEAD^{commit}')" = "$RELEASE_SHA"
+          EXPECTED_RELEASE_VISIBILITY=public node scripts/verify-release-metadata.mjs
+      - name: Download immutable canonical product assets
+        run: gh release download "$RELEASE_TAG" --dir dist/product
+      - name: Classify exact PyPI projection
+        id: registry
+        run: node scripts/registry-projection.mjs pypi dist/product public
+      - name: Publish exact canonical wheels through trusted publishing
+        if: steps.registry.outputs.state == 'absent'
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33
+        with:
+          packages-dir: dist/pypi
+          skip-existing: false
+      - name: Verify complete PyPI projection
+        id: verified
+        run: node scripts/registry-projection.mjs pypi dist/product public --wait-complete
+      - name: Require complete PyPI projection
+        run: test '${{ steps.verified.outputs.state }}' = complete
+      - name: Record projection failure policy
+        if: failure()
+        run: |
+          echo 'Canonical GitHub assets and any completed registry projection remain intact. If every wheel is absent, rerun the exact tagged source after resolving the cause. A partial or conflicting PyPI version requires a newly approved version; never overwrite or skip existing files.' >> "$GITHUB_STEP_SUMMARY"

@@ -237,7 +237,7 @@ check(releasePleaseStep?.with?.token === "${{ secrets.RELEASE_PLEASE_TOKEN }}", 
 check(releasePleaseStep?.with?.["config-file"] === "release-please-config.json" && releasePleaseStep?.with?.["manifest-file"] === ".release-please-manifest.json", "Release Please must use the repository-owned product config and manifest");
 check(releasePleaseStep?.with?.["skip-github-release"] === true, "Release preparation must not create a tag or GitHub Release before the protected release workflow");
 check(pythonPackagePresent && !pythonWorkflowPresent, "Python foundation must exist without an independent publishing workflow");
-equal(Object.keys(ciWorkflow.jobs || {}), ["validate", "cli-metadata", "cli-archive", "cli-artifact-set", "cli-consumer", "native-consumer"], "CI must contain validation, CLI artifacts, and native consumers only");
+equal(Object.keys(ciWorkflow.jobs || {}), ["python-candidate", "validate", "cli-metadata", "cli-archive", "cli-artifact-set", "cli-consumer", "native-consumer"], "CI must contain validation, CLI artifacts, and native consumers only");
 equal(Object.keys(liveWorkflow.jobs || {}), ["rust-cli"], "live smoke must exercise only the standalone Rust CLI");
 equal(ciWorkflow.on?.push?.branches, ["main", "dev"], "CI pushes must cover only the long-lived main and integration branches");
 check(ciWorkflow.jobs?.validate?.["timeout-minutes"] === 20, "CI validation must have a bounded timeout");
@@ -333,7 +333,7 @@ equal(Object.keys(releaseWorkflow.on?.workflow_dispatch?.inputs || {}), ["expect
 check(releaseWorkflow.on?.workflow_dispatch?.inputs?.expected_version?.required === true, "product publishing must require an explicitly approved expected version");
 check(releaseWorkflow.permissions?.contents === "read", "release workflow defaults must remain read-only");
 check(releaseWorkflow.concurrency?.group === "release-${{ inputs.expected_version }}" && releaseWorkflow.concurrency?.["cancel-in-progress"] === false, "release runs must serialize per approved version without cancellation");
-equal(Object.keys(releaseWorkflow.jobs || {}), ["release_authority", "cli_metadata", "cli_archive", "cli_artifact_set", "cli_consumer", "native_packages", "root_package", "npm_candidate", "npm_consumer", "publish_github", "publish_npm"], "release workflow must contain only the complete tagged-source lifecycle");
+equal(Object.keys(releaseWorkflow.jobs || {}), ["release_authority", "python_candidate", "cli_metadata", "cli_archive", "cli_artifact_set", "cli_consumer", "native_packages", "root_package", "npm_candidate", "npm_consumer", "publish_github", "publish_npm", "publish_pypi"], "release workflow must contain only the complete tagged-source lifecycle");
 
 const authorityJob = releaseWorkflow.jobs?.release_authority;
 check(authorityJob?.if === "${{ vars.RELEASE_ENABLED == 'true' }}", "external release state must remain disabled until repository settings are authorized");
@@ -407,18 +407,18 @@ check(activeShell(findNamedStep(npmConsumerJob, "Test exact aggregated Node SDK 
 check(nativeConsumerTest.includes("findPackageTarball") && nativeConsumerTest.includes("listTarball(rootTarball)") && nativeConsumerTest.includes("exact aggregated"), "Node consumer harness must inspect exact aggregate tarball contents without repacking");
 
 const githubPublishJob = releaseWorkflow.jobs?.publish_github;
-equal(githubPublishJob?.needs, ["release_authority", "cli_artifact_set", "cli_consumer", "npm_candidate", "npm_consumer"], "canonical publication must wait for both exact-distributable consumer matrices");
+equal(githubPublishJob?.needs, ["release_authority", "cli_artifact_set", "cli_consumer", "npm_candidate", "npm_consumer", "python_candidate"], "canonical publication must wait for both exact-distributable consumer matrices");
 check(githubPublishJob?.environment?.name === "release" && githubPublishJob?.permissions?.contents === "write", "canonical publication must use the protected release environment");
 const githubSourceValidation = activeShell(findNamedStep(githubPublishJob, "Validate tagged candidates and source identity"));
 for (const command of ["validate-product-version.mjs", "validate-cli-artifact-set.mjs", "validate-release-artifacts.mjs", "FETCH_HEAD^{commit}"]) check(githubSourceValidation.includes(command), `canonical publication must revalidate ${command}`);
-const githubRegistryPreflight = activeShell(findNamedStep(githubPublishJob, "Prove every npm version is absent"));
-check(githubRegistryPreflight.includes("npm view") && githubRegistryPreflight.includes("E404") && githubRegistryPreflight.includes("Could not prove"), "canonical publication must fail closed unless every npm package is absent");
+const githubRegistryPreflight = activeShell(findNamedStep(githubPublishJob, "Verify npm projection state before visibility"));
+check(githubRegistryPreflight.includes("registry-projection.mjs npm dist/product") && githubRegistryPreflight.includes("public") && githubRegistryPreflight.includes("draft"), "canonical publication must fail closed unless every npm package is absent");
 const reconcileAssets = activeShell(findNamedStep(githubPublishJob, "Reconcile canonical assets without replacement"));
-const uploadAssets = activeShell(findNamedStep(githubPublishJob, "Upload only missing CLI assets"));
+const uploadAssets = activeShell(findNamedStep(githubPublishJob, "Upload only missing canonical assets"));
 const verifyDraft = activeShell(findNamedStep(githubPublishJob, "Re-download and verify canonical assets"));
-check(reconcileAssets.includes("plan-cli-release-upload.mjs") && uploadAssets.includes("gh release upload") && !uploadAssets.includes("--clobber"), "draft recovery must reuse only byte-identical assets and upload only missing assets");
+check(reconcileAssets.includes("product-artifacts.mjs plan") && uploadAssets.includes("gh release upload") && !uploadAssets.includes("--clobber"), "draft recovery must reuse only byte-identical assets and upload only missing assets");
 check(reconcileAssets.includes("RELEASE_MODE") && reconcileAssets.includes(".missing | length == 0"), "projection-only recovery must require the public GitHub asset set to remain exact");
-check(verifyDraft.includes("plan-cli-release-upload.mjs") && verifyDraft.includes("validate-cli-artifact-set.mjs"), "canonical publication must re-download and validate every draft asset");
+check(verifyDraft.includes("product-artifacts.mjs plan") && verifyDraft.includes("product-artifacts.mjs validate"), "canonical publication must re-download and validate every draft asset");
 const canonicalPublish = activeShell(findNamedStep(githubPublishJob, "Publish canonical GitHub Release"));
 check(canonicalPublish.includes("--method PATCH") && canonicalPublish.includes("draft=false"), "GitHub publication must be the explicit canonical visibility transition");
 check(findNamedStep(githubPublishJob, "Publish canonical GitHub Release")?.if === "env.RELEASE_MODE != 'project'", "projection-only recovery must never mutate the public GitHub Release");
@@ -434,13 +434,40 @@ check(publishJob?.["timeout-minutes"] === 30 && publishJob?.["runs-on"] === "ubu
 check(publishJob?.environment?.name === "npm", "npm publishing must use the npm environment");
 check(publishJob?.permissions?.contents === "read" && publishJob?.permissions?.["id-token"] === "write", "npm publishing must retain read contents and OIDC permissions");
 const npmReleaseVerification = activeShell(findNamedStep(publishJob, "Verify canonical release and exact npm candidate"));
-check(npmReleaseVerification.includes("verify-release-metadata.mjs") && npmReleaseVerification.includes("validate-release-artifacts.mjs"), "npm must revalidate the public canonical release and exact aggregate");
-const registryPreflight = activeShell(findNamedStep(publishJob, "Re-prove every npm version is absent"));
-check(registryPreflight.includes("npm view") && registryPreflight.includes("E404") && registryPreflight.includes("Could not prove"), "npm must re-prove complete registry absence before its first publish");
+check(npmReleaseVerification.includes("verify-release-metadata.mjs") && npmReleaseVerification.includes("product-artifacts.mjs validate"), "npm must revalidate the public canonical release and exact aggregate");
+const registryPreflight = activeShell(findNamedStep(publishJob, "Classify exact npm projection"));
+check(registryPreflight.includes("registry-projection.mjs npm dist/product public") && findNamedStep(publishJob, "Publish native packages, then root package")?.if === "steps.registry.outputs.state == 'absent'", "npm must re-prove complete registry absence before its first publish");
 const publishShell = activeShell(findNamedStep(publishJob, "Publish native packages, then root package"));
 check(publishShell.includes("mapfile -t root_tarballs") && publishShell.includes("Expected exactly one root package tarball") && publishShell.includes("if ! package_name=") && publishShell.includes("for tarball in dist/native/*.tgz") && publishShell.indexOf("dist/native/*.tgz") < publishShell.indexOf('root_tarballs[0]'), "npm publication must validate package identity, require one root tarball, and publish all native packages before it");
-check(publishShell.includes("--provenance --access public") && publishShell.includes("npm projection incomplete") && publishShell.includes("do not repair this version in place"), "npm trusted publication must emit provenance and explicit partial-failure guidance");
+check(publishShell.includes("--provenance --access public") && publishShell.includes("npm projection incomplete") && publishShell.includes("Never repair published bytes"), "npm trusted publication must emit provenance and explicit partial-failure guidance");
 check(!publishShell.includes("npm view") && !publishShell.includes("skipping"), "npm publication must not repair a partial version in place");
+
+const pythonWorkflow = await readYaml(".github/workflows/python-candidate.yml");
+const pythonTargets = await readJson("python-targets.json");
+equal(pythonTargets.pythonVersions, ["3.11", "3.12", "3.13", "3.14"], "Python consumers must enumerate validated stable conventional CPython versions");
+equal(pythonTargets.targets.map(t => t.rust), nativeTargets.targets.map(t => t.rustTarget), "Python targets must cover the approved native matrix");
+equal(Object.keys(pythonWorkflow.jobs), ["matrix", "build", "aggregate", "consumer"], "Python candidate must build, aggregate, then consume");
+for (const job of Object.values(pythonWorkflow.jobs)) {
+  const checkout = job.steps.find(step => step.uses?.startsWith("actions/checkout@"));
+  check(checkout?.with?.ref === "${{ inputs.source_sha }}" && checkout.with["persist-credentials"] === false, "Python jobs must use exact source without stored credentials");
+  for (const step of job.steps.filter(step => step.uses)) check(/@[0-9a-f]{40}$/.test(step.uses), "Python actions must be commit-pinned");
+}
+check(pythonWorkflow.jobs.build.strategy.matrix.includes("needs.matrix.outputs.builds") && pythonWorkflow.jobs.consumer.strategy.matrix.includes("needs.matrix.outputs.consumers"), "Python build/consumer matrix must come from one authority");
+equal(pythonWorkflow.jobs.consumer.needs, ["matrix", "aggregate"], "Python consumers must await complete aggregate");
+check(ciWorkflow.jobs["python-candidate"].uses === "./.github/workflows/python-candidate.yml" && ciWorkflow.jobs["python-candidate"].with.source_sha === "${{ github.sha }}", "CI must use shared Python candidate validation");
+check(releaseWorkflow.jobs.python_candidate.uses === "./.github/workflows/python-candidate.yml" && releaseWorkflow.jobs.python_candidate.with.source_sha === "${{ needs.release_authority.outputs.source_sha }}", "Release must use identical tagged Python candidate validation");
+const pypi = releaseWorkflow.jobs.publish_pypi;
+equal(pypi.needs, ["release_authority", "publish_github"], "PyPI must follow canonical visibility independently of npm");
+check(pypi.if === "vars.PYPI_RELEASE_ENABLED == 'true'" && pypi.environment.name === "pypi", "PyPI must remain separately gated and protected");
+check(pypi.permissions["id-token"] === "write" && pypi.permissions.contents === "read", "PyPI must use scoped trusted identity");
+const pypiUpload = findNamedStep(pypi, "Publish exact canonical wheels through trusted publishing");
+check(pypiUpload.uses === "pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33" && pypiUpload.if === "steps.registry.outputs.state == 'absent'" && pypiUpload.with["skip-existing"] === false && pypiUpload.with["packages-dir"] === "dist/pypi", "PyPI must upload only wholly absent canonical wheels without repair");
+check(findNamedStep(githubPublishJob, "Verify enabled PyPI projection state before visibility")?.if === "vars.PYPI_RELEASE_ENABLED == 'true'", "Enabled PyPI must pass absence policy before canonical visibility");
+for (const [job, label] of [[publishJob, "npm"], [pypi, "PyPI"]]) {
+  check(activeShell(findNamedStep(job, `Download immutable canonical product assets`)).includes("gh release download"), `${label} must use canonical downloaded bytes`);
+  check(findNamedStep(job, `Verify complete ${label} projection`)?.run?.endsWith('public --wait-complete'), 'Post-publication verification must bound registry propagation');
+  check(activeShell(findNamedStep(job, `Require complete ${label} projection`)).includes("= complete"), `${label} must verify completed publication`);
+}
 
 if (failures.length > 0) {
   console.error(failures.map((failure) => `- ${failure}`).join("\n"));

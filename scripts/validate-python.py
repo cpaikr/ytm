@@ -19,6 +19,7 @@ def run(*args, cwd=ROOT, env=None):
 def main():
     if sys.version_info < (3, 11):
         raise SystemExit("CPython 3.11+ required; set PYO3_PYTHON to its executable")
+    run(sys.executable, ROOT / "scripts/test-python-artifacts.py")
     with tempfile.TemporaryDirectory(prefix="ytm-python-validate-") as temporary:
         work = Path(temporary)
         venv.EnvBuilder(with_pip=True).create(work / "build")
@@ -28,7 +29,7 @@ def main():
         metadata = tomllib.loads((PACKAGE / "pyproject.toml").read_text())
         run(python, "-m", "pip", "install", *metadata["build-system"]["requires"])
         build_env = os.environ | {"PYO3_PYTHON": str(python)}
-        for fixture in (True, False):
+        for fixture in ((True,) if "--fixtures-only" in sys.argv else (True, False)):
             wheel_dir = work / ("fixtures" if fixture else "release")
             args = ["--features", "judge-fixtures"] if fixture else ["--release"]
             run(python, "-m", "maturin", "build", "--locked", "--interpreter", python,

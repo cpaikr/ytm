@@ -15,6 +15,11 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  python-candidate:
+    uses: ./.github/workflows/python-candidate.yml
+    with:
+      source_sha: ${{ github.sha }}
+
   validate:
     runs-on: blacksmith-2vcpu-ubuntu-2404
     timeout-minutes: 20

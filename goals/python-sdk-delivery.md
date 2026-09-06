@@ -38,20 +38,20 @@ Goal contract
 
 ### Current in-scope result
 
-Complete Rust-backed Python SDK: binding and typed client foundation.
+Complete Rust-backed Python SDK: portable wheels and unified release infrastructure.
 
 ### Next in-scope action
 
-Resolve PR #29 feedback, pass CI, and merge the Python sync/async foundation
-into dev preserving commits. Begin the portable-wheel and unified-release
-slice only after that accepted merge.
+Complete PR #30 follow-up CI and reviewer closure, then merge to dev preserving
+commits. Finish terminal goal and project metadata only after all criteria pass.
 
 ### Evidence and blockers
 
-- Candidate: Python SDK foundation. Classification: included. Contract basis:
-  typed sync/async clients, Rust binding, lifecycle and errors. Action: proceed.
+- Candidate: portable wheels and unified release/PyPI infrastructure.
+  Classification: included. Contract basis: portable wheels, exact consumers,
+  unified release and PyPI integration, validation and documentation. Action: proceed.
 - Active worktree: `/tmp/ytm-python-sdk-delivery`; branch:
-  `codex/python-sdk-foundation`, based on accepted remote dev `da33fef`.
+  `codex/python-sdk-release`, based on accepted remote dev `8ad5ddee`.
 - PR #28 passed complete local validation, bounded implementation/documentation
   review, and all 23 CI jobs. Codex finding fixed in `548ea53`; thread resolved.
   CodeRabbit initial review was clean; follow-up stale status acknowledged in
@@ -65,19 +65,19 @@ slice only after that accepted merge.
   enablement is authorized. Python portable wheels and release infrastructure
   remain incomplete after the foundation until their own full evidence exists.
 
-- Foundation implementation exists with 26 process-isolated fixture scenarios
-  and a release-wheel clean consumer plus strict mypy checks on local CPython
-  3.11/macOS ARM64. Bounded code review found three boundary issues; fixes add
-  explicit non-null fallback validation, retain safe core defect metadata, and
-  suppress panic diagnostics only inside binding calls/polls. All three
-  findings are verified resolved. Full `bun run validate`, strengthened
-  cancellation regressions, and documentation/link reconciliation pass.
-  PR #29 (https://github.com/cpaikr/ytm/pull/29) targets dev. Its initial
-  implementation `a443c8c20cd47ec2e0b237715161555fddf04924` passed all CI
-  checks and was reviewed with
-  `coderabbit-review`. Initial Codex review completed cleanly; CodeRabbit
-  completed with five comments. A narrow follow-up addresses explicit CPython
-  3.11 CI coverage, private parameter diagnostics, and documentation/status.
-  The follow-up passed targeted release policy, Rust tests/clippy, bounded
-  implementation review, and documentation reconciliation. Wait for its
-  remote CI/automatic review, then resolve feedback before merge.
+- Python binding/client foundation: PR #29 merged at
+  `8ad5ddeec0b3564e9270ab0111c9fa10a1809149`, preserving `a443c8c` and
+  `43a3c1a`. Full local validation, 26 fixture behavior processes, release-wheel
+  consumer/strict mypy, bounded reviews, documentation reconciliation, and all
+  23 final-head CI jobs passed. Codex initial review was clean; all five
+  CodeRabbit findings were fixed, replied to, and acknowledged resolved.
+  Incremental reviews were disabled; no review remained active.
+- Release slice local evidence: two fresh macOS wheels are byte-identical;
+  clean exact consumers/strict typing pass for CPython 3.11–3.14. Full repository
+  validation and targeted wheel/publication fault injection pass. Bounded review
+  resolved native dependency inspection and precise registry-retry guidance;
+  documentation reconciled. PR #30 initial native CI passed all four reproducible
+  builds and fixture runtimes; aggregation caught Windows CRLF package bytes.
+  The reviewed follow-up enforces LF, rejects dirty source attribution, and
+  handles bounded registry propagation. Codex initial review was clean; three
+  CodeRabbit findings were assessed and addressed. Final CI and merge remain.
