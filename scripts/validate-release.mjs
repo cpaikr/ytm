@@ -230,7 +230,7 @@ check(releasePleaseWorkflow.on?.workflow_dispatch !== undefined, "Release Please
 check(releasePleaseWorkflow.permissions?.contents === "read", "Release Please workflow default permissions must remain read-only");
 const releasePleaseJob = releasePleaseWorkflow.jobs?.release_pr;
 check(releasePleaseJob?.if === "${{ vars.RELEASE_PLEASE_ENABLED == 'true' }}", "Release Please must remain externally disabled until release preparation is authorized");
-check(releasePleaseJob?.["runs-on"] === "ubuntu-24.04" && releasePleaseJob?.["timeout-minutes"] === 10, "Release Please must use a pinned GitHub-hosted runner with a bounded timeout");
+check(releasePleaseJob?.["runs-on"] === "blacksmith-2vcpu-ubuntu-2404" && releasePleaseJob?.["timeout-minutes"] === 10, "Release Please must use the 2-vCPU Blacksmith runner with a bounded timeout");
 check(releasePleaseJob?.permissions?.contents === "write" && releasePleaseJob?.permissions?.issues === "write" && releasePleaseJob?.permissions?.["pull-requests"] === "write", "Release Please job permissions must be explicit and sufficient for release PRs");
 const releasePleaseStep = findNamedStep(releasePleaseJob, "Create or update the product release PR");
 check(/^googleapis\/release-please-action@[0-9a-f]{40}$/.test(releasePleaseStep?.uses || ""), "Release Please action must be pinned to a full commit SHA");
@@ -481,6 +481,12 @@ for (const [job, label] of [[publishJob, "npm"], [pypi, "PyPI"]]) {
   check(findNamedStep(job, `Verify complete ${label} projection`)?.run?.endsWith('public --wait-complete'), 'Post-publication verification must bound registry propagation');
   check(activeShell(findNamedStep(job, `Require complete ${label} projection`)).includes("= complete"), `${label} must verify completed publication`);
 }
+
+const manualCandidate = await readYaml('.github/workflows/cross-platform-candidate.yml');
+equal(Object.keys(manualCandidate.on), ['workflow_dispatch'], 'Named cross-platform candidate must remain manual');
+check('workflow_call' in ciWorkflow.on, 'CI must expose the shared candidate workflow');
+equal(Object.keys(manualCandidate.jobs), ['candidate'], 'Manual candidate must reuse CI without duplicating its matrix');
+check(manualCandidate.jobs.candidate.uses === './.github/workflows/ci.yml', 'Manual candidates must run the same validated CI jobs');
 
 if (failures.length > 0) {
   console.error(failures.map((failure) => `- ${failure}`).join("\n"));

@@ -1,0 +1,11 @@
+name: Cross-platform candidate
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  candidate:
+    uses: ./.github/workflows/ci.yml

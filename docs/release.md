@@ -18,7 +18,8 @@ selection and derives matrices from the target manifests. Pushes to `main`
 and `dev` run Linux validation without repeating the full pre-merge matrix.
 
 Linux x64 CLI/Node CI and orchestration use the available 2-vCPU Blacksmith
-runner. Other architectures and operating systems retain their native runners.
+runner. Release PR preparation uses that runner too. Other architectures and
+operating systems retain their native runners.
 The reusable Python candidate retains its GitHub-hosted build/consumer runners;
 release jobs retain their existing runners, including trusted-publishing hosts.
 These are intentional runner-provider exceptions pending equivalent validation.
@@ -29,6 +30,9 @@ be skipped. The full CLI set and installer consumers run together; reduced CI
 still inspects and executes the Linux archive and tests exact Node tarballs.
 The complete repository gate includes Linux Python wheel consumers on every run.
 Manual dispatch of `ci.yml` provides a full candidate without publication.
+The dedicated [`cross-platform-candidate.yml`](../.github/workflows/cross-platform-candidate.yml)
+entry point calls that same workflow, retaining the manual candidate path
+without a second copy of the build and consumer jobs.
 
 ## Release authority
 

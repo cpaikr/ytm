@@ -44,3 +44,9 @@ for (const full of [true, false]) {
   }
 }
 console.log('Actual aggregate gate rejects failed and unexpectedly skipped prerequisites');
+
+const manualCandidate = parse(readFileSync('.github/workflows/cross-platform-candidate.yml', 'utf8'));
+assert.equal(manualCandidate.jobs.candidate.uses, './.github/workflows/ci.yml');
+assert.ok('workflow_call' in workflow.on);
+// Called workflows retain their caller's event, so manual dispatch selects full coverage.
+assert.equal(needsFullPlatforms('workflow_dispatch', { inputs: {} }), true);
