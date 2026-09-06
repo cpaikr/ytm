@@ -23,10 +23,13 @@ synchronized secondary projection of the same version and tagged source.
   and all 23 final-head CI jobs.
 - Portable wheel build/inspection, shared CI/tagged matrix, exact consumers,
   unified canonical assets, and independent gated PyPI projection are implemented
-  locally. Two fresh macOS builds are byte-identical; exact local consumers pass
+  in PR #30. Two fresh macOS builds are byte-identical; exact local consumers pass
   on CPython 3.11–3.14. Full repository validation, artifact/publication fault
   injection, bounded code review and documentation reconciliation pass.
-  Native CI coverage and final PR acceptance remain before completion.
+  Initial native CI built all four targets reproducibly. Aggregation rejected
+  Windows CRLF source bytes; the follow-up enforces LF and tests Windows checkout
+  conversion. Review fixes tighten source attribution and bound registry
+  propagation checks. Final CI consumers and PR acceptance remain required.
 - Historical PyPI `kisnet-ytm` 0.2.0 has a different pure-Python API and remains
   unchanged. No new product version is selected or published.
 
@@ -214,6 +217,6 @@ separately authorized operations.
 
 ## Next action
 
-Open the portable-wheel/unified-release PR against dev, complete native CI
-and initial review, address findings, then merge preserving commits. Record
-accepted evidence and close only after every target/interpreter gate passes.
+Push the reviewed PR #30 follow-up, complete every native/interpreter CI gate,
+resolve reviewer threads, and merge preserving commits. Then record accepted
+evidence and close this plan with the terminal goal metadata.

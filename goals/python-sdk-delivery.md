@@ -42,8 +42,8 @@ Complete Rust-backed Python SDK: portable wheels and unified release infrastruct
 
 ### Next in-scope action
 
-Deliver the implemented portable-wheel/unified-release slice through a reviewed
-PR to dev, complete native/interpreter CI, and merge preserving commits.
+Complete PR #30 follow-up CI and reviewer closure, then merge to dev preserving
+commits. Finish terminal goal and project metadata only after all criteria pass.
 
 ### Evidence and blockers
 
@@ -76,4 +76,8 @@ PR to dev, complete native/interpreter CI, and merge preserving commits.
   clean exact consumers/strict typing pass for CPython 3.11–3.14. Full repository
   validation and targeted wheel/publication fault injection pass. Bounded review
   resolved native dependency inspection and precise registry-retry guidance;
-  documentation reconciled. Native CI and PR delivery are still required.
+  documentation reconciled. PR #30 initial native CI passed all four reproducible
+  builds and fixture runtimes; aggregation caught Windows CRLF package bytes.
+  The reviewed follow-up enforces LF, rejects dirty source attribution, and
+  handles bounded registry propagation. Codex initial review was clean; three
+  CodeRabbit findings were assessed and addressed. Final CI and merge remain.

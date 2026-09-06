@@ -637,7 +637,7 @@ jobs:
           echo "Published npm projection: ${published[*]}" >> "$GITHUB_STEP_SUMMARY"
       - name: Verify complete npm projection
         id: verified
-        run: node scripts/registry-projection.mjs npm dist/product public
+        run: node scripts/registry-projection.mjs npm dist/product public --wait-complete
       - name: Require complete npm projection
         run: test '${{ steps.verified.outputs.state }}' = complete
 
@@ -688,7 +688,7 @@ jobs:
           skip-existing: false
       - name: Verify complete PyPI projection
         id: verified
-        run: node scripts/registry-projection.mjs pypi dist/product public
+        run: node scripts/registry-projection.mjs pypi dist/product public --wait-complete
       - name: Require complete PyPI projection
         run: test '${{ steps.verified.outputs.state }}' = complete
       - name: Record projection failure policy

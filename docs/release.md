@@ -146,7 +146,11 @@ changelog-derived metadata, missing or unexpected assets, checksum conflicts,
 and unknown or partial registry state. It never deletes tags or drafts:
 those are recovery evidence. Before first canonical visibility, npm and an
 enabled PyPI projection must be wholly absent. After visibility, exact completed
-registry versions are allowed and are not republished.
+registry versions are allowed and are not republished. Post-publication checks
+poll for up to two minutes with cache bypass, allowing absent or matching partial
+results and transient read failures to settle. Conflicting bytes fail immediately.
+The deadline never permits repair or another upload; recovery requires a fresh
+state classification under the table above.
 
 ## Required GitHub settings
 
@@ -199,8 +203,10 @@ that matrix. One `cp311-abi3` mixed wheel serves each target.
 
 CI and tagged builds share `python-candidate.yml`. Pinned maturin builds twice
 from fresh native output directories and requires identical wheel bytes. Build
-inputs use the source commit timestamp, normalized source paths, and the macOS
-deployment floor. Optional generated SBOM output is disabled because its random
+inputs use the source commit timestamp, normalized source paths, LF package
+files on every host, and the macOS deployment floor. Source attribution rejects
+tracked changes and untracked build inputs before and after building, and when
+validating the complete set. Generated artifact directories remain separate. Optional generated SBOM output is disabled because its random
 IDs, timestamps, and host paths vary; canonical license notices remain required.
 Linux uses the pinned Zig toolchain and maturin's embedded cargo-zigbuild
 wrapper, with a manylinux 2.28 dependency audit. The repository-installed

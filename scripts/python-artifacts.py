@@ -43,6 +43,12 @@ def source_sha():
     actual = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
     expected = os.environ.get('RELEASE_SHA', os.environ.get('SOURCE_COMMIT', actual))
     require(re.fullmatch('[0-9a-f]{40}', expected) and expected == actual, 'Candidate source differs from checkout')
+    dirty = subprocess.check_output(['git', 'diff', 'HEAD', '--name-only'], cwd=ROOT, text=True).strip()
+    untracked = subprocess.check_output(
+        ['git', 'ls-files', '--others', '--exclude-standard', '--', 'packages/python', 'crates', '.cargo', 'scripts',
+         'Cargo.toml', 'Cargo.lock', 'VERSION', 'python-targets.json', 'rust-toolchain.toml', '.gitattributes'],
+        cwd=ROOT, text=True).strip()
+    require(not dirty and not untracked, 'Candidate source tree has modified or untracked inputs')
     return actual
 
 
@@ -207,6 +213,7 @@ def build(directory, target):
         if previous is not None:
             require(result == previous, 'Independent fresh builds produced different wheel bytes')
         previous = result
+    require(source_sha() == sha, 'Candidate source changed during build')
     result |= {'version': VERSION, 'sourceCommit': sha}
     (directory / f'{target["key"]}.json').write_text(json.dumps(result, sort_keys=True, indent=2) + '\n')
 

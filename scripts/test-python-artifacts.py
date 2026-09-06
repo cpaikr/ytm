@@ -6,6 +6,8 @@ import io
 import json
 from pathlib import Path
 import struct
+import subprocess
+from unittest.mock import patch
 import tempfile
 import unittest
 import zipfile
@@ -70,11 +72,32 @@ class Integrity(unittest.TestCase):
         self.temporary = tempfile.TemporaryDirectory()
         self.directory = Path(self.temporary.name)
         self.target = a.POLICY['targets'][0]
+        self.directory = self.directory / 'wheels'
+        self.directory.mkdir()
+        self.source = Path(self.temporary.name) / 'source'
+        self.source.mkdir()
+        subprocess.run(['git', 'init', '-q', self.source], check=True)
+        self.git('config', 'user.name', 'Artifact test')
+        self.git('config', 'user.email', 'artifact@example.invalid')
+        (self.source / 'VERSION').write_text(a.VERSION)
+        self.git('add', 'VERSION')
+        self.git('commit', '-qm', 'Fixture source')
+
+    def git(self, *args):
+        return subprocess.check_output(['git', '-C', str(self.source), *args], text=True).strip()
+
+    def source_sha(self):
+        with patch.object(a, 'ROOT', self.source), patch.dict(a.os.environ, {'RELEASE_SHA': self.git('rev-parse', 'HEAD'), 'SOURCE_COMMIT': self.git('rev-parse', 'HEAD')}):
+            return a.source_sha()
 
     def tearDown(self):
         self.temporary.cleanup()
 
     def test_complete_set_and_immutable_source(self):
+        with patch.object(a, 'source_sha', return_value=self.source_sha()):
+            self.check_complete_set()
+
+    def check_complete_set(self):
         for target in a.POLICY['targets']:
             path = candidate(self.directory, target)
             record = a.inspect(path, target) | {'sourceCommit': a.source_sha(), 'version': a.VERSION}
@@ -94,6 +117,39 @@ class Integrity(unittest.TestCase):
         (self.directory / a.wheel_name(self.target)).unlink()
         with self.assertRaises(FileNotFoundError):
             a.validate_set(self.directory)
+
+    def test_source_attribution_rejects_dirty_inputs(self):
+        self.assertEqual(self.source_sha(), self.git('rev-parse', 'HEAD'))
+        (self.source / 'VERSION').write_text('changed')
+        with self.assertRaisesRegex(ValueError, 'modified or untracked'):
+            self.source_sha()
+        self.git('add', 'VERSION')
+        with self.assertRaises(ValueError):
+            self.source_sha()
+        self.git('commit', '-qm', 'Changed source')
+        inputs = self.source / 'packages/python'
+        inputs.mkdir(parents=True)
+        (inputs / 'unexpected.py').write_text('unexpected')
+        with self.assertRaises(ValueError):
+            self.source_sha()
+        (inputs / 'unexpected.py').unlink()
+        (self.source / 'dist').mkdir()
+        (self.source / 'dist/candidate.whl').write_bytes(b'output')
+        self.assertEqual(self.source_sha(), self.git('rev-parse', 'HEAD'))
+
+    def test_windows_checkout_preserves_package_bytes(self):
+        (self.source / '.gitattributes').write_bytes((a.ROOT / '.gitattributes').read_bytes())
+        relative = 'packages/python/src/kisnet_ytm/models.py'
+        path = self.source / relative
+        path.parent.mkdir(parents=True)
+        expected = (a.ROOT / relative).read_bytes()
+        path.write_bytes(expected)
+        self.git('add', '.gitattributes', relative)
+        self.git('commit', '-qm', 'Canonical Python source')
+        self.git('config', 'core.autocrlf', 'true')
+        path.unlink()
+        self.git('checkout-index', '--', relative)
+        self.assertEqual(path.read_bytes(), expected)
 
     def test_wheel_boundary_faults(self):
         def native_change(data, old, new):
@@ -117,7 +173,7 @@ class Integrity(unittest.TestCase):
 
     def test_unshipped_native_dependencies(self):
         for target in a.POLICY['targets']:
-            def mutate(data):
+            def mutate(data, target=target):
                 key = next(n for n in data if n.endswith(('.so', '.pyd')))
                 native = data[key]
                 if target['system'] == 'Windows':
@@ -137,7 +193,7 @@ class Integrity(unittest.TestCase):
     def test_additional_ordinary_and_delay_dlls(self):
         target = next(t for t in a.POLICY['targets'] if t['system'] == 'Windows')
         for delayed in (False, True):
-            def mutate(data):
+            def mutate(data, delayed=delayed):
                 key = next(n for n in data if n.endswith('.pyd'))
                 native = bytearray(data[key])
                 native[656:668] = b'private.dll\0'

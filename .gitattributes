@@ -1,2 +1,5 @@
 LICENSE.md text eol=lf
 THIRD_PARTY_LICENSES.html text eol=lf -whitespace
+
+# Mixed-wheel source and metadata must have identical bytes on every host.
+packages/python/** text eol=lf

@@ -465,6 +465,7 @@ check(pypiUpload.uses === "pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a
 check(findNamedStep(githubPublishJob, "Verify enabled PyPI projection state before visibility")?.if === "vars.PYPI_RELEASE_ENABLED == 'true'", "Enabled PyPI must pass absence policy before canonical visibility");
 for (const [job, label] of [[publishJob, "npm"], [pypi, "PyPI"]]) {
   check(activeShell(findNamedStep(job, `Download immutable canonical product assets`)).includes("gh release download"), `${label} must use canonical downloaded bytes`);
+  check(findNamedStep(job, `Verify complete ${label} projection`)?.run?.endsWith('public --wait-complete'), 'Post-publication verification must bound registry propagation');
   check(activeShell(findNamedStep(job, `Require complete ${label} projection`)).includes("= complete"), `${label} must verify completed publication`);
 }
 

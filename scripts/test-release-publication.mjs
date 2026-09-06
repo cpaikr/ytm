@@ -164,3 +164,27 @@ for (const [complete, missing] of [[npmExpected, pypiExpected], [pypiExpected, n
   assert.throws(() => projectionState(missing, missing.slice(0, 1), { publicRelease: true }), /partial or conflicting/);
 }
 console.log('Unified candidate integrity and independent npm/PyPI failure policy passed');
+
+// Eventual registry visibility must not republish or accept conflicting bytes.
+const { waitForProjection, TransientRegistryError } = await import('./registry-projection-policy.mjs');
+const wantedProjection = [{ name: 'one.whl', sha256: 'a' }, { name: 'two.whl', sha256: 'b' }];
+let tick = 0;
+const pollingClock = { timeoutMs: 30, intervalMs: 10, now: () => tick, sleep: async ms => { tick += ms; } };
+const observations = [new TransientRegistryError('HTTP 503'), [], [wantedProjection[0]], wantedProjection];
+assert.equal(await waitForProjection(wantedProjection, async () => {
+  const next = observations.shift();
+  if (next instanceof Error) throw next;
+  return next;
+}, { ...pollingClock, timeoutMs: 40 }), 'complete');
+assert.equal(observations.length, 0);
+for (const observed of [[], [wantedProjection[0]]]) {
+  tick = 0;
+  await assert.rejects(waitForProjection(wantedProjection, async () => observed, pollingClock), /deadline expired/);
+  assert.equal(tick, 30);
+}
+for (const observed of [[{ name: 'one.whl', sha256: 'wrong' }], [wantedProjection[0], wantedProjection[0]], null]) {
+  tick = 0;
+  await assert.rejects(waitForProjection(wantedProjection, async () => observed, pollingClock), /Conflicting|unknown/);
+  assert.equal(tick, 0);
+}
+await assert.rejects(waitForProjection(wantedProjection, async () => { throw new Error('Malformed identity'); }, pollingClock), /Malformed/);
