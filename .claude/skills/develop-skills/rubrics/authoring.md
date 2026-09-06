@@ -83,8 +83,10 @@ not mandatory edits.
 
 ## 6. Workflow and completion
 
-- [ ] **Pass/Fail — Major:** Do permission gates account for prior authorization
-  and block only dependent actions, while preserving deliberate hard boundaries?
+- [ ] **Pass/Fail — Major:** Do permission gates verify that prior authorization
+  covers the requested action and targets, then block only dependent actions?
+  Unrelated files and publication outside that authorization retain their own
+  authority boundaries.
 - [ ] **Pass/Fail — Major:** Are questions limited to unresolved consequential
   decisions, with the responsible instruction identifiable when work pauses?
 - [ ] **Pass/Fail — Major:** Does the workflow identify inputs, key decisions,

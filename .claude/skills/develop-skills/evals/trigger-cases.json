@@ -34,6 +34,10 @@
     {
       "prompt": "Our coding model changed; explain how its reasoning effort works.",
       "reason": "Model usage advice does not request skill development."
+    },
+    {
+      "prompt": "Our model changed and these instructions may need refreshing; what should happen next?",
+      "reason": "Ambiguous intent: the request does not identify skill maintenance or explicitly invoke the manual-only skill. Frozen expected outcome: do not activate."
     }
   ]
 }

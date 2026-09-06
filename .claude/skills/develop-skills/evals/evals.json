@@ -84,6 +84,12 @@
       "prompt": "Use $develop-skills to investigate why our explicitly invoked UI skill still activates on unrelated tasks. The repository metadata disables implicit invocation, but the installed metadata omits the policy and the current session catalog shows an older description. Diagnose only; do not change source or installed files.",
       "expected_output": "A read-only diagnosis compares source, installed copy, and active session catalog as separate instruction surfaces. It identifies the observed metadata and description mismatch without claiming that a source edit updates an active session. It reports the precise mismatch and required rollout/reload verification, retains activation intent, and does not invoke an install, synchronization, publication, or cleanup workflow.",
       "files": []
+    },
+    {
+      "id": 15,
+      "prompt": "Use $develop-skills to refresh develop-skills itself for our migration to GPT-5.5. Read both maintained skill-authoring references and the current official OpenAI prompting guide for GPT-5.5. Reconcile only evidence-backed portable changes, preserving existing activation policies. Make justified local revisions only; do not publish, synchronize, or install anything.",
+      "expected_output": "The explicit refresh route reads both maintained authoring references and current official guidance for the named model, recording source URLs and retrieval dates. It compares material claims with current instructions and distinguishes model-specific recommendations from portable authoring rules. Each material claim has an evidence-backed accept or reject decision, classification, owning instruction or supported no-op, and proportional validation. Model-specific guidance is not copied into portable runtime rules. Unavailable official guidance is reported rather than invented. Existing activation policies are preserved, and work stops at validated local revisions without publication, synchronization, or installation.",
+      "files": []
     }
   ]
 }
