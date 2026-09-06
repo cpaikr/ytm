@@ -31,7 +31,8 @@ Building uses the pinned maturin backend in `pyproject.toml`. An installed wheel
 needs no Rust toolchain. `PYO3_PYTHON` selects the interpreter for
 `bun run validate:python`, which builds fixture and release wheels and runs
 isolated behavior, wheel-integrity failure injection, and strict installed-package
-typing checks. CI builds each target twice from fresh native output, requires
+typing checks. [Full-platform CI](../../docs/release.md#ci-platform-policy)
+builds each target twice from fresh native output, requires
 identical bytes, and exercises every declared interpreter against the untouched
 aggregate. [Release documentation](../../docs/release.md#python-wheels-and-pypi-projection)
 owns integrity policy and disabled publication gates.

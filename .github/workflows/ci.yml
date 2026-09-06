@@ -2,6 +2,8 @@ name: CI
 
 on:
   pull_request:
+  merge_group:
+  workflow_dispatch:
   push:
     branches:
       - main
@@ -16,6 +18,8 @@ concurrency:
 
 jobs:
   python-candidate:
+    needs: cli-metadata
+    if: needs.cli-metadata.outputs.full == 'true'
     uses: ./.github/workflows/python-candidate.yml
     with:
       source_sha: ${{ github.sha }}
@@ -62,17 +66,20 @@ jobs:
         run: bun run validate
 
   cli-metadata:
-    name: Standalone CLI matrix
-    runs-on: ubuntu-24.04
+    name: Select platform coverage
+    runs-on: blacksmith-2vcpu-ubuntu-2404
     timeout-minutes: 5
     outputs:
       matrix: ${{ steps.targets.outputs.matrix }}
+      native: ${{ steps.targets.outputs.native }}
+      full: ${{ steps.targets.outputs.full }}
 
     steps:
       - name: Check out source
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
         with:
           persist-credentials: false
+          fetch-depth: 0
 
       - name: Set up Node
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
@@ -83,7 +90,7 @@ jobs:
       - name: Emit CLI target matrix
         id: targets
         shell: bash
-        run: echo "matrix=$(node scripts/print-cli-matrix.mjs)" >> "$GITHUB_OUTPUT"
+        run: node scripts/ci-platform-policy.mjs
 
   cli-archive:
     name: CLI archive (${{ matrix.key }})
@@ -142,8 +149,9 @@ jobs:
 
   cli-artifact-set:
     name: Complete standalone CLI artifact set
-    needs: cli-archive
-    runs-on: ubuntu-24.04
+    needs: [cli-metadata, cli-archive]
+    if: needs.cli-metadata.outputs.full == 'true'
+    runs-on: blacksmith-2vcpu-ubuntu-2404
     timeout-minutes: 10
 
     steps:
@@ -213,29 +221,12 @@ jobs:
         run: node scripts/test-cli-release-consumer.mjs dist/cli
 
   native-consumer:
+    needs: cli-metadata
     name: Native consumer (${{ matrix.target.rust }} / Node ${{ matrix.node }})
     timeout-minutes: 20
     strategy:
       fail-fast: false
-      matrix:
-        node: [22, 24, 26]
-        target:
-          - rust: x86_64-unknown-linux-gnu
-            runner: ubuntu-24.04
-            arch: x64
-            directory: linux-x64-gnu
-          - rust: aarch64-unknown-linux-gnu
-            runner: ubuntu-24.04-arm
-            arch: arm64
-            directory: linux-arm64-gnu
-          - rust: aarch64-apple-darwin
-            runner: macos-15
-            arch: arm64
-            directory: darwin-arm64
-          - rust: x86_64-pc-windows-msvc
-            runner: windows-2025
-            arch: x64
-            directory: win32-x64-msvc
+      matrix: ${{ fromJSON(needs.cli-metadata.outputs.native) }}
     runs-on: ${{ matrix.target.runner }}
 
     steps:
@@ -277,3 +268,25 @@ jobs:
 
       - name: Test exact packed Node SDK
         run: node scripts/test-native-consumer.mjs ${{ matrix.target.rust }} .artifacts/native .artifacts/root
+
+  platform-gate:
+    name: Platform compatibility
+    if: always()
+    needs: [validate, cli-metadata, cli-archive, cli-artifact-set, cli-consumer, native-consumer, python-candidate]
+    runs-on: blacksmith-2vcpu-ubuntu-2404
+    timeout-minutes: 5
+    steps:
+      - name: Require selected platform checks
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+        run: |
+          python3 - <<'PYTHON'
+          import json, os
+          jobs = json.loads(os.environ['NEEDS_JSON'])
+          full = jobs['cli-metadata']['outputs'].get('full') == 'true'
+          optional = {'cli-artifact-set', 'cli-consumer', 'python-candidate'}
+          failed = [name for name, job in jobs.items()
+                    if job['result'] != ('skipped' if not full and name in optional else 'success')]
+          if failed:
+              raise SystemExit('Platform gate failed: ' + ', '.join(failed))
+          PYTHON
