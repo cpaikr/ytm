@@ -298,15 +298,20 @@ check(ciExactNativeConsumer.includes("scripts/test-native-consumer.mjs") && ciEx
 
 const cliMetadataJob = ciWorkflow.jobs?.["cli-metadata"];
 check(cliMetadataJob?.["runs-on"] === "blacksmith-2vcpu-ubuntu-2404" && cliMetadataJob?.["timeout-minutes"] === 5, "CLI matrix metadata must use a bounded Blacksmith job");
-check(cliMetadataJob?.outputs?.matrix === "${{ steps.targets.outputs.matrix }}", "CLI metadata must expose its generated matrix");
+equal(cliMetadataJob?.outputs, {
+  matrix: "${{ steps.targets.outputs.matrix }}",
+  native: "${{ steps.targets.outputs.native }}",
+  full: "${{ steps.targets.outputs.full }}"
+}, "Platform metadata must expose every generated output consumed by CI");
 check(activeShell(findNamedStep(cliMetadataJob, "Emit CLI target matrix")).includes("scripts/ci-platform-policy.mjs"), "CI CLI matrix must derive from cli-targets.json");
 
 check('merge_group' in ciWorkflow.on && 'workflow_dispatch' in ciWorkflow.on, "CI must cover merge queues and manual full candidates");
-for (const name of ['python-candidate', 'cli-artifact-set']) {
+for (const name of ['python-candidate', 'cli-artifact-set', 'cli-consumer']) {
   check(ciWorkflow.jobs[name].if === "needs.cli-metadata.outputs.full == 'true'", `${name} must follow the selected full-platform policy`);
 }
 check(findNamedStep(cliMetadataJob, 'Check out source').with['fetch-depth'] === 0, 'Platform selection must have complete PR diff history');
 const platformGate = ciWorkflow.jobs['platform-gate'];
+equal(platformGate.name, 'Platform compatibility', 'Platform gate must retain its required GitHub check name');
 check(platformGate.if === 'always()', 'Platform gate must report failed and skipped prerequisites');
 equal(platformGate.needs, ['validate', 'cli-metadata', 'cli-archive', 'cli-artifact-set', 'cli-consumer', 'native-consumer', 'python-candidate'], 'Platform gate must cover every selected consumer');
 

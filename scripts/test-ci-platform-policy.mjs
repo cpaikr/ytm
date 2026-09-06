@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { parse } from 'yaml';
 import { needsFullPlatforms, platformMatrices } from './ci-platform-policy.mjs';
@@ -50,3 +52,37 @@ assert.equal(manualCandidate.jobs.candidate.uses, './.github/workflows/ci.yml');
 assert.ok('workflow_call' in workflow.on);
 // Called workflows retain their caller's event, so manual dispatch selects full coverage.
 assert.equal(needsFullPlatforms('workflow_dispatch', { inputs: {} }), true);
+
+// Exercise the real process-to-Actions boundary, not just the exported policy.
+const outputDirectory = mkdtempSync(join(tmpdir(), 'ytm-ci-outputs-'));
+try {
+  for (const [eventName, event, expectedFull] of [
+    ['pull_request', pr('main'), true],
+    ['workflow_dispatch', {}, true],
+    ['push', { ref: 'refs/heads/dev' }, false]
+  ]) {
+    const eventPath = join(outputDirectory, 'event.json');
+    const outputPath = join(outputDirectory, 'outputs');
+    writeFileSync(eventPath, JSON.stringify(event));
+    writeFileSync(outputPath, '');
+    const result = spawnSync(process.execPath, ['scripts/ci-platform-policy.mjs'], {
+      env: { ...process.env, GITHUB_EVENT_NAME: eventName, GITHUB_EVENT_PATH: eventPath, GITHUB_OUTPUT: outputPath },
+      encoding: 'utf8'
+    });
+    assert.equal(result.status, 0, result.stderr);
+    const lines = readFileSync(outputPath, 'utf8').trim().split('\n');
+    assert.equal(lines.length, 3);
+    const outputs = Object.fromEntries(lines.map(line => {
+      const separator = line.indexOf('=');
+      return [line.slice(0, separator), JSON.parse(line.slice(separator + 1))];
+    }));
+    assert.deepEqual(Object.keys(outputs).sort(), ['full', 'matrix', 'native']);
+    assert.equal(outputs.full, expectedFull);
+    const expected = expectedFull ? full : linux;
+    assert.deepEqual(outputs.matrix, expected.matrix);
+    assert.deepEqual(outputs.native, expected.native);
+  }
+} finally {
+  rmSync(outputDirectory, { recursive: true, force: true });
+}
+console.log('Policy process emits complete parseable Actions outputs for full and reduced coverage');

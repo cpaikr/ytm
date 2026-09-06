@@ -189,6 +189,7 @@ jobs:
           retention-days: 7
 
   cli-consumer:
+    if: needs.cli-metadata.outputs.full == 'true'
     name: Standalone CLI consumer (${{ matrix.key }})
     needs: [cli-metadata, cli-artifact-set]
     runs-on: ${{ matrix.runner }}

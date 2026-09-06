@@ -8,7 +8,7 @@ runbook for that disabled-by-default lifecycle.
 ## CI platform policy
 
 [`ci.yml`](../.github/workflows/ci.yml) follows the owner's
-[cost-aware platform guidance](../../mytech/practices/cost-aware-ci-platform-coverage.md).
+[cost-aware platform guidance](https://github.com/sjunepark/mytech/blob/main/practices/cost-aware-ci-platform-coverage.md).
 PRs to `main`, merge-queue candidates, and manual CI dispatches build and
 consume every declared CLI, Node, and Python target. PRs to `dev` normally
 run Linux x64; native code, bindings, installers, build configuration, and
