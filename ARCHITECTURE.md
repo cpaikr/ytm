@@ -64,11 +64,11 @@ executable entry, and the repository supports only the Rust `ytm` CLI.
   the Node SDK and Rust CLI. It does not import core internals.
 - [`native-targets.json`](native-targets.json) — canonical Node native support
   matrix and source for optional dependencies, manifests, loader selection,
-  and CI.
+  and manual candidate builds.
 - [`python-targets.json`](python-targets.json) — Python native and interpreter
-  matrix shared by CI and tagged wheel candidates.
+  matrix shared by manual and tagged wheel candidates.
 - [`cli-targets.json`](cli-targets.json) — independent standalone CLI support
-  matrix and source for archive names, installer selection, and CLI artifact CI.
+  matrix and source for archive names, installer selection, and manual CLI candidates.
 - [`docs/provider-qualification.md`](docs/provider-qualification.md) — source
   evidence and enablement decisions that protocol tests cannot establish.
 
@@ -143,11 +143,14 @@ only diagnostics within those boundaries.
 
 ## Runtime and distribution boundaries
 
+Automatic CI is Linux x86_64-only; full platform candidates require manual
+dispatch under the [CI runner policy](docs/release.md#ci-runner-policy).
+
 The current Node SDK requires Node.js 22; CI also validates Node 24 and 26.
 Supported Node native targets are Linux GNU x64/ARM64, macOS ARM64, and Windows
 x64. Linux artifacts are cross-linked against an explicit glibc 2.28 floor;
 their versioned ELF requirements are checked before packaging. Each target is
-built on its native GitHub-hosted image and clean-installed
+built by the manual candidate workflow on its native GitHub-hosted image and clean-installed
 under all three Node majors. The root npm package contains JavaScript only and
 selects an exact-version optional native package at runtime.
 
@@ -155,7 +158,7 @@ selects an exact-version optional native package at runtime.
 support matrix: GNU/Linux x64 and ARM64 at the shared glibc 2.28 floor, macOS
 ARM64, and Windows x64. The Node and CLI matrices may evolve independently;
 overlapping runner, architecture, and Linux toolchain facts are mechanically
-reconciled. CI builds the exact target binary on its declared GitHub-hosted
+reconciled. The manual candidate workflow builds the exact target binary on its declared GitHub-hosted
 runner, executes its version and help identity, creates a normalized archive,
 and aggregates all four archives with generated shell and PowerShell installers
 plus sorted SHA-256 metadata. Repository-owned packers normalize archive order,
@@ -185,7 +188,7 @@ public installer URL is active. Selecting or publishing an actual version
 remains separately authorized release work.
 
 The Python facade uses PyO3's `abi3-py311` boundary and the maintained Tokio
-bridge. `python-targets.json` drives the shared CI/tagged workflow for native
+bridge. `python-targets.json` drives the shared manual candidate/tagged workflow for native
 builds, complete aggregation, and exact consumers. Fresh builds must produce
 identical wheel bytes; integrity validation binds those bytes, native identity,
 typing, and legal notices to the source commit. Consumers install outside the

@@ -47,7 +47,7 @@ The standalone binary also exposes an exact, network-free identity:
 bun run cli -- --version
 ```
 
-CI builds deterministic standalone CLI candidates for GNU/Linux x64 and ARM64
+The manual cross-platform workflow builds deterministic standalone CLI candidates for GNU/Linux x64 and ARM64
 (glibc 2.28 or newer), macOS ARM64, and Windows x64. Each candidate contains
 one versioned archive per target, `install.sh`, `install.ps1`, and sorted
 `SHA256SUMS`; [`cli-targets.json`](cli-targets.json) owns that support surface.
@@ -89,6 +89,9 @@ package contents. Python validation requires CPython 3.11+ with `venv`/`pip`;
 `PYO3_PYTHON` selects the interpreter for Cargo and the wheel tests. The Python
 gate builds isolated fixture and release wheels and checks the installed public
 API and typing. Credentialed live source checks remain separate.
+
+Push and pull-request CI runs on Linux x86_64 only. Full platform artifact
+checks require a manual candidate run; see the [CI runner policy](docs/release.md#ci-runner-policy).
 
 Live KIS-NET smoke checks are scheduled and manually dispatchable rather than
 pull-request gates. Release preparation, creation, and publication remain

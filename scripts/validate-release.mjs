@@ -36,6 +36,7 @@ const [
   cliTargets,
   bunLock,
   ciWorkflow,
+  candidateWorkflow,
   liveWorkflow,
   releaseWorkflow,
   releasePleaseWorkflow,
@@ -65,6 +66,7 @@ const [
   readJson("cli-targets.json"),
   readFile("bun.lock", "utf8"),
   readYaml(".github/workflows/ci.yml"),
+  readYaml(".github/workflows/cross-platform-candidate.yml"),
   readYaml(".github/workflows/live-smoke.yml"),
   readYaml(".github/workflows/release.yml"),
   readYaml(".github/workflows/release-please.yml"),
@@ -86,6 +88,30 @@ const [
   readFile("scripts/test-release-publication.mjs", "utf8"),
   readFile("SPEC.md", "utf8")
 ]);
+
+// Automatic workflows use literal Linux x64 runners. Cross-platform matrices
+// are reachable only from explicitly dispatched candidate/release workflows.
+for (const file of await readdir(".github/workflows")) {
+  if (!/\.ya?ml$/.test(file)) continue;
+  const workflow = await readYaml(`.github/workflows/${file}`);
+  const events = Object.keys(workflow.on || {});
+  if (events.some((event) => !["workflow_dispatch", "workflow_call"].includes(event))) {
+    for (const [name, job] of Object.entries(workflow.jobs || {})) {
+      check(job["runs-on"] === "blacksmith-2vcpu-ubuntu-2404" && !job.uses,
+        `${file}/${name}: automatic jobs must use the cheapest Linux x64 runner directly`);
+    }
+  }
+}
+equal(Object.keys(candidateWorkflow.on || {}), ["workflow_dispatch"], "Cross-platform candidates must be manual-only");
+equal(Object.keys(releaseWorkflow.on || {}), ["workflow_dispatch"], "Cross-platform releases must be manual-only");
+equal(Object.keys(ciWorkflow.jobs || {}), ["validate", "cli-archive", "native-consumer"], "Automatic CI must retain Linux validation and artifact checks");
+const automaticNative = ciWorkflow.jobs["native-consumer"];
+equal(automaticNative.strategy.matrix.node, nativeTargets.validationNodeMajors, "Linux CI must cover all Node majors");
+equal(automaticNative.strategy.matrix.target, [{ rust: "x86_64-unknown-linux-gnu", runner: "blacksmith-2vcpu-ubuntu-2404", arch: "x64", directory: "linux-x64-gnu" }], "Automatic native matrix must be Linux x64 only");
+equal(automaticNative.steps, candidateWorkflow.jobs["native-consumer"].steps, "Linux native CI must retain exact artifact checks");
+const automaticCli = ciWorkflow.jobs["cli-archive"];
+equal(automaticCli.strategy.matrix, { include: [{ key: "linux-x64-gnu", rust: "x86_64-unknown-linux-gnu", arch: "x64", usesGlibcFloor: true }] }, "Automatic CLI matrix must be Linux x64 only");
+equal(automaticCli.steps, candidateWorkflow.jobs["cli-archive"].steps, "Linux CLI CI must retain archive and execution checks");
 
 check(rootPackage.private === true, "root package must remain private");
 check(rootPackage.version === undefined, "root package must not become a release component");
@@ -229,7 +255,7 @@ check(releasePleaseWorkflow.on?.workflow_dispatch !== undefined, "Release Please
 check(releasePleaseWorkflow.permissions?.contents === "read", "Release Please workflow default permissions must remain read-only");
 const releasePleaseJob = releasePleaseWorkflow.jobs?.release_pr;
 check(releasePleaseJob?.if === "${{ vars.RELEASE_PLEASE_ENABLED == 'true' }}", "Release Please must remain externally disabled until release preparation is authorized");
-check(releasePleaseJob?.["runs-on"] === "ubuntu-24.04" && releasePleaseJob?.["timeout-minutes"] === 10, "Release Please must use a pinned GitHub-hosted runner with a bounded timeout");
+check(releasePleaseJob?.["runs-on"] === "blacksmith-2vcpu-ubuntu-2404" && releasePleaseJob?.["timeout-minutes"] === 10, "Release Please must use the cheapest Linux runner with a bounded timeout");
 check(releasePleaseJob?.permissions?.contents === "write" && releasePleaseJob?.permissions?.issues === "write" && releasePleaseJob?.permissions?.["pull-requests"] === "write", "Release Please job permissions must be explicit and sufficient for release PRs");
 const releasePleaseStep = findNamedStep(releasePleaseJob, "Create or update the product release PR");
 check(/^googleapis\/release-please-action@[0-9a-f]{40}$/.test(releasePleaseStep?.uses || ""), "Release Please action must be pinned to a full commit SHA");
@@ -237,7 +263,7 @@ check(releasePleaseStep?.with?.token === "${{ secrets.RELEASE_PLEASE_TOKEN }}", 
 check(releasePleaseStep?.with?.["config-file"] === "release-please-config.json" && releasePleaseStep?.with?.["manifest-file"] === ".release-please-manifest.json", "Release Please must use the repository-owned product config and manifest");
 check(releasePleaseStep?.with?.["skip-github-release"] === true, "Release preparation must not create a tag or GitHub Release before the protected release workflow");
 check(pythonPackagePresent && !pythonWorkflowPresent, "Python foundation must exist without an independent publishing workflow");
-equal(Object.keys(ciWorkflow.jobs || {}), ["python-candidate", "validate", "cli-metadata", "cli-archive", "cli-artifact-set", "cli-consumer", "native-consumer"], "CI must contain validation, CLI artifacts, and native consumers only");
+equal(Object.keys(candidateWorkflow.jobs || {}), ["python-candidate", "cli-metadata", "cli-archive", "cli-artifact-set", "cli-consumer", "native-consumer"], "Manual candidate must retain complete cross-platform artifact checks");
 equal(Object.keys(liveWorkflow.jobs || {}), ["rust-cli"], "live smoke must exercise only the standalone Rust CLI");
 equal(ciWorkflow.on?.push?.branches, ["main", "dev"], "CI pushes must cover only the long-lived main and integration branches");
 check(ciWorkflow.jobs?.validate?.["timeout-minutes"] === 20, "CI validation must have a bounded timeout");
@@ -270,7 +296,7 @@ const ciValidationToolInstall = activeShell(findNamedStep(ciWorkflow.jobs?.valid
 for (const install of requiredValidationToolInstalls) check(ciValidationToolInstall.includes(install), `CI validation must install ${install}`);
 const liveSmoke = activeShell(findNamedStep(liveWorkflow.jobs?.["rust-cli"], "Run live smoke"));
 check(liveSmoke.includes('target/debug/ytm matrix') && liveSmoke.includes("--fallback previous-available") && liveSmoke.includes("jq -e"), "live smoke must use bounded fallback through the standalone Rust CLI");
-const ciNativeJob = ciWorkflow.jobs?.["native-consumer"];
+const ciNativeJob = candidateWorkflow.jobs?.["native-consumer"];
 const linuxNativeCondition = "matrix.target.rust == 'x86_64-unknown-linux-gnu' || matrix.target.rust == 'aarch64-unknown-linux-gnu'";
 check(ciNativeJob?.["timeout-minutes"] === 20, "CI native consumers must have a bounded timeout");
 equal(ciNativeJob?.strategy?.matrix?.node, nativeTargets.validationNodeMajors, "CI native consumers must cover every declared Node major");
@@ -293,11 +319,11 @@ check(findNamedStep(ciNativeJob, "Assemble product packages")?.shell === "bash" 
 const ciExactNativeConsumer = activeShell(findNamedStep(ciNativeJob, "Test exact packed Node SDK"));
 check(ciExactNativeConsumer.includes("scripts/test-native-consumer.mjs") && ciExactNativeConsumer.includes(".artifacts/native .artifacts/root"), "CI native consumers must install the exact packed SDK tarballs");
 
-const cliMetadataJob = ciWorkflow.jobs?.["cli-metadata"];
+const cliMetadataJob = candidateWorkflow.jobs?.["cli-metadata"];
 check(cliMetadataJob?.["runs-on"] === "ubuntu-24.04" && cliMetadataJob?.["timeout-minutes"] === 5, "CLI matrix metadata must use a bounded GitHub-hosted job");
 check(cliMetadataJob?.outputs?.matrix === "${{ steps.targets.outputs.matrix }}", "CLI metadata must expose its generated matrix");
 check(activeShell(findNamedStep(cliMetadataJob, "Emit CLI target matrix")).includes("scripts/print-cli-matrix.mjs"), "CI CLI matrix must derive from cli-targets.json");
-const cliArchiveJob = ciWorkflow.jobs?.["cli-archive"];
+const cliArchiveJob = candidateWorkflow.jobs?.["cli-archive"];
 check(cliArchiveJob?.needs === "cli-metadata" && cliArchiveJob?.["runs-on"] === "${{ matrix.runner }}", "CLI archive jobs must consume the generated target matrix");
 check(cliArchiveJob?.["timeout-minutes"] === 20 && cliArchiveJob?.strategy?.["fail-fast"] === false, "CLI archive matrix must be bounded and collect every target result");
 check(cliArchiveJob?.strategy?.matrix === "${{ fromJSON(needs.cli-metadata.outputs.matrix) }}", "CLI archive matrix must use only generated target data");
@@ -310,7 +336,7 @@ check(findNamedStep(cliArchiveJob, "Validate Linux CLI glibc floor")?.if === cli
 const cliAssembly = activeShell(findNamedStep(cliArchiveJob, "Assemble and inspect standalone CLI archive"));
 check(cliAssembly.includes('scripts/assemble-cli-archive.mjs "$RUST_TARGET"') && cliAssembly.includes('--source-commit "$SOURCE_COMMIT"') && cliAssembly.includes('scripts/validate-cli-archive.mjs "$RUST_TARGET"') && cliAssembly.includes("--execute"), "CLI archive jobs must reconcile source, inspect the archive, and execute the exact binary");
 check(/^actions\/upload-artifact@[0-9a-f]{40}$/.test(findNamedStep(cliArchiveJob, "Upload standalone CLI archive")?.uses || ""), "CLI archive upload action must be commit-pinned");
-const cliSetJob = ciWorkflow.jobs?.["cli-artifact-set"];
+const cliSetJob = candidateWorkflow.jobs?.["cli-artifact-set"];
 check(cliSetJob?.needs === "cli-archive" && cliSetJob?.["runs-on"] === "ubuntu-24.04" && cliSetJob?.["timeout-minutes"] === 10, "CLI artifact aggregation must wait for every archive on a bounded GitHub-hosted job");
 check(/^actions\/download-artifact@[0-9a-f]{40}$/.test(findNamedStep(cliSetJob, "Download standalone CLI archives")?.uses || ""), "CLI archive download action must be commit-pinned");
 const cliCandidate = activeShell(findNamedStep(cliSetJob, "Generate and validate complete CLI candidate"));
@@ -318,7 +344,7 @@ for (const command of ["scripts/generate-cli-installers.mjs", "scripts/finalize-
   check(cliCandidate.includes(command), `complete CLI candidate must invoke ${command}`);
 }
 check(/^actions\/upload-artifact@[0-9a-f]{40}$/.test(findNamedStep(cliSetJob, "Upload complete CLI candidate")?.uses || ""), "complete CLI candidate upload must be commit-pinned");
-const cliConsumerJob = ciWorkflow.jobs?.["cli-consumer"];
+const cliConsumerJob = candidateWorkflow.jobs?.["cli-consumer"];
 equal(cliConsumerJob?.needs, ["cli-metadata", "cli-artifact-set"], "CLI consumers must wait for generated metadata and the complete candidate");
 check(cliConsumerJob?.["runs-on"] === "${{ matrix.runner }}" && cliConsumerJob?.["timeout-minutes"] === 20, "CLI consumers must use bounded manifest runners");
 check(cliConsumerJob?.strategy?.["fail-fast"] === false && cliConsumerJob?.strategy?.matrix === "${{ fromJSON(needs.cli-metadata.outputs.matrix) }}", "CLI consumers must reuse the complete generated target matrix");
@@ -454,7 +480,7 @@ for (const job of Object.values(pythonWorkflow.jobs)) {
 }
 check(pythonWorkflow.jobs.build.strategy.matrix.includes("needs.matrix.outputs.builds") && pythonWorkflow.jobs.consumer.strategy.matrix.includes("needs.matrix.outputs.consumers"), "Python build/consumer matrix must come from one authority");
 equal(pythonWorkflow.jobs.consumer.needs, ["matrix", "aggregate"], "Python consumers must await complete aggregate");
-check(ciWorkflow.jobs["python-candidate"].uses === "./.github/workflows/python-candidate.yml" && ciWorkflow.jobs["python-candidate"].with.source_sha === "${{ github.sha }}", "CI must use shared Python candidate validation");
+check(candidateWorkflow.jobs["python-candidate"].uses === "./.github/workflows/python-candidate.yml" && candidateWorkflow.jobs["python-candidate"].with.source_sha === "${{ github.sha }}", "Manual candidate must use shared Python candidate validation");
 check(releaseWorkflow.jobs.python_candidate.uses === "./.github/workflows/python-candidate.yml" && releaseWorkflow.jobs.python_candidate.with.source_sha === "${{ needs.release_authority.outputs.source_sha }}", "Release must use identical tagged Python candidate validation");
 const pypi = releaseWorkflow.jobs.publish_pypi;
 equal(pypi.needs, ["release_authority", "publish_github"], "PyPI must follow canonical visibility independently of npm");

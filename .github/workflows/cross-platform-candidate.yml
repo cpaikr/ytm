@@ -1,11 +1,7 @@
-name: CI
+name: Cross-platform candidate
 
 on:
-  pull_request:
-  push:
-    branches:
-      - main
-      - dev
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -15,9 +11,17 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  validate:
-    runs-on: blacksmith-2vcpu-ubuntu-2404
-    timeout-minutes: 20
+  python-candidate:
+    uses: ./.github/workflows/python-candidate.yml
+    with:
+      source_sha: ${{ github.sha }}
+
+  cli-metadata:
+    name: Standalone CLI matrix
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.targets.outputs.matrix }}
 
     steps:
       - name: Check out source
@@ -25,52 +29,28 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Set up Bun
-        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
-
       - name: Set up Node
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
         with:
           node-version: 24
           package-manager-cache: false
 
-      - name: Install frozen JavaScript dependencies
-        run: bun install --frozen-lockfile
-
-      - name: Set up Python
-        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
-        with:
-          python-version: '3.11'
-
-      - name: Select Python for workspace and wheel validation
-        run: |
-          python -c 'import sys; assert sys.version_info[:2] == (3, 11)'
-          echo "PYO3_PYTHON=$(command -v python)" >> "$GITHUB_ENV"
-
-      - name: Install pinned validation tools
-        run: |
-          cargo install --locked --features cli cargo-about --version 0.9.2
-          cargo install --locked cargo-audit --version 0.22.2
-          cargo install --locked cargo-deny --version 0.19.0
-
-      - name: Validate repository
-        run: bun run validate
+      - name: Emit CLI target matrix
+        id: targets
+        shell: bash
+        run: echo "matrix=$(node scripts/print-cli-matrix.mjs)" >> "$GITHUB_OUTPUT"
 
   cli-archive:
     name: CLI archive (${{ matrix.key }})
-    runs-on: blacksmith-2vcpu-ubuntu-2404
+    needs: cli-metadata
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 20
     defaults:
       run:
         shell: bash
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - key: linux-x64-gnu
-            rust: x86_64-unknown-linux-gnu
-            arch: x64
-            usesGlibcFloor: true
+      matrix: ${{ fromJSON(needs.cli-metadata.outputs.matrix) }}
     env:
       RUST_TARGET: ${{ matrix.rust }}
       SOURCE_COMMIT: ${{ github.sha }}
@@ -115,6 +95,78 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
+  cli-artifact-set:
+    name: Complete standalone CLI artifact set
+    needs: cli-archive
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - name: Download standalone CLI archives
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          pattern: cli-*-${{ github.sha }}
+          path: dist/cli
+          merge-multiple: true
+
+      - name: Generate and validate complete CLI candidate
+        run: |
+          node scripts/generate-cli-installers.mjs dist/cli
+          node scripts/finalize-cli-artifacts.mjs dist/cli
+          node scripts/validate-cli-artifact-set.mjs dist/cli
+
+      - name: Upload complete CLI candidate
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: cli-candidate-${{ github.sha }}
+          path: dist/cli/*
+          if-no-files-found: error
+          retention-days: 7
+
+  cli-consumer:
+    name: Standalone CLI consumer (${{ matrix.key }})
+    needs: [cli-metadata, cli-artifact-set]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.cli-metadata.outputs.matrix) }}
+    env:
+      RUST_TARGET: ${{ matrix.rust }}
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: 24
+          architecture: ${{ matrix.arch }}
+          package-manager-cache: false
+
+      - name: Download exact complete CLI candidate
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: cli-candidate-${{ github.sha }}
+          path: dist/cli
+
+      - name: Test exact standalone CLI consumer
+        run: node scripts/test-cli-release-consumer.mjs dist/cli
+
   native-consumer:
     name: Native consumer (${{ matrix.target.rust }} / Node ${{ matrix.node }})
     timeout-minutes: 20
@@ -124,10 +176,22 @@ jobs:
         node: [22, 24, 26]
         target:
           - rust: x86_64-unknown-linux-gnu
-            runner: blacksmith-2vcpu-ubuntu-2404
+            runner: ubuntu-24.04
             arch: x64
             directory: linux-x64-gnu
-    runs-on: blacksmith-2vcpu-ubuntu-2404
+          - rust: aarch64-unknown-linux-gnu
+            runner: ubuntu-24.04-arm
+            arch: arm64
+            directory: linux-arm64-gnu
+          - rust: aarch64-apple-darwin
+            runner: macos-15
+            arch: arm64
+            directory: darwin-arm64
+          - rust: x86_64-pc-windows-msvc
+            runner: windows-2025
+            arch: x64
+            directory: win32-x64-msvc
+    runs-on: ${{ matrix.target.runner }}
 
     steps:
       - name: Check out source

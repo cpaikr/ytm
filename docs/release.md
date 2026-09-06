@@ -5,6 +5,25 @@ exact version remains a separate approval. The repository implements one
 product lifecycle for the Rust core, standalone CLI, Node SDK, and Python SDK; this is the
 runbook for that disabled-by-default lifecycle.
 
+## CI runner policy
+
+Push and pull-request CI uses only `blacksmith-2vcpu-ubuntu-2404` Linux x86_64
+runners to limit costs. It runs the complete repository gate (including Rust
+lint/tests and isolated Python wheel consumers), the Linux CLI archive build
+and execution checks, and exact Linux Node package consumers on Node 22/24/26.
+Scheduled live smoke and automatic release preparation also use this runner.
+
+Full macOS, Windows, and ARM coverage is manual-only. Dispatch
+[`cross-platform-candidate.yml`](../.github/workflows/cross-platform-candidate.yml)
+from the desired source ref to build and test complete CLI, Node, and Python
+candidates without publishing. Full CLI installer/upgrade consumers and the
+portable Python target/interpreter matrix run there. The separately gated
+[`release.yml`](../.github/workflows/release.yml) is also dispatch-only and
+retains all release targets. Both call the reusable `python-candidate.yml`;
+automatic CI does not call it. Target manifests describe release support, not
+automatic runner allocation. A passing ordinary CI run establishes Linux
+coverage only; cross-platform evidence requires an explicit candidate run.
+
 ## Release authority
 
 Release Please owns release PR preparation from Conventional Commits. One root
@@ -86,12 +105,12 @@ Local upload logs cannot prove registry absence after a lost response.
 
 [`cli-targets.json`](../cli-targets.json) owns four targets independently of the
 Node-API package matrix: GNU/Linux x64 and ARM64 at glibc 2.28, macOS ARM64, and
-Windows x64. CI derives its matrix from that file, builds on each declared
+Windows x64. The manual candidate workflow derives its matrix from that file, builds on each declared
 runner, executes the exact binary's `--version` and `--help`, enforces the Linux
 symbol floor, and packages only the executable plus the canonical license
 files. Archive order and metadata are normalized by repository code.
 
-After all target jobs pass, CI generates version-pinned `install.sh` and
+After all target jobs pass, the manual workflow generates version-pinned `install.sh` and
 `install.ps1`, embeds the exact selected archive digest in each, creates sorted
 `SHA256SUMS` for every archive and installer, and validates the complete file
 set before retaining it as a CI artifact. The fresh-install scripts reject
@@ -182,7 +201,7 @@ them or authorize a release.
 
 [`native-targets.json`](../native-targets.json) currently owns the Node-API
 matrix: Linux GNU x64/ARM64, macOS ARM64, and Windows x64. GNU/Linux artifacts
-target glibc 2.28 or newer. CI builds every target on its declared
+target glibc 2.28 or newer. The manual candidate workflow builds every target on its declared
 GitHub-hosted runner and clean-installs the packed root and native packages
 under Node 22, 24, and 26.
 
@@ -201,7 +220,7 @@ glibc 2.28, macOS ARM64 at 11.0, and Windows x64. Alternative interpreters,
 free-threaded builds, and future stable versions need evidence before joining
 that matrix. One `cp311-abi3` mixed wheel serves each target.
 
-CI and tagged builds share `python-candidate.yml`. Pinned maturin builds twice
+Manual candidates and tagged builds share `python-candidate.yml`. Pinned maturin builds twice
 from fresh native output directories and requires identical wheel bytes. Build
 inputs use the source commit timestamp, normalized source paths, LF package
 files on every host, and the macOS deployment floor. Source attribution rejects
