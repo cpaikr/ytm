@@ -65,6 +65,8 @@ executable entry, and the repository supports only the Rust `ytm` CLI.
 - [`native-targets.json`](native-targets.json) — canonical Node native support
   matrix and source for optional dependencies, manifests, loader selection,
   and CI.
+- [`python-targets.json`](python-targets.json) — Python native and interpreter
+  matrix shared by CI and tagged wheel candidates.
 - [`cli-targets.json`](cli-targets.json) — independent standalone CLI support
   matrix and source for archive names, installer selection, and CLI artifact CI.
 - [`docs/provider-qualification.md`](docs/provider-qualification.md) — source
@@ -182,12 +184,13 @@ approved tag and attaches them only after exact native-consumer validation. No
 public installer URL is active. Selecting or publishing an actual version
 remains separately authorized release work.
 
-The Python source requires conventional CPython 3.11+. Its mixed wheel uses
-PyO3's `abi3-py311` boundary and the maintained Tokio bridge. Local and repository
-validation install both a fixture wheel and a release wheel outside the source
-path, checking behavior and typing. Portable native target coverage and the
-unified Python artifact/publication pipeline remain tracked in the
-[Python delivery plan](plans/rust-backed-python-sdk.md).
+The Python facade uses PyO3's `abi3-py311` boundary and the maintained Tokio
+bridge. `python-targets.json` drives the shared CI/tagged workflow for native
+builds, complete aggregation, and exact consumers. Fresh builds must produce
+identical wheel bytes; integrity validation binds those bytes, native identity,
+typing, and legal notices to the source commit. Consumers install outside the
+checkout without a Rust toolchain. Separate fixture builds own injected source,
+cancellation, and panic evidence; release wheels cannot select those facilities.
 
 ## Release boundary
 
@@ -203,11 +206,12 @@ The disabled Release Please preparation workflow owns one root product release
 PR, `VERSION`, and the root changelog; it explicitly skips tag and GitHub
 Release creation. A separately gated publication workflow accepts only the
 approved version at the merged PR head, creates exactly its changelog-derived
-`vX.Y.Z` tag and draft, rebuilds and consumes every CLI and npm candidate from
-that SHA, then makes GitHub canonical before publishing native packages and the
-root npm package through OIDC. Draft recovery is additive and byte-identical;
-public-release recovery can continue npm only while every npm version remains
-absent.
+`vX.Y.Z` tag and draft, and rebuilds and consumes every CLI, npm, and Python
+candidate from that SHA. A unified asset manifest binds the complete canonical
+set before visibility. npm and independently gated PyPI project those downloaded
+bytes through OIDC after GitHub becomes public. Draft recovery is additive and
+byte-identical; public recovery preserves exact completed projections and permits
+only wholly absent projections. Partial or conflicting versions fail closed.
 
 The registry release at `0.2.0` predates the rewrite; the checkout retains that
 version until a new release is authorized. The SDK/CLI migration does not

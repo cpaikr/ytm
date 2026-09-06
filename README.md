@@ -61,13 +61,15 @@ faults are injected into bounded temporary installer copies to verify rollback
 and recoverable failure evidence without shipping a test failpoint. The
 disabled tagged-source workflow rebuilds and tests those exact candidates,
 publishes GitHub canonically, and then projects the same source and version to
-npm. No installer URL is active until an exact version is separately authorized
+npm and separately enabled PyPI projections. No installer URL is active until an exact version is separately authorized
 and published.
 
 The [Python package](packages/python/README.md) provides `Client` and
 `AsyncClient` over the same core. Build its local mixed wheel with Python 3.11+
-and Rust; historical PyPI 0.2.0 has a different API. Portable wheel distribution
-and PyPI publication infrastructure are not yet implemented.
+and Rust; historical PyPI 0.2.0 has a different API. The
+[Python matrix](python-targets.json) drives portable `abi3` wheel builds and
+exact consumers for conventional CPython 3.11–3.14. The unified release workflow
+includes these wheels and a separately disabled PyPI trusted projection.
 
 ## Repository validation
 
@@ -90,7 +92,7 @@ API and typing. Credentialed live source checks remain separate.
 
 Live KIS-NET smoke checks are scheduled and manually dispatchable rather than
 pull-request gates. Release preparation, creation, and publication remain
-disabled. The GitHub-canonical, npm-secondary distribution lifecycle is
+disabled. The GitHub-canonical, npm/PyPI-secondary distribution lifecycle is
 implemented but has not run for the rewritten product. Selecting or publishing
 an actual version still requires separate authorization; see
 [`docs/release.md`](docs/release.md).
