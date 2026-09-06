@@ -1,0 +1,18 @@
+[build-system]
+requires = ["maturin==1.12.6"]
+build-backend = "maturin"
+
+[project]
+name = "kisnet-ytm"
+version = "0.2.0"
+requires-python = ">=3.11"
+description = "Typed synchronous and asyncio KIS-NET YTM clients backed by Rust"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE.md", "THIRD_PARTY_LICENSES.html"]
+authors = [{ name = "Sejun Park" }]
+
+[tool.maturin]
+manifest-path = "../../crates/ytm-python/Cargo.toml"
+python-source = "src"
+module-name = "kisnet_ytm._native"

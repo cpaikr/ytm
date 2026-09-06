@@ -1,0 +1,24 @@
+[package]
+name = "ytm-python"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish = false
+
+[lib]
+name = "_native"
+crate-type = ["cdylib", "rlib"]
+
+[features]
+judge-fixtures = ["ytm-core/judge-fixtures"]
+
+[dependencies]
+ytm-core = { path = "../ytm-core", version = "=0.2.0" } # x-release-please-version
+pyo3 = { version = "=0.29.2", features = ["abi3-py311"] }
+pyo3-async-runtimes = { version = "=0.29.0", features = ["tokio-runtime"] }
+futures-util.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true

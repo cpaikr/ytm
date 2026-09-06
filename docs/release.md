@@ -16,7 +16,8 @@ component named `ytm` updates:
 - the Cargo workspace version, internal `ytm-core` dependency requirements,
   workspace and clean-consumer lockfiles;
 - the Node root and native package versions and optional dependency versions;
-- the Bun workspace lock entries.
+- the Bun workspace lock entries;
+- the Python package version and binding lock entry.
 
 `bun run release:version:check` fails when any version copy, changelog head, or
 configured Release Please update path diverges. The root private JavaScript
@@ -182,11 +183,17 @@ A failure after its first npm publish can still leave a partial registry
 version; the job records packages already published and requires correction in
 a newly approved product version.
 
-## Historical Python release
+## Python delivery boundary
 
-Python source, CI, smoke, and PyPI publishing are absent from the active
-repository. Existing PyPI artifacts and `python-v*` tags remain historical and
-unchanged. Deprecating the PyPI project is outside this cutover.
+The [Python package](../packages/python/README.md) has a local Rust-backed
+sync/async foundation. Its version joins `VERSION` reconciliation, and the
+repository gate tests fixture/release wheels and installed typing. The tagged
+candidate still contains CLI and npm assets only: the portable wheel matrix,
+complete Python aggregation, and PyPI trusted projection are not implemented.
+The [delivery plan](../plans/rust-backed-python-sdk.md) owns that remaining work.
+Existing PyPI 0.2.0 artifacts and `python-v*` tags remain unchanged historical
+releases with a different API. No rewritten Python release is selected or
+published.
 
 ## Validation
 

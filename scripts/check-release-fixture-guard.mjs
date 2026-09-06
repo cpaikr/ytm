@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
 
 const expected = "the judge-fixtures transport cannot be compiled into a release artifact";
-for (const packageName of ["ytm-node", "ytm-cli"]) {
+for (const packageName of ["ytm-node", "ytm-cli", "ytm-python"]) {
   const result = spawnSync("cargo", [
     "check",
     "--locked",
@@ -22,4 +22,4 @@ for (const packageName of ["ytm-node", "ytm-cli"]) {
   }
 }
 
-console.log("Node and CLI release artifacts cannot enable the judge fixture transport");
+console.log("Node, CLI, and Python release artifacts cannot enable the judge fixture transport");

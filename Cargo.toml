@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/ytm-cli", "crates/ytm-core", "crates/ytm-node"]
+members = ["crates/ytm-cli", "crates/ytm-core", "crates/ytm-node", "crates/ytm-python"]
 resolver = "2"
 
 [workspace.package]

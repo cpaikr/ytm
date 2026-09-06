@@ -8,6 +8,7 @@
   ["cargo", ["test", "--locked", "-p", "ytm-core", "--doc"]],
   ["bun", ["run", "rust:consumer:check"]],
   ["bun", ["run", "validate:node"]],
+  ["bun", ["run", "validate:python"]],
   ["cargo", ["audit"]],
   ["cargo", ["deny", "check"]],
   ["bun", ["run", "test"]],

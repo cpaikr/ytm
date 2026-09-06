@@ -101,6 +101,7 @@ equal(repositoryValidation, [
   ["cargo", ["test", "--locked", "-p", "ytm-core", "--doc"]],
   ["bun", ["run", "rust:consumer:check"]],
   ["bun", ["run", "validate:node"]],
+  ["bun", ["run", "validate:python"]],
   ["cargo", ["audit"]],
   ["cargo", ["deny", "check"]],
   ["bun", ["run", "test"]],
@@ -235,7 +236,7 @@ check(/^googleapis\/release-please-action@[0-9a-f]{40}$/.test(releasePleaseStep?
 check(releasePleaseStep?.with?.token === "${{ secrets.RELEASE_PLEASE_TOKEN }}", "Release Please must use the configured automation credential so release PR checks run");
 check(releasePleaseStep?.with?.["config-file"] === "release-please-config.json" && releasePleaseStep?.with?.["manifest-file"] === ".release-please-manifest.json", "Release Please must use the repository-owned product config and manifest");
 check(releasePleaseStep?.with?.["skip-github-release"] === true, "Release preparation must not create a tag or GitHub Release before the protected release workflow");
-check(!pythonPackagePresent && !pythonWorkflowPresent, "Python product and publishing workflow must remain absent");
+check(pythonPackagePresent && !pythonWorkflowPresent, "Python foundation must exist without an independent publishing workflow");
 equal(Object.keys(ciWorkflow.jobs || {}), ["validate", "cli-metadata", "cli-archive", "cli-artifact-set", "cli-consumer", "native-consumer"], "CI must contain validation, CLI artifacts, and native consumers only");
 equal(Object.keys(liveWorkflow.jobs || {}), ["rust-cli"], "live smoke must exercise only the standalone Rust CLI");
 equal(ciWorkflow.on?.push?.branches, ["main", "dev"], "CI pushes must cover only the long-lived main and integration branches");
@@ -246,6 +247,7 @@ equal(ciWorkflow.jobs?.validate?.steps?.map((step) => step.name), [
   "Set up Bun",
   "Set up Node",
   "Install frozen JavaScript dependencies",
+  "Select Python for workspace and wheel validation",
   "Install pinned validation tools",
   "Validate repository"
 ], "CI validation must install its prerequisites and delegate the complete gate once");

@@ -1,6 +1,6 @@
 # Rust-backed Python SDK
 
-Status: planned
+Status: in progress
 
 ## Outcome
 
@@ -12,14 +12,18 @@ synchronized secondary projection of the same version and tagged source.
 
 ## Current state
 
-- `ytm-core` owns the asynchronous matrix and kind-discovery behavior used by
-  the standalone CLI and the typed Node client.
-- PyPI contains the historical pure-Python `kisnet-ytm` 0.2.0 distribution,
-  but its source, CI, smoke tests, and publishing path are absent from the
-  active repository.
-- The implemented release lifecycle currently builds exact CLI and Node
-  distributables only. Python version reconciliation, wheels, consumers, and
-  PyPI projection do not yet exist.
+- Typed `Client` and `AsyncClient` now delegate through a private PyO3 binding
+  to the public Rust SDK. Their local fixture wheel passes isolated behavior,
+  cancellation, cleanup, and panic-containment tests; a release wheel passes
+  offline consumer and strict typing checks on local macOS ARM64/CPython 3.11.
+- Python package and binding versions join the single `VERSION` reconciliation.
+  Repository validation includes the Python foundation and release fixture guard.
+- The foundation passed full repository validation and bounded code/documentation
+  review; PR delivery remains before acceptance into dev.
+  Portable target/interpreter coverage, deterministic wheel aggregation, and
+  unified GitHub/PyPI infrastructure remain unimplemented.
+- Historical PyPI `kisnet-ytm` 0.2.0 has a different pure-Python API and remains
+  unchanged. No new product version is selected or published.
 
 ## Decisions and invariants
 
@@ -77,26 +81,26 @@ public Rust exports in `crates/ytm-core/src/lib.rs` are the binding seam;
 
 ### Binding and client foundation
 
-- [ ] Add `crates/ytm-python` and a mixed package under `packages/python`.
+- [x] Add `crates/ytm-python` and a mixed package under `packages/python`.
   Keep the native module private and consume only the public core API.
-- [ ] Define the public import namespace, sync and async client names,
+- [x] Define the public import namespace, sync and async client names,
   keyword arguments, result types, and error hierarchy in the package's API
   specification before implementing their boundary tests. Use Python-native
   naming and typed values for matrix, kinds, date resolution, source metadata,
   yields, and missing values; preserve the core's result information.
-- [ ] Expose matrix lookup and kind discovery with exact-date and bounded
+- [x] Expose matrix lookup and kind discovery with exact-date and bounded
   previous-available behavior. Python validates Python call shapes; Rust owns
   domain validation, kind resolution, transport, parsing, and fallback.
-- [ ] Implement asyncio awaitables with a maintained runtime bridge and a
+- [x] Implement asyncio awaitables with a maintained runtime bridge and a
   synchronous interface that releases the interpreter while Rust blocks.
   Document runtime ownership, event-loop affinity, concurrent-call behavior,
   context managers, idempotent close, calls after close, and active-call cleanup.
   Avoid per-call runtime creation and nested event-loop execution.
-- [ ] Propagate asyncio cancellation to the core cancellation token and retain
+- [x] Propagate asyncio cancellation to the core cancellation token and retain
   Python cancellation semantics. Translate expected failures into stable safe
   exceptions; contain panics at both synchronous and asynchronous native entry
   boundaries without exposing panic or dependency details.
-- [ ] Prove public sync/async success, invalid inputs without network access,
+- [x] Prove public sync/async success, invalid inputs without network access,
   missing data, fallback, error metadata, cancellation during work, and cleanup
   with process-level tests using the existing isolated judge approach.
   Keep fixture transport and panic injection absent from release artifacts.
@@ -205,7 +209,6 @@ separately authorized operations.
 
 ## Next action
 
-When implementation is authorized, confirm the accepted core revision and
-define the public Python API and runtime/lifecycle contract for the binding
-foundation. This queued plan does not activate a goal or authorize implementation,
-PR delivery, integration, or publication by itself.
+Finish validation of the reviewed foundation on `codex/python-sdk-foundation`,
+then create its PR against dev, resolve CI/feedback, and merge preserving
+commits before starting the portable-wheel and unified-release slice.

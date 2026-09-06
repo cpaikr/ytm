@@ -4,14 +4,14 @@
 
 `ytm` retrieves deterministic KIS-NET YTM Matrix data through one Rust HTTP,
 Nexacro, and domain implementation. The active checkout exposes that
-implementation as a public Rust SDK, through a Rust-backed Node SDK, and as a
+implementation as a public Rust SDK, Rust-backed Node and Python SDKs, and a
 standalone Rust/Clap CLI. The Node package does not own or distribute the CLI.
 
 [`SPEC.md`](SPEC.md) defines public behavior. [`ROADMAP.md`](ROADMAP.md) owns
 remaining verification and future decision boundaries; it is not an account of
 implemented architecture.
 
-Python, browser, edge, Deno, Bun-runtime, proxy discovery, and alternate
+Browser, edge, Deno, Bun-runtime, proxy discovery, and alternate
 provider implementations are outside the product boundary. Bun remains a
 development package manager for the Node workspace.
 
@@ -22,20 +22,15 @@ The implemented shape is:
 ```text
 contracts/kisnet/openapi.yaml
               |
-              v
        crates/ytm-core
        public Rust SDK
-          /         \
-         v           v
-crates/ytm-node   crates/ytm-cli
- Node-API         Clap binary
-    |                 |
-    v                 v
-packages/node       `ytm`
-  Node SDK        standalone CLI
+        /     |      \
+  ytm-node  ytm-cli  ytm-python
+     |        |         |
+ Node SDK  Rust CLI  Python SDK
 ```
 
-Dependencies point downward toward `ytm-core`. The Node SDK and Rust CLI are
+Dependencies point downward toward `ytm-core`. The Node SDK, Python SDK, and Rust CLI are
 sibling consumers; neither depends on the other. The npm package has no
 executable entry, and the repository supports only the Rust `ytm` CLI.
 
@@ -54,6 +49,11 @@ executable entry, and the repository supports only the Rust `ytm` CLI.
 - [`packages/node/src`](packages/node/src) — public Node SDK validation, typed
   client interface, type declarations, and error ergonomics. It has no CLI
   adapter.
+- [`crates/ytm-python`](crates/ytm-python) — private PyO3 binding over the
+  public Rust SDK, with process-shared Tokio runtime, cancellation and draining.
+- [`packages/python`](packages/python/README.md) — typed `Client`/`AsyncClient`,
+  immutable values, stable errors, and mixed-wheel packaging. The
+  [Python API contract](packages/python/SPEC.md) owns lifecycle details.
 - [`crates/ytm-cli`](crates/ytm-cli) — workspace crate producing the standalone `ytm`
   binary. It owns Clap parsing, command help, terminal diagnostics, tabular
   rendering, and exit statuses while delegating product behavior to
@@ -92,18 +92,26 @@ For a Node SDK call:
 3. The Node adapter returns the typed client result or stable JavaScript
    error. It does not render or dispatch a command-line interface.
 
+For a Python SDK call, the facade checks Python shapes and the private binding
+constructs the public Rust request. Sync execution releases the interpreter;
+async execution uses the maintained PyO3 Tokio bridge. Each client serializes
+calls and owns a cancellation root. Close cancels and drains calls before
+releasing its service. Per-call cancellation leaves the client usable. Panics
+are contained during calls and individual async polls; a chained hook suppresses
+only diagnostics within those boundaries.
+
 ## Ownership and invariants
 
 - OpenAPI and its named Nexacro profile are the only wire authority. Fixtures
   and judge expectations are independent evidence.
 - Rust is the only component allowed to know source origins, paths, headers,
   serialized XML, transport policy, parser rules, dataset mappings, or fallback
-  execution and source semantics. The Node and CLI boundaries may project the
+  execution and source semantics. The Node, Python, and CLI boundaries may project the
   public fallback inputs and validate them before calling the SDK.
 - `ytm-core` exposes caller-facing requests, results, capabilities, source
   metadata, and errors from its crate root. Node runtime requirements and CLI
   presentation types stay outside the SDK.
-- `ytm-node` and `ytm-cli` consume the public SDK boundary.
+- `ytm-node`, `ytm-python`, and `ytm-cli` consume the public SDK boundary.
   They may project runtime-specific cancellation and presentation concerns but
   may not call private parser, request, or transport modules.
 - There is one supported `ytm` executable: the Rust/Clap binary. The npm
@@ -173,6 +181,13 @@ The disabled tagged-source workflow rebuilds these outputs from one immutable
 approved tag and attaches them only after exact native-consumer validation. No
 public installer URL is active. Selecting or publishing an actual version
 remains separately authorized release work.
+
+The Python source requires conventional CPython 3.11+. Its mixed wheel uses
+PyO3's `abi3-py311` boundary and the maintained Tokio bridge. Local and repository
+validation install both a fixture wheel and a release wheel outside the source
+path, checking behavior and typing. Portable native target coverage and the
+unified Python artifact/publication pipeline remain tracked in the
+[Python delivery plan](plans/rust-backed-python-sdk.md).
 
 ## Release boundary
 

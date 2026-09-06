@@ -2,7 +2,8 @@
 
 KIS-NET YTM Matrix access backed by one Rust HTTP, Nexacro, and domain core.
 The current checkout exposes that core as a public Rust SDK, through a
-Rust-backed Node SDK, and through a standalone Rust/Clap CLI. The Node package
+Rust-backed Node SDK, typed sync/async Python clients, and a standalone
+Rust/Clap CLI. The Node package
 does not own or distribute the CLI.
 
 [`SPEC.md`](SPEC.md) defines public behavior, while
@@ -63,6 +64,11 @@ publishes GitHub canonically, and then projects the same source and version to
 npm. No installer URL is active until an exact version is separately authorized
 and published.
 
+The [Python package](packages/python/README.md) provides `Client` and
+`AsyncClient` over the same core. Build its local mixed wheel with Python 3.11+
+and Rust; historical PyPI 0.2.0 has a different API. Portable wheel distribution
+and PyPI publication infrastructure are not yet implemented.
+
 ## Repository validation
 
 ```sh
@@ -70,14 +76,17 @@ cargo install --locked --features cli cargo-about --version 0.9.2
 cargo install --locked cargo-audit --version 0.22.2
 cargo install --locked cargo-deny --version 0.19.0
 bun install --frozen-lockfile
-bun run validate
+PYO3_PYTHON="$(command -v python3.11)" bun run validate
 ```
 
 `bun run validate` is the complete uncredentialed repository gate used by local
 development, ordinary CI, and immutable tagged-source validation. It covers
 contracts and generated files, version and release policy, formatting, linting,
-Rust and Node consumers, dependency policy, conformance sensitivity, and
-package contents. Credentialed live source checks remain separate.
+Rust, Node, and Python consumers, dependency policy, conformance sensitivity, and
+package contents. Python validation requires CPython 3.11+ with `venv`/`pip`;
+`PYO3_PYTHON` selects the interpreter for Cargo and the wheel tests. The Python
+gate builds isolated fixture and release wheels and checks the installed public
+API and typing. Credentialed live source checks remain separate.
 
 Live KIS-NET smoke checks are scheduled and manually dispatchable rather than
 pull-request gates. Release preparation, creation, and publication remain

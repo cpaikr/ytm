@@ -22,8 +22,8 @@ a browser.
 ## Surface ownership
 
 The current checkout exposes the Rust implementation as a public Rust SDK,
-through a Node-API-backed Node SDK, and through a standalone Rust/Clap `ytm`
-executable. The Node package has no `bin` entry or JavaScript CLI. All three
+through Node and Python SDKs, and through a standalone Rust/Clap `ytm`
+executable. The Node package has no `bin` entry or JavaScript CLI. These
 surfaces preserve the product behavior in this contract; their component
 boundaries live in [`ARCHITECTURE.md`](ARCHITECTURE.md).
 
@@ -74,7 +74,7 @@ but cannot remove or silently redefine a supported kind.
 
 This is the approved divergence from the archived `0.2.0` implementation and
 the completed acceptance boundary for GitHub issue #7. Every future Rust SDK,
-Node SDK, and CLI surface must preserve it.
+Node SDK, Python SDK, and CLI surface must preserve it.
 
 ## Public SDK and CLI surfaces
 
@@ -176,8 +176,10 @@ machine-readable recovery metadata.
 
 ## Runtime boundary
 
-The repository contains a public Rust SDK, a Rust-backed Node SDK, and a
-standalone Rust CLI over the same core. Historical Python releases and
-component tags remain immutable registry and Git history, but no Python source,
-API, package, CI, live smoke, or release path is part of this repository state.
-The Rust CLI does not reintroduce Python or a second KIS-NET implementation.
+The repository contains a public Rust SDK, Rust-backed Node and Python SDKs,
+and a standalone Rust CLI over the same core. The
+[Python API contract](packages/python/SPEC.md) defines its typed sync/async
+clients, values, cancellation, lifecycle, and errors. Local mixed-wheel
+validation is implemented; portable wheels and unified PyPI projection remain
+in progress. Historical Python releases and component tags remain immutable
+registry and Git history and do not expose the new Python API.
