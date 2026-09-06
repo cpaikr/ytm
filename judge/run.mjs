@@ -147,6 +147,9 @@ runNode("node-client-regressions", { action: "client-regressions", baseDate: req
   check(value?.nonFiniteKinds?.map(({ error }) => error?.actual).join(",") === "NaN,Infinity,-Infinity", `${label} non-finite numeric diagnostics must preserve each source spelling`);
   check(value?.scalarDetails?.code === "internal_error" && value?.arrayDetails?.code === "internal_error", `${label} malformed error details must not escape as public envelopes`);
   check(value?.objectDetails?.code === "sentinel", `${label} object error details must remain serializable`);
+  check(value?.inheritedErrorCodes?.length === 4 && value.inheritedErrorCodes.every(({ code, serialized, name, details, text }) =>
+    serialized?.code === code && serialized?.name === "YtmError" && name === "YtmError" && details?.name === "YtmError" && text === "YtmError: The operation failed."
+  ), `${label} unknown error codes matching prototype keys must retain a string fallback name in serialization and construction`);
   check(value?.unknownRecoveryAction?.recoveryAction?.kind === "review_method_input" && value?.unknownRecoveryAction?.recoveryAction?.method === "matrix", `${label} unknown recovery actions must normalize to the declared method fallback`);
   check(value?.invalidMethodRecoveryAction?.recoveryAction?.kind === "review_method_input" && value?.invalidMethodRecoveryAction?.recoveryAction?.method === "kinds", `${label} invalid method recovery actions must normalize to the current operation`);
   check(value?.foreignDetails?.ok === false && value?.foreignDetails?.code === "foreign_error", `${label} foreign error details must remain a failure envelope`);
@@ -373,6 +376,10 @@ for (const fixtureName of evidence.xmlCases.invalid) {
 }
 
 for (const boundary of [
+  { id: "trailing-xml-whitespace", step: { fixture: evidence.fixtures.init, replace: [["</Root>", "</Root> \t\r\n"]] }, succeeds: true },
+  { id: "trailing-nonbreaking-space", step: { fixture: evidence.fixtures.init, replace: [["</Root>", "</Root>\u00a0"]] }, succeeds: false },
+  { id: "trailing-em-space", step: { fixture: evidence.fixtures.init, replace: [["</Root>", "</Root>\u2003"]] }, succeeds: false },
+  { id: "leading-em-space", step: { fixture: evidence.fixtures.init, replace: [["<Root ", "\u2003<Root "]] }, succeeds: false },
   { id: "single-bom", step: { fixture: evidence.fixtures.init, bom: 1 }, succeeds: true },
   { id: "double-bom", step: { fixture: evidence.fixtures.init, bom: 2 }, succeeds: false },
   { id: "invalid-utf8", step: { fixture: evidence.fixtures.init, invalidUtf8: true }, succeeds: false },
@@ -395,6 +402,25 @@ runCli("cli-machine-contract:help", ["--help"], undefined, (result, label) => {
 runCli("cli-machine-contract:command-help", ["matrix", "--help"], undefined, (result, label) => {
   check(result.status === 0 && result.stdout.includes("CLI example:") && result.stderr === "", `${label} command help must use stdout and exit zero`);
 });
+for (const [name, args] of [
+  ["inline-help-options", ["matrix", "--help", "--base-date=2026-06-08", "--kind=국채", "--format=json", "--fallback=previous-available", "--lookback-days=3"]],
+  ["inline-kinds-help", ["kinds", "--base-date=2026-06-08", "--format=csv", "-h"]],
+  ["repeated-pretty-help", ["matrix", "--pretty", "--help", "--pretty"]],
+]) {
+  runCli(`cli-machine-contract:${name}`, args, undefined, (result, label) => {
+    check(result.status === 0 && result.stdout.includes("CLI example:") && result.stderr === "", `${label} help must accept the same option syntax as execution without contacting the source`);
+  });
+}
+for (const [name, args, code] of [
+  ["inline-invalid-format-help", ["matrix", "--help", "--format=yaml"], "invalid_parameter"],
+  ["inline-duplicate-help", ["matrix", "--help", "--format=json", "--format", "csv"], "invalid_request"],
+  ["inline-flag-value-help", ["matrix", "--help", "--pretty=true"], "invalid_request"],
+  ["inline-help-as-value", ["matrix", "--format=--help"], "invalid_parameter"],
+]) {
+  runCli(`cli-machine-contract:${name}`, args, undefined, (result, label) => {
+    check(result.status === 2 && JSON.parse(result.stdout).error?.code === code, `${label} help must preserve option validation and distinguish values from help flags`);
+  });
+}
 runCli("cli-machine-contract:upgrade-help", ["upgrade", "--help"], undefined, (result, label) => {
   check(result.status === 0 && result.stdout.includes("ytm upgrade --check") && result.stderr === "", `${label} upgrade help must use stdout and exit zero`);
 });

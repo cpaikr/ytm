@@ -504,6 +504,10 @@ fn finish_node(
 }
 
 fn append_text(structure: &mut StructureState, value: &str) -> Result<(), YtmError> {
+    // Structural padding uses XML whitespace, not Rust's broader Unicode whitespace.
+    let is_xml_whitespace = value
+        .bytes()
+        .all(|byte| matches!(byte, b' ' | b'\t' | b'\r' | b'\n'));
     match structure.stack.last_mut() {
         Some(Node::Parameter { text, .. } | Node::Col { text, .. }) => {
             text.push_str(value);
@@ -519,14 +523,14 @@ fn append_text(structure: &mut StructureState, value: &str) -> Result<(), YtmErr
             Node::Dataset { selected: true, .. }
             | Node::Rows { selected: true }
             | Node::Row { selected: true, .. },
-        ) if !value.trim().is_empty() => {
+        ) if !is_xml_whitespace => {
             record_selected_error(
                 &mut structure.selected_error,
                 "KIS-NET selected Dataset contains text outside a scalar column.",
             );
             Ok(())
         }
-        _ if value.trim().is_empty() => Ok(()),
+        _ if is_xml_whitespace => Ok(()),
         _ => Err(YtmError::format(
             "KIS-NET response contains text outside a scalar element.",
         )),
@@ -879,6 +883,27 @@ mod tests {
             let bytes = std::fs::read(contract_fixture(filename)).unwrap();
             parse(&bytes, "output1")
                 .unwrap_or_else(|error| panic!("valid fixture {filename} failed: {error}"));
+        }
+    }
+
+    #[test]
+    fn rejects_unicode_structural_padding_but_preserves_scalar_text() {
+        let fixture = include_str!("../../../contracts/kisnet/init-success.xml");
+        for padding in ["\u{a0}", "\u{2003}"] {
+            for anchor in ["<Parameters>", "<Rows>", "<Row>"] {
+                let xml = fixture.replacen(anchor, &format!("{anchor}{padding}"), 1);
+                assert_eq!(
+                    parse(xml.as_bytes(), "output1").unwrap_err().details.code,
+                    "source_format_error",
+                    "{anchor} {padding:?}"
+                );
+            }
+            let label = format!("국채{padding}");
+            let xml = fixture.replacen("국채", &label, 1);
+            assert_eq!(
+                parse(xml.as_bytes(), "output1").unwrap().rows[0]["divName"],
+                label
+            );
         }
     }
 

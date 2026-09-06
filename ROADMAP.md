@@ -2,13 +2,13 @@
 
 ## Current
 
-None.
+[Deliver project hardening](plans/deliver-project-hardening.md)
 
 ## Plans
 
-1. [Rust-backed Python SDK](plans/rust-backed-python-sdk.md)
+1. [Reconcile post-migration live-smoke evidence](plans/confirm-post-migration-live-smoke.md)
+2. [Rust-backed Python SDK](plans/rust-backed-python-sdk.md)
 
 ## Tasks
 
-- [Confirm the first post-migration live smoke](tasks/confirm-post-migration-live-smoke.md)
 - [Resolve production provider enablement](tasks/resolve-production-provider-enablement.md)
