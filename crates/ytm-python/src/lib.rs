@@ -212,11 +212,20 @@ fn parse(operation: &str, input: &str) -> Result<Operation, YtmError> {
         })
         .transpose()?;
     match operation {
-        "kinds"
-            if input.kind.is_none()
-                && input.fallback.is_none()
-                && input.lookback_days.is_none() =>
-        {
+        "kinds" => {
+            for (parameter, supplied) in [
+                ("kind", input.kind.is_some()),
+                ("fallback", input.fallback.is_some()),
+                ("lookback_days", input.lookback_days.is_some()),
+            ] {
+                if supplied {
+                    return Err(invalid(
+                        operation,
+                        parameter,
+                        "Parameter is not supported by kinds.",
+                    ));
+                }
+            }
             Ok(Operation::Kinds(
                 date.map(KindsInput::for_date).unwrap_or_default(),
             ))
@@ -327,4 +336,25 @@ fn _native(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<NativeClient>()?;
     module.add("__version__", env!("CARGO_PKG_VERSION"))?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn kinds_reports_each_unsupported_matrix_parameter() {
+        for (parameter, value) in [
+            ("kind", json!(10)),
+            ("fallback", json!("exact")),
+            ("lookback_days", json!(2)),
+        ] {
+            let input = json!({parameter: value}).to_string();
+            let error = parse("kinds", &input)
+                .err()
+                .expect("matrix-only field rejected");
+            assert_eq!(error.details.code, "invalid_parameter");
+            assert_eq!(error.details.parameter.as_deref(), Some(parameter));
+        }
+    }
 }

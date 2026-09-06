@@ -42,9 +42,9 @@ Complete Rust-backed Python SDK: binding and typed client foundation.
 
 ### Next in-scope action
 
-Finish repository validation and PR delivery of the Python sync/async
-foundation. Merge its reviewed PR before beginning the portable-wheel and
-unified-release slice.
+Resolve PR #29 feedback, pass CI, and merge the Python sync/async foundation
+into dev preserving commits. Begin the portable-wheel and unified-release
+slice only after that accepted merge.
 
 ### Evidence and blockers
 
@@ -72,4 +72,12 @@ unified-release slice.
   suppress panic diagnostics only inside binding calls/polls. All three
   findings are verified resolved. Full `bun run validate`, strengthened
   cancellation regressions, and documentation/link reconciliation pass.
-  The foundation is ready for PR creation against dev.
+  PR #29 (https://github.com/cpaikr/ytm/pull/29) targets dev. Its initial
+  implementation `a443c8c20cd47ec2e0b237715161555fddf04924` passed all CI
+  checks and was reviewed with
+  `coderabbit-review`. Initial Codex review completed cleanly; CodeRabbit
+  completed with five comments. A narrow follow-up addresses explicit CPython
+  3.11 CI coverage, private parameter diagnostics, and documentation/status.
+  The follow-up passed targeted release policy, Rust tests/clippy, bounded
+  implementation review, and documentation reconciliation. Wait for its
+  remote CI/automatic review, then resolve feedback before merge.

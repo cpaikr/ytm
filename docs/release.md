@@ -193,7 +193,8 @@ complete Python aggregation, and PyPI trusted projection are not implemented.
 The [delivery plan](../plans/rust-backed-python-sdk.md) owns that remaining work.
 Existing PyPI 0.2.0 artifacts and `python-v*` tags remain unchanged historical
 releases with a different API. No rewritten Python release is selected or
-published.
+published. Future PyPI publication requires a separately approved product
+version greater than historical `0.2.0`; those existing bytes cannot be replaced.
 
 ## Validation
 

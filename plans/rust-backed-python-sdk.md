@@ -209,6 +209,6 @@ separately authorized operations.
 
 ## Next action
 
-Finish validation of the reviewed foundation on `codex/python-sdk-foundation`,
-then create its PR against dev, resolve CI/feedback, and merge preserving
-commits before starting the portable-wheel and unified-release slice.
+Resolve PR #29 feedback and its remaining CI checks, then merge the foundation
+into dev preserving commits. Begin the portable-wheel and unified-release
+slice only after that merge is accepted.

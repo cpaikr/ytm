@@ -247,6 +247,7 @@ equal(ciWorkflow.jobs?.validate?.steps?.map((step) => step.name), [
   "Set up Bun",
   "Set up Node",
   "Install frozen JavaScript dependencies",
+  "Set up Python",
   "Select Python for workspace and wheel validation",
   "Install pinned validation tools",
   "Validate repository"
@@ -257,6 +258,14 @@ const requiredValidationToolInstalls = [
   "cargo install --locked cargo-audit --version 0.22.2",
   "cargo install --locked cargo-deny --version 0.19.0"
 ];
+const checkPythonValidation = (job) => {
+  const setup = findNamedStep(job, "Set up Python");
+  check(setup?.uses === "actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1" && setup?.with?.["python-version"] === "3.11", "workspace validation must provision CPython 3.11 with the pinned action");
+  const selection = activeShell(findNamedStep(job, "Select Python for workspace and wheel validation"));
+  check(selection.includes("sys.version_info[:2] == (3, 11)") && selection.includes('PYO3_PYTHON=$(command -v python)'), "workspace validation must select and verify CPython 3.11");
+};
+checkPythonValidation(ciWorkflow.jobs?.validate);
+
 const ciValidationToolInstall = activeShell(findNamedStep(ciWorkflow.jobs?.validate, "Install pinned validation tools"));
 for (const install of requiredValidationToolInstalls) check(ciValidationToolInstall.includes(install), `CI validation must install ${install}`);
 const liveSmoke = activeShell(findNamedStep(liveWorkflow.jobs?.["rust-cli"], "Run live smoke"));
@@ -378,6 +387,7 @@ check(activeShell(findNamedStep(nativeJob, "Assemble and pack native package")).
 
 const rootJob = releaseWorkflow.jobs?.root_package;
 check(rootJob?.["timeout-minutes"] === 45 && rootJob?.["runs-on"] === "ubuntu-24.04", "release root package must allow bounded time for pinned security-tool builds on a GitHub-hosted job");
+checkPythonValidation(rootJob);
 const validationToolInstall = activeShell(findNamedStep(rootJob, "Install pinned validation tools"));
 for (const install of requiredValidationToolInstalls) check(validationToolInstall.includes(install), `root package validation must install ${install}`);
 const immutableSourceValidation = activeShell(findNamedStep(rootJob, "Validate immutable source"));
