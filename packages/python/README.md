@@ -9,7 +9,7 @@ The declared target/interpreter matrix is owned by
 [`python-targets.json`](../../python-targets.json): conventional CPython
 3.11–3.14 on GNU/Linux x64/ARM64 (glibc 2.28+), macOS ARM64 (11.0+), and
 Windows x64. The [delivery plan](../../plans/rust-backed-python-sdk.md) tracks
-pending native CI acceptance. Free-threaded and alternative interpreters are
+native CI acceptance evidence. Free-threaded and alternative interpreters are
 not claimed.
 
 Install an exact candidate wheel without a build toolchain:
