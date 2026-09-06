@@ -13,9 +13,11 @@ const fixtureFiles = [
   "Cargo.lock",
   "crates/ytm-cli/Cargo.toml",
   "crates/ytm-node/Cargo.toml",
+  "crates/ytm-python/Cargo.toml",
   "tests/rust-sdk-consumer/Cargo.toml",
   "tests/rust-sdk-consumer/Cargo.lock",
   "packages/node/package.json",
+  "packages/python/pyproject.toml",
   "packages/native/darwin-arm64/package.json",
   "packages/native/linux-arm64-gnu/package.json",
   "packages/native/linux-x64-gnu/package.json",
@@ -55,6 +57,16 @@ const applyReleasePleaseGenericVersion = (contents, nextVersion) => contents
   .join("\n");
 
 const cases = [
+  {
+    name: "Python package drift",
+    mutate: (root) => replace(root, "packages/python/pyproject.toml", 'version = "0.2.0"', 'version = "9.9.9"'),
+    diagnostic: "Python package version must match VERSION",
+  },
+  {
+    name: "Python binding lock drift",
+    mutate: (root) => replace(root, "Cargo.lock", 'name = "ytm-python"\nversion = "0.2.0"', 'name = "ytm-python"\nversion = "9.9.9"'),
+    diagnostic: "Cargo.lock ytm-python version must match VERSION",
+  },
   {
     name: "manifest drift",
     mutate: (root) => replace(root, ".release-please-manifest.json", '"0.2.0"', '"9.9.9"'),
@@ -107,6 +119,7 @@ try {
   for (const relative of [
     "crates/ytm-cli/Cargo.toml",
     "crates/ytm-node/Cargo.toml",
+    "crates/ytm-python/Cargo.toml",
     "tests/rust-sdk-consumer/Cargo.toml",
   ]) {
     const contents = await readFile(join(baselineRoot, relative), "utf8");

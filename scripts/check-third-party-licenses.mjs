@@ -74,3 +74,13 @@ if (process.argv.includes("--write")) {
   }
   console.log("third-party license notices are current");
 }
+
+// The Python wheel carries the same canonical legal notices as native archives.
+for (const name of ["LICENSE.md", "THIRD_PARTY_LICENSES.html"]) {
+  const expected = await readFile(resolve(repositoryRoot, name), "utf8");
+  const destination = resolve(repositoryRoot, "packages/python", name);
+  if (process.argv.includes("--write")) await writeFile(destination, expected);
+  else if (await readFile(destination, "utf8") !== expected) {
+    throw new Error(`Python ${name} is stale; run bun run licenses:generate.`);
+  }
+}

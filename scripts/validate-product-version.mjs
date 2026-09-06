@@ -20,6 +20,8 @@ const [
   cargoLock,
   cliManifest,
   nodeRustManifest,
+  pythonRustManifest,
+  pythonManifest,
   rustConsumerManifest,
   rustConsumerLock,
   nodePackage,
@@ -32,6 +34,8 @@ const [
   readFile("Cargo.lock", "utf8"),
   readFile("crates/ytm-cli/Cargo.toml", "utf8"),
   readFile("crates/ytm-node/Cargo.toml", "utf8"),
+  readFile("crates/ytm-python/Cargo.toml", "utf8"),
+  readFile("packages/python/pyproject.toml", "utf8"),
   readFile("tests/rust-sdk-consumer/Cargo.toml", "utf8"),
   readFile("tests/rust-sdk-consumer/Cargo.lock", "utf8"),
   readJson("packages/node/package.json"),
@@ -51,6 +55,9 @@ const requiredExtraFiles = [
   "toml:Cargo.toml:$.workspace.package.version",
   "generic:crates/ytm-cli/Cargo.toml",
   "generic:crates/ytm-node/Cargo.toml",
+  "generic:crates/ytm-python/Cargo.toml",
+  "toml:packages/python/pyproject.toml:$.project.version",
+  "toml:Cargo.lock:$.package[?(@.name=='ytm-python')].version",
   "generic:tests/rust-sdk-consumer/Cargo.toml",
   "toml:Cargo.lock:$.package[?(@.name=='ytm-cli')].version",
   "toml:Cargo.lock:$.package[?(@.name=='ytm-core')].version",
@@ -71,6 +78,7 @@ equal(workspaceVersion, version, "Cargo workspace version must match VERSION");
 for (const [path, contents] of [
   ["crates/ytm-cli/Cargo.toml", cliManifest],
   ["crates/ytm-node/Cargo.toml", nodeRustManifest],
+  ["crates/ytm-python/Cargo.toml", pythonRustManifest],
   ["tests/rust-sdk-consumer/Cargo.toml", rustConsumerManifest],
 ]) {
   const dependencyVersion = contents.match(/ytm-core = \{[^\n]*version = "=([^"]+)"[^\n]*# x-release-please-version/)?.[1];
@@ -78,11 +86,13 @@ for (const [path, contents] of [
 }
 const rustConsumerLockVersion = rustConsumerLock.match(/name = "ytm-core"\nversion = "([^"]+)"/)?.[1];
 equal(rustConsumerLockVersion, version, "Rust consumer lock ytm-core version must match VERSION");
-for (const crate of ["ytm-cli", "ytm-core", "ytm-node"]) {
+for (const crate of ["ytm-cli", "ytm-core", "ytm-node", "ytm-python"]) {
   const escaped = crate.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const lockVersion = cargoLock.match(new RegExp(`name = "${escaped}"\\nversion = "([^"]+)"`))?.[1];
   equal(lockVersion, version, `Cargo.lock ${crate} version must match VERSION`);
 }
+
+equal(pythonManifest.match(/\[project\][\s\S]*?\nversion = "([^"]+)"/)?.[1], version, "Python package version must match VERSION");
 
 equal(nodePackage.version, version, "Node package version must match VERSION");
 for (const [name, dependencyVersion] of Object.entries(nodePackage.optionalDependencies)) {
