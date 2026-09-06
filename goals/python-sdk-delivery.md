@@ -1,6 +1,6 @@
 # Goal: Python SDK delivery
 
-Status: active
+Status: complete
 Planning scope: ROADMAP.md
 
 ## Original contract
@@ -31,53 +31,42 @@ Goal contract
 
 ### Completed included results
 
-- Hardening validation and integration — PR #28 merged into dev at
-  `da33fefc448e09c0255caaef6e3e2882683c6f8f`, preserving original commits.
-- Post-migration smoke evidence reconciliation — same PR and merge revision;
-  source ancestry and workflow metadata verified without new provider requests.
+- Hardening validation and integration — [PR #28](https://github.com/cpaikr/ytm/pull/28),
+  merged into dev at `da33fefc448e09c0255caaef6e3e2882683c6f8f`.
+- Post-migration smoke evidence reconciliation — same PR; verified source ancestry
+  and successful run metadata without issuing new provider requests.
+- Complete Rust-backed Python SDK and release infrastructure — foundation
+  [PR #29](https://github.com/cpaikr/ytm/pull/29), merged at
+  `8ad5ddeec0b3564e9270ab0111c9fa10a1809149`, and portable-wheel/unified-release
+  [PR #30](https://github.com/cpaikr/ytm/pull/30), merged at
+  `f63666b094543f9be722c546fff786593af9847d`. Individual commits are preserved.
 
 ### Current in-scope result
 
-Complete Rust-backed Python SDK: portable wheels and unified release infrastructure.
+None — all included results delivered to dev.
 
 ### Next in-scope action
 
-Complete PR #30 follow-up CI and reviewer closure, then merge to dev preserving
-commits. Finish terminal goal and project metadata only after all criteria pass.
+None — goal complete.
 
-### Evidence and blockers
+### Evidence and boundaries
 
-- Candidate: portable wheels and unified release/PyPI infrastructure.
-  Classification: included. Contract basis: portable wheels, exact consumers,
-  unified release and PyPI integration, validation and documentation. Action: proceed.
-- Active worktree: `/tmp/ytm-python-sdk-delivery`; branch:
-  `codex/python-sdk-release`, based on accepted remote dev `8ad5ddee`.
-- PR #28 passed complete local validation, bounded implementation/documentation
-  review, and all 23 CI jobs. Codex finding fixed in `548ea53`; thread resolved.
-  CodeRabbit initial review was clean; follow-up stale status acknowledged in
-  the final PR comment and accepted under the amendment above.
-- Preserve mixed branch `codex/python-sdk-hardening-delivery` at `9d34c9d`;
-  it accidentally captured concurrent skill-sync staging and must not be merged.
-  Original workspace stays intact; commit explicit paths in isolated worktree.
-- Integration branch dev allows initialization and terminal metadata pushes.
-  Carry intermediate planning status through implementation PRs.
-- No release selection, activation, publication, or production provider
-  enablement is authorized. Python portable wheels and release infrastructure
-  remain incomplete after the foundation until their own full evidence exists.
-
-- Python binding/client foundation: PR #29 merged at
-  `8ad5ddeec0b3564e9270ab0111c9fa10a1809149`, preserving `a443c8c` and
-  `43a3c1a`. Full local validation, 26 fixture behavior processes, release-wheel
-  consumer/strict mypy, bounded reviews, documentation reconciliation, and all
-  23 final-head CI jobs passed. Codex initial review was clean; all five
-  CodeRabbit findings were fixed, replied to, and acknowledged resolved.
-  Incremental reviews were disabled; no review remained active.
-- Release slice local evidence: two fresh macOS wheels are byte-identical;
-  clean exact consumers/strict typing pass for CPython 3.11–3.14. Full repository
-  validation and targeted wheel/publication fault injection pass. Bounded review
-  resolved native dependency inspection and precise registry-retry guidance;
-  documentation reconciled. PR #30 initial native CI passed all four reproducible
-  builds and fixture runtimes; aggregation caught Windows CRLF package bytes.
-  The reviewed follow-up enforces LF, rejects dirty source attribution, and
-  handles bounded registry propagation. Codex initial review was clean; three
-  CodeRabbit findings were assessed and addressed. Final CI and merge remain.
+- Final implementation head `8595a47b5082460b3bf7a750cb7cdb0062fa5f40` passed
+  all 45 jobs in [CI run 34014129565](https://github.com/cpaikr/ytm/actions/runs/34014129565):
+  full repository validation, existing CLI/Node gates, four reproducible native
+  Python builds with fixture runtimes, complete wheel aggregation, and all
+  16 conventional CPython 3.11–3.14 exact consumers with strict typing.
+- Full local repository validation, artifact and publication fault injection,
+  bounded implementation reviews, and documentation reconciliation passed.
+  Windows LF normalization, clean source attribution, native dependency checks,
+  and bounded registry propagation have regression coverage.
+- Codex initial reviews completed clean or their findings were fixed. PR #30's
+  three CodeRabbit findings were fixed, replied to, and acknowledged resolved;
+  no review remained active at merge. PR #28's exception is recorded above.
+- Final delivery commits: `19d9353`, `068d6db`, `8595a47`. Terminal changes are
+  only goal/project metadata on the preflighted dev integration branch.
+- Delivery worktree: `/tmp/ytm-python-sdk-delivery`, now on dev. Preserve the
+  original mixed `codex/python-sdk-hardening-delivery` branch at `9d34c9d` and
+  unrelated original-workspace changes; that branch was not merged or reset.
+- No actual release was selected, activated, or published. No production
+  provider was enabled. The remaining project task is excluded and unstarted.

@@ -2,7 +2,7 @@
 
 ## Current
 
-[Rust-backed Python SDK](plans/rust-backed-python-sdk.md)
+None.
 
 ## Plans
 
