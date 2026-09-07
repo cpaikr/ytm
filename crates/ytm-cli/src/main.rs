@@ -55,6 +55,28 @@ mod tests {
         }
     }
 
+    #[tokio::test]
+    async fn stdout_failure_does_not_remove_a_published_workbook() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("kinds.xlsx");
+        let output = ytm_cli::run(vec![
+            "ytm".into(),
+            "kinds".into(),
+            "--format=xlsx".into(),
+            "--output".into(),
+            path.as_os_str().to_owned(),
+        ])
+        .await;
+        assert_eq!(output.code, 0);
+        let bytes = std::fs::read(&path).unwrap();
+        assert!(bytes.starts_with(b"PK\x03\x04"));
+        assert_eq!(
+            write_output(&output, &mut FailingWriter, &mut Vec::new()),
+            1
+        );
+        assert_eq!(std::fs::read(path).unwrap(), bytes);
+    }
+
     #[test]
     fn output_writes_preserve_or_override_the_process_code() {
         let output = ytm_cli::ProcessOutput {

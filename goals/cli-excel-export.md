@@ -33,14 +33,22 @@ CLI Excel export: matrix/kinds workbooks and safe standalone delivery.
 
 ### Next in-scope action
 
-Implement and validate the connected Excel export feature in one PR targeting dev.
+Open the connected implementation PR targeting dev; finish native CI and review
+feedback, merge with commits preserved, then persist terminal planning metadata.
 
 ### Evidence and blockers
 
 - Candidate: Excel export implementation and its required validation/review.
   Classification: included; contract basis: CLI Excel export and completion criteria.
   Action: proceed in one connected implementation PR.
-- Clean working tree; dev is unprotected and current account has ADMIN permission.
+- Initial clean working tree; dev is unprotected and current account has ADMIN permission.
   Direct metadata push preflight succeeded. Planning commit `0fc2740` was
   fast-forwarded onto dev without unrelated main changes.
 - Release publication and production provider enablement remain excluded.
+- Local implementation and required `bun run validate` passed with Python 3.13.
+  Bounded code review completed; its judge-ordering finding was fixed and validated.
+  Synthetic workbooks opened in Excel without repair. Native candidate CI and
+  PR feedback remain pending; acceptance evidence is in the active plan.
+- Candidate: connected implementation PR and its CI/review/merge lifecycle.
+  Classification: included; contract basis: CLI Excel export and PR delivery.
+  Action: proceed against existing dev; do not publish a release.

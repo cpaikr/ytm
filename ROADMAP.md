@@ -2,11 +2,11 @@
 
 ## Current
 
-None.
+[Add Excel export to the CLI](plans/cli-excel-export.md)
 
 ## Plans
 
-1. [Add Excel export to the CLI](plans/cli-excel-export.md)
+None.
 
 ## Tasks
 
