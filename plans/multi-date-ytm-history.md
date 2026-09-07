@@ -1,6 +1,6 @@
 # Multi-date YTM history and Excel export
 
-Status: planned — product scope confirmed; implementation not started.
+Status: active — implementation authorized by goals/multi-date-ytm-history.md.
 
 ## Outcome
 
@@ -17,34 +17,21 @@ exposes the actual observation date.
 
 ## Current state
 
-The checkout provides single-date, single-kind `matrix` and dated/undated
-`kinds` operations. All SDKs share the Rust core. The CLI already exports
-JSON/CSV/TSV and typed XLSX with safe file publication; multi-date and all-kind
-aggregation are not implemented.
+The feature branch implements history across Rust, Node, Python sync/async and
+CLI, with three-sheet Excel export. Independent history/regression scenarios,
+installed Python consumers, Rust consumers, strict Node type checks, actual CLI
+interrupt/file-safety checks and Excel filter/freeze QA passed. Bounded review
+findings were fixed; the full repository gate passed.
 
-Relevant implementation and acceptance seams:
+[SPEC](../SPEC.md) owns the implemented behavior and
+[architecture](../ARCHITECTURE.md) owns retrieval structure.
+[Capacity evidence](../docs/history-capacity.md) records monthly, three-year,
+maximum-lookback and 2,000-date workloads, including full CLI JSON allocation.
+The feature is not delivered until PR feedback, native CI and the dev merge
+finish. No production provider enablement or release publication is included.
 
-- [Core model](../crates/ytm-core/src/model.rs),
-  [service](../crates/ytm-core/src/service.rs), and
-  [errors](../crates/ytm-core/src/error.rs) own dates, canonical/live catalog
-  merging, fallback, normalization, source metadata, and cancellation.
-- [CLI](../crates/ytm-cli/src/lib.rs),
-  [typed tables](../crates/ytm-cli/src/table.rs), and
-  [XLSX](../crates/ytm-cli/src/xlsx.rs) own invocation, presentation, and
-  atomic publication. The existing renderer materializes its workbook in memory.
-- [Node binding](../crates/ytm-node/src/lib.rs) and
-  [Node facade](../packages/node/src/client.js), plus
-  [Python binding](../crates/ytm-python/src/lib.rs) and
-  [Python facade](../packages/python/src/kisnet_ytm/client.py), project the core.
-- [Public-product judge](../judge/README.md),
-  [Rust consumer](../tests/rust-sdk-consumer), and
-  [Python behavior tests](../packages/python/tests/behavior.py) provide
-  independent consumer validation. The judge already inspects workbook XML.
-
-This plan owns the future target and implementation sequence. Existing
-[SPEC](../SPEC.md) and [architecture](../ARCHITECTURE.md) describe implemented
-behavior until the corresponding changes land. No production implementation,
-test, release, or provider-policy change is part of this planning edit.
+The sections below retain the accepted scope and acceptance criteria. The
+completion checklist and next action own the remaining delivery work.
 
 ## Confirmed scope and design decisions
 
@@ -70,7 +57,7 @@ The following implementation decisions make that scope concrete:
 - Keep retrieval orchestration in the core and workbook generation in the CLI.
   Reuse existing private seams rather than introducing a generic job system.
 
-These choices are the planned design, not claims about current behavior.
+These accepted choices are implemented; delivery validation remains below.
 
 ## Public behavior
 
@@ -85,14 +72,13 @@ Range expansion includes every calendar day and both endpoints. Do not guess
 holidays or silently exclude weekends. Repeated list entries coalesce after
 normalization. A one-date history request remains valid.
 
-Plan for a maximum of 2,000 unique requested dates per invocation, sufficient
+The maximum is 2,000 unique requested dates per invocation, sufficient
 for several years of daily history. Validate range length before expansion and
 bound raw list input before allocating a large normalized collection. Publish
 the limit through capabilities, help, SDK documentation, and consistent errors.
 This is a product resource bound, not a claim about provider quotas or historical
-availability. Capacity validation below must verify the chosen bound before
-claiming support; an evidence-driven change to it must update this plan and
-the public contract together.
+availability. The synthetic capacity evidence verifies this bound for the stated sample; an
+evidence-driven change must update this plan and the public contract together.
 
 ### What “all” includes
 
@@ -235,104 +221,6 @@ with the existing overwrite protections. An oversized workbook fails clearly
 without truncation or replacing the destination; tell callers to request smaller
 date ranges. Do not silently split workbooks or implement append/update.
 
-## Implementation shape and sequence
-
-### Establish the additive contract and fixtures
-
-- Define the history input/result/error and capabilities contract in the core
-  and product documentation, with representative examples for full, partial,
-  all-unavailable, and fallback results.
-- Author independent synthetic fixtures for several dates/categories, live-only
-  catalog variation, canonical omissions, and missing observations. Extend the
-  existing executable judge rather than adding another coverage manifest.
-- Keep source wire authority unchanged unless actual protocol evidence requires
-  a correction; batch orchestration alone is not a new provider endpoint.
-
-Exit condition: invalid states, ordering, missingness, fallback provenance,
-counts, and output semantics have explicit acceptance cases.
-
-### Implement shared core retrieval
-
-- Factor the private catalog discovery and matrix fetch-by-resolved-kind seams
-  out of `service.rs` without changing existing single-operation behavior.
-- Implement date selection and history orchestration behind one public core
-  operation. Share one cancellation scope for the whole invocation.
-- Discover/validate a candidate date once per invocation and reuse its catalog.
-  Reuse successful or confirmed-empty exact date/code fetches across overlapping
-  fallback paths. Keep catalog and lookup state invocation-local; never cache
-  operational failures, persist source bodies, or share stale results across calls.
-- Keep source requests sequential with current per-request deadlines and no
-  automatic transport retry. Check cancellation between discovery, matrix fetch,
-  normalization, and aggregation steps. Preserve successful result provenance
-  separately from a caller's requested-date wrapper.
-- Bound memory explicitly: avoid retaining response bodies, avoid unnecessary
-  duplicate normalized rows, and release invocation-local state after completion
-  or failure. Measure serialization/workbook duplication before adding storage
-  or streaming machinery.
-
-With available discovery, exact mode should need one initialization per date
-plus one matrix fetch per catalog category, rather than independently
-initializing for every pair.
-Fallback may add candidate dates, but repeated exact date/code requests must
-not multiply across adjacent requested dates. Tests must count physical source
-requests separately from logical attempted dates.
-
-Exit condition: public Rust consumer and synthetic transport tests prove the
-contract, bounded sequential execution, reuse, cancellation, and unchanged
-single-matrix semantics.
-
-### Project retrieval through all consumers
-
-- Add the history method and types to Node binding/facade/declarations and Python
-  binding/facade/models/stubs/exports. Follow existing generated-build checks.
-- Extend CLI parsing, validation, help, dispatch, result serialization, typed
-  history tables, and receipts. Make invalid invocation/output checks network-free.
-- Add CLI interrupt handling if needed to propagate termination to the batch
-  cancellation scope; do not leave retrieval tasks running after cancellation.
-- Verify SDK lifecycle behavior through installed public consumers, including
-  Node abort and Python close/drain/reuse after per-call cancellation.
-
-Exit condition: equivalent fixture-backed requests produce equivalent history
-semantics through Rust, Node, Python sync/async, and CLI JSON/text outputs.
-
-### Integrate and verify workbook export
-
-- Add the history workbook projection and per-pair provenance while sharing
-  existing cell formatting and file publication.
-- Extend the independent OOXML inspector and executable judge to verify all
-  three sheets against separately obtained JSON outcomes, including all-empty
-  history, literal labels, negative/zero yields, blanks, and fallback duplicates.
-- Exercise dimensions, overwrite, failed staging/publication, cancellation
-  before publication, and preserved destinations. Open a synthetic multi-date
-  workbook in Excel to check filter use, frozen columns, Korean text, and absence
-  of repair prompts.
-
-Exit condition: the workbook is usable for filtering and comparison, missing
-coverage is visible, and existing workbook contracts continue to pass.
-
-### Validate capacity and finish integration
-
-- Run synthetic monthly and three-year daily histories across all canonical
-  kinds, including sparse observations and maximum lookback overlap. Exercise
-  the 2,000-date limit and dynamic catalog additions separately.
-- Record date/pair/data-row counts, physical requests, elapsed time, peak memory,
-  serialized/workbook sizes, and cancellation latency on a stated test host.
-  Include realistic delayed responses for progress/cancellation checks; do not
-  present fixture speed as live-source throughput.
-- Verify resource use remains bounded and the common multi-year case completes
-  without truncation or exhausting the host. If the existing in-memory export
-  cannot meet that workload, optimize the existing projection/rendering boundary
-  before claiming completion; revise the plan if a materially different product
-  constraint is required.
-- Run a bounded code review for the completed implementation and harmonize the
-  affected specs, architecture, SDK docs, CLI examples, and validation docs.
-- Run the required repository gate and native platform validation. Keep golden
-  updates complete and reviewed; preserve independent oracle construction.
-
-Exit condition: all acceptance criteria below pass, supported workloads and
-limits are documented with evidence, and the plan records truthful delivery
-status. No release publication is implied.
-
 ## Acceptance and validation
 
 | Requirement | Required evidence |
@@ -386,18 +274,17 @@ schedule a live backfill or change the monitoring/retention policy.
 
 ## Completion checklist
 
-- [ ] Additive history contract and independent fixtures.
-- [ ] Core orchestration, typed outcomes, request reuse, and cancellation.
-- [ ] Rust, Node, Python sync/async, and CLI retrieval parity.
-- [ ] Combined Excel workbook, availability/provenance, and file safety.
-- [ ] Capacity measurements and public input/resource limits verified.
-- [ ] Focused checks, full repository gate, bounded review, and affected docs.
+- [x] Additive history contract and independent fixtures.
+- [x] Core orchestration, typed outcomes, request reuse, and cancellation.
+- [x] Rust, Node, Python sync/async, and CLI retrieval parity.
+- [x] Combined Excel workbook, availability/provenance, and file safety.
+- [x] Capacity measurements and public input/resource limits verified.
+- [x] Focused checks, full repository gate, bounded review, and affected docs.
 - [ ] Authorized delivery validation and truthful final planning state.
 
 ## Next action
 
-When implementation is authorized, establish the additive history contract and
-fixture cases, then implement shared core retrieval with the existing public
-consumer checks. Re-enter the progress execution workflow before changing
-production code. This planning request authorizes the plan and roadmap edit;
-implementation, commits, PR delivery, and release publication remain unstarted.
+Deliver one feature PR to dev with initial
+CodeRabbit review, complete feedback intake, native compatibility checks and a
+merge preserving commits. Record terminal planning metadata on dev after merge.
+Production enablement and release publication remain excluded.

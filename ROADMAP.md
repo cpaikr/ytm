@@ -2,11 +2,11 @@
 
 ## Current
 
-None.
+[Multi-date YTM history and Excel export](plans/multi-date-ytm-history.md)
 
 ## Plans
 
-1. [Multi-date YTM history and Excel export](plans/multi-date-ytm-history.md)
+None.
 
 ## Tasks
 

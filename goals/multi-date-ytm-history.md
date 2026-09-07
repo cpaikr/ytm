@@ -30,11 +30,30 @@ _None._
 Complete YTM history feature as defined in plans/multi-date-ytm-history.md.
 
 ### Next in-scope action
-Implement and validate the additive history contract, shared retrieval, SDK/CLI integration and combined workbook in one coherent feature PR targeting dev.
+Deliver the feature PR to dev through initial
+review, complete feedback intake, native compatibility CI and merge.
 
 ### Evidence and blockers
-- Candidate: history feature implementation and its required validation/review. Classification: included; contract basis: complete YTM history feature. Proceed.
-- dev is unprotected, has no applicable rules, and repository permissions permit push/admin; dry-run push succeeded. Direct initialization and terminal metadata commits are supported.
-- Existing local commit 6e8d44d contains only the included plan and roadmap. Carry it unchanged in the initialization push.
-- Production provider enablement and release publication remain excluded.
-
+- Candidate: history feature validation and PR delivery. Classification: included;
+  contract basis: complete history feature and PR lifecycle. Proceed.
+- dev is unprotected with push/admin permission; initialization was committed and
+  pushed as 1a06c62 before the feature branch. Terminal metadata may be pushed
+  directly to dev after the final PR merge.
+- Core, Node, Python sync/async and CLI history are implemented on
+  codex/multi-date-ytm-history, including three-sheet Excel export.
+- Bounded core/surface review completed. Fixed cached observation-date labels,
+  sparse Node arrays and cancellation immediately before file publication;
+  regression coverage passes. A strict TypeScript consumer also found and fixed
+  a result-type reference; it now runs in validate:node.
+- Full independent judge passed 198 scenarios and a complete golden refresh.
+  Existing golden changes are limited to root help and added Node surface.
+  Focused core/CLI, external Rust, installed Python and Node types passed.
+- Actual CLI SIGINT/PTY checks pass: machine-readable failure, interactive-only
+  progress, no later fetch or partial file. Excel opened the final synthetic
+  workbook without repair; filtering and frozen panes worked.
+- Capacity evidence in docs/history-capacity.md verifies monthly, three-year,
+  sparse maximum-lookback and 2,000-date workloads. Maximum measured JSON RSS
+  was 2,739,224,576 bytes on a 16 GB host; workbook RSS 2,193,014,784 bytes.
+- Affected documentation is harmonized. The full repository gate passed;
+  PR feedback, native CI and merge are pending. No live bulk retrieval,
+  production provider enablement or release publication was performed.

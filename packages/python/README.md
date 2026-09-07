@@ -59,5 +59,11 @@ asyncio.run(main())
 `matrix(base_date="2026-06-08", kind="국채")` makes a source request; all
 arguments are keyword-only. `fallback="previous-available"` permits a bounded
 search, with optional `lookback_days`. See [the API contract](SPEC.md) for
-results, errors, cancellation, and lifecycle behavior. Source availability does
-not establish provider authorization or production qualification.
+results, errors, cancellation, and lifecycle behavior.
+
+`history(start_date="2026-06-01", end_date="2026-06-08")` or
+`history(base_dates=["2026-06-08", "2026-06-09"])` retrieves all categories and
+pricing groups, with available and unavailable entries. It accepts the same
+fallback options and a maximum of 2,000 raw list entries or inclusive range
+days. Source availability does not establish provider authorization or
+production qualification.

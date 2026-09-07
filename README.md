@@ -46,7 +46,15 @@ Save an Excel workbook from the checkout:
 ```sh
 bun run cli -- matrix --base-date 2026-06-08 --kind 국채 --format xlsx --output yields.xlsx
 bun run cli -- kinds --format xlsx --output kinds.xlsx
+bun run cli -- history --start-date 2026-06-01 --end-date 2026-06-08 --format xlsx --output history.xlsx
 ```
+
+`history` retrieves all categories and pricing groups for an inclusive date
+range or repeated `--base-date` values, up to 2,000 dates. It uses exact dates by
+default; explicit `--fallback previous-available` resolves each date/category
+pair independently. Unavailable pairs remain visible in the result. Its Excel
+workbook contains `History`, `Availability`, and `Metadata` sheets. See the
+[history contract](SPEC.md#multi-date-history) for ordering, limits, and errors.
 
 The parent directory must exist. Existing files require `--overwrite`; stdout
 returns a JSON receipt after the workbook is saved. Workbooks preserve numeric

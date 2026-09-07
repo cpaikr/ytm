@@ -2,7 +2,7 @@
 
 `ytm-core` is the Rust SDK and sole KIS-NET protocol implementation for this
 repository. It owns bounded HTTP transport, Nexacro parsing, kind resolution,
-date fallback, normalization, source metadata, and structured errors.
+date fallback, all-category history orchestration, normalization, source metadata, and structured errors.
 
 ```rust
 use ytm_core::{KindsInput, YtmClient};
@@ -15,7 +15,14 @@ assert!(result.kinds.iter().any(|kind| kind.code == "80"));
 # }
 ```
 
-Ordinary `kinds` and `matrix` calls create their own cancellation scope. Node
+Use `DateSelection::dates(Vec<BaseDate>)` or `DateSelection::range(start, end)`
+to construct a validated selection, then call
+`client.history(HistoryInput::new(selection)).await`. The default is exact;
+set `HistoryInput.fallback` for bounded previous-available resolution. The
+[history contract](../../SPEC.md#multi-date-history) defines the 2,000-date
+bound, all-category coverage, and available/unavailable result entries.
+
+Ordinary `history`, `kinds`, and `matrix` calls create their own cancellation scope. Node
 and other advanced adapters can use the explicitly named
 `*_with_cancellation` methods and `with_transport` injection seam.
 
