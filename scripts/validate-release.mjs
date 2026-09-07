@@ -1,3 +1,4 @@
+import { platformMatrices } from './ci-platform-policy.mjs';
 import { access, readdir, readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { parse } from "yaml";
@@ -229,7 +230,7 @@ check(releasePleaseWorkflow.on?.workflow_dispatch !== undefined, "Release Please
 check(releasePleaseWorkflow.permissions?.contents === "read", "Release Please workflow default permissions must remain read-only");
 const releasePleaseJob = releasePleaseWorkflow.jobs?.release_pr;
 check(releasePleaseJob?.if === "${{ vars.RELEASE_PLEASE_ENABLED == 'true' }}", "Release Please must remain externally disabled until release preparation is authorized");
-check(releasePleaseJob?.["runs-on"] === "ubuntu-24.04" && releasePleaseJob?.["timeout-minutes"] === 10, "Release Please must use a pinned GitHub-hosted runner with a bounded timeout");
+check(releasePleaseJob?.["runs-on"] === "blacksmith-2vcpu-ubuntu-2404" && releasePleaseJob?.["timeout-minutes"] === 10, "Release Please must use the 2-vCPU Blacksmith runner with a bounded timeout");
 check(releasePleaseJob?.permissions?.contents === "write" && releasePleaseJob?.permissions?.issues === "write" && releasePleaseJob?.permissions?.["pull-requests"] === "write", "Release Please job permissions must be explicit and sufficient for release PRs");
 const releasePleaseStep = findNamedStep(releasePleaseJob, "Create or update the product release PR");
 check(/^googleapis\/release-please-action@[0-9a-f]{40}$/.test(releasePleaseStep?.uses || ""), "Release Please action must be pinned to a full commit SHA");
@@ -237,7 +238,7 @@ check(releasePleaseStep?.with?.token === "${{ secrets.RELEASE_PLEASE_TOKEN }}", 
 check(releasePleaseStep?.with?.["config-file"] === "release-please-config.json" && releasePleaseStep?.with?.["manifest-file"] === ".release-please-manifest.json", "Release Please must use the repository-owned product config and manifest");
 check(releasePleaseStep?.with?.["skip-github-release"] === true, "Release preparation must not create a tag or GitHub Release before the protected release workflow");
 check(pythonPackagePresent && !pythonWorkflowPresent, "Python foundation must exist without an independent publishing workflow");
-equal(Object.keys(ciWorkflow.jobs || {}), ["python-candidate", "validate", "cli-metadata", "cli-archive", "cli-artifact-set", "cli-consumer", "native-consumer"], "CI must contain validation, CLI artifacts, and native consumers only");
+equal(Object.keys(ciWorkflow.jobs || {}), ["python-candidate", "validate", "cli-metadata", "cli-archive", "cli-artifact-set", "cli-consumer", "native-consumer", "platform-gate"], "CI must contain validation, CLI artifacts, and native consumers only");
 equal(Object.keys(liveWorkflow.jobs || {}), ["rust-cli"], "live smoke must exercise only the standalone Rust CLI");
 equal(ciWorkflow.on?.push?.branches, ["main", "dev"], "CI pushes must cover only the long-lived main and integration branches");
 check(ciWorkflow.jobs?.validate?.["timeout-minutes"] === 20, "CI validation must have a bounded timeout");
@@ -271,13 +272,15 @@ for (const install of requiredValidationToolInstalls) check(ciValidationToolInst
 const liveSmoke = activeShell(findNamedStep(liveWorkflow.jobs?.["rust-cli"], "Run live smoke"));
 check(liveSmoke.includes('target/debug/ytm matrix') && liveSmoke.includes("--fallback previous-available") && liveSmoke.includes("jq -e"), "live smoke must use bounded fallback through the standalone Rust CLI");
 const ciNativeJob = ciWorkflow.jobs?.["native-consumer"];
+const ciMatrices = await platformMatrices(true);
+check(ciNativeJob.needs === "cli-metadata" && ciNativeJob.strategy.matrix === "${{ fromJSON(needs.cli-metadata.outputs.native) }}", "Native CI must use selected manifest targets");
 const linuxNativeCondition = "matrix.target.rust == 'x86_64-unknown-linux-gnu' || matrix.target.rust == 'aarch64-unknown-linux-gnu'";
 check(ciNativeJob?.["timeout-minutes"] === 20, "CI native consumers must have a bounded timeout");
-equal(ciNativeJob?.strategy?.matrix?.node, nativeTargets.validationNodeMajors, "CI native consumers must cover every declared Node major");
-equal(ciNativeJob?.strategy?.matrix?.target?.map(({ rust }) => rust), nativeTargets.targets.map(({ rustTarget }) => rustTarget), "CI native consumers must cover every supported target");
-equal(ciNativeJob?.strategy?.matrix?.target?.map(({ runner }) => runner), nativeTargets.targets.map(({ runner }) => runner), "CI native consumers must use the manifest runners");
-equal(ciNativeJob?.strategy?.matrix?.target?.map(({ arch }) => arch), nativeTargets.targets.map(({ npmArch }) => npmArch), "CI native consumers must use the manifest architectures");
-equal(ciNativeJob?.strategy?.matrix?.target?.map(({ directory }) => directory), nativeTargets.targets.map(({ packageDirectory }) => packageDirectory), "CI native consumers must use the manifest package directories");
+equal(ciMatrices.native.node, nativeTargets.validationNodeMajors, "CI native consumers must cover every declared Node major");
+equal(ciMatrices.native.target?.map(({ rust }) => rust), nativeTargets.targets.map(({ rustTarget }) => rustTarget), "CI native consumers must cover every supported target");
+equal(ciMatrices.native.target?.map(({ runner }) => runner), nativeTargets.targets.map(({ rustTarget, runner }) => rustTarget === "x86_64-unknown-linux-gnu" ? "blacksmith-2vcpu-ubuntu-2404" : runner), "CI native consumers must use the manifest runners");
+equal(ciMatrices.native.target?.map(({ arch }) => arch), nativeTargets.targets.map(({ npmArch }) => npmArch), "CI native consumers must use the manifest architectures");
+equal(ciMatrices.native.target?.map(({ directory }) => directory), nativeTargets.targets.map(({ packageDirectory }) => packageDirectory), "CI native consumers must use the manifest package directories");
 const ciLinuxToolchain = findNamedStep(ciNativeJob, "Install pinned Linux native build toolchain");
 check(ciLinuxToolchain?.if === linuxNativeCondition, "CI Linux native builds must install their pinned toolchain only on Linux targets");
 check(activeShell(ciLinuxToolchain).includes("scripts/install-linux-native-toolchain.mjs"), "CI Linux native builds must install the pinned cargo-zigbuild and Zig toolchain");
@@ -294,9 +297,24 @@ const ciExactNativeConsumer = activeShell(findNamedStep(ciNativeJob, "Test exact
 check(ciExactNativeConsumer.includes("scripts/test-native-consumer.mjs") && ciExactNativeConsumer.includes(".artifacts/native .artifacts/root"), "CI native consumers must install the exact packed SDK tarballs");
 
 const cliMetadataJob = ciWorkflow.jobs?.["cli-metadata"];
-check(cliMetadataJob?.["runs-on"] === "ubuntu-24.04" && cliMetadataJob?.["timeout-minutes"] === 5, "CLI matrix metadata must use a bounded GitHub-hosted job");
-check(cliMetadataJob?.outputs?.matrix === "${{ steps.targets.outputs.matrix }}", "CLI metadata must expose its generated matrix");
-check(activeShell(findNamedStep(cliMetadataJob, "Emit CLI target matrix")).includes("scripts/print-cli-matrix.mjs"), "CI CLI matrix must derive from cli-targets.json");
+check(cliMetadataJob?.["runs-on"] === "blacksmith-2vcpu-ubuntu-2404" && cliMetadataJob?.["timeout-minutes"] === 5, "CLI matrix metadata must use a bounded Blacksmith job");
+equal(cliMetadataJob?.outputs, {
+  matrix: "${{ steps.targets.outputs.matrix }}",
+  native: "${{ steps.targets.outputs.native }}",
+  full: "${{ steps.targets.outputs.full }}"
+}, "Platform metadata must expose every generated output consumed by CI");
+check(activeShell(findNamedStep(cliMetadataJob, "Emit CLI target matrix")).includes("scripts/ci-platform-policy.mjs"), "CI CLI matrix must derive from cli-targets.json");
+
+check('merge_group' in ciWorkflow.on && 'workflow_dispatch' in ciWorkflow.on, "CI must cover merge queues and manual full candidates");
+for (const name of ['python-candidate', 'cli-artifact-set', 'cli-consumer']) {
+  check(ciWorkflow.jobs[name].if === "needs.cli-metadata.outputs.full == 'true'", `${name} must follow the selected full-platform policy`);
+}
+check(findNamedStep(cliMetadataJob, 'Check out source').with['fetch-depth'] === 0, 'Platform selection must have complete PR diff history');
+const platformGate = ciWorkflow.jobs['platform-gate'];
+equal(platformGate.name, 'Platform compatibility', 'Platform gate must retain its required GitHub check name');
+check(platformGate.if === 'always()', 'Platform gate must report failed and skipped prerequisites');
+equal(platformGate.needs, ['validate', 'cli-metadata', 'cli-archive', 'cli-artifact-set', 'cli-consumer', 'native-consumer', 'python-candidate'], 'Platform gate must cover every selected consumer');
+
 const cliArchiveJob = ciWorkflow.jobs?.["cli-archive"];
 check(cliArchiveJob?.needs === "cli-metadata" && cliArchiveJob?.["runs-on"] === "${{ matrix.runner }}", "CLI archive jobs must consume the generated target matrix");
 check(cliArchiveJob?.["timeout-minutes"] === 20 && cliArchiveJob?.strategy?.["fail-fast"] === false, "CLI archive matrix must be bounded and collect every target result");
@@ -311,7 +329,7 @@ const cliAssembly = activeShell(findNamedStep(cliArchiveJob, "Assemble and inspe
 check(cliAssembly.includes('scripts/assemble-cli-archive.mjs "$RUST_TARGET"') && cliAssembly.includes('--source-commit "$SOURCE_COMMIT"') && cliAssembly.includes('scripts/validate-cli-archive.mjs "$RUST_TARGET"') && cliAssembly.includes("--execute"), "CLI archive jobs must reconcile source, inspect the archive, and execute the exact binary");
 check(/^actions\/upload-artifact@[0-9a-f]{40}$/.test(findNamedStep(cliArchiveJob, "Upload standalone CLI archive")?.uses || ""), "CLI archive upload action must be commit-pinned");
 const cliSetJob = ciWorkflow.jobs?.["cli-artifact-set"];
-check(cliSetJob?.needs === "cli-archive" && cliSetJob?.["runs-on"] === "ubuntu-24.04" && cliSetJob?.["timeout-minutes"] === 10, "CLI artifact aggregation must wait for every archive on a bounded GitHub-hosted job");
+check(JSON.stringify(cliSetJob?.needs) === JSON.stringify(["cli-metadata", "cli-archive"]) && cliSetJob?.["runs-on"] === "blacksmith-2vcpu-ubuntu-2404" && cliSetJob?.["timeout-minutes"] === 10, "CLI artifact aggregation must wait for every archive on a bounded Blacksmith job");
 check(/^actions\/download-artifact@[0-9a-f]{40}$/.test(findNamedStep(cliSetJob, "Download standalone CLI archives")?.uses || ""), "CLI archive download action must be commit-pinned");
 const cliCandidate = activeShell(findNamedStep(cliSetJob, "Generate and validate complete CLI candidate"));
 for (const command of ["scripts/generate-cli-installers.mjs", "scripts/finalize-cli-artifacts.mjs", "scripts/validate-cli-artifact-set.mjs"]) {
@@ -468,6 +486,12 @@ for (const [job, label] of [[publishJob, "npm"], [pypi, "PyPI"]]) {
   check(findNamedStep(job, `Verify complete ${label} projection`)?.run?.endsWith('public --wait-complete'), 'Post-publication verification must bound registry propagation');
   check(activeShell(findNamedStep(job, `Require complete ${label} projection`)).includes("= complete"), `${label} must verify completed publication`);
 }
+
+const manualCandidate = await readYaml('.github/workflows/cross-platform-candidate.yml');
+equal(Object.keys(manualCandidate.on), ['workflow_dispatch'], 'Named cross-platform candidate must remain manual');
+check('workflow_call' in ciWorkflow.on, 'CI must expose the shared candidate workflow');
+equal(Object.keys(manualCandidate.jobs), ['candidate'], 'Manual candidate must reuse CI without duplicating its matrix');
+check(manualCandidate.jobs.candidate.uses === './.github/workflows/ci.yml', 'Manual candidates must run the same validated CI jobs');
 
 if (failures.length > 0) {
   console.error(failures.map((failure) => `- ${failure}`).join("\n"));

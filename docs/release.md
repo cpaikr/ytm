@@ -5,6 +5,35 @@ exact version remains a separate approval. The repository implements one
 product lifecycle for the Rust core, standalone CLI, Node SDK, and Python SDK; this is the
 runbook for that disabled-by-default lifecycle.
 
+## CI platform policy
+
+[`ci.yml`](../.github/workflows/ci.yml) follows the owner's
+[cost-aware platform guidance](https://github.com/sjunepark/mytech/blob/main/practices/cost-aware-ci-platform-coverage.md).
+PRs to `main`, merge-queue candidates, and manual CI dispatches build and
+consume every declared CLI, Node, and Python target. PRs to `dev` normally
+run Linux x64; native code, bindings, installers, build configuration, and
+consumer/test-harness changes select the full matrix conservatively.
+[`ci-platform-policy.mjs`](../scripts/ci-platform-policy.mjs) owns that path
+selection and derives matrices from the target manifests. Pushes to `main`
+and `dev` run Linux validation without repeating the full pre-merge matrix.
+
+Linux x64 CLI/Node CI and orchestration use the available 2-vCPU Blacksmith
+runner. Release PR preparation uses that runner too. Other architectures and
+operating systems retain their native runners.
+The reusable Python candidate retains its GitHub-hosted build/consumer runners;
+release jobs retain their existing runners, including trusted-publishing hosts.
+These are intentional runner-provider exceptions pending equivalent validation.
+
+`Platform compatibility` is the required aggregate check: all selected jobs
+must succeed, and only the unselected complete CLI and Python candidates may
+be skipped. The full CLI set and installer consumers run together; reduced CI
+still inspects and executes the Linux archive and tests exact Node tarballs.
+The complete repository gate includes Linux Python wheel consumers on every run.
+Manual dispatch of `ci.yml` provides a full candidate without publication.
+The dedicated [`cross-platform-candidate.yml`](../.github/workflows/cross-platform-candidate.yml)
+entry point calls that same workflow, retaining the manual candidate path
+without a second copy of the build and consumer jobs.
+
 ## Release authority
 
 Release Please owns release PR preparation from Conventional Commits. One root
@@ -86,12 +115,13 @@ Local upload logs cannot prove registry absence after a lost response.
 
 [`cli-targets.json`](../cli-targets.json) owns four targets independently of the
 Node-API package matrix: GNU/Linux x64 and ARM64 at glibc 2.28, macOS ARM64, and
-Windows x64. CI derives its matrix from that file, builds on each declared
-runner, executes the exact binary's `--version` and `--help`, enforces the Linux
+Windows x64. Full-platform CI derives its matrix from that file, builds on native
+runners, executes the exact binary's `--version` and `--help`, enforces the Linux
 symbol floor, and packages only the executable plus the canonical license
 files. Archive order and metadata are normalized by repository code.
 
-After all target jobs pass, CI generates version-pinned `install.sh` and
+After all full-platform target jobs pass, CI generates version-pinned
+`install.sh` and
 `install.ps1`, embeds the exact selected archive digest in each, creates sorted
 `SHA256SUMS` for every archive and installer, and validates the complete file
 set before retaining it as a CI artifact. The fresh-install scripts reject
@@ -156,16 +186,17 @@ state classification under the table above.
 
 Before enabling release preparation or approving a release:
 
-1. Protect `main` with the complete repository validation as a required check.
+1. Protect `main` with `Platform compatibility` and the existing required
+   validation/native checks. Deploy this workflow change before promoting to
+   `main`; older workflow revisions do not emit the aggregate check.
 2. Add a `v*` tag ruleset that blocks updates and deletion and permits creation
    only by the release automation identity.
 3. Create a `release` environment with required reviewers, prevent self-review,
    disallow administrator bypass, and restrict deployment to protected `main`
    plus protected `v*` tags so an immutable tagged draft can be recovered after
    `main` advances.
-4. Keep the existing `npm` environment equally strict. Its current single
-   reviewer plus administrator bypass does not provide two-person approval and
-   must be corrected before publication.
+4. Keep the `npm` environment equally strict. A different actor must start a
+   run when the sole configured reviewer is expected to approve it.
 5. Configure npm Trusted Publishing for `@sjunepark/ytm` and all native
    packages with owner `cpaikr`, repository `ytm`, workflow `release.yml`, and
    environment `npm`. No long-lived npm token is required.
@@ -174,16 +205,21 @@ Before enabling release preparation or approving a release:
    `cpaikr`, repository `ytm`, workflow `release.yml`, environment `pypi`.
    The job uses scoped OIDC; no long-lived PyPI token is required.
 
-Repository settings are operational prerequisites, not repository code. This
-implementation records and validates their required shape but does not mutate
-them or authorize a release.
+Repository settings are operational prerequisites, not repository code. On
+2026-09-06, `release`, `npm`, and `pypi` were configured with the existing
+`sjunepark` reviewer, self-review prevention, no administrator bypass, and
+separate `main` branch / `v*` tag deployment policies. The `v*` tag ruleset and
+registry trusted-publisher configurations still require verification before
+publication. Environment name patterns alone do not make tags immutable.
+Release preparation and publication remain disabled; these settings authorize
+no product version.
 
 ## Node assembly and npm projection
 
 [`native-targets.json`](../native-targets.json) currently owns the Node-API
 matrix: Linux GNU x64/ARM64, macOS ARM64, and Windows x64. GNU/Linux artifacts
-target glibc 2.28 or newer. CI builds every target on its declared
-GitHub-hosted runner and clean-installs the packed root and native packages
+target glibc 2.28 or newer. Full-platform CI builds every target on a native
+runner and clean-installs the packed root and native packages
 under Node 22, 24, and 26.
 
 The tagged workflow aggregates those exact tarballs and installs them on all
@@ -201,7 +237,8 @@ glibc 2.28, macOS ARM64 at 11.0, and Windows x64. Alternative interpreters,
 free-threaded builds, and future stable versions need evidence before joining
 that matrix. One `cp311-abi3` mixed wheel serves each target.
 
-CI and tagged builds share `python-candidate.yml`. Pinned maturin builds twice
+Full-platform CI and tagged builds share `python-candidate.yml`. Pinned maturin
+builds twice
 from fresh native output directories and requires identical wheel bytes. Build
 inputs use the source commit timestamp, normalized source paths, LF package
 files on every host, and the macOS deployment floor. Source attribution rejects

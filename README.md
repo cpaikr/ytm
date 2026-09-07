@@ -47,7 +47,8 @@ The standalone binary also exposes an exact, network-free identity:
 bun run cli -- --version
 ```
 
-CI builds deterministic standalone CLI candidates for GNU/Linux x64 and ARM64
+[Full-platform CI](docs/release.md#ci-platform-policy) builds deterministic
+standalone CLI candidates for GNU/Linux x64 and ARM64
 (glibc 2.28 or newer), macOS ARM64, and Windows x64. Each candidate contains
 one versioned archive per target, `install.sh`, `install.ps1`, and sorted
 `SHA256SUMS`; [`cli-targets.json`](cli-targets.json) owns that support surface.

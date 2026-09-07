@@ -30,7 +30,7 @@
     "release:version:test": "node scripts/test-product-version.mjs",
     "release:cli:test": "node scripts/test-cli-release-artifacts.mjs",
     "release:publication:test": "node scripts/test-release-publication.mjs",
-    "release:check": "bun run release:version:check && bun run release:version:test && bun run release:cli:test && bun run release:publication:test && node scripts/validate-release.mjs",
+    "release:check": "bun run release:version:check && bun run release:version:test && bun run release:cli:test && bun run release:publication:test && node scripts/test-ci-platform-policy.mjs && node scripts/validate-release.mjs",
     "pack:node": "npm pack --dry-run --workspace packages/node",
     "cli": "cargo run --locked -p ytm-cli --",
     "smoke:cli": "cargo run --locked -p ytm-cli -- matrix --base-date 2026-06-08 --kind 국채 --format json"

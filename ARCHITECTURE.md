@@ -147,7 +147,7 @@ The current Node SDK requires Node.js 22; CI also validates Node 24 and 26.
 Supported Node native targets are Linux GNU x64/ARM64, macOS ARM64, and Windows
 x64. Linux artifacts are cross-linked against an explicit glibc 2.28 floor;
 their versioned ELF requirements are checked before packaging. Each target is
-built on its native GitHub-hosted image and clean-installed
+built on a native runner during full-platform validation and clean-installed
 under all three Node majors. The root npm package contains JavaScript only and
 selects an exact-version optional native package at runtime.
 
@@ -155,7 +155,7 @@ selects an exact-version optional native package at runtime.
 support matrix: GNU/Linux x64 and ARM64 at the shared glibc 2.28 floor, macOS
 ARM64, and Windows x64. The Node and CLI matrices may evolve independently;
 overlapping runner, architecture, and Linux toolchain facts are mechanically
-reconciled. CI builds the exact target binary on its declared GitHub-hosted
+reconciled. Full-platform CI builds the exact target binary on a native
 runner, executes its version and help identity, creates a normalized archive,
 and aggregates all four archives with generated shell and PowerShell installers
 plus sorted SHA-256 metadata. Repository-owned packers normalize archive order,
@@ -194,8 +194,8 @@ cancellation, and panic evidence; release wheels cannot select those facilities.
 
 ## Release boundary
 
-[`docs/release.md`](docs/release.md) is the canonical release-state and
-publication runbook.
+[`docs/release.md`](docs/release.md) is the canonical release-state, CI platform
+coverage, and publication runbook.
 
 `bun run validate` owns the complete uncredentialed repository gate. Local
 development, ordinary CI, and immutable tagged-source validation delegate to
