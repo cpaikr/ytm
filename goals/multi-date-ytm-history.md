@@ -1,6 +1,6 @@
 # Goal: Multi-date YTM history and Excel export
 
-Status: active
+Status: complete
 Planning scope: ROADMAP.md
 
 ## Original contract
@@ -24,36 +24,32 @@ _None._
 ## Execution status
 
 ### Completed included results
-_None._
+Complete YTM history feature: date selection, availability/fallback, shared
+retrieval, Rust/Node/Python/CLI integration, combined Excel export, capacity
+verification, compatibility, documentation and authorized PR delivery.
 
 ### Current in-scope result
-Complete YTM history feature as defined in plans/multi-date-ytm-history.md.
+None — all included results complete.
 
 ### Next in-scope action
-Deliver the feature PR to dev through initial
-review, complete feedback intake, native compatibility CI and merge.
+None — goal complete.
 
 ### Evidence and blockers
-- Candidate: history feature validation and PR delivery. Classification: included;
-  contract basis: complete history feature and PR lifecycle. Proceed.
-- dev is unprotected with push/admin permission; initialization was committed and
-  pushed as 1a06c62 before the feature branch. Terminal metadata may be pushed
-  directly to dev after the final PR merge.
-- Core, Node, Python sync/async and CLI history are implemented on
-  codex/multi-date-ytm-history, including three-sheet Excel export.
-- Bounded core/surface review completed. Fixed cached observation-date labels,
-  sparse Node arrays and cancellation immediately before file publication;
-  regression coverage passes. A strict TypeScript consumer also found and fixed
-  a result-type reference; it now runs in validate:node.
-- Full independent judge passed 198 scenarios and a complete golden refresh.
-  Existing golden changes are limited to root help and added Node surface.
-  Focused core/CLI, external Rust, installed Python and Node types passed.
-- Actual CLI SIGINT/PTY checks pass: machine-readable failure, interactive-only
-  progress, no later fetch or partial file. Excel opened the final synthetic
-  workbook without repair; filtering and frozen panes worked.
-- Capacity evidence in docs/history-capacity.md verifies monthly, three-year,
-  sparse maximum-lookback and 2,000-date workloads. Maximum measured JSON RSS
-  was 2,739,224,576 bytes on a 16 GB host; workbook RSS 2,193,014,784 bytes.
-- Affected documentation is harmonized. The full repository gate passed;
-  PR feedback, native CI and merge are pending. No live bulk retrieval,
-  production provider enablement or release publication was performed.
+- [PR #35](https://github.com/cpaikr/ytm/pull/35) merged into dev on 2026-09-07
+  as 9367a86, preserving 63ff49f (feature), 84ca230 (documentation), and
+  3d4f371 (review fixes). Initial Codex and CodeRabbit reviews completed;
+  all seven actionable findings were handled and every inline thread resolved.
+- Full repository validation passed locally and on
+  [latest-head CI](https://github.com/cpaikr/ytm/actions/runs/34105713662),
+  including supported native targets, Node 22/24/26, Python 3.11–3.14,
+  standalone CLI consumers and 198 independent public-surface scenarios.
+- Actual CLI SIGINT/PTY and file-safety checks passed. Excel opened the
+  synthetic three-sheet workbook without repair; filtering, frozen identities,
+  numeric/literal fidelity and provenance were verified.
+- [Capacity evidence](../docs/history-capacity.md) covers monthly, three-year,
+  maximum-lookback and 2,000-date workloads. Maximum measured JSON RSS was
+  2,739,224,576 bytes; workbook RSS was 2,193,014,784 bytes on a 16 GB host.
+- Goal completion and planning metadata are recorded directly on the
+  preflighted dev branch after the final PR merge. No blockers remain.
+- Production provider enablement, live bulk retrieval and release publication
+  were not performed. The separate provider task remains queued.

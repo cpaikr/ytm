@@ -1,6 +1,6 @@
 # Multi-date YTM history and Excel export
 
-Status: active — implementation authorized by goals/multi-date-ytm-history.md.
+Status: complete — delivered to dev in PR #35 (9367a86).
 
 ## Outcome
 
@@ -17,7 +17,7 @@ exposes the actual observation date.
 
 ## Current state
 
-The feature branch implements history across Rust, Node, Python sync/async and
+The delivered feature implements history across Rust, Node, Python sync/async and
 CLI, with three-sheet Excel export. Independent history/regression scenarios,
 installed Python consumers, Rust consumers, strict Node type checks, actual CLI
 interrupt/file-safety checks and Excel filter/freeze QA passed. Bounded review
@@ -27,11 +27,14 @@ findings were fixed; the full repository gate passed.
 [architecture](../ARCHITECTURE.md) owns retrieval structure.
 [Capacity evidence](../docs/history-capacity.md) records monthly, three-year,
 maximum-lookback and 2,000-date workloads, including full CLI JSON allocation.
-The feature is not delivered until PR feedback, native CI and the dev merge
-finish. No production provider enablement or release publication is included.
+[PR #35](https://github.com/cpaikr/ytm/pull/35) merged to dev on 2026-09-07
+as 9367a86, preserving all three commits. All review findings were handled;
+[latest-head CI](https://github.com/cpaikr/ytm/actions/runs/34105713662) passed
+the repository gate and full native/installed-consumer compatibility matrix.
+No production provider enablement or release publication was performed.
 
 The sections below retain the accepted scope and acceptance criteria. The
-completion checklist and next action own the remaining delivery work.
+completion checklist and next action record the terminal delivery state.
 
 ## Confirmed scope and design decisions
 
@@ -280,11 +283,9 @@ schedule a live backfill or change the monitoring/retention policy.
 - [x] Combined Excel workbook, availability/provenance, and file safety.
 - [x] Capacity measurements and public input/resource limits verified.
 - [x] Focused checks, full repository gate, bounded review, and affected docs.
-- [ ] Authorized delivery validation and truthful final planning state.
+- [x] Authorized delivery validation and truthful final planning state.
 
 ## Next action
 
-Deliver one feature PR to dev with initial
-CodeRabbit review, complete feedback intake, native compatibility checks and a
-merge preserving commits. Record terminal planning metadata on dev after merge.
-Production enablement and release publication remain excluded.
+None — plan complete. Production provider enablement remains a separate queued
+task; release publication was excluded.

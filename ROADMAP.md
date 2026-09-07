@@ -2,7 +2,7 @@
 
 ## Current
 
-[Multi-date YTM history and Excel export](plans/multi-date-ytm-history.md)
+None.
 
 ## Plans
 
