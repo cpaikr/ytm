@@ -23,7 +23,9 @@ try {
         .map(([name]) => name)
     };
   } else if (request.action === "validate") {
-    value = request.operation === "matrix"
+    value = request.operation === "history"
+      ? module.validateHistoryInput(request.input)
+      : request.operation === "matrix"
       ? module.validateMatrixInput(request.input)
       : module.validateKindsInput(request.input);
   } else if (request.action === "client-regressions") {
@@ -98,6 +100,13 @@ try {
       hostileDetails: module.serializeYtmError(hostileError),
       hostileConstructor
     };
+  } else if (request.action === "history-sparse-input") {
+    const input = { baseDates: new Array(1) };
+    const validation = module.validateHistoryInput(input);
+    if (validation.ok || validation.error?.code !== "invalid_parameter") {
+      throw new Error("Sparse history dates must fail public validation");
+    }
+    value = await client.history(input);
   } else if (request.action === "execute") {
     let context;
     if (request.abortBeforeExecute) {
@@ -112,7 +121,7 @@ try {
     const handler = () => { handlerCalls += 1; };
     controller.signal.onabort = handler;
     const execution = client
-      .kinds(request.input, { signal: controller.signal })
+      [request.operation || "kinds"](request.input, { signal: controller.signal })
       .then(
         () => ({ ok: true }),
         (caught) => ({ ok: false, caught })

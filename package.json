@@ -14,12 +14,12 @@
     "build:sdk": "node packages/node/scripts/build.mjs --sdk-only",
     "build:check": "node scripts/generate-native-packages.mjs --check && node scripts/check-node-build.mjs",
     "rust:fixture-guard": "node scripts/check-release-fixture-guard.mjs",
-    "rust:consumer:check": "cargo check --locked --manifest-path tests/rust-sdk-consumer/Cargo.toml",
+    "rust:consumer:check": "cargo run --locked --manifest-path tests/rust-sdk-consumer/Cargo.toml",
     "validate": "bun run release:check && node scripts/validate-repository.mjs",
     "validate:python": "node scripts/validate-python.mjs",
-    "validate:node": "bun run --filter @sjunepark/ytm validate",
+    "validate:node": "tsc --noEmit --strict --module NodeNext --target ES2022 tests/node-sdk-consumer/history.mts && bun run --filter @sjunepark/ytm validate",
     "test": "bun run test:surfaces",
-    "test:surfaces": "bun run build:judge && bun run judge",
+    "test:surfaces": "bun run build:judge && bun run judge && node judge/history-cli-lifecycle.mjs",
     "test:node": "bun run --filter @sjunepark/ytm test",
     "judge": "node judge/run.mjs --product-root packages/node --cli-bin target/debug/ytm",
     "judge:broken": "node judge/prove-deliberate-failure.mjs",
@@ -37,6 +37,7 @@
   },
   "devDependencies": {
     "@seriousme/openapi-schema-validator": "2.9.1",
+    "typescript": "5.9.3",
     "yaml": "^2.9.0"
   }
 }

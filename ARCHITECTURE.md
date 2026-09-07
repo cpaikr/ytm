@@ -41,7 +41,7 @@ executable entry, and the repository supports only the Rust `ytm` CLI.
   named profile for constraints OpenAPI cannot express directly.
 - [`crates/ytm-core`](crates/ytm-core) — public Rust SDK. It owns prepared
   requests, bounded transport, strict XML parsing, kind resolution,
-  normalization, date fallback, typed inputs and results, source metadata, and
+  normalization, date fallback, history orchestration, typed inputs and results, source metadata, and
   tagged errors without Node-API or CLI types.
 - [`crates/ytm-node`](crates/ytm-node) — async Node-API projection over the
   public Rust SDK. It owns JavaScript cancellation and stable boundary
@@ -85,6 +85,15 @@ For a Rust SDK call or Rust CLI command:
 4. Only confirmed unavailable data can advance previous-date fallback.
 5. The SDK returns typed results or tagged errors; the CLI projects them to the
    approved JSON, CSV, TSV, XLSX receipt, diagnostic, and exit-code contract.
+
+History is a core operation, not an adapter loop over `matrix`. The core
+normalizes the bounded date selection, discovers each requested date's catalog,
+and resolves every date/kind pair sequentially. Invocation-local caches share
+confirmed dated catalogs and date/kind observations across overlapping fallback
+windows and evict observations outside future windows. They never persist data
+or convert operational failures into absence. Result entries preserve each
+requested pair even when observations are reused. The [history contract](SPEC.md#multi-date-history)
+owns selection limits, availability, ordering, and fallback semantics.
 
 For XLSX, the CLI validates the destination before source execution, projects
 one typed result through the same table model as CSV/TSV, and renders the
@@ -187,7 +196,7 @@ an explicit `upgrade` command. It verifies release metadata, checksums, and the
 generated installer before delegating archive download and replacement. Unix
 uses an installer transaction with fixed recovery links; Windows uses an
 out-of-process PowerShell helper so the running mapped executable can exit
-before replacement. Matrix, kinds, help, and version execution do not depend on
+before replacement. History, matrix, kinds, help, and version execution do not depend on
 release infrastructure. Exact installed candidates also exercise network-free
 XLSX export, overwrite policy, and native publication failures; the judge owns
 full workbook semantics through an independent test-only ZIP/XML inspector.

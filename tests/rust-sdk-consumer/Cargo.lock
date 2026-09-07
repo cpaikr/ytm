@@ -1743,6 +1743,7 @@ name = "ytm-rust-sdk-consumer"
 version = "0.0.0"
 dependencies = [
  "async-trait",
+ "tokio",
  "ytm-core",
 ]
 

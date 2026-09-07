@@ -7,14 +7,17 @@ use crate::{
     error::YtmError,
     model::{
         canonical_kinds, BaseDate, Capabilities, DateResolution, FallbackMode, FallbackPolicy,
-        Kind, KindsInput, KindsResult, MatrixInput, MatrixResult, MatrixRow, SourceMetadata,
-        SourceParameters, SourceRequest, TENORS,
+        HistoryDiscovery, HistoryEntry, HistoryInput, HistoryResult, Kind, KindsInput, KindsResult,
+        MatrixInput, MatrixResult, MatrixRow, SourceMetadata, SourceParameters, SourceRequest,
+        UnavailableStage, TENORS,
     },
     nexacro,
     request::{self, INIT_PATH, MATRIX_PATH, SOURCE_ORIGIN, SOURCE_PAGE_URL},
     transport::{HttpTransport, Transport},
     CancellationToken,
 };
+
+type MatrixObservation = (Kind, Vec<MatrixRow>, SourceMetadata);
 
 pub struct YtmService {
     transport: Arc<dyn Transport>,
@@ -202,6 +205,194 @@ impl YtmService {
         ))
     }
 
+    pub async fn history(&self, input: HistoryInput) -> Result<HistoryResult, YtmError> {
+        self.history_with_cancellation(input, CancellationToken::new())
+            .await
+    }
+
+    pub async fn history_with_cancellation(
+        &self,
+        input: HistoryInput,
+        cancellation: CancellationToken,
+    ) -> Result<HistoryResult, YtmError> {
+        let (mode, lookback_days) = match input.fallback {
+            FallbackPolicy::Exact => (FallbackMode::Exact, 0),
+            FallbackPolicy::PreviousAvailable(days) => {
+                (FallbackMode::PreviousAvailable, days.get())
+            }
+        };
+        let mut result = HistoryResult {
+            requested_dates: input.selection.as_dates().to_vec(),
+            discovery: Vec::new(),
+            entries: Vec::new(),
+            available_count: 0,
+            unavailable_count: 0,
+            data_row_count: 0,
+            mode,
+            lookback_days,
+        };
+        // Only confirmed outcomes enter these invocation-local caches. Operational
+        // failures terminate the call immediately and are never stored as missingness.
+        let mut catalogs: HashMap<BaseDate, Option<KindsResult>> = HashMap::new();
+        let mut observations: HashMap<(BaseDate, String), Option<MatrixObservation>> =
+            HashMap::new();
+        for &requested in input.selection.as_dates() {
+            let discovery = self
+                .history_catalog(requested, &mut catalogs, &cancellation)
+                .await
+                .map_err(|e| history_error(e, requested, None, &[requested], lookback_days))?;
+            let targets = discovery
+                .as_ref()
+                .map(|v| v.kinds.clone())
+                .unwrap_or_else(canonical_kinds);
+            result.discovery.push(HistoryDiscovery {
+                requested_base_date: requested,
+                available: discovery.is_some(),
+            });
+            for kind in targets {
+                let mut attempted = Vec::new();
+                let mut available = None;
+                let mut stage = UnavailableStage::Discovery;
+                for offset in 0..=u64::from(lookback_days) {
+                    let date = requested.checked_sub_days(offset).ok_or_else(|| {
+                        history_error(
+                            YtmError::invalid_parameter(
+                                "history",
+                                "dates",
+                                "History fallback underflowed the calendar date domain.",
+                                json!(requested),
+                            ),
+                            requested,
+                            Some(&kind),
+                            &attempted,
+                            lookback_days,
+                        )
+                    })?;
+                    attempted.push(date);
+                    let context =
+                        |e| history_error(e, requested, Some(&kind), &attempted, lookback_days);
+                    check_cancellation(&cancellation, "history").map_err(context)?;
+                    let catalog = self
+                        .history_catalog(date, &mut catalogs, &cancellation)
+                        .await
+                        .map_err(context)?;
+                    if catalog.is_none() {
+                        stage = UnavailableStage::Discovery;
+                        continue;
+                    }
+                    stage = UnavailableStage::Matrix;
+                    let key = (date, kind.code.clone());
+                    if !observations.contains_key(&key) {
+                        let observation_kind = catalog
+                            .as_ref()
+                            .and_then(|c| c.kinds.iter().find(|k| k.code == kind.code))
+                            .cloned()
+                            .unwrap_or_else(|| kind.clone());
+                        let observation = self
+                            .matrix_for_kind(
+                                date,
+                                &date.compact(),
+                                observation_kind,
+                                cancellation.clone(),
+                            )
+                            .await;
+                        check_cancellation(&cancellation, "history").map_err(context)?;
+                        let value = match observation {
+                            Ok(value) => Some(value),
+                            Err(e) if e.is_unavailable() => None,
+                            Err(e) => return Err(context(e)),
+                        };
+                        observations.insert(key.clone(), value);
+                    }
+                    if let Some((observed_kind, rows, source)) = &observations[&key] {
+                        available = Some(MatrixResult {
+                            base_date: date,
+                            requested_base_date: requested,
+                            kind: observed_kind.clone(),
+                            tenors: TENORS
+                                .iter()
+                                .map(|(_, label)| (*label).to_owned())
+                                .collect(),
+                            rows: rows.clone(),
+                            source: source.clone(),
+                            date_resolution: DateResolution {
+                                mode,
+                                requested_base_date: requested,
+                                resolved_base_date: date,
+                                used_fallback: date != requested,
+                                attempted_dates: attempted.clone(),
+                                lookback_days,
+                            },
+                        });
+                        break;
+                    }
+                }
+                check_cancellation(&cancellation, "history").map_err(|e| {
+                    history_error(e, requested, Some(&kind), &attempted, lookback_days)
+                })?;
+                if let Some(matrix) = available {
+                    result.available_count += 1;
+                    result.data_row_count += matrix.rows.len();
+                    result.entries.push(HistoryEntry::Available {
+                        matrix: Box::new(matrix),
+                    });
+                } else {
+                    result.unavailable_count += 1;
+                    let reason = match stage {
+                        UnavailableStage::Discovery => {
+                            "source_data_unavailable: dated catalog discovery returned no kinds"
+                        }
+                        UnavailableStage::Matrix => {
+                            "source_data_unavailable: matrix returned no rows"
+                        }
+                    }
+                    .to_owned();
+                    result.entries.push(HistoryEntry::Unavailable {
+                        requested_base_date: requested,
+                        kind,
+                        attempted_dates: attempted,
+                        mode,
+                        lookback_days,
+                        reason,
+                        stage,
+                    });
+                }
+            }
+            // Sorted requests can never revisit dates older than the next window.
+            // Evict observations as soon as they cannot contribute to another pair.
+            let oldest = requested
+                .checked_sub_days(u64::from(lookback_days))
+                .unwrap_or(requested);
+            observations.retain(|(date, _), _| *date >= oldest);
+            catalogs.retain(|date, _| *date >= oldest);
+        }
+        check_cancellation(&cancellation, "history")?;
+        Ok(result)
+    }
+
+    async fn history_catalog(
+        &self,
+        date: BaseDate,
+        cache: &mut HashMap<BaseDate, Option<KindsResult>>,
+        cancellation: &CancellationToken,
+    ) -> Result<Option<KindsResult>, YtmError> {
+        check_cancellation(cancellation, "history")?;
+        if let Some(value) = cache.get(&date) {
+            return Ok(value.clone());
+        }
+        let value = match self
+            .kinds_for_date(date, &date.compact(), cancellation)
+            .await
+        {
+            Ok(value) => Some(value),
+            Err(e) if e.is_unavailable() => None,
+            Err(e) => return Err(e),
+        };
+        check_cancellation(cancellation, "history")?;
+        cache.insert(date, value.clone());
+        Ok(value)
+    }
+
     async fn kinds_for_date(
         &self,
         display: BaseDate,
@@ -272,6 +463,18 @@ impl YtmService {
                 }),
             ));
         };
+        self.matrix_for_kind(display, compact, kind, cancellation)
+            .await
+    }
+
+    async fn matrix_for_kind(
+        &self,
+        display: BaseDate,
+        compact: &str,
+        kind: Kind,
+        cancellation: CancellationToken,
+    ) -> Result<(Kind, Vec<MatrixRow>, SourceMetadata), YtmError> {
+        let attempted_dates = [display];
         check_cancellation(&cancellation, "matrix")?;
         let response = self
             .post(
@@ -289,7 +492,7 @@ impl YtmService {
             return Err(YtmError::unavailable(
                 "matrix",
                 &display.to_string(),
-                Some(kind_input),
+                Some(&kind.code),
                 vec![display.to_string()],
                 0,
                 false,
@@ -328,6 +531,22 @@ impl YtmService {
         }
         response
     }
+}
+
+fn history_error(
+    mut error: YtmError,
+    requested: BaseDate,
+    kind: Option<&Kind>,
+    attempted: &[BaseDate],
+    lookback: u8,
+) -> YtmError {
+    error.details.operation_name = Some("history".into());
+    error.details.attempted_dates = Some(attempted.iter().map(ToString::to_string).collect());
+    error.details.lookback_days = Some(lookback);
+    // Preserve the source's original actual payload alongside batch context.
+    error.details.actual = Some(json!({ "requestedBaseDate": requested, "kind": kind,
+        "attemptedDate": attempted.last(), "sourceActual": error.details.actual.take() }));
+    error
 }
 
 fn check_cancellation(cancellation: &CancellationToken, operation: &str) -> Result<(), YtmError> {

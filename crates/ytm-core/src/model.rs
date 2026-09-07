@@ -10,6 +10,7 @@ pub const MAX_LOOKBACK_DAYS: u8 = 31;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum InputError {
     InvalidBaseDate,
+    InvalidDateSelection,
     EmptyKind,
     InvalidLookbackDays,
 }
@@ -20,6 +21,7 @@ impl fmt::Display for InputError {
             Self::InvalidBaseDate => {
                 "base date must be a valid calendar date in YYYY-MM-DD, YYYY.MM.DD, or YYYYMMDD form"
             }
+            Self::InvalidDateSelection => "select 1..=2000 dates (at most 2000 raw entries) or an inclusive ordered range of at most 2000 days",
             Self::EmptyKind => "kind must be a nonempty label or source code",
             Self::InvalidLookbackDays => "lookback days must be in the inclusive range 1..=31",
         })
@@ -223,6 +225,7 @@ pub struct Capabilities {
     pub fallback: FallbackMode,
     pub default_lookback_days: u8,
     pub max_lookback_days: u8,
+    pub max_history_dates: usize,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -357,6 +360,7 @@ impl Capabilities {
             fallback: FallbackMode::PreviousAvailable,
             default_lookback_days: DEFAULT_LOOKBACK_DAYS,
             max_lookback_days: MAX_LOOKBACK_DAYS,
+            max_history_dates: MAX_HISTORY_DATES,
         }
     }
 }
@@ -405,4 +409,165 @@ mod tests {
         assert_eq!(KindSelector::new("  10  ").unwrap().as_str(), "10");
         assert_eq!(KindSelector::new("   "), Err(InputError::EmptyKind));
     }
+}
+
+/// Maximum raw list length and unique calendar dates in one history call.
+pub const MAX_HISTORY_DATES: usize = 2_000;
+
+/// Validated, sorted unique dates. Constructors enforce the resource bound.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(transparent)]
+pub struct DateSelection(Vec<BaseDate>);
+
+impl DateSelection {
+    pub fn dates(mut dates: Vec<BaseDate>) -> Result<Self, InputError> {
+        if dates.is_empty() || dates.len() > MAX_HISTORY_DATES {
+            return Err(InputError::InvalidDateSelection);
+        }
+        dates.sort_unstable();
+        dates.dedup();
+        Ok(Self(dates))
+    }
+
+    pub fn range(start: BaseDate, end: BaseDate) -> Result<Self, InputError> {
+        let days = (end.0 - start.0).num_days();
+        if !(0..MAX_HISTORY_DATES as i64).contains(&days) {
+            return Err(InputError::InvalidDateSelection);
+        }
+        Ok(Self(
+            (0..=days)
+                .map(|offset| BaseDate(start.0 + chrono::Days::new(offset as u64)))
+                .collect(),
+        ))
+    }
+
+    pub fn as_dates(&self) -> &[BaseDate] {
+        &self.0
+    }
+}
+
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub struct HistoryInput {
+    pub selection: DateSelection,
+    pub fallback: FallbackPolicy,
+}
+
+impl HistoryInput {
+    pub fn new(selection: DateSelection) -> Self {
+        Self {
+            selection,
+            fallback: FallbackPolicy::Exact,
+        }
+    }
+}
+
+/// Shared wire boundary for adapters; domain validation stays in the core.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct HistoryRequest {
+    pub base_dates: Option<Vec<String>>,
+    pub start_date: Option<String>,
+    pub end_date: Option<String>,
+    pub fallback: Option<String>,
+    pub lookback_days: Option<u8>,
+}
+
+impl TryFrom<HistoryRequest> for HistoryInput {
+    type Error = crate::YtmError;
+    fn try_from(input: HistoryRequest) -> Result<Self, Self::Error> {
+        let invalid = |parameter: &str, reason: String| {
+            crate::YtmError::invalid_parameter(
+                "history",
+                parameter,
+                reason,
+                serde_json::Value::Null,
+            )
+        };
+        let parse = |value: String| {
+            value
+                .parse::<BaseDate>()
+                .map_err(|e| invalid("dates", e.to_string()))
+        };
+        let selection = match (input.base_dates, input.start_date, input.end_date) {
+            (Some(values), None, None)
+                if !values.is_empty() && values.len() <= MAX_HISTORY_DATES =>
+            {
+                DateSelection::dates(values.into_iter().map(parse).collect::<Result<_, _>>()?)
+            }
+            (None, Some(start), Some(end)) => DateSelection::range(parse(start)?, parse(end)?),
+            _ => Err(InputError::InvalidDateSelection),
+        }
+        .map_err(|e| invalid("dates", e.to_string()))?;
+        let fallback = match (input.fallback.as_deref(), input.lookback_days) {
+            (None | Some("exact"), None) => FallbackPolicy::Exact,
+            (Some("previous-available"), days) => FallbackPolicy::PreviousAvailable(
+                LookbackDays::new(days.unwrap_or(DEFAULT_LOOKBACK_DAYS))
+                    .map_err(|e| invalid("lookbackDays", e.to_string()))?,
+            ),
+            (None | Some("exact"), Some(_)) => {
+                return Err(invalid(
+                    "lookbackDays",
+                    "lookbackDays only applies to previous-available.".into(),
+                ))
+            }
+            _ => {
+                return Err(invalid(
+                    "fallback",
+                    "fallback must be exact or previous-available.".into(),
+                ))
+            }
+        };
+        Ok(Self {
+            selection,
+            fallback,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HistoryDiscovery {
+    pub requested_base_date: BaseDate,
+    pub available: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(tag = "availability", rename_all = "kebab-case")]
+pub enum HistoryEntry {
+    Available {
+        matrix: Box<MatrixResult>,
+    },
+    Unavailable {
+        #[serde(rename = "requestedBaseDate")]
+        requested_base_date: BaseDate,
+        kind: Kind,
+        #[serde(rename = "attemptedDates")]
+        attempted_dates: Vec<BaseDate>,
+        mode: FallbackMode,
+        #[serde(rename = "lookbackDays")]
+        lookback_days: u8,
+        reason: String,
+        stage: UnavailableStage,
+    },
+}
+
+#[derive(Debug, Clone, Copy, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum UnavailableStage {
+    Discovery,
+    Matrix,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HistoryResult {
+    pub requested_dates: Vec<BaseDate>,
+    pub discovery: Vec<HistoryDiscovery>,
+    pub entries: Vec<HistoryEntry>,
+    pub available_count: usize,
+    pub unavailable_count: usize,
+    pub data_row_count: usize,
+    pub mode: FallbackMode,
+    pub lookback_days: u8,
 }

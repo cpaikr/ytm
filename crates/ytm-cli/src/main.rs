@@ -2,7 +2,19 @@ use std::{ffi::OsString, io::Write, process::ExitCode};
 
 #[tokio::main]
 async fn main() -> ExitCode {
-    let output = ytm_cli::run(std::env::args_os().collect::<Vec<OsString>>()).await;
+    let cancellation = ytm_core::CancellationToken::new();
+    let interrupt_token = cancellation.clone();
+    let interrupt = tokio::spawn(async move {
+        if tokio::signal::ctrl_c().await.is_ok() {
+            interrupt_token.cancel();
+        }
+    });
+    let output = ytm_cli::run_with_cancellation(
+        std::env::args_os().collect::<Vec<OsString>>(),
+        cancellation,
+    )
+    .await;
+    interrupt.abort();
     let mut stdout = std::io::stdout().lock();
     let mut stderr = std::io::stderr().lock();
     ExitCode::from(write_output(&output, &mut stdout, &mut stderr))

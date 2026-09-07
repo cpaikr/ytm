@@ -4,10 +4,14 @@ use clap::{Arg, ArgAction, ArgMatches, Command};
 use serde::Serialize;
 use serde_json::{json, Map, Number, Value};
 use ytm_core::{
-    BaseDate, KindSelector, KindsInput, KindsResult, LookbackDays, MatrixInput, MatrixResult,
-    YtmError, YtmService, DEFAULT_LOOKBACK_DAYS, MAX_LOOKBACK_DAYS,
+    BaseDate, HistoryInput, HistoryRequest, HistoryResult, KindSelector, KindsInput, KindsResult,
+    LookbackDays, MatrixInput, MatrixResult, YtmError, YtmService, DEFAULT_LOOKBACK_DAYS,
+    MAX_LOOKBACK_DAYS,
 };
 
+#[cfg(test)]
+mod capacity;
+mod progress;
 mod release_management;
 mod table;
 mod xlsx;
@@ -29,6 +33,7 @@ pub struct ProcessOutput {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Operation {
+    History,
     Matrix,
     Kinds,
 }
@@ -36,6 +41,7 @@ enum Operation {
 impl Operation {
     fn name(self) -> &'static str {
         match self {
+            Self::History => "history",
             Self::Matrix => "matrix",
             Self::Kinds => "kinds",
         }
@@ -43,6 +49,7 @@ impl Operation {
 
     fn parse(value: &str) -> Option<Self> {
         match value {
+            "history" => Some(Self::History),
             "matrix" => Some(Self::Matrix),
             "kinds" => Some(Self::Kinds),
             _ => None,
@@ -84,12 +91,14 @@ struct ParsedInvocation {
 
 #[derive(Debug)]
 enum ValidatedInput {
+    History(HistoryInput),
     Matrix(MatrixInput),
     Kinds(KindsInput),
 }
 
 #[derive(Debug)]
 enum OperationResult {
+    History(HistoryResult),
     Matrix(MatrixResult),
     Kinds(KindsResult),
 }
@@ -97,6 +106,7 @@ enum OperationResult {
 impl OperationResult {
     fn operation(&self) -> Operation {
         match self {
+            Self::History(_) => Operation::History,
             Self::Matrix(_) => Operation::Matrix,
             Self::Kinds(_) => Operation::Kinds,
         }
@@ -104,6 +114,7 @@ impl OperationResult {
 
     fn into_json(self) -> Result<Value, YtmError> {
         match self {
+            Self::History(result) => serialize_result(result),
             Self::Matrix(result) => serialize_result(result),
             Self::Kinds(result) => serialize_result(result),
         }
@@ -146,6 +157,13 @@ enum ParseOutcome {
 }
 
 pub async fn run(args: Vec<OsString>) -> ProcessOutput {
+    run_with_cancellation(args, ytm_core::CancellationToken::new()).await
+}
+
+pub async fn run_with_cancellation(
+    args: Vec<OsString>,
+    cancellation: ytm_core::CancellationToken,
+) -> ProcessOutput {
     let tail = args
         .get(1..)
         .unwrap_or_default()
@@ -174,7 +192,7 @@ pub async fn run(args: Vec<OsString>) -> ProcessOutput {
             return error.output(invocation.operation);
         }
     }
-    let result = match execute(input).await {
+    let result = match execute(input, cancellation.clone()).await {
         Ok(result) => result,
         Err(error) => {
             return ProcessOutput {
@@ -185,13 +203,19 @@ pub async fn run(args: Vec<OsString>) -> ProcessOutput {
         }
     };
     if let OutputSelection::Xlsx { path, overwrite } = &invocation.output {
-        return match xlsx::export(&result, path, *overwrite) {
+        let mut receipt = json!({ "format": "xlsx", "path": path });
+        if let OperationResult::History(history) = &result {
+            receipt["availableCount"] = json!(history.available_count);
+            receipt["unavailableCount"] = json!(history.unavailable_count);
+            receipt["dataRowCount"] = json!(history.data_row_count);
+        }
+        return match xlsx::export_with_cancellation(&result, path, *overwrite, &cancellation) {
             Ok(row_count) => stdout_output(
                 0,
                 encode_json(
                     &json!({
                         "ok": true, "operation": invocation.operation.name(),
-                        "result": { "format": "xlsx", "path": path, "rowCount": row_count }
+                        "result": ({ receipt["rowCount"] = json!(row_count); receipt })
                     }),
                     invocation.pretty,
                 ),
@@ -202,7 +226,14 @@ pub async fn run(args: Vec<OsString>) -> ProcessOutput {
     let OutputSelection::Text(format) = invocation.output else {
         unreachable!()
     };
-    match success_output(result, format, invocation.pretty) {
+    let output = success_output(result, format, invocation.pretty).and_then(|output| {
+        if cancellation.is_cancelled() {
+            Err(YtmError::cancelled(invocation.operation.name()))
+        } else {
+            Ok(output)
+        }
+    });
+    match output {
         Ok(output) => output,
         Err(error) => ProcessOutput {
             code: 1,
@@ -283,6 +314,7 @@ fn command() -> Command {
     Command::new("ytm")
         .disable_help_flag(true)
         .disable_version_flag(true)
+        .subcommand(operation_command("history"))
         .subcommand(operation_command("matrix"))
         .subcommand(operation_command("kinds"))
 }
@@ -290,7 +322,15 @@ fn command() -> Command {
 fn operation_command(name: &'static str) -> Command {
     Command::new(name)
         .disable_help_flag(true)
-        .arg(value_arg("base_date", "base-date"))
+        .arg(
+            value_arg("base_date", "base-date").action(if name == "history" {
+                ArgAction::Append
+            } else {
+                ArgAction::Set
+            }),
+        )
+        .arg(value_arg("start_date", "start-date"))
+        .arg(value_arg("end_date", "end-date"))
         .arg(value_arg("format", "format"))
         .arg(value_arg("output", "output"))
         .arg(
@@ -312,10 +352,19 @@ fn value_arg(id: &'static str, long: &'static str) -> Arg {
         .num_args(1)
 }
 
-fn input_from_matches(matches: &ArgMatches) -> Map<String, Value> {
+fn input_from_matches(matches: &ArgMatches, operation: Operation) -> Map<String, Value> {
     let mut input = Map::new();
-    if let Some(value) = matches.get_one::<String>("base_date") {
+    if operation == Operation::History {
+        if let Some(values) = matches.get_many::<String>("base_date") {
+            input.insert("baseDates".into(), json!(values.collect::<Vec<_>>()));
+        }
+    } else if let Some(value) = matches.get_one::<String>("base_date") {
         input.insert("baseDate".into(), Value::String(value.clone()));
+    }
+    for (flag, field) in [("start_date", "startDate"), ("end_date", "endDate")] {
+        if let Some(value) = matches.get_one::<String>(flag) {
+            input.insert(field.into(), json!(value));
+        }
     }
     if let Some(value) = matches.get_one::<String>("kind") {
         input.insert("kind".into(), Value::String(value.clone()));
@@ -347,7 +396,7 @@ fn invocation_from_matches(
         .expect("execution parsing requires an output selection");
     Ok(ParsedInvocation {
         operation,
-        input: input_from_matches(matches),
+        input: input_from_matches(matches, operation),
         output,
         pretty: matches.get_count("pretty") > 0,
     })
@@ -501,12 +550,19 @@ fn validate_operation_help(args: &[OsString], operation: Operation) -> Result<()
         .subcommand()
         .expect("known operation parsed as a Clap subcommand");
     parse_output(operation, subcommand, true)?;
-    let mut input = input_from_matches(subcommand);
+    let mut input = input_from_matches(subcommand, operation);
     if operation == Operation::Matrix {
         input
             .entry("baseDate")
             .or_insert_with(|| json!("2000-01-01"));
         input.entry("kind").or_insert_with(|| json!("10"));
+    }
+    if operation == Operation::History
+        && !input.contains_key("baseDates")
+        && !input.contains_key("startDate")
+        && !input.contains_key("endDate")
+    {
+        input.insert("baseDates".into(), json!(["2000-01-01"]));
     }
     validate_input(operation, &input).map(|_| ())
 }
@@ -515,9 +571,33 @@ fn validate_input(
     operation: Operation,
     input: &Map<String, Value>,
 ) -> Result<ValidatedInput, Box<CliError>> {
+    if operation == Operation::History {
+        let parsed = serde_json::from_value::<HistoryRequest>(Value::Object(input.clone()))
+            .map_err(|e| {
+                YtmError::invalid_parameter(
+                    "history",
+                    "input",
+                    format!("Invalid history input: {e}"),
+                    Value::Null,
+                )
+            })
+            .and_then(HistoryInput::try_from);
+        return parsed.map(ValidatedInput::History).map_err(|e| {
+            Box::new(validation_error(
+                operation,
+                "invalid_parameter",
+                e.details.parameter.as_deref(),
+                e.details.reason,
+                e.details.expected,
+                e.details.actual,
+                e.details.recovery_hint,
+            ))
+        });
+    }
     let allowed = match operation {
         Operation::Matrix => &["baseDate", "kind", "fallback", "lookbackDays"][..],
         Operation::Kinds => &["baseDate"][..],
+        Operation::History => unreachable!(),
     };
     for key in input.keys() {
         if !allowed.contains(&key.as_str()) {
@@ -770,12 +850,14 @@ fn example_input(operation: Operation) -> Value {
     match operation {
         Operation::Matrix => json!({ "baseDate": "2026-06-08", "kind": "국채" }),
         Operation::Kinds => json!({ "baseDate": "2026-06-08" }),
+        Operation::History => json!({ "baseDates": ["2026-06-08"] }),
     }
 }
 
 fn validation_example_input(operation: Operation, parameter: Option<&str>) -> Value {
     match (operation, parameter) {
         (Operation::Kinds, _) => json!({}),
+        (Operation::History, _) => example_input(Operation::History),
         (Operation::Matrix, Some("fallback" | "lookbackDays")) => json!({
             "baseDate": "2026-06-07",
             "kind": "국채",
@@ -794,11 +876,30 @@ fn safe_actual(value: &Value) -> Value {
     }
 }
 
-async fn execute(input: ValidatedInput) -> Result<OperationResult, YtmError> {
-    let service = service()?;
+async fn execute(
+    input: ValidatedInput,
+    cancellation: ytm_core::CancellationToken,
+) -> Result<OperationResult, YtmError> {
+    let service = if matches!(input, ValidatedInput::History(_))
+        && std::io::IsTerminal::is_terminal(&std::io::stderr())
+    {
+        progress::service()?
+    } else {
+        service()?
+    };
     match input {
-        ValidatedInput::Matrix(input) => service.matrix(input).await.map(OperationResult::Matrix),
-        ValidatedInput::Kinds(input) => service.kinds(input).await.map(OperationResult::Kinds),
+        ValidatedInput::History(input) => service
+            .history_with_cancellation(input, cancellation)
+            .await
+            .map(OperationResult::History),
+        ValidatedInput::Matrix(input) => service
+            .matrix_with_cancellation(input, cancellation)
+            .await
+            .map(OperationResult::Matrix),
+        ValidatedInput::Kinds(input) => service
+            .kinds_with_cancellation(input, cancellation)
+            .await
+            .map(OperationResult::Kinds),
     }
 }
 
@@ -835,6 +936,7 @@ fn success_output(
                 ','
             };
             match result {
+                OperationResult::History(result) => table::history(&result, true).render(delimiter),
                 OperationResult::Matrix(result) => table::matrix(&result).render(delimiter),
                 OperationResult::Kinds(result) => table::kinds(&result).render(delimiter),
             }
@@ -931,7 +1033,7 @@ fn unknown_command_output(command: &str) -> ProcessOutput {
     let error = json!({
         "code": "invalid_request",
         "reason": format!("Unknown command: {command}."),
-        "expected": ["matrix", "kinds", "upgrade"],
+        "expected": ["history", "matrix", "kinds", "upgrade"],
         "actual": command,
         "recoveryHint": "Run ytm --help and retry with a listed command.",
         "recoveryAction": "inspect_tool_help",
@@ -962,7 +1064,7 @@ fn root_help() -> String {
 
 fn tool_help() -> String {
     format!(
-        "KIS-NET YTM Matrix CLI\n\nOperations:\n  matrix: fetch YTM Matrix rows for a 기준일 and 종류.\n  kinds: list accepted 종류 codes and Korean labels.\n  upgrade: check or replace an official managed installation.\n\nAccepted 종류 values:\n{}\n\nSource terms are preserved where official: 기준일, 종류, and 적용대상채권.\nRun ytm help <command> for command-specific input and output guidance.",
+        "KIS-NET YTM Matrix CLI\n\nOperations:\n  history: retrieve all categories for up to 2000 dates; run ytm history --help.\n  matrix: fetch YTM Matrix rows for a 기준일 and 종류.\n  kinds: list accepted 종류 codes and Korean labels.\n  upgrade: check or replace an official managed installation.\n\nAccepted 종류 values:\n{}\n\nSource terms are preserved where official: 기준일, 종류, and 적용대상채권.\nRun ytm help <command> for command-specific input and output guidance.",
         formatted_kinds("  ")
     )
 }
@@ -993,6 +1095,7 @@ fn invalid_upgrade_invocation_output(actual: &[String]) -> ProcessOutput {
 
 fn command_help(operation: Operation) -> String {
     let body = match operation {
+        Operation::History => "history\n  Select repeated --base-date <date> OR --start-date <date> --end-date <date> (inclusive).\n  Maximum 2000 raw list entries or range days; dates normalize, sort and deduplicate.\n  Dates: YYYY-MM-DD, YYYY.MM.DD, YYYYMMDD. All categories and pricing groups are returned.\n  Optional: --fallback previous-available --lookback-days <1..31> (default 10).\n  Output: --format json|csv|tsv|xlsx [--pretty]\n  XLSX: --output <file.xlsx> [--overwrite]\n  Unavailable pairs are reported with exit 0; operational failures are fatal.\n  History, Availability and Metadata sheets preserve requested and actual dates.".into(),
         Operation::Matrix => format!(
             "matrix\n  Required: --base-date <기준일> --kind <종류>\n  Optional: --fallback previous-available --lookback-days <days>\n  Output: --format json|csv|tsv|xlsx [--pretty]\n  XLSX: --output <file.xlsx> [--overwrite]\n  base-date accepts YYYY-MM-DD, YYYY.MM.DD, or YYYYMMDD.\n  kind maps to 종류 and accepts one of these Korean labels or source codes:\n{}\n  fallback=previous-available tries the requested date once, then walks backward until rows are found.\n  lookback-days defaults to {DEFAULT_LOOKBACK_DAYS} and may not exceed {MAX_LOOKBACK_DAYS}.\n  Run ytm kinds to print accepted kinds as JSON, CSV, TSV, or XLSX.\n  Result rows include 적용대상채권, tenors 3M through 50Y, and dateResolution metadata.",
             formatted_kinds("    ")
@@ -1000,6 +1103,7 @@ fn command_help(operation: Operation) -> String {
         Operation::Kinds => "kinds\n  Optional: --base-date <기준일>\n  Output: --format json|csv|tsv|xlsx [--pretty]\n  XLSX: --output <file.xlsx> [--overwrite]\n  base-date accepts YYYY-MM-DD, YYYY.MM.DD, or YYYYMMDD.\n  Returns accepted 종류 source codes and Korean labels.".into(),
     };
     let example = match operation {
+        Operation::History => "ytm history --start-date 2026-06-01 --end-date 2026-06-08 --format xlsx --output history.xlsx",
         Operation::Matrix => "ytm matrix --base-date 2026-06-08 --kind 국채 --format json",
         Operation::Kinds => "ytm kinds --base-date 2026-06-08 --format json",
     };
