@@ -6,7 +6,7 @@ None.
 
 ## Plans
 
-None.
+1. [Add Excel export to the CLI](plans/cli-excel-export.md)
 
 ## Tasks
 
