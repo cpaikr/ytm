@@ -2,7 +2,7 @@
 
 ## Current
 
-[Add Excel export to the CLI](plans/cli-excel-export.md)
+None.
 
 ## Plans
 

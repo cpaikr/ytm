@@ -1,6 +1,6 @@
 # Goal: CLI Excel export
 
-Status: active
+Status: complete
 Planning scope: ROADMAP.md
 
 ## Original contract
@@ -25,35 +25,31 @@ _None._
 
 ### Completed included results
 
-_None._
+CLI Excel export delivered to dev through [PR #34](https://github.com/cpaikr/ytm/pull/34):
+matrix/kinds workbooks, typed cells and provenance, safe publication, structured
+responses, compatibility, executable/platform validation, and documentation.
 
 ### Current in-scope result
 
-CLI Excel export: matrix/kinds workbooks and safe standalone delivery.
+None — all included results delivered.
 
 ### Next in-scope action
 
-Finish CI and review feedback on [PR #34](https://github.com/cpaikr/ytm/pull/34),
-merge with commits preserved, then persist terminal planning metadata.
+None — goal complete.
 
 ### Evidence and blockers
 
-- Candidate: Excel export implementation and its required validation/review.
-  Classification: included; contract basis: CLI Excel export and completion criteria.
-  Action: proceed in one connected implementation PR.
-- Initial clean working tree; dev is unprotected and current account has ADMIN permission.
-  Direct metadata push preflight succeeded. Planning commit `0fc2740` was
-  fast-forwarded onto dev without unrelated main changes.
-- Release publication and production provider enablement remain excluded.
-- Local implementation and required `bun run validate` passed with Python 3.13.
-  Bounded code review completed; its judge-ordering finding was fixed and validated.
-  Synthetic workbooks opened in Excel without repair. All four native CLI
-  candidates and installed consumers passed CI; acceptance evidence is in the
-  active plan.
-- Candidate: connected implementation PR and its CI/review/merge lifecycle.
-  Classification: included; contract basis: CLI Excel export and PR delivery.
-  Action: proceed against existing dev; do not publish a release.
-- PR #34 is open from `codex/cli-excel-export` to dev. Implementation commit
-  `77a941b` passed the complete native CI suite and both initial reviews completed.
-  Root help and delivery-status findings are corrected; CLI tests and the
-  complete judge pass. Follow-up delivery and latest-head checks gate merge.
+- Planning commit `0fc2740` entered dev before implementation without unrelated
+  main changes. The initialized contract was committed as `cc92806`.
+- PR #34 merged as `9b5512e`, preserving implementation `77a941b` and feedback
+  correction `3eff4ac`. Initial Codex and CodeRabbit reviews completed; all
+  actionable findings, including outside-diff help feedback, were addressed
+  and replied to. Both threads are resolved; no review remains active.
+- [Final-head CI](https://github.com/cpaikr/ytm/actions/runs/34090417066) passed
+  repository validation and Platform compatibility, including all four exact
+  installed-CLI consumers, Node 22/24/26, and Python 3.11–3.14 consumers.
+  Local CLI tests, full judge, Clippy, bounded reviews, and documentation checks
+  passed. Synthetic workbooks opened in Excel without a repair prompt.
+- Detailed acceptance evidence remains in [the completed plan](../plans/cli-excel-export.md).
+  No blockers remain. Release publication and production provider enablement
+  were not performed and remain excluded.

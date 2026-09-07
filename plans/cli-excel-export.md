@@ -1,6 +1,6 @@
 # Add Excel export to the CLI
 
-Status: implemented — PR #34 feedback and final CI in progress.
+Status: complete — merged to dev through PR #34.
 
 ## Outcome
 
@@ -17,23 +17,20 @@ under the [goal contract](../goals/cli-excel-export.md).
 
 ## Current state
 
-The connected implementation is present in the CLI. Shared typed tables serve
-CSV/TSV and XLSX; private workbook rendering and publication use CLI-only
-`rust_xlsxwriter = 0.99.0` and `tempfile = 3.27.0`. No core or SDK API change is
-needed. Synthetic fixture coverage and local repository validation pass.
+[PR #34](https://github.com/cpaikr/ytm/pull/34) merged as `9b5512e`, preserving
+implementation `77a941b` and feedback correction `3eff4ac`. Both initial bot
+reviews completed and all actionable feedback is resolved. The
+[final-head CI](https://github.com/cpaikr/ytm/actions/runs/34090417066) passed,
+including repository validation and Platform compatibility.
 
-A bounded review found an ordering bug in the judge's unused-golden check;
-it was moved after all scenarios and the complete validation passed afterward.
-Documentation and generated dependency notices describe the implementation.
-The complete native CI suite passed on `77a941b` in
-[PR #34](https://github.com/cpaikr/ytm/pull/34), including all four CLI builds
-and installed consumers. Initial Codex and CodeRabbit reviews completed. Their
-root-help and delivery-status findings are corrected with CLI tests and the
-complete judge passing. Follow-up delivery and latest-head checks gate merge.
+Shared typed tables serve CSV/TSV and XLSX; private workbook rendering and
+publication use CLI-only `rust_xlsxwriter = 0.99.0` and `tempfile = 3.27.0`.
+The public contracts, architecture, validation documentation, and generated
+notices reflect the implementation. Release/provider authorization is unchanged.
 
 ## Acceptance evidence
 
-| Criterion | Evidence and remaining verification |
+| Criterion | Validation evidence |
 | --- | --- |
 | Matrix and kinds exports | Real CLI judge scenarios inspect exactly the data and Metadata sheets, receipts, headers, order, values, styles, and dated/undated source metadata. |
 | Value fidelity | Independent ZIP/XML inspection checks positive/negative/zero numbers, blanks, padded decimals, leading-zero text codes, literal formula-like names and URLs, booleans, and ISO dates including year 0000. No formulas or external links. |
@@ -44,7 +41,7 @@ complete judge passing. Follow-up delivery and latest-head checks gate merge.
 | Compatibility | Full judge passes with existing JSON/CSV/TSV and SDK output preserved; existing golden changes are limited to intentional help/format descriptions. |
 | Repository gate | `PYO3_PYTHON=/opt/homebrew/bin/python3.13 bun run validate` passed on macOS ARM64, including formatting, Clippy, workspace/SDK checks, dependency/security policy, notices, and full judge. The host's default Python 3.9 is below the repository's supported range. |
 | Excel application QA | Synthetic fallback matrix opened in Microsoft Excel on macOS without a repair prompt; Korean text, blanks, `0.000` numeric display, frozen identity columns through the last tenor, populated filters, and provenance were visually checked. |
-| Standalone platforms | Exact candidate consumer now tests undated kinds export, ZIP signature/receipt, existing-file rejection, overwrite, Windows exclusive file locking, and non-root Unix permission denial. Linux x64/ARM64, macOS ARM64, and Windows x64 archive and installed-consumer jobs passed on `77a941b`. |
+| Standalone platforms | Exact candidate consumer now tests undated kinds export, ZIP signature/receipt, existing-file rejection, overwrite, Windows exclusive file locking, and non-root Unix permission denial. Linux x64/ARM64, macOS ARM64, and Windows x64 archive and installed-consumer jobs passed on final head `3eff4ac`. |
 
 Full workbook semantics belong to the judge's independent Python standard-library
 inspector; exact-binary consumers use a small network-free export smoke. Neither
@@ -58,14 +55,12 @@ judge and compare semantic results, not nondeterministic archive bytes.
 - [x] Same-directory staging, no-clobber/replace publication, and failure tests.
 - [x] Real CLI judge and exact-candidate consumer coverage.
 - [x] Local required validation, bounded review, and affected documentation.
-- [ ] Native CI and complete PR feedback handling.
-- [ ] Merge the connected PR to dev and persist terminal planning metadata.
+- [x] Native CI and complete PR feedback handling.
+- [x] Merge the connected PR to dev and record terminal planning state.
 
 ## Next action
 
-Complete CI and feedback handling on [PR #34](https://github.com/cpaikr/ytm/pull/34),
-then merge to dev with commits preserved. Record
-terminal goal and project state directly on dev after the merge.
+None — complete.
 
 ## Scope boundaries
 
