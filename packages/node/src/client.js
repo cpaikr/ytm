@@ -10,8 +10,8 @@ const methodSpecs = {
     inputJsonSchema: { type: "object", additionalProperties: false, properties: {
       baseDates: { type: "array", minItems: 1, maxItems: 2000, items: { type: "string" } },
       startDate: { type: "string" }, endDate: { type: "string" },
-      fallback: { type: "string", enum: ["exact", "previous-available"] },
-      lookbackDays: { type: "integer", minimum: 1, maximum: 31 }
+      fallback: { type: "string", enum: ["exact", FALLBACK_PREVIOUS_AVAILABLE] },
+      lookbackDays: { type: "integer", minimum: 1, maximum: MAX_LOOKBACK_DAYS }
     } },
     examples: [{ baseDates: ["2026-06-08"] }]
   },
@@ -244,11 +244,11 @@ function validateInput(operationName, input) {
     } else if (typeof input.startDate !== "string" || typeof input.endDate !== "string") {
       return fail("dates", "Supply baseDates or both startDate and endDate.");
     }
-    if (input.fallback !== undefined && !["exact", "previous-available"].includes(input.fallback)) {
-      return fail("fallback", "fallback must be exact or previous-available.");
+    if (input.fallback !== undefined && !["exact", FALLBACK_PREVIOUS_AVAILABLE].includes(input.fallback)) {
+      return fail("fallback", `fallback must be exact or ${FALLBACK_PREVIOUS_AVAILABLE}.`);
     }
-    if (input.lookbackDays !== undefined && (input.fallback !== "previous-available" || normalizeLookbackDays(input.lookbackDays) === null)) {
-      return fail("lookbackDays", "lookbackDays requires previous-available and an integer from 1 to 31.");
+    if (input.lookbackDays !== undefined && (input.fallback !== FALLBACK_PREVIOUS_AVAILABLE || normalizeLookbackDays(input.lookbackDays) === null)) {
+      return fail("lookbackDays", `lookbackDays requires ${FALLBACK_PREVIOUS_AVAILABLE} and an integer from 1 to ${MAX_LOOKBACK_DAYS}.`);
     }
     // Shape checks here; Rust owns calendar validation, expansion and ordering.
     return { ok: true, input: { ...input } };

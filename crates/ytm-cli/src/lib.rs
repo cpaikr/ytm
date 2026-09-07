@@ -1033,7 +1033,7 @@ fn unknown_command_output(command: &str) -> ProcessOutput {
     let error = json!({
         "code": "invalid_request",
         "reason": format!("Unknown command: {command}."),
-        "expected": ["matrix", "kinds", "upgrade"],
+        "expected": ["history", "matrix", "kinds", "upgrade"],
         "actual": command,
         "recoveryHint": "Run ytm --help and retry with a listed command.",
         "recoveryAction": "inspect_tool_help",

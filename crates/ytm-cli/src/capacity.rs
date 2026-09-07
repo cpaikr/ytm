@@ -3,7 +3,7 @@ use crate::{xlsx, OperationResult};
 use async_trait::async_trait;
 use std::{
     sync::{
-        atomic::{AtomicUsize, Ordering},
+        atomic::{AtomicBool, AtomicUsize, Ordering},
         Arc,
     },
     time::{Duration, Instant},
@@ -18,6 +18,7 @@ struct Synthetic {
     rows: Vec<u8>,
     sparse: bool,
     delay: Duration,
+    cancelled: Arc<AtomicBool>,
 }
 fn xml(rows: &str) -> Vec<u8> {
     format!(r#"<Root xmlns="http://www.nexacroplatform.com/platform/dataset"><Parameters><Parameter id="ErrorCode">0</Parameter></Parameters><Dataset id="output1"><Rows>{rows}</Rows></Dataset></Root>"#).into_bytes()
@@ -33,7 +34,10 @@ impl Transport for Synthetic {
         if !self.delay.is_zero() {
             tokio::select! {
                 _ = tokio::time::sleep(self.delay) => {},
-                _ = cancellation.cancelled() => return Err(YtmError::transport("cancelled synthetic delay",None,Some("AbortError"))),
+                _ = cancellation.cancelled() => {
+                    self.cancelled.store(true, Ordering::Relaxed);
+                    return Err(YtmError::transport("cancelled synthetic delay",None,Some("AbortError")));
+                },
             }
         }
         if request.operation == "initializeYtmMatrix" {
@@ -76,6 +80,7 @@ fn synthetic(rows: usize, sparse: bool, delay: Duration) -> Synthetic {
         rows: xml(&body),
         sparse,
         delay,
+        cancelled: Arc::new(AtomicBool::new(false)),
     }
 }
 #[tokio::test]
@@ -141,6 +146,7 @@ async fn measure() {
 async fn delayed_history_cancellation_latency() {
     let transport = synthetic(10, false, Duration::from_millis(200));
     let count = transport.count.clone();
+    let cancellation_observed = transport.cancelled.clone();
     let client = YtmService::with_transport(transport);
     let token = CancellationToken::new();
     let request = client.history_with_cancellation(
@@ -159,7 +165,7 @@ async fn delayed_history_cancellation_latency() {
     let (result, cancelled) = tokio::join!(request, cancel);
     assert!(result.is_err());
     assert_eq!(count.load(Ordering::Relaxed), 1);
-    assert!(cancelled.elapsed() < Duration::from_millis(100));
+    assert!(cancellation_observed.load(Ordering::Relaxed));
     println!(
         "CANCELLATION latency_us={}",
         cancelled.elapsed().as_micros()

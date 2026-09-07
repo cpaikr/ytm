@@ -72,8 +72,8 @@ Range expansion includes every calendar day and both endpoints. Do not guess
 holidays or silently exclude weekends. Repeated list entries coalesce after
 normalization. A one-date history request remains valid.
 
-The maximum is 2,000 unique requested dates per invocation, sufficient
-for several years of daily history. Validate range length before expansion and
+The maximum is 2,000 raw list entries before deduplication or 2,000 inclusive
+range days per invocation, sufficient for several years of daily history. Validate range length before expansion and
 bound raw list input before allocating a large normalized collection. Publish
 the limit through capabilities, help, SDK documentation, and consistent errors.
 This is a product resource bound, not a claim about provider quotas or historical

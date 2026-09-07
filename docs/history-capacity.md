@@ -56,6 +56,8 @@ A delayed transport test cancelled a 200 ms request after 30 ms with measured
 fixture request before SIGINT: fatal JSON on stdout, progress only on terminal
 stderr, no subsequent requests, unchanged destination and no staging residue.
 POSIX signal checks are skipped on Windows; portable export checks still run.
+The transport regression asserts that the cancellation branch ran and reports
+latency diagnostically, avoiding a scheduler-sensitive wall-clock pass threshold.
 
 Excel application QA used a two-date synthetic workbook with 15 available pairs
 and one unavailable pair. Excel opened all three visible sheets without repair;

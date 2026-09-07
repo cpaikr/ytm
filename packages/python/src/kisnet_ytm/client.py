@@ -95,8 +95,11 @@ def _history_shape(base_dates: list[str] | tuple[str, ...] | None, start_date: s
         raise InvalidParameterError("invalid_parameter", "Range bounds must be strings.")
     if type(fallback) is not str or (lookback_days is not None and type(lookback_days) is not int):
         raise InvalidParameterError("invalid_parameter", "Invalid fallback or lookback_days shape.")
-    return json.dumps(dict(baseDates=base_dates, startDate=start_date, endDate=end_date,
-                           fallback=fallback, lookbackDays=lookback_days))
+    if lookback_days is not None and not 1 <= lookback_days <= 31:
+        raise InvalidParameterError("invalid_parameter", "lookback_days must be between 1 and 31.",
+                                    {"parameter": "lookback_days"})
+    return json.dumps({"baseDates": base_dates, "startDate": start_date, "endDate": end_date,
+                       "fallback": fallback, "lookbackDays": lookback_days})
 
 
 def _history(value: dict[str, Any]) -> HistoryResult:

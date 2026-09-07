@@ -14,7 +14,7 @@ struct ProgressTransport {
     state: Mutex<State>,
 }
 struct State {
-    last: Instant,
+    last: Option<Instant>,
     dates: usize,
     pairs: usize,
 }
@@ -30,7 +30,7 @@ pub(super) fn service() -> Result<YtmService, YtmError> {
     Ok(YtmService::with_transport(ProgressTransport {
         inner,
         state: Mutex::new(State {
-            last: Instant::now() - Duration::from_secs(2),
+            last: None,
             dates: 0,
             pairs: 0,
         }),
@@ -50,9 +50,12 @@ impl Transport for ProgressTransport {
             } else {
                 state.pairs += 1;
             }
-            if state.last.elapsed() >= Duration::from_secs(2) {
+            if state
+                .last
+                .is_none_or(|last| last.elapsed() >= Duration::from_secs(2))
+            {
                 let _ = writeln!(std::io::stderr(), "YTM history: {} dated discoveries, {} date/category fetches started (including fallback).", state.dates, state.pairs);
-                state.last = Instant::now();
+                state.last = Some(Instant::now());
             }
         }
         self.inner.post(request, cancellation).await

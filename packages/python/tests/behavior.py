@@ -106,6 +106,16 @@ def child(scenario, mode):
                 result = await call("kinds", base_date="2026-06-08")
                 assert result.base_date == "2026-06-08" and result.kinds[0].code == "10"
                 assert len(requests()) == 1
+            elif scenario == "history_invalid":
+                for days in (0, -1, 32, 256, 10**5000):
+                    try:
+                        await call("history", base_dates=["20260608"],
+                                   fallback="previous-available", lookback_days=days)
+                        raise AssertionError("accepted invalid history lookback")
+                    except InvalidParameterError as error:
+                        assert error.code == "invalid_parameter"
+                        assert error.details["parameter"] == "lookback_days"
+                assert not requests()
             elif scenario == "invalid":
                 for kwargs in (
                     {"base_date": "2026-02-30"}, {"base_date": True}, {"kind": True},
@@ -234,6 +244,7 @@ def main():
     init = {"fixture": "init-success.xml"}
     full = [init] + [{"fixture": "matrix-success.xml"}] * 8
     scenarios |= {
+        "history_invalid": [],
         "history": full * 2,
         "history_empty": [{"fixture": "matrix-unavailable.xml"}] * 2,
         "history_fallback": full + [init] + [{"fixture": "matrix-unavailable.xml"}] * 8,
