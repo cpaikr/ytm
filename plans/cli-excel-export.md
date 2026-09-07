@@ -1,6 +1,6 @@
 # Add Excel export to the CLI
 
-Status: implemented locally — PR review and native CI pending.
+Status: implemented — PR #34 feedback and final CI in progress.
 
 ## Outcome
 
@@ -25,7 +25,11 @@ needed. Synthetic fixture coverage and local repository validation pass.
 A bounded review found an ordering bug in the judge's unused-golden check;
 it was moved after all scenarios and the complete validation passed afterward.
 Documentation and generated dependency notices describe the implementation.
-Native packaged-binary CI and PR feedback remain required before completion.
+The complete native CI suite passed on `77a941b` in
+[PR #34](https://github.com/cpaikr/ytm/pull/34), including all four CLI builds
+and installed consumers. Initial Codex and CodeRabbit reviews completed. Their
+root-help and delivery-status findings are corrected with CLI tests and the
+complete judge passing. Follow-up delivery and latest-head checks gate merge.
 
 ## Acceptance evidence
 
@@ -40,7 +44,7 @@ Native packaged-binary CI and PR feedback remain required before completion.
 | Compatibility | Full judge passes with existing JSON/CSV/TSV and SDK output preserved; existing golden changes are limited to intentional help/format descriptions. |
 | Repository gate | `PYO3_PYTHON=/opt/homebrew/bin/python3.13 bun run validate` passed on macOS ARM64, including formatting, Clippy, workspace/SDK checks, dependency/security policy, notices, and full judge. The host's default Python 3.9 is below the repository's supported range. |
 | Excel application QA | Synthetic fallback matrix opened in Microsoft Excel on macOS without a repair prompt; Korean text, blanks, `0.000` numeric display, frozen identity columns through the last tenor, populated filters, and provenance were visually checked. |
-| Standalone platforms | Exact candidate consumer now tests undated kinds export, ZIP signature/receipt, existing-file rejection, overwrite, Windows exclusive file locking, and non-root Unix permission denial. Linux x64/ARM64, macOS ARM64, and Windows x64 CI results are pending. |
+| Standalone platforms | Exact candidate consumer now tests undated kinds export, ZIP signature/receipt, existing-file rejection, overwrite, Windows exclusive file locking, and non-root Unix permission denial. Linux x64/ARM64, macOS ARM64, and Windows x64 archive and installed-consumer jobs passed on `77a941b`. |
 
 Full workbook semantics belong to the judge's independent Python standard-library
 inspector; exact-binary consumers use a small network-free export smoke. Neither
@@ -59,8 +63,8 @@ judge and compare semantic results, not nondeterministic archive bytes.
 
 ## Next action
 
-Open the connected PR to dev with the initial CodeRabbit review, complete
-native CI and feedback handling, then merge with commits preserved. Record
+Complete CI and feedback handling on [PR #34](https://github.com/cpaikr/ytm/pull/34),
+then merge to dev with commits preserved. Record
 terminal goal and project state directly on dev after the merge.
 
 ## Scope boundaries

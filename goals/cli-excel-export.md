@@ -33,8 +33,8 @@ CLI Excel export: matrix/kinds workbooks and safe standalone delivery.
 
 ### Next in-scope action
 
-Open the connected implementation PR targeting dev; finish native CI and review
-feedback, merge with commits preserved, then persist terminal planning metadata.
+Finish CI and review feedback on [PR #34](https://github.com/cpaikr/ytm/pull/34),
+merge with commits preserved, then persist terminal planning metadata.
 
 ### Evidence and blockers
 
@@ -47,8 +47,13 @@ feedback, merge with commits preserved, then persist terminal planning metadata.
 - Release publication and production provider enablement remain excluded.
 - Local implementation and required `bun run validate` passed with Python 3.13.
   Bounded code review completed; its judge-ordering finding was fixed and validated.
-  Synthetic workbooks opened in Excel without repair. Native candidate CI and
-  PR feedback remain pending; acceptance evidence is in the active plan.
+  Synthetic workbooks opened in Excel without repair. All four native CLI
+  candidates and installed consumers passed CI; acceptance evidence is in the
+  active plan.
 - Candidate: connected implementation PR and its CI/review/merge lifecycle.
   Classification: included; contract basis: CLI Excel export and PR delivery.
   Action: proceed against existing dev; do not publish a release.
+- PR #34 is open from `codex/cli-excel-export` to dev. Implementation commit
+  `77a941b` passed the complete native CI suite and both initial reviews completed.
+  Root help and delivery-status findings are corrected; CLI tests and the
+  complete judge pass. Follow-up delivery and latest-head checks gate merge.
