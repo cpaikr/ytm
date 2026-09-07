@@ -44,11 +44,13 @@ impl ExportError {
                     "recoveryHint": if self.code == "output_exists" {
                         "Choose a new output path or use --overwrite to replace an existing regular file."
                     } else if self.code == "export_error" {
-                        "Check that result values fit Excel worksheet and cell limits."
+                        "Request smaller date ranges and check Excel worksheet and cell limits."
+                    } else if self.code == "request_cancelled" {
+                        "Start a new request when ready; the destination was not replaced."
                     } else {
                         "Check the parent directory, permissions, available space, and whether another application has locked the file."
                     },
-                    "recoveryAction": "inspect_output", "recoverable": true, "retryable": false
+                    "recoveryAction": if self.code == "request_cancelled" { "start_new_request" } else { "inspect_output" }, "recoverable": true, "retryable": false
                 }}),
                 false,
             ),
@@ -97,28 +99,61 @@ pub(super) fn preflight(path: &str, overwrite: bool) -> Result<(), ExportError> 
     Ok(())
 }
 
+#[cfg(test)]
 pub(super) fn export(
     result: &OperationResult,
     path: &str,
     overwrite: bool,
+) -> Result<usize, ExportError> {
+    export_with_cancellation(result, path, overwrite, &ytm_core::CancellationToken::new())
+}
+
+pub(super) fn export_with_cancellation(
+    result: &OperationResult,
+    path: &str,
+    overwrite: bool,
+    cancellation: &ytm_core::CancellationToken,
 ) -> Result<usize, ExportError> {
     let (bytes, rows) = render(result).map_err(|error| ExportError {
         code: "export_error",
         path: path.into(),
         reason: format!("Cannot render Excel workbook: {error}"),
     })?;
-    publish(&bytes, path, overwrite)?;
+    if cancellation.is_cancelled() {
+        return Err(ExportError {
+            code: "request_cancelled",
+            path: path.into(),
+            reason: "Excel export cancelled before publication.".into(),
+        });
+    }
+    stage_and_publish_with_cancellation(
+        path,
+        overwrite,
+        |file| file.write_all(&bytes),
+        Some(cancellation),
+    )?;
     Ok(rows)
 }
 
+#[cfg(test)]
 fn publish(bytes: &[u8], path: &str, overwrite: bool) -> Result<(), ExportError> {
     stage_and_publish(path, overwrite, |file| file.write_all(bytes))
 }
 
+#[cfg(test)]
 fn stage_and_publish(
     path: &str,
     overwrite: bool,
     write: impl FnOnce(&mut fs::File) -> io::Result<()>,
+) -> Result<(), ExportError> {
+    stage_and_publish_with_cancellation(path, overwrite, write, None)
+}
+
+fn stage_and_publish_with_cancellation(
+    path: &str,
+    overwrite: bool,
+    write: impl FnOnce(&mut fs::File) -> io::Result<()>,
+    cancellation: Option<&ytm_core::CancellationToken>,
 ) -> Result<(), ExportError> {
     let mut staged = tempfile::Builder::new()
         .prefix(".ytm-")
@@ -132,6 +167,13 @@ fn stage_and_publish(
     // Close the data handle before publication, including on Windows. The owned
     // TempPath removes staging on ordinary failures. Never remove the destination.
     let staged = staged.into_temp_path();
+    if cancellation.is_some_and(|token| token.is_cancelled()) {
+        return Err(ExportError {
+            code: "request_cancelled",
+            path: path.into(),
+            reason: "Excel export cancelled before publication.".into(),
+        });
+    }
     let published = if overwrite {
         staged.persist(path)
     } else {
@@ -143,6 +185,7 @@ fn stage_and_publish(
 fn render(result: &OperationResult) -> Result<(Vec<u8>, usize), XlsxError> {
     let mut workbook = Workbook::new();
     let (name, data, frozen) = match result {
+        OperationResult::History(result) => ("History", table::history(result, false), 7),
         OperationResult::Matrix(result) => ("Matrix", table::matrix(result), 7),
         OperationResult::Kinds(result) => ("Kinds", table::kinds(result), 0),
     };
@@ -153,6 +196,14 @@ fn render(result: &OperationResult) -> Result<(Vec<u8>, usize), XlsxError> {
         frozen,
         false,
     )?;
+    if let OperationResult::History(result) = result {
+        write_table(
+            workbook.add_worksheet().set_name("Availability")?,
+            &table::availability(result),
+            3,
+            false,
+        )?;
+    }
     write_table(
         workbook.add_worksheet().set_name("Metadata")?,
         &metadata(result),
@@ -182,7 +233,11 @@ fn write_table(
         .set_background_color("#234E70")
         .set_text_wrap();
     let text = Format::new().set_text_wrap();
-    let number = Format::new().set_num_format(if metadata { "0" } else { "0.000" });
+    let number = Format::new().set_num_format(if metadata || frozen == 3 {
+        "0"
+    } else {
+        "0.000"
+    });
     for (column, title) in table.columns.iter().enumerate() {
         sheet.write_string_with_format(0, column as u16, title, &header)?;
         let width = if metadata {
@@ -191,6 +246,8 @@ fn write_table(
             } else {
                 80.0
             }
+        } else if frozen == 3 {
+            [19.0, 10.0, 22.0, 16.0, 14.0, 16.0, 12.0, 62.0, 23.0][column]
         } else if frozen == 0 {
             if column == 0 {
                 14.0
@@ -246,6 +303,7 @@ fn write_table(
 fn metadata(result: &OperationResult) -> Table {
     let mut rows = vec![entry("operation", result.operation().name())];
     let source = match result {
+        OperationResult::History(result) => return history_metadata(result),
         OperationResult::Kinds(result) => {
             rows.push(vec![
                 Cell::Text("baseDate".into()),
@@ -305,6 +363,81 @@ fn metadata(result: &OperationResult) -> Table {
     }
 }
 
+fn history_metadata(result: &ytm_core::HistoryResult) -> Table {
+    let mut rows = vec![
+        entry("operation", "history"),
+        entry("selection", "normalized requested dates"),
+        entry(
+            "mode",
+            match result.mode {
+                FallbackMode::Exact => "exact",
+                FallbackMode::PreviousAvailable => "previous-available",
+            },
+        ),
+        entry("lookbackDays", result.lookback_days.to_string()),
+        entry("availableCount", result.available_count.to_string()),
+        entry("unavailableCount", result.unavailable_count.to_string()),
+        entry("dataRowCount", result.data_row_count.to_string()),
+    ];
+    for (index, discovery) in result.discovery.iter().enumerate() {
+        rows.push(entry(
+            &format!("requestedDates[{index}]"),
+            discovery.requested_base_date.to_string(),
+        ));
+        rows.push(entry(
+            &format!("discovery[{index}].available"),
+            discovery.available.to_string(),
+        ));
+    }
+    for (index, pair) in result.entries.iter().enumerate() {
+        let (requested, kind, attempted) = match pair {
+            ytm_core::HistoryEntry::Available { matrix } => {
+                let start = rows.len();
+                source_rows(&mut rows, &matrix.source);
+                for row in &mut rows[start..] {
+                    if let Cell::Text(field) = &mut row[0] {
+                        *field = format!("entries[{index}].{field}");
+                    }
+                }
+                rows.push(entry(
+                    &format!("entries[{index}].baseDate"),
+                    matrix.base_date.to_string(),
+                ));
+                (
+                    matrix.requested_base_date,
+                    &matrix.kind,
+                    &matrix.date_resolution.attempted_dates,
+                )
+            }
+            ytm_core::HistoryEntry::Unavailable {
+                requested_base_date,
+                kind,
+                attempted_dates,
+                reason,
+                ..
+            } => {
+                rows.push(entry(&format!("entries[{index}].reason"), reason));
+                (*requested_base_date, kind, attempted_dates)
+            }
+        };
+        rows.push(entry(
+            &format!("entries[{index}].requestedBaseDate"),
+            requested.to_string(),
+        ));
+        rows.push(entry(&format!("entries[{index}].kindCode"), &kind.code));
+        for (offset, date) in attempted.iter().enumerate() {
+            rows.push(entry(
+                &format!("entries[{index}].attemptedDates[{offset}]"),
+                date.to_string(),
+            ));
+        }
+    }
+    Table {
+        columns: vec!["field".into(), "value".into()],
+        rows,
+    }
+}
+
 fn entry(field: &str, value: impl Into<String>) -> Vec<Cell> {
     vec![Cell::Text(field.into()), Cell::Text(value.into())]
 }
@@ -342,6 +475,55 @@ fn source_rows(rows: &mut Vec<Vec<Cell>>, source: &SourceMetadata) {
 mod tests {
     use super::*;
     use std::sync::{Arc, Barrier};
+
+    #[test]
+    fn cancellation_during_staging_preserves_destination() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("history.xlsx");
+        fs::write(&path, b"existing workbook").unwrap();
+        let token = ytm_core::CancellationToken::new();
+        let error = stage_and_publish_with_cancellation(
+            path.to_str().unwrap(),
+            true,
+            |file| {
+                file.write_all(b"complete staged workbook")?;
+                token.cancel();
+                Ok(())
+            },
+            Some(&token),
+        )
+        .unwrap_err();
+        assert_eq!(error.code, "request_cancelled");
+        assert_eq!(fs::read(path).unwrap(), b"existing workbook");
+        assert_eq!(fs::read_dir(directory.path()).unwrap().count(), 1);
+    }
+
+    #[test]
+    fn cancelled_history_never_publishes() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("history.xlsx");
+        fs::write(&path, b"existing workbook").unwrap();
+        let token = ytm_core::CancellationToken::new();
+        token.cancel();
+        let result = OperationResult::History(ytm_core::HistoryResult {
+            requested_dates: vec![],
+            discovery: vec![],
+            entries: vec![],
+            available_count: 0,
+            unavailable_count: 0,
+            data_row_count: 0,
+            mode: FallbackMode::Exact,
+            lookback_days: 0,
+        });
+        assert_eq!(
+            export_with_cancellation(&result, path.to_str().unwrap(), true, &token)
+                .unwrap_err()
+                .code,
+            "request_cancelled"
+        );
+        assert_eq!(fs::read(path).unwrap(), b"existing workbook");
+        assert_eq!(fs::read_dir(directory.path()).unwrap().count(), 1);
+    }
 
     #[test]
     fn no_clobber_handles_preflight_race_and_concurrent_publishers() {

@@ -16,6 +16,9 @@ def child(scenario, mode):
         RequestCancelledError, SourceDataUnavailableError, SourceFormatError,
         SourceProtocolError, SourceTransportError,
     )
+    history_lifecycle = scenario.startswith("history-")
+    if history_lifecycle:
+        scenario = scenario.removeprefix("history-")
     capture = Path(os.environ["YTM_JUDGE_CAPTURE_PATH"])
 
     def requests():
@@ -31,7 +34,10 @@ def child(scenario, mode):
 
     async def exercise():
         client = AsyncClient() if mode == "async" else Client()
-        async def call(operation="matrix", **kwargs):
+        async def call(operation=None, **kwargs):
+            operation = operation or ("history" if history_lifecycle else "matrix")
+            if operation == "history" and not kwargs:
+                kwargs = dict(base_dates=["20260608"])
             if operation == "matrix":
                 kwargs = dict(base_date="2026-06-08", kind=10) | kwargs
             value = getattr(client, operation)(**kwargs)
@@ -46,7 +52,35 @@ def child(scenario, mode):
             assert time.monotonic() - before < 2, "close did not promptly drain work"
 
         try:
-            if scenario in ("success", "missing", "fallback"):
+            if scenario in ("history", "history_empty", "history_fallback"):
+                from dataclasses import FrozenInstanceError
+                kwargs = dict(base_dates=["20260608", "2026.06.09", "2026-06-08"])
+                if scenario == "history_fallback":
+                    kwargs |= dict(fallback="previous-available", lookback_days=2)
+                result = await call("history", **kwargs)
+                assert result.requested_dates == ("2026-06-08", "2026-06-09")
+                assert len(result.entries) == 16
+                assert result.available_count == (0 if scenario == "history_empty" else 16)
+                assert result.unavailable_count == (16 if scenario == "history_empty" else 0)
+                assert isinstance(result.entries, tuple)
+                try:
+                    result.available_count = 0
+                    raise AssertionError("mutable history")
+                except FrozenInstanceError:
+                    pass
+                if scenario != "history_empty":
+                    assert result.entries[7].matrix.kind.code == "80"
+                    assert result.entries[0].matrix.rows
+                    try:
+                        result.entries[0].matrix.rows[0].raw["m3"] = "0"
+                        raise AssertionError("mutable nested history")
+                    except TypeError:
+                        pass
+                if scenario == "history_fallback":
+                    assert result.entries[8].matrix.base_date == "2026-06-08"
+                    assert result.entries[8].matrix.date_resolution.attempted_dates == ("2026-06-09", "2026-06-08")
+                assert len(requests()) == (2 if scenario == "history_empty" else 18)
+            elif scenario in ("success", "missing", "fallback"):
                 kwargs = {"fallback": "previous-available", "lookback_days": 2} if scenario == "fallback" else {}
                 result = await call(**kwargs)
                 assert result.kind.code == "10"
@@ -197,11 +231,21 @@ def main():
     for name in ("success", "missing", "fallback", "unavailable", "transport", "protocol", "format"):
         scenarios[name].insert(0, {"fixture": "init-success.xml"})
     scenarios["fallback"].insert(2, {"fixture": "init-success.xml"})
+    init = {"fixture": "init-success.xml"}
+    full = [init] + [{"fixture": "matrix-success.xml"}] * 8
+    scenarios |= {
+        "history": full * 2,
+        "history_empty": [{"fixture": "matrix-unavailable.xml"}] * 2,
+        "history_fallback": full + [init] + [{"fixture": "matrix-unavailable.xml"}] * 8,
+        "history-cancel": [{"waitForCancellation": True}],
+        "history-close_active": [{"waitForCancellation": True}],
+        "history-cancel_close": [{"waitForCancellation": True}],
+    }
     count = 0
     with tempfile.TemporaryDirectory(prefix="ytm-python-behavior-") as temporary:
         for mode in ("sync", "async"):
             for scenario, steps in scenarios.items():
-                if mode == "sync" and scenario in ("cancel", "cancel_close"):
+                if mode == "sync" and scenario in ("cancel", "cancel_close", "history-cancel", "history-cancel_close"):
                     continue
                 capture = Path(temporary) / f"{mode}-{scenario}.json"
                 env = os.environ | {

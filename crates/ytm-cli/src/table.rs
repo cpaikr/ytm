@@ -1,4 +1,4 @@
-use ytm_core::{KindsResult, MatrixResult};
+use ytm_core::{HistoryEntry, HistoryResult, KindsResult, MatrixResult, YtmService};
 
 pub(super) struct Table {
     pub columns: Vec<String>,
@@ -111,4 +111,129 @@ pub(super) fn format_cell(value: &Cell, delimiter: char) -> String {
         return format!("\"{}\"", text.replace('"', "\"\""));
     }
     text
+}
+
+pub(super) fn history(result: &HistoryResult, include_unavailable: bool) -> Table {
+    let mut columns: Vec<String> = [
+        "requestedBaseDate",
+        "baseDate",
+        "usedFallback",
+        "kindCode",
+        "kindName",
+        "pricingGroupCode",
+        "pricingGroupName",
+    ]
+    .into_iter()
+    .map(str::to_owned)
+    .collect();
+    columns.extend(YtmService::capabilities().tenors);
+    if include_unavailable {
+        columns.extend(["availability".into(), "reason".into()]);
+    }
+    let mut rows = Vec::with_capacity(
+        result.data_row_count
+            + if include_unavailable {
+                result.unavailable_count
+            } else {
+                0
+            },
+    );
+    for entry in &result.entries {
+        match entry {
+            HistoryEntry::Available { matrix: value } => {
+                for mut row in matrix(value).rows {
+                    if include_unavailable {
+                        row.extend([Cell::Text("available".into()), Cell::Empty]);
+                    }
+                    rows.push(row);
+                }
+            }
+            HistoryEntry::Unavailable {
+                requested_base_date,
+                kind,
+                reason,
+                ..
+            } if include_unavailable => {
+                let mut row = vec![
+                    Cell::Text(requested_base_date.to_string()),
+                    Cell::Empty,
+                    Cell::Empty,
+                    Cell::Text(kind.code.clone()),
+                    Cell::Text(kind.name.clone()),
+                    Cell::Empty,
+                    Cell::Empty,
+                ];
+                row.extend((0..columns.len() - 9).map(|_| Cell::Empty));
+                row.extend([Cell::Text("unavailable".into()), Cell::Text(reason.clone())]);
+                rows.push(row);
+            }
+            _ => {}
+        }
+    }
+    Table { columns, rows }
+}
+
+pub(super) fn availability(result: &HistoryResult) -> Table {
+    let columns = [
+        "requestedBaseDate",
+        "kindCode",
+        "kindName",
+        "availability",
+        "baseDate",
+        "usedFallback",
+        "rowCount",
+        "reason",
+        "discoveryAvailable",
+    ]
+    .into_iter()
+    .map(str::to_owned)
+    .collect();
+    let rows = result
+        .entries
+        .iter()
+        .map(|entry| {
+            let (requested, mut row) = match entry {
+                HistoryEntry::Available { matrix: value } => (
+                    value.requested_base_date,
+                    vec![
+                        Cell::Text(value.requested_base_date.to_string()),
+                        Cell::Text(value.kind.code.clone()),
+                        Cell::Text(value.kind.name.clone()),
+                        Cell::Text("available".into()),
+                        Cell::Text(value.base_date.to_string()),
+                        Cell::Boolean(value.date_resolution.used_fallback),
+                        Cell::Number(value.rows.len() as f64),
+                        Cell::Empty,
+                    ],
+                ),
+                HistoryEntry::Unavailable {
+                    requested_base_date,
+                    kind,
+                    reason,
+                    ..
+                } => (
+                    *requested_base_date,
+                    vec![
+                        Cell::Text(requested_base_date.to_string()),
+                        Cell::Text(kind.code.clone()),
+                        Cell::Text(kind.name.clone()),
+                        Cell::Text("unavailable".into()),
+                        Cell::Empty,
+                        Cell::Empty,
+                        Cell::Number(0.0),
+                        Cell::Text(reason.clone()),
+                    ],
+                ),
+            };
+            row.push(Cell::Boolean(
+                result
+                    .discovery
+                    .iter()
+                    .find(|d| d.requested_base_date == requested)
+                    .is_some_and(|d| d.available),
+            ));
+            row
+        })
+        .collect();
+    Table { columns, rows }
 }

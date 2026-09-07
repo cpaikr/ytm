@@ -5,6 +5,16 @@ const DEFAULT_LOOKBACK_DAYS = 10;
 const MAX_LOOKBACK_DAYS = 31;
 
 const methodSpecs = {
+  history: {
+    requiredInputKeys: [],
+    inputJsonSchema: { type: "object", additionalProperties: false, properties: {
+      baseDates: { type: "array", minItems: 1, maxItems: 2000, items: { type: "string" } },
+      startDate: { type: "string" }, endDate: { type: "string" },
+      fallback: { type: "string", enum: ["exact", "previous-available"] },
+      lookbackDays: { type: "integer", minimum: 1, maximum: 31 }
+    } },
+    examples: [{ baseDates: ["2026-06-08"] }]
+  },
   matrix: {
     requiredInputKeys: ["baseDate", "kind"],
     inputJsonSchema: {
@@ -89,6 +99,10 @@ export class YtmError extends Error {
 }
 
 export class YtmClient {
+  history(input, options = {}) {
+    return executeOperation("history", input, options);
+  }
+
   matrix(input, options = {}) {
     return executeOperation("matrix", input, options);
   }
@@ -96,6 +110,10 @@ export class YtmClient {
   kinds(input = {}, options = {}) {
     return executeOperation("kinds", input, options);
   }
+}
+
+export function validateHistoryInput(input) {
+  return validateInput("history", input);
 }
 
 export function validateMatrixInput(input) {
@@ -210,6 +228,30 @@ function validateInput(operationName, input) {
         })
       };
     }
+  }
+
+  if (operationName === "history") {
+    const fail = (parameter, reason) => ({ ok: false, error: validationError({
+      operationName, code: "invalid_parameter", parameter, reason,
+      recoveryHint: "Select a date list or inclusive range of at most 2000 dates."
+    }) });
+    const list = input.baseDates !== undefined;
+    if (list) {
+      if (input.startDate !== undefined || input.endDate !== undefined || !Array.isArray(input.baseDates) ||
+          input.baseDates.length < 1 || input.baseDates.length > 2000 || Array.from(input.baseDates).some(date => typeof date !== "string")) {
+        return fail("baseDates", "Select 1..=2000 date strings without range bounds.");
+      }
+    } else if (typeof input.startDate !== "string" || typeof input.endDate !== "string") {
+      return fail("dates", "Supply baseDates or both startDate and endDate.");
+    }
+    if (input.fallback !== undefined && !["exact", "previous-available"].includes(input.fallback)) {
+      return fail("fallback", "fallback must be exact or previous-available.");
+    }
+    if (input.lookbackDays !== undefined && (input.fallback !== "previous-available" || normalizeLookbackDays(input.lookbackDays) === null)) {
+      return fail("lookbackDays", "lookbackDays requires previous-available and an integer from 1 to 31.");
+    }
+    // Shape checks here; Rust owns calendar validation, expansion and ordering.
+    return { ok: true, input: { ...input } };
   }
 
   const normalized = { ...input };
@@ -564,6 +606,14 @@ function normalizeRecoveryAction(action, operationName) {
 }
 
 function isOperationResult(operationName, value) {
+  if (operationName === "history") {
+    return isRecord(value) && Array.isArray(value.requestedDates) && Array.isArray(value.discovery) &&
+      Array.isArray(value.entries) && value.entries.every(entry => isRecord(entry) &&
+        (entry.availability === "available" ? isOperationResult("matrix", entry.matrix) :
+          entry.availability === "unavailable" && typeof entry.requestedBaseDate === "string" &&
+          isRecord(entry.kind) && Array.isArray(entry.attemptedDates) && typeof entry.reason === "string")) &&
+      Number.isInteger(value.availableCount) && Number.isInteger(value.unavailableCount) && Number.isInteger(value.dataRowCount);
+  }
   if (!isRecord(value) || !isRecord(value.source)) return false;
   if (operationName === "kinds") {
     return (
@@ -620,7 +670,7 @@ function isStringRecord(value) {
 }
 
 function isMethodName(value) {
-  return value === "matrix" || value === "kinds";
+  return value === "matrix" || value === "kinds" || value === "history";
 }
 
 function isRecord(value) {

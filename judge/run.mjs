@@ -1,3 +1,4 @@
+import { historyScenarios } from "./history.mjs";
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { readFile, readdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
@@ -117,10 +118,12 @@ function runCli(name, args, fixture, assertResult, runnerOptions = {}) {
   }
 }
 
+historyScenarios({ runNode, runCli, check, fixture, initPath, matrixPath, invokeCli, cliBin, root, spawnSync, resolve, readFileSync, writeFileSync });
+
 runNode("client-surface", { action: "inspect" }, undefined, (result, label) => {
   check(result.ok, `${label} must inspect successfully`);
-  check(result.value?.exports?.join(",") === "YtmClient,YtmError,serializeYtmError,validateKindsInput,validateMatrixInput", `${label} must expose only the complete root SDK interface`);
-  check(result.value?.methods?.join(",") === "matrix,kinds", `${label} must expose only typed domain methods on the client`);
+  check(result.value?.exports?.join(",") === "YtmClient,YtmError,serializeYtmError,validateHistoryInput,validateKindsInput,validateMatrixInput", `${label} must expose only the complete root SDK interface`);
+  check(result.value?.methods?.join(",") === "history,matrix,kinds", `${label} must expose only typed domain methods on the client`);
 });
 
 for (const validation of [
@@ -1119,6 +1122,7 @@ function assertRequests(actual, expected, requestPayload, label) {
 }
 
 function expectedRequestCells(requestPayload, steps, index, label) {
+  if (steps[index].expectedCells) return steps[index].expectedCells;
   const input = requestPayload?.input || {};
   const attemptsThroughRequest = steps
     .slice(0, index + 1)

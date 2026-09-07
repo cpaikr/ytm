@@ -15,9 +15,11 @@ pub mod judge;
 
 pub use error::{ErrorDetails, YtmError};
 pub use model::{
-    BaseDate, Capabilities, DateResolution, FallbackMode, FallbackPolicy, InputError, Kind,
+    BaseDate, Capabilities, DateResolution, DateSelection, FallbackMode, FallbackPolicy,
+    HistoryDiscovery, HistoryEntry, HistoryInput, HistoryRequest, HistoryResult, InputError, Kind,
     KindSelector, KindsInput, KindsResult, LookbackDays, MatrixInput, MatrixResult, MatrixRow,
-    SourceMetadata, SourceParameters, SourceRequest, DEFAULT_LOOKBACK_DAYS, MAX_LOOKBACK_DAYS,
+    SourceMetadata, SourceParameters, SourceRequest, UnavailableStage, DEFAULT_LOOKBACK_DAYS,
+    MAX_HISTORY_DATES, MAX_LOOKBACK_DAYS,
 };
 pub use service::YtmService;
 pub use tokio_util::sync::CancellationToken;

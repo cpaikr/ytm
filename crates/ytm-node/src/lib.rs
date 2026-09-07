@@ -17,8 +17,9 @@ use napi_derive::napi;
 use serde::Deserialize;
 use serde_json::{json, Value};
 use ytm_core::{
-    BaseDate, CancellationToken, HttpTransport, KindSelector, KindsInput, LookbackDays,
-    MatrixInput, Transport, YtmError, YtmService, DEFAULT_LOOKBACK_DAYS, MAX_LOOKBACK_DAYS,
+    BaseDate, CancellationToken, HistoryInput, HistoryRequest, HttpTransport, KindSelector,
+    KindsInput, LookbackDays, MatrixInput, Transport, YtmError, YtmService, DEFAULT_LOOKBACK_DAYS,
+    MAX_LOOKBACK_DAYS,
 };
 
 #[derive(Deserialize)]
@@ -37,8 +38,26 @@ struct KindsInputDto {
 }
 
 enum Operation {
+    History(HistoryRequest),
     Matrix(Box<MatrixInputDto>),
     Kinds(KindsInputDto),
+}
+
+#[napi(js_name = "history")]
+fn history(
+    env: Env,
+    input_json: String,
+    signal: Option<AbortSignal>,
+    pre_aborted: Option<bool>,
+) -> napi::Result<AsyncBlock<String>> {
+    let input = serde_json::from_str(&input_json)
+        .map_err(|e| napi::Error::from_reason(format!("invalid history input JSON: {e}")))?;
+    task(
+        &env,
+        Operation::History(input),
+        signal,
+        pre_aborted.unwrap_or(false),
+    )
 }
 
 #[napi(js_name = "matrix")]
@@ -125,6 +144,10 @@ async fn execute(operation: Operation, cancellation: CancellationToken) -> Resul
     let transport = transport()?;
     let service = YtmService::with_shared_transport(transport);
     match operation {
+        Operation::History(input) => service
+            .history_with_cancellation(HistoryInput::try_from(input)?, cancellation)
+            .await
+            .and_then(|v| serde_json::to_value(v).map_err(|_| YtmError::defect())),
         Operation::Matrix(input) => service
             .matrix_with_cancellation(matrix_input(*input)?, cancellation)
             .await

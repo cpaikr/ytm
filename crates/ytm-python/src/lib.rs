@@ -197,11 +197,17 @@ struct Input {
 }
 
 enum Operation {
+    History(ytm_core::HistoryInput),
     Matrix(MatrixInput),
     Kinds(KindsInput),
 }
 
 fn parse(operation: &str, input: &str) -> Result<Operation, YtmError> {
+    if operation == "history" {
+        let request: ytm_core::HistoryRequest = serde_json::from_str(input)
+            .map_err(|_| invalid(operation, "input", "Invalid history input shape."))?;
+        return Ok(Operation::History(request.try_into()?));
+    }
     let input: Input = serde_json::from_str(input)
         .map_err(|_| invalid(operation, "input", "Invalid input shape."))?;
     let date: Option<BaseDate> = input
@@ -299,6 +305,8 @@ async fn run(inner: Arc<Inner>, operation: String, input: String) -> String {
         #[cfg(feature = "judge-fixtures")]
         if std::env::var_os("YTM_PYTHON_JUDGE_PANIC").is_some() { panic!("injected binding defect"); }
         let result = match operation {
+            Operation::History(input) => call.service.history_with_cancellation(input, call.cancellation.clone()).await
+                .and_then(|v| serde_json::to_value(v).map_err(|_| YtmError::defect())),
             Operation::Matrix(input) => call.service.matrix_with_cancellation(input, call.cancellation.clone()).await
                 .and_then(|v| serde_json::to_value(v).map_err(|_| YtmError::defect())),
             Operation::Kinds(input) => call.service.kinds_with_cancellation(input, call.cancellation.clone()).await
