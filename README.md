@@ -41,6 +41,19 @@ newer. Run `bun run cli -- --help` and
 [`docs/provider-qualification.md`](docs/provider-qualification.md) before
 treating source availability as production suitability.
 
+Save an Excel workbook from the checkout:
+
+```sh
+bun run cli -- matrix --base-date 2026-06-08 --kind 국채 --format xlsx --output yields.xlsx
+bun run cli -- kinds --format xlsx --output kinds.xlsx
+```
+
+The parent directory must exist. Existing files require `--overwrite`; stdout
+returns a JSON receipt after the workbook is saved. Workbooks preserve numeric
+yields, blank missing values, literal Korean labels, and a separate provenance
+sheet. Excel is not required to export. See the [Excel contract](SPEC.md#cli-excel-export)
+for file safety and typed-cell details.
+
 The standalone binary also exposes an exact, network-free identity:
 
 ```sh
@@ -57,7 +70,8 @@ adjacent executable receipt, and support explicit, recoverable managed upgrades
 through `ytm upgrade` and the read-only `ytm upgrade --check`. Locally built or
 modified executables are deliberately unmanaged. Native clean-consumer jobs
 install the exact aggregated candidate on every claimed target and verify its
-identity, receipt, integrity failures, and managed replacement. Transaction
+identity, receipt, integrity failures, managed replacement, and network-free
+Excel export with overwrite and platform-specific publication failures. Transaction
 faults are injected into bounded temporary installer copies to verify rollback
 and recoverable failure evidence without shipping a test failpoint. The
 disabled tagged-source workflow rebuilds and tests those exact candidates,

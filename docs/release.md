@@ -134,7 +134,14 @@ A downstream matrix downloads that exact aggregated candidate onto every
 declared native runner. Each clean consumer serves the untouched assets over
 loopback HTTP, runs the platform installer, compares the installed executable
 with the archived bytes, validates the exact receipt, and executes version and
-help identity. It also rejects failed downloads and corrupted archives without
+help identity. The installed executable also exports undated kinds to XLSX,
+checks its receipt and ZIP signature, rejects an existing destination, and
+replaces it only with `--overwrite`. Publication failure tests preserve prior
+bytes and check staging cleanup using an exclusively locked destination on
+Windows and an unwritable parent on non-root Unix consumers. These tests need
+no Excel installation and add no runtime dependency to the binary.
+
+The consumer also rejects failed downloads and corrupted archives without
 publishing state and exercises managed replacement with the unmodified
 candidate. Single-anchor temporary copies of that validated generated installer
 inject replacement, receipt, interruption, restoration, and Windows terminal

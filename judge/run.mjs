@@ -1,4 +1,4 @@
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { readFile, readdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { tmpdir } from "node:os";
@@ -91,17 +91,30 @@ function runNode(name, requestPayload, fixture, assertResult, runnerOptions = {}
   );
 }
 
-function runCli(name, args, fixture, assertResult) {
+function runCli(name, args, fixture, assertResult, runnerOptions = {}) {
   if (!surfaceEnabled("cli") || !scenarioEnabled(name)) return;
   scenariosRun += 1;
   recordFixtureUse(fixture);
-  const product = invokeCli(cliBin, args, fixture);
-  if (product.status === null) {
-    failures.push(`${name}: ${product.stderr || "standalone CLI did not start"}`);
-    return;
+  const cwd = runnerOptions.isolated ? mkdtempSync(resolve(tmpdir(), "ytm-judge-xlsx-")) : undefined;
+  const capturePath = cwd ? resolve(cwd, "requests.json") : undefined;
+  try {
+    runnerOptions.setup?.(cwd);
+    const invocationArgs = typeof args === "function" ? args(cwd) : args;
+    const product = invokeCli(cliBin, invocationArgs, fixture, { cwd, capturePath });
+    if (product.status === null) {
+      failures.push(`${name}: ${product.stderr || "standalone CLI did not start"}`);
+      return;
+    }
+    if (runnerOptions.golden !== false) assertGolden(name, "cli", product);
+    assertResult?.(product, `${name}: product`, cwd);
+    if (capturePath) {
+      const captures = existsSync(capturePath) ? JSON.parse(readFileSync(capturePath, "utf8")) : [];
+      assertRequests(captures, runnerOptions.productSteps ?? fixture?.steps ?? [], runnerOptions.requestPayload, name);
+      check(!readdirSync(cwd).some((name) => name.startsWith(".ytm-")), `${name} must clean owned staging files`);
+    }
+  } finally {
+    if (cwd) rmSync(cwd, { recursive: true, force: true });
   }
-  assertGolden(name, "cli", product);
-  assertResult?.(product, `${name}: product`);
 }
 
 runNode("client-surface", { action: "inspect" }, undefined, (result, label) => {
@@ -654,6 +667,156 @@ if (surfaceEnabled("node") && scenarioEnabled("package-surface")) {
   check(product.files.every(({ exists }) => exists), "package-surface: product must ship all required public files");
 }
 
+// The executable and the independent OOXML reader jointly verify the file contract.
+function xlsxScenario(name, dataArgs, fixtureConfig, input, options = {}) {
+  const output = options.path || "수익률 export.XLSX";
+  runCli(`cli-xlsx:${name}`, (cwd) => [...dataArgs, "--format=xlsx", `--output=${options.absolute ? resolve(cwd, output) : output}`, ...(options.overwrite ? ["--overwrite"] : []), ...(options.pretty ? ["--pretty", "--pretty"] : [])], fixtureConfig, (result, label, cwd) => {
+    check(result.status === 0 && result.stderr === "", `${label} must save a workbook`);
+    const receipt = JSON.parse(result.stdout);
+    const reference = invokeCli(cliBin, [...dataArgs, "--format=json"], fixtureConfig);
+    check(reference.status === 0, `${label} reference JSON must succeed`);
+    const expected = JSON.parse(reference.stdout).result;
+    const expectedPath = options.absolute ? resolve(cwd, output) : output;
+    check(isDeepStrictEqual(receipt, { ok: true, operation: dataArgs[0], result: { format: "xlsx", path: expectedPath, rowCount: (expected.rows || expected.kinds).length } }), `${label} receipt must identify the published table`);
+    const inspected = spawnSync(process.env.PYO3_PYTHON || "python3", [resolve(root, "judge/inspect-xlsx.py"), resolve(cwd, output)], { encoding: "utf8", timeout: childTimeoutMilliseconds, maxBuffer: 4 * 1024 * 1024 });
+    check(inspected.status === 0, `${label} independent workbook inspection failed: ${inspected.stderr}`);
+    if (inspected.status !== 0) return;
+    assertWorkbook(JSON.parse(inspected.stdout), expected, dataArgs[0], label);
+    options.assertExpected?.(expected, label);
+  }, {
+    isolated: true, golden: !options.absolute,
+    requestPayload: { operation: dataArgs[0], input },
+    setup: options.overwrite ? (cwd) => writeFileSync(resolve(cwd, output), "previous workbook") : undefined
+  });
+}
+
+function columnName(index) {
+  let name = "";
+  for (let value = index + 1; value > 0; value = Math.floor((value - 1) / 26)) name = String.fromCharCode(65 + (value - 1) % 26) + name;
+  return name;
+}
+
+function assertWorkbook(workbook, expected, operation, label) {
+  const matrix = operation === "matrix";
+  check(workbook.sheets.map(({ name }) => name).join(",") === `${matrix ? "Matrix" : "Kinds"},Metadata`, `${label} must contain exactly the two ordered visible worksheets`);
+  const [data, metadata] = workbook.sheets;
+  if (!data || !metadata) return;
+  const columns = matrix ? ["requestedBaseDate", "baseDate", "usedFallback", "kindCode", "kindName", "pricingGroupCode", "pricingGroupName", ...expected.tenors] : ["code", "name"];
+  const rows = matrix ? expected.rows.map((row) => [expected.requestedBaseDate, expected.baseDate, expected.dateResolution.usedFallback, expected.kind.code, expected.kind.name, row.pricingGroupCode, row.pricingGroupName, ...expected.tenors.map((tenor) => row.yields[tenor] ?? null)]) : expected.kinds.map(({ code, name }) => [code, name]);
+  function cell(sheet, address, value, numericFormat) {
+    const actual = sheet.cells[address];
+    const type = value === null ? "empty" : typeof value === "string" ? "text" : typeof value;
+    check(actual?.type === type && isDeepStrictEqual(actual?.value, value), `${label} ${sheet.name}!${address} must preserve typed ${JSON.stringify(value)}`);
+    if (type === "number" && numericFormat) check(actual.format === numericFormat, `${label} ${address} must use ${numericFormat}, without scaling`);
+    if (type === "text") check(actual?.wrap, `${label} ${address} must wrap text`);
+  }
+  columns.forEach((value, index) => {
+    const address = `${columnName(index)}1`;
+    cell(data, address, value);
+    check(data.cells[address]?.bold && data.cells[address]?.fill, `${label} header must be bold and contrasting`);
+  });
+  rows.forEach((row, rowIndex) => row.forEach((value, columnIndex) => cell(data, `${columnName(columnIndex)}${rowIndex + 2}`, value, "0.000")));
+  check(Object.keys(data.cells).length === columns.length * (rows.length + 1), `${label} must preserve the exact table shape`);
+  check(data.filter === `A1:${columnName(columns.length - 1)}${rows.length + 1}`, `${label} filter must cover the table`);
+  check(data.pane?.state === "frozen" && data.pane.ySplit === "1" && Number(data.pane.xSplit || 0) === (matrix ? 7 : 0), `${label} must freeze header and matrix identities`);
+  check(data.columns.length > 0 && data.columns.every((column) => Number(column.width) >= 10), `${label} must set readable widths`);
+  cell(metadata, "A1", "field"); cell(metadata, "B1", "value");
+  const expectedMetadata = { operation, baseDate: expected.baseDate ?? null };
+  if (matrix) {
+    Object.assign(expectedMetadata, {
+      requestedBaseDate: expected.requestedBaseDate, "kind.code": expected.kind.code, "kind.name": expected.kind.name,
+      "dateResolution.mode": expected.dateResolution.mode,
+      "dateResolution.resolvedBaseDate": expected.dateResolution.resolvedBaseDate,
+      "dateResolution.usedFallback": expected.dateResolution.usedFallback,
+      "dateResolution.lookbackDays": expected.dateResolution.lookbackDays
+    });
+    expected.dateResolution.attemptedDates.forEach((date, index) => { expectedMetadata[`dateResolution.attemptedDates[${index}]`] = date; });
+  }
+  for (const key of ["pageUrl", "endpoint", "method", "inspectedWorkflow", "note"]) {
+    if (expected.source[key] != null) expectedMetadata[`source.${key}`] = expected.source[key];
+  }
+  if (expected.source.request) {
+    for (const key of ["format", "inDatasets", "outDatasets"]) expectedMetadata[`source.request.${key}`] = expected.source.request[key];
+    for (const key of ["calBaseDt", "cboYtmSort"]) expectedMetadata[`source.request.parameters.${key}`] = expected.source.request.parameters[key];
+  }
+  const actualMetadata = {};
+  for (let index = 2; metadata.cells[`A${index}`]; index += 1) {
+    const key = metadata.cells[`A${index}`].value;
+    check(!Object.hasOwn(actualMetadata, key), `${label} duplicate provenance key ${key}`);
+    actualMetadata[key] = metadata.cells[`B${index}`]?.value;
+    cell(metadata, `B${index}`, expectedMetadata[key]);
+  }
+  check(isDeepStrictEqual(actualMetadata, expectedMetadata), `${label} must preserve the complete explicit provenance mapping`);
+  check(metadata.pane?.ySplit === "1" && metadata.pane.state === "frozen", `${label} metadata must freeze its header`);
+}
+
+xlsxScenario("matrix", ["matrix", "--base-date", request.baseDate, "--kind", request.kind.name], successFixture, { baseDate: request.baseDate, kind: request.kind.name });
+xlsxScenario("date-before-excel-epoch", ["matrix", "--base-date=0000-01-01", "--kind=10"], successFixture, { baseDate: "0000-01-01", kind: "10" });
+xlsxScenario("kinds-undated", ["kinds"], fixture([]), {}, { pretty: true });
+xlsxScenario("kinds-dated", ["kinds", "--base-date", request.baseDate], fixture([{ path: initPath, fixture: evidence.fixtures.init }]), { baseDate: request.baseDate });
+xlsxScenario("overwrite-absolute", ["kinds"], fixture([]), {}, { absolute: true, overwrite: true });
+xlsxScenario("overwrite-relative", ["kinds"], fixture([]), {}, { overwrite: true });
+xlsxScenario("fallback", ["matrix", "--base-date", "2026-06-07", "--kind", "국채", "--fallback", "previous-available", "--lookback-days", "2"], fixture([
+  { path: initPath, fixture: evidence.fixtures.init }, { path: matrixPath, fixture: evidence.fixtures.unavailable },
+  { path: initPath, fixture: evidence.fixtures.init }, { path: matrixPath, fixture: evidence.fixtures.unavailable },
+  { path: initPath, fixture: evidence.fixtures.init }, { path: matrixPath, fixture: evidence.fixtures.matrix }
+]), { baseDate: "2026-06-07", kind: "국채", fallback: "previous-available", lookbackDays: 2 });
+xlsxScenario("padded-decimals", ["matrix", "--base-date", request.baseDate, "--kind=80"], fixture([
+  { path: initPath, fixture: evidence.fixtures.init }, { path: matrixPath, fixture: evidence.fixtures.privateBondPadded }
+]), { baseDate: request.baseDate, kind: "80" });
+for (const [index, name] of ["=1+1", "+literal", "-literal", "@literal", "https://example.com"].entries()) {
+  xlsxScenario(`literal-${index}`, ["matrix", "--base-date", request.baseDate, "--kind", request.kind.name], fixture([
+    { path: initPath, fixture: evidence.fixtures.init },
+    { path: matrixPath, fixture: evidence.fixtures.matrix, replace: [
+      ['<Col id="pricingGroupName">국고채권</Col>', `<Col id="pricingGroupName">${name}</Col>`],
+      ['<Col id="pricingGroupCode">100</Col>', '<Col id="pricingGroupCode">0010</Col>'],
+      ['<Col id="m3">2.500</Col>', '<Col id="m3">-4.455</Col>'],
+      ['<Col id="m6">2.510</Col>', '<Col id="m6">0.000</Col>']
+    ] }
+  ]), { baseDate: request.baseDate, kind: request.kind.name }, { assertExpected(expected, label) {
+    const row = expected.rows[0];
+    check(row.pricingGroupName === name && row.pricingGroupCode === "0010" && row.yields["3M"] === -4.455 && row.yields["6M"] === 0, `${label} fixture must exercise literal text, leading zeros, negative and zero yields`);
+  } });
+}
+xlsxScenario("missing-values", ["matrix", "--base-date", request.baseDate, "--kind=10"], fixture([
+  { path: initPath, fixture: evidence.fixtures.init }, { path: matrixPath, fixture: evidence.fixtures.missingValues }
+]), { baseDate: request.baseDate, kind: "10" }, { assertExpected(expected, label) {
+  check(expected.rows.some((row) => Object.values(row.yields).includes(null)), `${label} fixture must include blank yields`);
+} });
+for (const [index, options] of [
+  ["--format=xlsx"], ["--format=xlsx", "--output="], ["--format=xlsx", "--output=-"],
+  ["--format=xlsx", "--output=out.csv"], ["--output=out.xlsx"], ["--format=tsv", "--overwrite"],
+  ["--format=xlsx", "--output=out.xlsx", "--overwrite", "--overwrite"],
+  ["--format=xlsx", "--output=out.xlsx", "--output=other.xlsx"],
+  ["--help", "--format=xlsx", "--output=bad"], ["--help", "--format=json", "--overwrite"]
+].entries()) {
+  runCli(`cli-xlsx:invalid-${index}`, ["kinds", ...options], fixture([]), (result, label, cwd) => {
+    check(result.status === 2 && JSON.parse(result.stdout).error?.operationName === "kinds", `${label} must return structured invocation failure`);
+    check(readdirSync(cwd).length === 0, `${label} must not touch the filesystem`);
+  }, { isolated: true });
+}
+runCli("cli-xlsx:help", ["matrix", "--help", "--format=xlsx"], fixture([]), (result, label, cwd) => {
+  check(result.status === 0 && result.stderr === "" && readdirSync(cwd).length === 0, `${label} must not require execution inputs or create files`);
+}, { isolated: true });
+for (const kind of ["existing", "directory", "missing-parent", ...(process.platform === "win32" ? [] : ["symlink"])]) {
+  const path = kind === "missing-parent" ? "absent/out.xlsx" : "out.xlsx";
+  runCli(`cli-xlsx:preflight-${kind}`, ["matrix", "--base-date", request.baseDate, "--kind=10", "--format=xlsx", `--output=${path}`, ...(kind === "existing" ? [] : ["--overwrite"])], fixture([]), (result, label, cwd) => {
+    const error = JSON.parse(result.stdout).error;
+    check(result.status === 1 && result.stderr === "" && error?.parameter === "output" && error.code === (kind === "existing" ? "output_exists" : "output_write_error"), `${label} must identify destination failure`);
+    if (kind === "existing" || kind === "symlink") check(readFileSync(resolve(cwd, "out.xlsx"), "utf8") === "old bytes", `${label} must preserve existing bytes`);
+  }, { isolated: true, setup(cwd) {
+    if (kind === "existing") writeFileSync(resolve(cwd, path), "old bytes");
+    if (kind === "directory") mkdirSync(resolve(cwd, path));
+    if (kind === "symlink") { writeFileSync(resolve(cwd, "target"), "old bytes"); symlinkSync("target", resolve(cwd, path)); }
+  } });
+}
+runCli("cli-xlsx:source-failure", ["matrix", "--base-date", request.baseDate, "--kind=10", "--format=xlsx", "--output=out.xlsx", "--overwrite"], fixture([
+  { path: initPath, fixture: evidence.fixtures.init }, { path: matrixPath, fixture: evidence.fixtures.invalidNumeric }
+]), (result, label, cwd) => {
+  check(result.status === 1 && result.stderr === "" && JSON.parse(result.stdout).error?.code === evidence.expectations.formatError, `${label} must preserve source error`);
+  check(readFileSync(resolve(cwd, "out.xlsx"), "utf8") === "old bytes", `${label} must preserve old workbook on source failure`);
+}, { isolated: true, requestPayload: { operation: "matrix", input: { baseDate: request.baseDate, kind: "10" } }, setup: (cwd) => writeFileSync(resolve(cwd, "out.xlsx"), "old bytes") });
+
 if (!selectedScenario && !selectedSurface) {
   const declaredFixtureFiles = [...new Set(Object.values(evidence.fixtures))];
   const unexercisedFixtures = declaredFixtureFiles.filter((file) => !exercisedFixtureFiles.has(file));
@@ -665,6 +828,7 @@ if (!selectedScenario && !selectedSurface && !options.updateGolden) {
   const unobserved = Object.keys(goldenResults).filter((key) => !observedGoldenKeys.has(key));
   check(unobserved.length === 0, `approved golden results contain stale scenarios: ${unobserved.join(", ")}`);
 }
+
 if (selectedScenario && scenariosRun === 0) failures.push(`Unknown or unavailable scenario filter: ${selectedScenario}`);
 if (failures.length > 0) {
   console.error(failures.map((failure) => `- ${failure}`).join("\n"));
@@ -922,11 +1086,12 @@ function invokeNode(packageRoot, requestPayload, fixtureConfig) {
   }
 }
 
-function invokeCli(binary, args, fixtureConfig) {
+function invokeCli(binary, args, fixtureConfig, { cwd, capturePath } = {}) {
   if (!existsSync(binary)) return { status: null, signal: null, stdout: "", stderr: `standalone CLI does not exist: ${binary}` };
   const result = spawnSync(binary, args, {
     encoding: "utf8",
-    env: childEnvironment(fixtureConfig ? { YTM_JUDGE_FIXTURE: JSON.stringify(fixtureConfig) } : {}),
+    cwd,
+    env: childEnvironment({ ...(fixtureConfig ? { YTM_JUDGE_FIXTURE: JSON.stringify(fixtureConfig) } : {}), ...(capturePath ? { YTM_JUDGE_CAPTURE_PATH: capturePath } : {}) }),
     maxBuffer: 4 * 1024 * 1024,
     timeout: childTimeoutMilliseconds
   });

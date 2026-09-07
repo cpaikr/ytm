@@ -56,8 +56,9 @@ executable entry, and the repository supports only the Rust `ytm` CLI.
   [Python API contract](packages/python/SPEC.md) owns lifecycle details.
 - [`crates/ytm-cli`](crates/ytm-cli) — workspace crate producing the standalone `ytm`
   binary. It owns Clap parsing, command help, terminal diagnostics, tabular
-  rendering, and exit statuses while delegating product behavior to
-  `ytm-core`.
+  rendering, Excel workbook publication, and exit statuses while delegating
+  product behavior to `ytm-core`. Private `table.rs` owns the shared typed
+  projection; `xlsx.rs` owns workbook layout, provenance, and file publication.
 - [`packages/native`](packages/native) — generated platform package manifests;
   Node release builds add exactly one Node-API artifact to each package.
 - [`judge`](judge) — process-isolated public-product conformance scenarios for
@@ -83,7 +84,17 @@ For a Rust SDK call or Rust CLI command:
    status or datasets, then returns typed domain data and source metadata.
 4. Only confirmed unavailable data can advance previous-date fallback.
 5. The SDK returns typed results or tagged errors; the CLI projects them to the
-   approved JSON, CSV, TSV, diagnostic, and exit-code contract.
+   approved JSON, CSV, TSV, XLSX receipt, diagnostic, and exit-code contract.
+
+For XLSX, the CLI validates the destination before source execution, projects
+one typed result through the same table model as CSV/TSV, and renders the
+workbook in memory with `rust_xlsxwriter`. `tempfile` stages and syncs the
+complete bytes in the destination directory and closes the file handle before
+no-clobber publication or explicit replacement. Success reaches textual stdout
+only after publication. Export failures stay in the CLI and cannot re-enter
+core fallback. These dependencies belong only to the CLI; sibling SDKs retain
+their existing result and dependency boundaries. The [Excel contract](SPEC.md#cli-excel-export)
+owns cells, provenance, and observable failure guarantees.
 
 For a Node SDK call:
 
@@ -177,7 +188,9 @@ generated installer before delegating archive download and replacement. Unix
 uses an installer transaction with fixed recovery links; Windows uses an
 out-of-process PowerShell helper so the running mapped executable can exit
 before replacement. Matrix, kinds, help, and version execution do not depend on
-release infrastructure.
+release infrastructure. Exact installed candidates also exercise network-free
+XLSX export, overwrite policy, and native publication failures; the judge owns
+full workbook semantics through an independent test-only ZIP/XML inspector.
 
 The disabled tagged-source workflow rebuilds these outputs from one immutable
 approved tag and attaches them only after exact native-consumer validation. No

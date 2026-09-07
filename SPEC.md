@@ -82,8 +82,8 @@ The standalone Rust CLI is:
 
 ```sh
 ytm --version
-ytm matrix --base-date <기준일> --kind <종류> [--fallback previous-available] [--lookback-days <days>] [--format json|csv|tsv] [--pretty]
-ytm kinds [--base-date <기준일>] [--format json|csv|tsv] [--pretty]
+ytm matrix --base-date <기준일> --kind <종류> [--fallback previous-available] [--lookback-days <days>] [--format json|csv|tsv|xlsx] [--output <file.xlsx>] [--overwrite] [--pretty]
+ytm kinds [--base-date <기준일>] [--format json|csv|tsv|xlsx] [--output <file.xlsx>] [--overwrite] [--pretty]
 ytm upgrade [--check]
 ```
 
@@ -147,12 +147,98 @@ Subsequent checks fail closed and report the exact
 executable, receipt, and recovery paths instead of guessing or deleting
 evidence.
 
-JSON is the default. A successful data command prints exactly one
-`{ "ok": true, "operation", "result" }` object. Execution and invalid-invocation
+JSON is the default. A successful JSON data command prints exactly one
+`{ "ok": true, "operation", "result" }` object; CSV and TSV print a header and data rows. Execution and invalid-invocation
 failures print exactly one structured JSON object and exit nonzero; data needed
 to consume the result is never available only on stderr. The help lookup
 `ytm help <unknown>` is the sole plain-text failure: it reports the unknown help
 topic and exits with status 2.
+
+### CLI Excel export
+
+Both data commands accept `--format xlsx --output <file.xlsx>`. The path must
+have a nonempty filename ending in `.xlsx` (case-insensitive); relative and
+absolute Unicode paths, spaces, and Korean filenames are supported. The CLI
+does not infer a format, append an extension, create parent directories, or
+write binary stdout. `--output -` is invalid. `--output` and `--overwrite` are
+XLSX-only; duplicate value options and repeated `--overwrite` are invalid.
+Invalid combinations and path syntax fail before filesystem or network I/O
+with the existing structured invocation error and exit 2. Command help
+validates supplied options without requiring execution inputs or a destination.
+
+The parent directory must exist. Preflight rejects an existing destination
+without `--overwrite`, and rejects directories, symlinks, and special files
+with either policy, before source requests. A successful export publishes a
+complete workbook and then returns exit 0, empty stderr, and one JSON receipt:
+
+```json
+{"ok":true,"operation":"matrix","result":{"format":"xlsx","path":"yields.xlsx","rowCount":1}}
+```
+
+`path` echoes the supplied path; `rowCount` excludes headers and metadata.
+`--pretty` affects only the success receipt. Failures remain compact JSON.
+If stdout fails after publication, the command exits 1 and retains the saved
+workbook.
+
+Workbooks have exactly two visible worksheets: `Matrix` or `Kinds`, followed
+by `Metadata`. `Matrix` has these columns in order, followed by `result.tenors`
+in source order:
+
+```text
+requestedBaseDate, baseDate, usedFallback, kindCode, kindName,
+pricingGroupCode, pricingGroupName
+```
+
+Rows preserve source order. `Kinds` has `code` and `name`. Yields are numeric
+cells with no rounding or scaling and display format `0.000`; missing yields
+are blank. Codes preserve leading zeros as text. Dates are ISO text, including
+years outside Excel serial-date support. Fallback flags are boolean. Names,
+headers, dates, URLs, and codes are literal Unicode text, with no formula or
+hyperlink inference or CSV apostrophe prefix. Data sheets have bold contrasting
+headers, autofilters, wrapped names, and readable column widths. `Matrix`
+freezes the header and seven identity columns; `Kinds` freezes the header.
+Empty tables retain headers and metadata with `rowCount: 0` without changing
+the core's unavailable-data semantics.
+
+`Metadata` has `field` and `value` columns, a frozen header, wrapped values,
+and this explicit provenance mapping:
+
+- Common: `operation`, `baseDate`, `source.pageUrl`, and available
+  `source.endpoint`, `source.method`, `source.inspectedWorkflow`, `source.note`.
+- Matrix: `requestedBaseDate`, `kind.code`, `kind.name`,
+  `dateResolution.mode`, `dateResolution.resolvedBaseDate`,
+  `dateResolution.usedFallback`, `dateResolution.lookbackDays`, and ordered
+  `dateResolution.attemptedDates[0]`, `[1]`, etc.
+- When a source request exists: `source.request.format`,
+  `source.request.inDatasets`, `source.request.outDatasets`,
+  `source.request.parameters.calBaseDt`, and
+  `source.request.parameters.cboYtmSort`.
+
+Absent optional source fields are omitted; undated kinds has a blank
+`baseDate`. Metadata booleans and lookback counts retain native types; all
+other values are literal text. Raw XML, raw columns, and source `yieldText`
+remain available through existing interfaces rather than additional sheets.
+
+The CLI renders a complete buffer, writes and syncs a private staging file
+beside the destination, closes its handle, and publishes it. Without
+`--overwrite`, publication cannot replace an entry created after preflight.
+With overwrite, publication replaces the directory entry without first
+deleting it or writing through a raced destination symlink. Concurrent
+explicit overwrites accept the last successful publication. Normal failures
+preserve existing bytes and clean owned staging files; cleanup errors do not
+mask the primary failure. The final path never exposes a partial workbook.
+Power-loss durability and recovery from uncatchable termination are not
+promised; termination can leave private staging files.
+
+Export runtime failures exit 1 with empty stderr and the existing error
+envelope. CLI-owned codes are `output_exists`, `output_write_error`, and
+`export_error`; each identifies the operation and `output`, with a reason and
+recovery information. Worksheet limits and oversized cells fail explicitly
+without truncation. Source failures retain their existing codes and leave the
+workbook untouched. Rendering and publication failures never trigger source
+fallback or another request. SDK APIs and dependencies are unaffected.
+
+### SDK results and errors
 
 `@sjunepark/ytm` is the Rust-backed Node SDK. Its root export provides
 `YtmClient` with typed `matrix()` and `kinds()` methods. The operation-specific
