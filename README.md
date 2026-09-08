@@ -56,6 +56,14 @@ pair independently. Unavailable pairs remain visible in the result. Its Excel
 workbook contains `History`, `Availability`, and `Metadata` sheets. See the
 [history contract](SPEC.md#multi-date-history) for ordering, limits, and errors.
 
+Use the default exact-date mode for historical exports and statistical analysis.
+Enable `--fallback previous-available` only when you want the latest available
+observation on or before each requested date, within the configured lookback.
+Fallback can repeat one observation across several requested dates—for example,
+Friday's data for Saturday and Sunday—so those rows are not new observations.
+In CSV/TSV and Excel, `requestedBaseDate` identifies the requested date,
+`baseDate` identifies the observation date, and `usedFallback` marks a substitution.
+
 The parent directory must exist. Existing files require `--overwrite`; stdout
 returns a JSON receipt after the workbook is saved. Workbooks preserve numeric
 yields, blank missing values, literal Korean labels, and a separate provenance
