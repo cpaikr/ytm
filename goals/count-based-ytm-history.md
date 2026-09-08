@@ -1,6 +1,6 @@
 # Goal: Count-based YTM history
 
-Status: active
+Status: complete
 Planning scope: ROADMAP.md
 
 ## Original contract
@@ -24,17 +24,18 @@ _None._
 ## Execution status
 
 ### Completed included results
-Implementation, targeted SDK/export/lifecycle checks, independent local review, and affected documentation. The full repository gate passed. PR delivery remains pending.
+All included retrieval, Rust/Node/Python integration, CLI exports, regression coverage, documentation, validation, review, and PR delivery results are complete.
 
 ### Current in-scope result
-Count-based retrieval, SDK/CLI integration, exports, regression coverage, and documentation.
+None — goal complete.
 
 ### Next in-scope action
-Push the validated narrow review fixes on PR #38, resolve feedback, merge, and persist terminal metadata.
+None — goal complete.
 
 ### Evidence and blockers
-- Clean starting commit: `5386c0a`. The project current release work remains outside this goal.
-- Temporary non-production integration branch `codex/count-history-integration` starts at current main; remote push succeeded. Existing dev predates current implementation. Final metadata will be pushed directly to this integration branch after the slice PR merges.
-- Candidate: count history implementation and required validation/review. Classification: included and necessary under the named result and completion criteria. No release preparation or publication.
-- Candidate: create the single implementation PR. Classification: included delivery under the contract. Local gate and independent review passed; only PR feedback, merge, and terminal metadata remain.
-- PR #38 (`0ee948c`) passed full cross-platform CI and Codex review. CodeRabbit completed with two narrow findings: derive recovery limit text from the shared constant and correct the synchronous count-history close fixture. Both are fixed and within included validation/implementation scope. Targeted core tests, pinned Clippy, and installed Python wheel/typing checks passed; the follow-up diff was reviewed locally.
+- [PR #38](https://github.com/cpaikr/ytm/pull/38) merged into `codex/count-history-integration` on 2026-09-08 as `0bf5b3b`, preserving implementation `0ee948c` and feedback fix `368eb5b`.
+- Full local `PYO3_PYTHON=/opt/homebrew/bin/python3.13 bun run validate` passed. Targeted follow-up core tests, pinned Clippy, installed Python wheels and strict typing passed.
+- [Final cross-platform CI](https://github.com/cpaikr/ytm/actions/runs/34229652522) passed on `368eb5b`, covering the repository gate and declared CLI, Node, and Python consumers.
+- Independent local review completed. Codex completed with no findings; both CodeRabbit findings were fixed, replied to, and resolved. The final feedback surface had no active reviews or unresolved actionable findings. Generic docstring coverage and the bot's failed Clippy invocation were explicitly dispositioned in the PR.
+- [Capacity evidence](../docs/history-capacity.md#count-selection) records deterministic 180-date success and 2,000-candidate null-only exhaustion; no live-provider throughput claim is made.
+- Terminal metadata is committed directly on the preflighted non-production integration branch. No release preparation, publication, or next queued project item was started. No blockers remain.

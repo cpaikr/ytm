@@ -2,7 +2,7 @@
 
 ## Current
 
-- [Count-based YTM history](plans/count-based-ytm-history.md)
+_None._
 
 ## Plans
 
