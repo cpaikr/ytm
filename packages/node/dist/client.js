@@ -9,6 +9,7 @@ const methodSpecs = {
     requiredInputKeys: [],
     inputJsonSchema: { type: "object", additionalProperties: false, properties: {
       baseDates: { type: "array", minItems: 1, maxItems: 2000, items: { type: "string" } },
+      count: { type: "integer", minimum: 1, maximum: 2000 },
       startDate: { type: "string" }, endDate: { type: "string" },
       fallback: { type: "string", enum: ["exact", FALLBACK_PREVIOUS_AVAILABLE] },
       lookbackDays: { type: "integer", minimum: 1, maximum: MAX_LOOKBACK_DAYS }
@@ -79,6 +80,7 @@ const ERROR_NAMES = {
   missing_parameter: "ValidationError",
   invalid_parameter: "ValidationError",
   unknown_parameter: "ValidationError",
+  insufficient_history: "InsufficientHistoryError",
   source_data_unavailable: "SourceDataUnavailableError",
   source_transport_error: "SourceTransportError",
   source_protocol_error: "SourceProtocolError",
@@ -233,10 +235,16 @@ function validateInput(operationName, input) {
   if (operationName === "history") {
     const fail = (parameter, reason) => ({ ok: false, error: validationError({
       operationName, code: "invalid_parameter", parameter, reason,
-      recoveryHint: "Select a date list or inclusive range of at most 2000 dates."
+      recoveryHint: "Select a date list, inclusive range, or count with endDate (maximum 2000)."
     }) });
     const list = input.baseDates !== undefined;
-    if (list) {
+    if (input.count !== undefined) {
+      if (!Number.isInteger(input.count) || input.count < 1 || input.count > 2000 || list ||
+          typeof input.endDate !== "string" || (input.startDate !== undefined && typeof input.startDate !== "string") ||
+          (input.fallback !== undefined && input.fallback !== "exact") || input.lookbackDays !== undefined) {
+        return fail("count", "Count requires an integer 1..=2000, endDate, optional startDate, and exact fallback without lookbackDays or baseDates.");
+      }
+    } else if (list) {
       if (input.startDate !== undefined || input.endDate !== undefined || !Array.isArray(input.baseDates) ||
           input.baseDates.length < 1 || input.baseDates.length > 2000 || Array.from(input.baseDates).some(date => typeof date !== "string")) {
         return fail("baseDates", "Select 1..=2000 date strings without range bounds.");
@@ -597,6 +605,7 @@ function normalizeRecoveryAction(action, operationName) {
   if ([
     "use_previous_available_fallback",
     "try_nearby_business_day",
+    "adjust_history_selection",
     "start_new_request",
     "update_package"
   ].includes(kind)) {
@@ -612,6 +621,12 @@ function isOperationResult(operationName, value) {
         (entry.availability === "available" ? isOperationResult("matrix", entry.matrix) :
           entry.availability === "unavailable" && typeof entry.requestedBaseDate === "string" &&
           isRecord(entry.kind) && Array.isArray(entry.attemptedDates) && typeof entry.reason === "string")) &&
+      (value.countSelection === undefined || (isRecord(value.countSelection) &&
+        Number.isInteger(value.countSelection.count) && value.countSelection.count >= 1 && value.countSelection.count <= 2000 &&
+        value.requestedDates.length === value.countSelection.count && typeof value.countSelection.endDate === "string" &&
+        (value.countSelection.startDate === undefined || typeof value.countSelection.startDate === "string") &&
+        typeof value.countSelection.scannedStartDate === "string" && Number.isInteger(value.countSelection.scannedDateCount) &&
+        value.countSelection.scannedDateCount >= value.countSelection.count && value.countSelection.scannedDateCount <= 2000)) &&
       Number.isInteger(value.availableCount) && Number.isInteger(value.unavailableCount) && Number.isInteger(value.dataRowCount);
   }
   if (!isRecord(value) || !isRecord(value.source)) return false;

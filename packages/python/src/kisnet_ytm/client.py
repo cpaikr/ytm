@@ -6,17 +6,18 @@ from typing import Any, Self
 
 from . import _native
 from .errors import (
-    ClientStateError, DefectError, InvalidParameterError, RequestCancelledError,
+    InsufficientHistoryError, ClientStateError, DefectError, InvalidParameterError, RequestCancelledError,
     SourceDataUnavailableError, SourceFormatError, SourceProtocolError,
     SourceTransportError, YtmError,
 )
 from .models import (
-    AvailableHistoryEntry, UnavailableHistoryEntry, HistoryDiscovery, HistoryResult,
+    CountSelectionMetadata, AvailableHistoryEntry, UnavailableHistoryEntry, HistoryDiscovery, HistoryResult,
     DateResolution, Fallback, Kind, KindsResult, MatrixResult, MatrixRow,
     SourceMetadata, SourceParameters, SourceRequest,
 )
 
 _ERRORS: dict[str, type[YtmError]] = {
+    "insufficient_history": InsufficientHistoryError,
     "invalid_parameter": InvalidParameterError,
     "source_transport_error": SourceTransportError,
     "source_protocol_error": SourceProtocolError,
@@ -86,7 +87,9 @@ def _matrix(value: dict[str, Any]) -> MatrixResult:
 
 
 def _history_shape(base_dates: list[str] | tuple[str, ...] | None, start_date: str | None,
-                   end_date: str | None, fallback: Fallback, lookback_days: int | None) -> str:
+                   end_date: str | None, fallback: Fallback, lookback_days: int | None, count: int | None) -> str:
+    if count is not None and (type(count) is not int or not 1 <= count <= 2000):
+        raise InvalidParameterError("invalid_parameter", "count must be an integer between 1 and 2000.")
     if base_dates is not None and (type(base_dates) not in (list, tuple) or
                                   not 1 <= len(base_dates) <= 2000 or
                                   any(type(date) is not str for date in base_dates)):
@@ -98,7 +101,7 @@ def _history_shape(base_dates: list[str] | tuple[str, ...] | None, start_date: s
     if lookback_days is not None and not 1 <= lookback_days <= 31:
         raise InvalidParameterError("invalid_parameter", "lookback_days must be between 1 and 31.",
                                     {"parameter": "lookback_days"})
-    return json.dumps({"baseDates": base_dates, "startDate": start_date, "endDate": end_date,
+    return json.dumps({"count": count, "baseDates": base_dates, "startDate": start_date, "endDate": end_date,
                        "fallback": fallback, "lookbackDays": lookback_days})
 
 
@@ -108,10 +111,14 @@ def _history(value: dict[str, Any]) -> HistoryResult:
                                                  tuple(entry["attemptedDates"]), entry["mode"],
                                                  entry["lookbackDays"], entry["reason"], entry["stage"])
                     for entry in value["entries"])
+    selection = value.get("countSelection")
+    metadata = None if selection is None else CountSelectionMetadata(
+        selection["count"], selection["endDate"], selection.get("startDate"),
+        selection["scannedStartDate"], selection["scannedDateCount"])
     return HistoryResult(tuple(value["requestedDates"]),
                          tuple(HistoryDiscovery(item["requestedBaseDate"], item["available"]) for item in value["discovery"]),
                          entries, value["availableCount"], value["unavailableCount"], value["dataRowCount"],
-                         value["mode"], value["lookbackDays"])
+                         value["mode"], value["lookbackDays"], metadata)
 
 
 class Client:
@@ -126,9 +133,9 @@ class Client:
 
     def history(self, *, base_dates: list[str] | tuple[str, ...] | None = None,
                       start_date: str | None = None, end_date: str | None = None,
-                      fallback: Fallback = "exact", lookback_days: int | None = None) -> HistoryResult:
-        """Retrieve all categories for a date list or inclusive range (up to 2000 days)."""
-        return _history(self._run("history", _history_shape(base_dates, start_date, end_date, fallback, lookback_days)))
+                      fallback: Fallback = "exact", lookback_days: int | None = None, count: int | None = None) -> HistoryResult:
+        """Retrieve all categories for fixed dates or the latest count of numeric dates."""
+        return _history(self._run("history", _history_shape(base_dates, start_date, end_date, fallback, lookback_days, count)))
 
     def kinds(self, *, base_date: str | None = None) -> KindsResult:
         """Return the canonical catalog, or merge source discovery for a date."""
@@ -176,9 +183,9 @@ class AsyncClient:
 
     async def history(self, *, base_dates: list[str] | tuple[str, ...] | None = None,
                       start_date: str | None = None, end_date: str | None = None,
-                      fallback: Fallback = "exact", lookback_days: int | None = None) -> HistoryResult:
-        """Retrieve all categories for a date list or inclusive range (up to 2000 days)."""
-        return _history(await self._run("history", _history_shape(base_dates, start_date, end_date, fallback, lookback_days)))
+                      fallback: Fallback = "exact", lookback_days: int | None = None, count: int | None = None) -> HistoryResult:
+        """Retrieve all categories for fixed dates or the latest count of numeric dates."""
+        return _history(await self._run("history", _history_shape(base_dates, start_date, end_date, fallback, lookback_days, count)))
 
     async def kinds(self, *, base_date: str | None = None) -> KindsResult:
         """Return the canonical catalog, or merge source discovery for a date."""

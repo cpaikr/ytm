@@ -26,3 +26,16 @@ function rows(result: HistoryResult): number {
   }, 0);
 }
 void rows;
+
+const counted: HistoryInput = { count: 180, endDate: "2026-09-08", fallback: "exact" };
+void counted;
+// @ts-expect-error Count never allows previous-available substitution.
+const countFallback: HistoryInput = { count: 1, endDate: "20260608", fallback: "previous-available" };
+// @ts-expect-error Count requires an end date.
+const countMissingEnd: HistoryInput = { count: 1 };
+// @ts-expect-error Count cannot be combined with a date list.
+const countList: HistoryInput = { count: 1, endDate: "20260608", baseDates: dates };
+void countFallback; void countMissingEnd; void countList;
+
+const shortfallCode: import("../../packages/node/dist/client.js").ErrorCode = "insufficient_history";
+void shortfallCode;

@@ -29,6 +29,10 @@ async fn main() -> Result<(), YtmError> {
     assert_eq!(result.unavailable_count, 24);
     assert_eq!(result.data_row_count, 0);
     assert!(result.discovery.iter().all(|d| !d.available));
+    let selection = ytm_core::CountSelection::new(1, "2024-02-29".parse().unwrap(), Some("2024-02-29".parse().unwrap())).unwrap();
+    let error = client.history(ytm_core::HistoryInput::new(selection)).await.unwrap_err();
+    assert_eq!(error.details.code, "insufficient_history");
+    assert_eq!(error.details.actual.unwrap()["scannedDateCount"], 1);
     Ok(())
 }
 

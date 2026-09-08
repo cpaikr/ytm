@@ -420,6 +420,72 @@
     "stdout": "{\"ok\":false,\"error\":{\"ok\":false,\"code\":\"source_format_error\",\"operationName\":\"matrix\",\"reason\":\"KIS-NET matrix column m3 contains an invalid numeric value.\",\"expected\":\"A valid KIS-NET Nexacro response matching the documented YTM Matrix schema\",\"recoveryHint\":\"The KIS-NET source format may have changed; update this client before retrying.\",\"recoveryAction\":\"inspect_tool_help\",\"recoverable\":false,\"retryable\":false,\"attemptedDates\":[\"2026-06-08\"],\"lookbackDays\":0}}\n",
     "stderr": ""
   },
+  "cli:history:count-gaps": {
+    "status": 0,
+    "signal": null,
+    "stdout": "{\"ok\":true,\"operation\":\"history\",\"result\":{\"countSelection\":{\"count\":2,\"endDate\":\"2026-06-12\",\"startDate\":\"2026-06-07\",\"scannedStartDate\":\"2026-06-08\",\"scannedDateCount\":5},\"requestedDates\":[\"2026-06-08\",\"2026-06-11\"],\"discovery\":[{\"requestedBaseDate\":\"2026-06-08\",\"available\":true},{\"requestedBaseDate\":\"2026-06-11\",\"available\":true}],\"entries\":[{\"availability\":\"available\",\"matrix\":{\"baseDate\":\"2026-06-08\",\"kind\":{\"code\":\"10\",\"name\":\"국채\"},\"tenors\":[\"3M\",\"6M\",\"9M\",\"1Y\",\"1.5Y\",\"2Y\",\"2.5Y\",\"3Y\",\"5Y\",\"7Y\",\"10Y\",\"15Y\",\"20Y\",\"30Y\",\"50Y\"],\"rows\":[{\"groupName\":\"국채\",\"pricingGroupCode\":\"001\",\"pricingGroupName\":\"=한글\",\"yields\":{\"3M\":-0.5,\"6M\":0,\"9M\":null,\"1Y\":null,\"1.5Y\":null,\"2Y\":null,\"2.5Y\":null,\"3Y\":null,\"5Y\":null,\"7Y\":null,\"10Y\":null,\"15Y\":null,\"20Y\":null,\"30Y\":null,\"50Y\":null},\"yieldText\":{\"3M\":\"-0.500\",\"6M\":\"0.000\",\"9M\":\"-\",\"1Y\":\"-\",\"1.5Y\":\"-\",\"2Y\":\"-\",\"2.5Y\":\"-\",\"3Y\":\"-\",\"5Y\":\"-\",\"7Y\":\"-\",\"10Y\":\"-\",\"15Y\":\"-\",\"20Y\":\"-\",\"30Y\":\"-\",\"50Y\":\"-\"},\"raw\":{\"pricingGroupCode\":\"001\",\"pricingGroupName\":\"=한글\",\"m3\":\"-0.500\",\"m6\":\"0.000\",\"m9\":\"-\",\"y1\":\"-\",\"y15a\":\"-\",\"y2\":\"-\",\"y25\":\"-\",\"y3\":\"-\",\"y5\":\"-\",\"y7\":\"-\",\"y10\":\"-\",\"y15\":\"-\",\"y20\":\"-\",\"y30\":\"-\",\"y50\":\"-\"}}],\"source\":{\"pageUrl\":\"https://kis-net.kr/kisnet_mobile/index.html\",\"endpoint\":\"https://kis-net.kr/rateInfo/ytmMatrixMobileList.do\",\"method\":\"POST\",\"request\":{\"format\":\"Nexacro XML PlatformData\",\"inDatasets\":\"ds_search=ds_search gds_tranInfo=gds_tranInfo\",\"outDatasets\":\"ds_list=output1\",\"parameters\":{\"calBaseDt\":\"20260608\",\"cboYtmSort\":\"10\"}},\"inspectedWorkflow\":\"The mobile page posts ds_search to /rateInfo/ytmMatrixMobileList.do when 검색 is clicked.\"},\"requestedBaseDate\":\"2026-06-08\",\"dateResolution\":{\"mode\":\"exact\",\"requestedBaseDate\":\"2026-06-08\",\"resolvedBaseDate\":\"2026-06-08\",\"usedFallback\":false,\"attemptedDates\":[\"2026-06-08\"],\"lookbackDays\":0}}},{\"availability\":\"available\",\"matrix\":{\"baseDate\":\"2026-06-08\",\"kind\":{\"code\":\"20\",\"name\":\"지방채\"},\"tenors\":[\"3M\",\"6M\",\"9M\",\"1Y\",\"1.5Y\",\"2Y\",\"2.5Y\",\"3Y\",\"5Y\",\"7Y\",\"10Y\",\"15Y\",\"20Y\",\"30Y\",\"50Y\"],\"rows\":[{\"groupName\":\"지방채\",\"pricingGroupCode\":\"001\",\"pricingGroupName\":\"=한글\",\"yields\":{\"3M\":-0.5,\"6M\":0,\"9M\":null,\"1Y\":null,\"1.5Y\":null,\"2Y\":null,\"2.5Y\":null,\"3Y\":null,\"5Y\":null,\"7Y\":null,\"10Y\":null,\"15Y\":null,\"20Y\":null,\"30Y\":null,\"50Y\":null},\"yieldText\":{\"3M\":\"-0.500\",\"6M\":\"0.000\",\"9M\":\"-\",\"1Y\":\"-\",\"1.5Y\":\"-\",\"2Y\":\"-\",\"2.5Y\":\"-\",\"3Y\":\"-\",\"5Y\":\"-\",\"7Y\":\"-\",\"10Y\":\"-\",\"15Y\":\"-\",\"20Y\":\"-\",\"30Y\":\"-\",\"50Y\":\"-\"},\"raw\":{\"pricingGroupCode\":\"001\",\"pricingGroupName\":\"=한글\",\"m3\":\"-0.500\",\"m6\":\"0.000\",\"m9\":\"-\",\"y1\":\"-\",\"y15a\":\"-\",\"y2\":\"-\",\"y25\":\"-\",\"y3\":\"-\",\"y5\":\"-\",\"y7\":\"-\",\"y10\":\"-\",\"y15\":\"-\",\"y20\":\"-\",\"y30\":\"-\",\"y50\":\"-\"}}],\"source\":{\"pageUrl\":\"https://kis-net.kr/kisnet_mobile/index.html\",\"endpoint\":\"https://kis-net.kr/rateInfo/ytmMatrixMobileList.do\",\"method\":\"POST\",\"request\":{\"format\":\"Nexacro XML PlatformData\",\"inDatasets\":\"ds_search=ds_search gds_tranInfo=gds_tranInfo\",\"outDatasets\":\"ds_list=output1\",\"parameters\":{\"calBaseDt\":\"20260608\",\"cboYtmSort\":\"20\"}},\"inspectedWorkflow\":\"The mobile page posts ds_search to /rateInfo/ytmMatrixMobileList.do when 검색 is clicked.\"},\"requestedBaseDate\":\"2026-06-08\",\"dateResolution\":{\"mode\":\"exact\",\"requestedBaseDate\":\"2026-06-08\",\"resolvedBaseDate\":\"2026-06-08\",\"usedFallback\":false,\"attemptedDates\":[\"2026-06-08\"],\"lookbackDays\":0}}},{\"availability\":\"available\",\"matrix\":{\"baseDate\":\"2026-06-08\",\"kind\":{\"code\":\"30\",\"name\":\"특수채\"},\"tenors\":[\"3M\",\"6M\",\"9M\",\"1Y\",\"1.5Y\",\"2Y\",\"2.5Y\",\"3Y\",\"5Y\",\"7Y\",\"10Y\",\"15Y\",\"20Y\",\"30Y\",\"50Y\"],\"rows\":[{\"groupName\":\"특수채\",\"pricingGroupCode\":\"001\",\"pricingGroupName\":\"=한글\",\"yields\":{\"3M\":-0.5,\"6M\":0,\"9M\":null,\"1Y\":null,\"1.5Y\":null,\"2Y\":null,\"2.5Y\":null,\"3Y\":null,\"5Y\":null,\"7Y\":null,\"10Y\":null,\"15Y\":null,\"20Y\":null,\"30Y\":null,\"50Y\":null},\"yieldText\":{\"3M\":\"-0.500\",\"6M\":\"0.000\",\"9M\":\"-\",\"1Y\":\"-\",\"1.5Y\":\"-\",\"2Y\":\"-\",\"2.5Y\":\"-\",\"3Y\":\"-\",\"5Y\":\"-\",\"7Y\":\"-\",\"10Y\":\"-\",\"15Y\":\"-\",\"20Y\":\"-\",\"30Y\":\"-\",\"50Y\":\"-\"},\"raw\":{\"pricingGroupCode\":\"001\",\"pricingGroupName\":\"=한글\",\"m3\":\"-0.500\",\"m6\":\"0.000\",\"m9\":\"-\",\"y1\":\"-\",\"y15a\":\"-\",\"y2\":\"-\",\"y25\":\"-\",\"y3\":\"-\",\"y5\":\"-\",\"y7\":\"-\",\"y10\":\"-\",\"y15\":\"-\",\"y20\":\"-\",\"y30\":\"-\",\"y50\":\"-\"}}],\"source\":{\"pageUrl\":\"https://kis-net.kr/kisnet_mobile/index.html\",\"endpoint\":\"https://kis-net.kr/rateInfo/ytmMatrixMobileList.do\",\"method\":\"POST\",\"request\":{\"format\":\"Nexacro XML PlatformData\",\"inDatasets\":\"ds_search=ds_search gds_tranInfo=gds_tranInfo\",\"outDatasets\":\"ds_list=output1\",\"parameters\":{\"calBaseDt\":\"20260608\",\"cboYtmSort\":\"30\"}},\"inspectedWorkflow\":\"The mobile page posts ds_search to /rateInfo/ytmMatrixMobileList.do when 검색 is clicked.\"},\"requestedBaseDate\":\"2026-06-08\",\"dateResolution\":{\"mode\":\"exact\",\"requestedBaseDate\":\"2026-06-08\",\"resolvedBaseDate\":\"2026-06-08\",\"usedFallback\":false,\"attemptedDates\":[\"2026-06-08\"],\"lookbackDays\":0}}},{\"availability\":\"available\",\"matrix\":{\"baseDate\":\"2026-06-08\",\"kind\":{\"code\":\"40\",\"name\":\"통안채\"},\"tenors\":[\"3M\",\"6M\",\"9M\",\"1Y\",\"1.5Y\",\"2Y\",\"2.5Y\",\"3Y\",\"5Y\",\"7Y\",\"10Y\",\"15Y\",\"20Y\",\"30Y\",\"50Y\"],\"rows\":[{\"groupName\":\"통안채\",\"pricingGroupCode\":\"001\",\"pricingGroupName\":\"=한글\",\"yields\":{\"3M\":-0.5,\"6M\":0,\"9M\":null,\"1Y\":null,\"1.5Y\":null,\"2Y\":null,\"2.5Y\":null,\"3Y\":null,\"5Y\":null,\"7Y\":null,\"10Y\":null,\"15Y\":null,\"20Y\":null,\"30Y\":null,\"50Y\":null},\"yieldText\":{\"3M\":\"-0.500\",\"6M\":\"0.000\",\"9M\":\"-\",\"1Y\":\"-\",\"1.5Y\":\"-\",\"2Y\":\"-\",\"2.5Y\":\"-\",\"3Y\":\"-\",\"5Y\":\"-\",\"7Y\":\"-\",\"10Y\":\"-\",\"15Y\":\"-\",\"20Y\":\"-\",\"30Y\":\"-\",\"50Y\":\"-\"},\"raw\":{\"pricingGroupCode\":\"001\",\"pricingGroupName\":\"=한글\",\"m3\":\"-0.500\",\"m6\":\"0.000\",\"m9\":\"-\",\"y1\":\"-\",\"y15a\":\"-\",\"y2\":\"-\",\"y25\":\"-\",\"y3\":\"-\",\"y5\":\"-\",\"y7\":\"-\",\"y10\":\"-\",\"y15\":\"-\",\"y20\":\"-\",\"y30\":\"-\",\"y50\":\"-\"}}],\"source\":{\"pageUrl\":\"https://kis-net.kr/kisnet_mobile/index.html\",\"endpoint\":\"https://kis-net.kr/rateInfo/ytmMatrixMobileList.do\",\"method\":\"POST\",\"request\":{\"format\":\"Nexacro XML PlatformData\",\"inDatasets\":\"ds_search=ds_search gds_tranInfo=gds_tranInfo\",\"outDatasets\":\"ds_list=output1\",\"parameters\":{\"calBaseDt\":\"20260608\",\"cboYtmSort\":\"40\"}},\"inspectedWorkflow\":\"The mobile page posts ds_search to /rateInfo/ytmMatrixMobileList.do when 검색 is clicked.\"},\"requestedBaseDate\":\"2026-06-08\",\"dateResolution\":{\"mode\":\"exact\",\"requestedBaseDate\":\"2026-06-08\",\"resolvedBaseDate\":\"2026-06-08\",\"usedFallback\":false,\"attemptedDates\":[\"2026-06-08\"],\"lookbackDays\":0}}},{\"availability\":\"available\",\"matrix\":{\"baseDate\":\"2026-06-08\",\"kind\":{\"code\":\"50\",\"name\":\"은행채\"},\"tenors\":[\"3M\",\"6M\",\"9M\",\"1Y\",\"1.5Y\",\"2Y\",\"2.5Y\",\"3Y\",\"5Y\",\"7Y\",\"10Y\",\"15Y\",\"20Y\",\"30Y\",\"50Y\"],\"rows\":[{\"groupName\":\"은행채\",\"pricingGroupCode\":\"001\",\"pricingGroupName\":\"=한글\",\"yields\":{\"3M\":-0.5,\"6M\":0,\"9M\":null,\"1Y\":null,\"1.5Y\":null,\"2Y\":null,\"2.5Y\":null,\"3Y\":null,\"5Y\":null,\"7Y\":null,\"10Y\":null,\"15Y\":null,\"20Y\":null,\"30Y\":null,\"50Y\":null},\"yieldText\":{\"3M\":\"-0.500\",\"6M\":\"0.000\",\"9M\":\"-\",\"1Y\":\"-\",\"1.5Y\":\"-\",\"2Y\":\"-\",\"2.5Y\":\"-\",\"3Y\":\"-\",\"5Y\":\"-\",\"7Y\":\"-\",\"10Y\":\"-\",\"15Y\":\"-\",\"20Y\":\"-\",\"30Y\":\"-\",\"50Y\":\"-\"},\"raw\":{\"pricingGroupCode\":\"001\",\"pricingGroupName\":\"=한글\",\"m3\":\"-0.500\",\"m6\":\"0.000\",\"m9\":\"-\",\"y1\":\"-\",\"y15a\":\"-\",\"y2\":\"-\",\"y25\":\"-\",\"y3\":\"-\",\"y5\":\"-\",\"y7\":\"-\",\"y10\":\"-\",\"y15\":\"-\",\"y20\":\"-\",\"y30\":\"-\",\"y50\":\"-\"}}],\"source\":{\"pageUrl\":\"https://kis-net.kr/kisnet_mobile/index.html\",\"endpoint\":\"https://kis-net.kr/rateInfo/ytmMatrixMobileList.do\",\"method\":\"POST\",\"request\":{\"format\":\"Nexacro XML PlatformData\",\"inDatasets\":\"ds_search=ds_search gds_tranInfo=gds_tranInfo\",\"outDatasets\":\"ds_list=output1\",\"parameters\":{\"calBaseDt\":\"20260608\",\"cboYtmSort\":\"50\"}},\"inspectedWorkflow\":\"The mobile page posts ds_search to /rateInfo/ytmMatrixMobileList.do when 검색 is clicked.\"},\"requestedBaseDate\":\"2026-06-08\",\"dateResolution\":{\"mode\":\"exact\",\"requestedBaseDate\":\"2026-06-08\",\"resolvedBaseDate\":\"2026-06-08\",\"usedFallback\":false,\"attemptedDates\":[\"2026-06-08\"],\"lookbackDays\":0}}},{\"availability\":\"available\",\"matrix\":{\"baseDate\":\"2026-06-08\",\"kind\":{\"code\":\"60\",\"name\":\"기타금융채\"},\"tenors\":[\"3M\",\"6M\",\"9M\",\"1Y\",\"1.5Y\",\"2Y\",\"2.5Y\",\"3Y\",\"5Y\",\"7Y\",\"10Y\",\"15Y\",\"20Y\",\"30Y\",\"50Y\"],\"rows\":[{\"groupName\":\"기타금융채\",\"pricingGroupCode\":\"001\",\"pricingGroupName\":\"=한글\",\"yields\":{\"3M\":-0.5,\"6M\":0,\"9M\":null,\"1Y\":null,\"1.5Y\":null,\"2Y\":null,\"2.5Y\":null,\"3Y\":null,\"5Y\":null,\"7Y\":null,\"10Y\":null,\"15Y\":null,\"20Y\":null,\"30Y\":null,\"50Y\":null},\"yieldText\":{\"3M\":\"-0.500\",\"6M\":\"0.000\",\"9M\":\"-\",\"1Y\":\"-\",\"1.5Y\":\"-\",\"2Y\":\"-\",\"2.5Y\":\"-\",\"3Y\":\"-\",\"5Y\":\"-\",\"7Y\":\"-\",\"10Y\":\"-\",\"15Y\":\"-\",\"20Y\":\"-\",\"30Y\":\"-\",\"50Y\":\"-\"},\"raw\":{\"pricingGroupCode\":\"001\",\"pricingGroupName\":\"=한글\",\"m3\":\"-0.500\",\"m6\":\"0.000\",\"m9\":\"-\",\"y1\":\"-\",\"y15a\":\"-\",\"y2\":\"-\",\"y25\":\"-\",\"y3\":\"-\",\"y5\":\"-\",\"y7\":\"-\",\"y10\":\"-\",\"y15\":\"-\",\"y20\":\"-\",\"y30\":\"-\",\"y50\":\"-\"}}],\"source\":{\"pageUrl\":\"https://kis-net.kr/kisnet_mobile/index.html\",\"endpoint\":\"https://kis-net.kr/rateInfo/ytmMatrixMobileList.do\",\"method\":\"POST\",\"request\":{\"format\":\"Nexacro XML PlatformData\",\"inDatasets\":\"ds_search=ds_search gds_tranInfo=gds_tranInfo\",\"outDatasets\":\"ds_list=output1\",\"parameters\":{\"calBaseDt\":\"20260608\",\"cboYtmSort\":\"60\"}},\"inspectedWorkflow\":\"The mobile page posts ds_search to /rateInfo/ytmMatrixMobileList.do when 검색 is clicked.\"},\"requestedBaseDate\":\"2026-06-08\",\"dateResolution\":{\"mode\":\"exact\",\"requestedBaseDate\":\"2026-06-08\",\"resolvedBaseDate\":\"2026-06-08\",\"usedFallback\":false,\"attemptedDates\":[\"2026-06-08\"],\"lookbackDays\":0}}},{\"availability\":\"available\",\"matrix\":{\"baseDate\":\"2026-06-08\",\"kind\":{\"code\":\"70\",\"name\":\"회사채(무보증)\"},\"tenors\":[\"3M\",\"6M\",\"9M\",\"1Y\",\"1.5Y\",\"2Y\",\"2.5Y\",\"3Y\",\"5Y\",\"7Y\",\"10Y\",\"15Y\",\"20Y\",\"30Y\",\"50Y\"],\"rows\":[{\"groupName\":\"회사채(무보증)\",\"pricingGroupCode\":\"001\",\"pricingGroupName\":\"=한글\",\"yields\":{\"3M\":-0.5,\"6M\":0,\"9M\":null,\"1Y\":null,\"1.5Y\":null,\"2Y\":null,\"2.5Y\":null,\"3Y\":null,\"5Y\":null,\"7Y\":null,\"10Y\":null,\"15Y\":null,\"20Y\":null,\"30Y\":null,\"50Y\":null},\"yieldText\":{\"3M\":\"-0.500\",\"6M\":\"0.000\",\"9M\":\"-\",\"1Y\":\"-\",\"1.5Y\":\"-\",\"2Y\":\"-\",\"2.5Y\":\"-\",\"3Y\":\"-\",\"5Y\":\"-\",\"7Y\":\"-\",\"10Y\":\"-\",\"15Y\":\"-\",\"20Y\":\"-\",\"30Y\":\"-\",\"50Y\":\"-\"},\"raw\":{\"pricingGroupCode\":\"001\",\"pricingGroupName\":\"=한글\",\"m3\":\"-0.500\",\"m6\":\"0.000\",\"m9\":\"-\",\"y1\":\"-\",\"y15a\":\"-\",\"y2\":\"-\",\"y25\":\"-\",\"y3\":\"-\",\"y5\":\"-\",\"y7\":\"-\",\"y10\":\"-\",\"y15\":\"-\",\"y20\":\"-\",\"y30\":\"-\",\"y50\":\"-\"}}],\"source\":{\"pageUrl\":\"https://kis-net.kr/kisnet_mobile/index.html\",\"endpoint\":\"https://kis-net.kr/rateInfo/ytmMatrixMobileList.do\",\"method\":\"POST\",\"request\":{\"format\":\"Nexacro XML PlatformData\",\"inDatasets\":\"ds_search=ds_search gds_tranInfo=gds_tranInfo\",\"outDatasets\":\"ds_list=output1\",\"parameters\":{\"calBaseDt\":\"20260608\",\"cboYtmSort\":\"70\"}},\"inspectedWorkflow\":\"The mobile page posts ds_search to /rateInfo/ytmMatrixMobileList.do when 검색 is clicked.\"},\"requestedBaseDate\":\"2026-06-08\",\"dateResolution\":{\"mode\":\"exact\",\"requestedBaseDate\":\"2026-06-08\",\"resolvedBaseDate\":\"2026-06-08\",\"usedFallback\":false,\"attemptedDates\":[\"2026-06-08\"],\"lookbackDays\":0}}},{\"availability\":\"unavailable\",\"requestedBaseDate\":\"2026-06-08\",\"kind\":{\"code\":\"80\",\"name\":\"회사채(사모)\"},\"attemptedDates\":[\"2026-06-08\"],\"mode\":\"exact\",\"lookbackDays\":0,\"reason\":\"source_data_unavailable: matrix returned no rows\",\"stage\":\"matrix\"},{\"availability\":\"available\",\"matrix\":{\"baseDate\":\"2026-06-11\",\"kind\":{\"code\":\"10\",\"name\":\"국채\"},\"tenors\":[\"3M\",\"6M\",\"9M\",\"1Y\",\"1.5Y\",\"2Y\",\"2.5Y\",\"3Y\",\"5Y\",\"7Y\",\"10Y\",\"15Y\",\"20Y\",\"30Y\",\"50Y\"],\"rows\":[{\"groupName\":\"국채\",\"pricingGroupCode\":\"001\",\"pricingGroupName\":\"=한글\",\"yields\":{\"3M\":-0.5,\"6M\":0,\"9M\":null,\"1Y\":null,\"1.5Y\":null,\"2Y\":null,\"2.5Y\":null,\"3Y\":null,\"5Y\":null,\"7Y\":null,\"10Y\":null,\"15Y\":null,\"20Y\":null,\"30Y\":null,\"50Y\":null},\"yieldText\":{\"3M\":\"-0.500\",\"6M\":\"0.000\",\"9M\":\"-\",\"1Y\":\"-\",\"1.5Y\":\"-\",\"2Y\":\"-\",\"2.5Y\":\"-\",\"3Y\":\"-\",\"5Y\":\"-\",\"7Y\":\"-\",\"10Y\":\"-\",\"15Y\":\"-\",\"20Y\":\"-\",\"30Y\":\"-\",\"50Y\":\"-\"},\"raw\":{\"pricingGroupCode\":\"001\",\"pricingGroupName\":\"=한글\",\"m3\":\"-0.500\",\"m6\":\"0.000\",\"m9\":\"-\",\"y1\":\"-\",\"y15a\":\"-\",\"y2\":\"-\",\"y25\":\"-\",\"y3\":\"-\",\"y5\":\"-\",\"y7\":\"-\",\"y10\":\"-\",\"y15\":\"-\",\"y20\":\"-\",\"y30\":\"-\",\"y50\":\"-\"}}],\"source\":{\"pageUrl\":\"https://kis-net.kr/kisnet_mobile/index.html\",\"endpoint\":\"https://kis-net.kr/rateInfo/ytmMatrixMobileList.do\",\"method\":\"POST\",\"request\":{\"format\":\"Nexacro XML PlatformData\",\"inDatasets\":\"ds_search=ds_search gds_tranInfo=gds_tranInfo\",\"outDatasets\":\"ds_list=output1\",\"parameters\":{\"calBaseDt\":\"20260611\",\"cboYtmSort\":\"10\"}},\"inspectedWorkflow\":\"The mobile page posts ds_search to /rateInfo/ytmMatrixMobileList.do when 검색 is clicked.\"},\"requestedBaseDate\":\"2026-06-11\",\"dateResolution\":{\"mode\":\"exact\",\"requestedBaseDate\":\"2026-06-11\",\"resolvedBaseDate\":\"2026-06-11\",\"usedFallback\":false,\"attemptedDates\":[\"2026-06-11\"],\"lookbackDays\":0}}},{\"availability\":\"available\",\"matrix\":{\"baseDate\":\"2026-06-11\",\"kind\":{\"code\":\"20\",\"name\":\"지방채\"},\"tenors\":[\"3M\",\"6M\",\"9M\",\"1Y\",\"1.5Y\",\"2Y\",\"2.5Y\",\"3Y\",\"5Y\",\"7Y\",\"10Y\",\"15Y\",\"20Y\",\"30Y\",\"50Y\"],\"rows\":[{\"groupName\":\"지방채\",\"pricingGroupCode\":\"001\",\"pricingGroupName\":\"=한글\",\"yields\":{\"3M\":-0.5,\"6M\":0,\"9M\":null,\"1Y\":null,\"1.5Y\":null,\"2Y\":null,\"2.5Y\":null,\"3Y\":null,\"5Y\":null,\"7Y\":null,\"10Y\":null,\"15Y\":null,\"20Y\":null,\"30Y\":null,\"50Y\":null},\"yieldText\":{\"3M\":\"-0.500\",\"6M\":\"0.000\",\"9M\":\"-\",\"1Y\":\"-\",\"1.5Y\":\"-\",\"2Y\":\"-\",\"2.5Y\":\"-\",\"3Y\":\"-\",\"5Y\":\"-\",\"7Y\":\"-\",\"10Y\":\"-\",\"15Y\":\"-\",\"20Y\":\"-\",\"30Y\":\"-\",\"50Y\":\"-\"},\"raw\":{\"pricingGroupCode\":\"001\",\"pricingGroupName\":\"=한글\",\"m3\":\"-0.500\",\"m6\":\"0.000\",\"m9\":\"-\",\"y1\":\"-\",\"y15a\":\"-\",\"y2\":\"-\",\"y25\":\"-\",\"y3\":\"-\",\"y5\":\"-\",\"y7\":\"-\",\"y10\":\"-\",\"y15\":\"-\",\"y20\":\"-\",\"y30\":\"-\",\"y50\":\"-\"}}],\"source\":{\"pageUrl\":\"https://kis-net.kr/kisnet_mobile/index.html\",\"endpoint\":\"https://kis-net.kr/rateInfo/ytmMatrixMobileList.do\",\"method\":\"POST\",\"request\":{\"format\":\"Nexacro XML PlatformData\",\"inDatasets\":\"ds_search=ds_search gds_tranInfo=gds_tranInfo\",\"outDatasets\":\"ds_list=output1\",\"parameters\":{\"calBaseDt\":\"20260611\",\"cboYtmSort\":\"20\"}},\"inspectedWorkflow\":\"The mobile page posts ds_search to /rateInfo/ytmMatrixMobileList.do when 검색 is clicked.\"},\"requestedBaseDate\":\"2026-06-11\",\"dateResolution\":{\"mode\":\"exact\",\"requestedBaseDate\":\"2026-06-11\",\"resolvedBaseDate\":\"2026-06-11\",\"usedFallback\":false,\"attemptedDates\":[\"2026-06-11\"],\"lookbackDays\":0}}},{\"availability\":\"available\",\"matrix\":{\"baseDate\":\"2026-06-11\",\"kind\":{\"code\":\"30\",\"name\":\"특수채\"},\"tenors\":[\"3M\",\"6M\",\"9M\",\"1Y\",\"1.5Y\",\"2Y\",\"2.5Y\",\"3Y\",\"5Y\",\"7Y\",\"10Y\",\"15Y\",\"20Y\",\"30Y\",\"50Y\"],\"rows\":[{\"groupName\":\"특수채\",\"pricingGroupCode\":\"001\",\"pricingGroupName\":\"=한글\",\"yields\":{\"3M\":-0.5,\"6M\":0,\"9M\":null,\"1Y\":null,\"1.5Y\":null,\"2Y\":null,\"2.5Y\":null,\"3Y\":null,\"5Y\":null,\"7Y\":null,\"10Y\":null,\"15Y\":null,\"20Y\":null,\"30Y\":null,\"50Y\":null},\"yieldText\":{\"3M\":\"-0.500\",\"6M\":\"0.000\",\"9M\":\"-\",\"1Y\":\"-\",\"1.5Y\":\"-\",\"2Y\":\"-\",\"2.5Y\":\"-\",\"3Y\":\"-\",\"5Y\":\"-\",\"7Y\":\"-\",\"10Y\":\"-\",\"15Y\":\"-\",\"20Y\":\"-\",\"30Y\":\"-\",\"50Y\":\"-\"},\"raw\":{\"pricingGroupCode\":\"001\",\"pricingGroupName\":\"=한글\",\"m3\":\"-0.500\",\"m6\":\"0.000\",\"m9\":\"-\",\"y1\":\"-\",\"y15a\":\"-\",\"y2\":\"-\",\"y25\":\"-\",\"y3\":\"-\",\"y5\":\"-\",\"y7\":\"-\",\"y10\":\"-\",\"y15\":\"-\",\"y20\":\"-\",\"y30\":\"-\",\"y50\":\"-\"}}],\"source\":{\"pageUrl\":\"https://kis-net.kr/kisnet_mobile/index.html\",\"endpoint\":\"https://kis-net.kr/rateInfo/ytmMatrixMobileList.do\",\"method\":\"POST\",\"request\":{\"format\":\"Nexacro XML PlatformData\",\"inDatasets\":\"ds_search=ds_search gds_tranInfo=gds_tranInfo\",\"outDatasets\":\"ds_list=output1\",\"parameters\":{\"calBaseDt\":\"20260611\",\"cboYtmSort\":\"30\"}},\"inspectedWorkflow\":\"The mobile page posts ds_search to /rateInfo/ytmMatrixMobileList.do when 검색 is clicked.\"},\"requestedBaseDate\":\"2026-06-11\",\"dateResolution\":{\"mode\":\"exact\",\"requestedBaseDate\":\"2026-06-11\",\"resolvedBaseDate\":\"2026-06-11\",\"usedFallback\":false,\"attemptedDates\":[\"2026-06-11\"],\"lookbackDays\":0}}},{\"availability\":\"available\",\"matrix\":{\"baseDate\":\"2026-06-11\",\"kind\":{\"code\":\"40\",\"name\":\"통안채\"},\"tenors\":[\"3M\",\"6M\",\"9M\",\"1Y\",\"1.5Y\",\"2Y\",\"2.5Y\",\"3Y\",\"5Y\",\"7Y\",\"10Y\",\"15Y\",\"20Y\",\"30Y\",\"50Y\"],\"rows\":[{\"groupName\":\"통안채\",\"pricingGroupCode\":\"001\",\"pricingGroupName\":\"=한글\",\"yields\":{\"3M\":-0.5,\"6M\":0,\"9M\":null,\"1Y\":null,\"1.5Y\":null,\"2Y\":null,\"2.5Y\":null,\"3Y\":null,\"5Y\":null,\"7Y\":null,\"10Y\":null,\"15Y\":null,\"20Y\":null,\"30Y\":null,\"50Y\":null},\"yieldText\":{\"3M\":\"-0.500\",\"6M\":\"0.000\",\"9M\":\"-\",\"1Y\":\"-\",\"1.5Y\":\"-\",\"2Y\":\"-\",\"2.5Y\":\"-\",\"3Y\":\"-\",\"5Y\":\"-\",\"7Y\":\"-\",\"10Y\":\"-\",\"15Y\":\"-\",\"20Y\":\"-\",\"30Y\":\"-\",\"50Y\":\"-\"},\"raw\":{\"pricingGroupCode\":\"001\",\"pricingGroupName\":\"=한글\",\"m3\":\"-0.500\",\"m6\":\"0.000\",\"m9\":\"-\",\"y1\":\"-\",\"y15a\":\"-\",\"y2\":\"-\",\"y25\":\"-\",\"y3\":\"-\",\"y5\":\"-\",\"y7\":\"-\",\"y10\":\"-\",\"y15\":\"-\",\"y20\":\"-\",\"y30\":\"-\",\"y50\":\"-\"}}],\"source\":{\"pageUrl\":\"https://kis-net.kr/kisnet_mobile/index.html\",\"endpoint\":\"https://kis-net.kr/rateInfo/ytmMatrixMobileList.do\",\"method\":\"POST\",\"request\":{\"format\":\"Nexacro XML PlatformData\",\"inDatasets\":\"ds_search=ds_search gds_tranInfo=gds_tranInfo\",\"outDatasets\":\"ds_list=output1\",\"parameters\":{\"calBaseDt\":\"20260611\",\"cboYtmSort\":\"40\"}},\"inspectedWorkflow\":\"The mobile page posts ds_search to /rateInfo/ytmMatrixMobileList.do when 검색 is clicked.\"},\"requestedBaseDate\":\"2026-06-11\",\"dateResolution\":{\"mode\":\"exact\",\"requestedBaseDate\":\"2026-06-11\",\"resolvedBaseDate\":\"2026-06-11\",\"usedFallback\":false,\"attemptedDates\":[\"2026-06-11\"],\"lookbackDays\":0}}},{\"availability\":\"available\",\"matrix\":{\"baseDate\":\"2026-06-11\",\"kind\":{\"code\":\"50\",\"name\":\"은행채\"},\"tenors\":[\"3M\",\"6M\",\"9M\",\"1Y\",\"1.5Y\",\"2Y\",\"2.5Y\",\"3Y\",\"5Y\",\"7Y\",\"10Y\",\"15Y\",\"20Y\",\"30Y\",\"50Y\"],\"rows\":[{\"groupName\":\"은행채\",\"pricingGroupCode\":\"001\",\"pricingGroupName\":\"=한글\",\"yields\":{\"3M\":-0.5,\"6M\":0,\"9M\":null,\"1Y\":null,\"1.5Y\":null,\"2Y\":null,\"2.5Y\":null,\"3Y\":null,\"5Y\":null,\"7Y\":null,\"10Y\":null,\"15Y\":null,\"20Y\":null,\"30Y\":null,\"50Y\":null},\"yieldText\":{\"3M\":\"-0.500\",\"6M\":\"0.000\",\"9M\":\"-\",\"1Y\":\"-\",\"1.5Y\":\"-\",\"2Y\":\"-\",\"2.5Y\":\"-\",\"3Y\":\"-\",\"5Y\":\"-\",\"7Y\":\"-\",\"10Y\":\"-\",\"15Y\":\"-\",\"20Y\":\"-\",\"30Y\":\"-\",\"50Y\":\"-\"},\"raw\":{\"pricingGroupCode\":\"001\",\"pricingGroupName\":\"=한글\",\"m3\":\"-0.500\",\"m6\":\"0.000\",\"m9\":\"-\",\"y1\":\"-\",\"y15a\":\"-\",\"y2\":\"-\",\"y25\":\"-\",\"y3\":\"-\",\"y5\":\"-\",\"y7\":\"-\",\"y10\":\"-\",\"y15\":\"-\",\"y20\":\"-\",\"y30\":\"-\",\"y50\":\"-\"}}],\"source\":{\"pageUrl\":\"https://kis-net.kr/kisnet_mobile/index.html\",\"endpoint\":\"https://kis-net.kr/rateInfo/ytmMatrixMobileList.do\",\"method\":\"POST\",\"request\":{\"format\":\"Nexacro XML PlatformData\",\"inDatasets\":\"ds_search=ds_search gds_tranInfo=gds_tranInfo\",\"outDatasets\":\"ds_list=output1\",\"parameters\":{\"calBaseDt\":\"20260611\",\"cboYtmSort\":\"50\"}},\"inspectedWorkflow\":\"The mobile page posts ds_search to /rateInfo/ytmMatrixMobileList.do when 검색 is clicked.\"},\"requestedBaseDate\":\"2026-06-11\",\"dateResolution\":{\"mode\":\"exact\",\"requestedBaseDate\":\"2026-06-11\",\"resolvedBaseDate\":\"2026-06-11\",\"usedFallback\":false,\"attemptedDates\":[\"2026-06-11\"],\"lookbackDays\":0}}},{\"availability\":\"available\",\"matrix\":{\"baseDate\":\"2026-06-11\",\"kind\":{\"code\":\"60\",\"name\":\"기타금융채\"},\"tenors\":[\"3M\",\"6M\",\"9M\",\"1Y\",\"1.5Y\",\"2Y\",\"2.5Y\",\"3Y\",\"5Y\",\"7Y\",\"10Y\",\"15Y\",\"20Y\",\"30Y\",\"50Y\"],\"rows\":[{\"groupName\":\"기타금융채\",\"pricingGroupCode\":\"001\",\"pricingGroupName\":\"=한글\",\"yields\":{\"3M\":-0.5,\"6M\":0,\"9M\":null,\"1Y\":null,\"1.5Y\":null,\"2Y\":null,\"2.5Y\":null,\"3Y\":null,\"5Y\":null,\"7Y\":null,\"10Y\":null,\"15Y\":null,\"20Y\":null,\"30Y\":null,\"50Y\":null},\"yieldText\":{\"3M\":\"-0.500\",\"6M\":\"0.000\",\"9M\":\"-\",\"1Y\":\"-\",\"1.5Y\":\"-\",\"2Y\":\"-\",\"2.5Y\":\"-\",\"3Y\":\"-\",\"5Y\":\"-\",\"7Y\":\"-\",\"10Y\":\"-\",\"15Y\":\"-\",\"20Y\":\"-\",\"30Y\":\"-\",\"50Y\":\"-\"},\"raw\":{\"pricingGroupCode\":\"001\",\"pricingGroupName\":\"=한글\",\"m3\":\"-0.500\",\"m6\":\"0.000\",\"m9\":\"-\",\"y1\":\"-\",\"y15a\":\"-\",\"y2\":\"-\",\"y25\":\"-\",\"y3\":\"-\",\"y5\":\"-\",\"y7\":\"-\",\"y10\":\"-\",\"y15\":\"-\",\"y20\":\"-\",\"y30\":\"-\",\"y50\":\"-\"}}],\"source\":{\"pageUrl\":\"https://kis-net.kr/kisnet_mobile/index.html\",\"endpoint\":\"https://kis-net.kr/rateInfo/ytmMatrixMobileList.do\",\"method\":\"POST\",\"request\":{\"format\":\"Nexacro XML PlatformData\",\"inDatasets\":\"ds_search=ds_search gds_tranInfo=gds_tranInfo\",\"outDatasets\":\"ds_list=output1\",\"parameters\":{\"calBaseDt\":\"20260611\",\"cboYtmSort\":\"60\"}},\"inspectedWorkflow\":\"The mobile page posts ds_search to /rateInfo/ytmMatrixMobileList.do when 검색 is clicked.\"},\"requestedBaseDate\":\"2026-06-11\",\"dateResolution\":{\"mode\":\"exact\",\"requestedBaseDate\":\"2026-06-11\",\"resolvedBaseDate\":\"2026-06-11\",\"usedFallback\":false,\"attemptedDates\":[\"2026-06-11\"],\"lookbackDays\":0}}},{\"availability\":\"available\",\"matrix\":{\"baseDate\":\"2026-06-11\",\"kind\":{\"code\":\"70\",\"name\":\"회사채(무보증)\"},\"tenors\":[\"3M\",\"6M\",\"9M\",\"1Y\",\"1.5Y\",\"2Y\",\"2.5Y\",\"3Y\",\"5Y\",\"7Y\",\"10Y\",\"15Y\",\"20Y\",\"30Y\",\"50Y\"],\"rows\":[{\"groupName\":\"회사채(무보증)\",\"pricingGroupCode\":\"001\",\"pricingGroupName\":\"=한글\",\"yields\":{\"3M\":-0.5,\"6M\":0,\"9M\":null,\"1Y\":null,\"1.5Y\":null,\"2Y\":null,\"2.5Y\":null,\"3Y\":null,\"5Y\":null,\"7Y\":null,\"10Y\":null,\"15Y\":null,\"20Y\":null,\"30Y\":null,\"50Y\":null},\"yieldText\":{\"3M\":\"-0.500\",\"6M\":\"0.000\",\"9M\":\"-\",\"1Y\":\"-\",\"1.5Y\":\"-\",\"2Y\":\"-\",\"2.5Y\":\"-\",\"3Y\":\"-\",\"5Y\":\"-\",\"7Y\":\"-\",\"10Y\":\"-\",\"15Y\":\"-\",\"20Y\":\"-\",\"30Y\":\"-\",\"50Y\":\"-\"},\"raw\":{\"pricingGroupCode\":\"001\",\"pricingGroupName\":\"=한글\",\"m3\":\"-0.500\",\"m6\":\"0.000\",\"m9\":\"-\",\"y1\":\"-\",\"y15a\":\"-\",\"y2\":\"-\",\"y25\":\"-\",\"y3\":\"-\",\"y5\":\"-\",\"y7\":\"-\",\"y10\":\"-\",\"y15\":\"-\",\"y20\":\"-\",\"y30\":\"-\",\"y50\":\"-\"}}],\"source\":{\"pageUrl\":\"https://kis-net.kr/kisnet_mobile/index.html\",\"endpoint\":\"https://kis-net.kr/rateInfo/ytmMatrixMobileList.do\",\"method\":\"POST\",\"request\":{\"format\":\"Nexacro XML PlatformData\",\"inDatasets\":\"ds_search=ds_search gds_tranInfo=gds_tranInfo\",\"outDatasets\":\"ds_list=output1\",\"parameters\":{\"calBaseDt\":\"20260611\",\"cboYtmSort\":\"70\"}},\"inspectedWorkflow\":\"The mobile page posts ds_search to /rateInfo/ytmMatrixMobileList.do when 검색 is clicked.\"},\"requestedBaseDate\":\"2026-06-11\",\"dateResolution\":{\"mode\":\"exact\",\"requestedBaseDate\":\"2026-06-11\",\"resolvedBaseDate\":\"2026-06-11\",\"usedFallback\":false,\"attemptedDates\":[\"2026-06-11\"],\"lookbackDays\":0}}},{\"availability\":\"available\",\"matrix\":{\"baseDate\":\"2026-06-11\",\"kind\":{\"code\":\"80\",\"name\":\"회사채(사모)\"},\"tenors\":[\"3M\",\"6M\",\"9M\",\"1Y\",\"1.5Y\",\"2Y\",\"2.5Y\",\"3Y\",\"5Y\",\"7Y\",\"10Y\",\"15Y\",\"20Y\",\"30Y\",\"50Y\"],\"rows\":[{\"groupName\":\"회사채(사모)\",\"pricingGroupCode\":\"001\",\"pricingGroupName\":\"=한글\",\"yields\":{\"3M\":-0.5,\"6M\":0,\"9M\":null,\"1Y\":null,\"1.5Y\":null,\"2Y\":null,\"2.5Y\":null,\"3Y\":null,\"5Y\":null,\"7Y\":null,\"10Y\":null,\"15Y\":null,\"20Y\":null,\"30Y\":null,\"50Y\":null},\"yieldText\":{\"3M\":\"-0.500\",\"6M\":\"0.000\",\"9M\":\"-\",\"1Y\":\"-\",\"1.5Y\":\"-\",\"2Y\":\"-\",\"2.5Y\":\"-\",\"3Y\":\"-\",\"5Y\":\"-\",\"7Y\":\"-\",\"10Y\":\"-\",\"15Y\":\"-\",\"20Y\":\"-\",\"30Y\":\"-\",\"50Y\":\"-\"},\"raw\":{\"pricingGroupCode\":\"001\",\"pricingGroupName\":\"=한글\",\"m3\":\"-0.500\",\"m6\":\"0.000\",\"m9\":\"-\",\"y1\":\"-\",\"y15a\":\"-\",\"y2\":\"-\",\"y25\":\"-\",\"y3\":\"-\",\"y5\":\"-\",\"y7\":\"-\",\"y10\":\"-\",\"y15\":\"-\",\"y20\":\"-\",\"y30\":\"-\",\"y50\":\"-\"}}],\"source\":{\"pageUrl\":\"https://kis-net.kr/kisnet_mobile/index.html\",\"endpoint\":\"https://kis-net.kr/rateInfo/ytmMatrixMobileList.do\",\"method\":\"POST\",\"request\":{\"format\":\"Nexacro XML PlatformData\",\"inDatasets\":\"ds_search=ds_search gds_tranInfo=gds_tranInfo\",\"outDatasets\":\"ds_list=output1\",\"parameters\":{\"calBaseDt\":\"20260611\",\"cboYtmSort\":\"80\"}},\"inspectedWorkflow\":\"The mobile page posts ds_search to /rateInfo/ytmMatrixMobileList.do when 검색 is clicked.\"},\"requestedBaseDate\":\"2026-06-11\",\"dateResolution\":{\"mode\":\"exact\",\"requestedBaseDate\":\"2026-06-11\",\"resolvedBaseDate\":\"2026-06-11\",\"usedFallback\":false,\"attemptedDates\":[\"2026-06-11\"],\"lookbackDays\":0}}}],\"availableCount\":15,\"unavailableCount\":1,\"dataRowCount\":15,\"mode\":\"exact\",\"lookbackDays\":0}}\n",
+    "stderr": ""
+  },
+  "cli:history:count-gaps:csv": {
+    "status": 0,
+    "signal": null,
+    "stdout": "requestedBaseDate,baseDate,usedFallback,kindCode,kindName,pricingGroupCode,pricingGroupName,3M,6M,9M,1Y,1.5Y,2Y,2.5Y,3Y,5Y,7Y,10Y,15Y,20Y,30Y,50Y,availability,reason\n2026-06-08,2026-06-08,false,10,국채,001,'=한글,-0.5,0,,,,,,,,,,,,,,available,\n2026-06-08,2026-06-08,false,20,지방채,001,'=한글,-0.5,0,,,,,,,,,,,,,,available,\n2026-06-08,2026-06-08,false,30,특수채,001,'=한글,-0.5,0,,,,,,,,,,,,,,available,\n2026-06-08,2026-06-08,false,40,통안채,001,'=한글,-0.5,0,,,,,,,,,,,,,,available,\n2026-06-08,2026-06-08,false,50,은행채,001,'=한글,-0.5,0,,,,,,,,,,,,,,available,\n2026-06-08,2026-06-08,false,60,기타금융채,001,'=한글,-0.5,0,,,,,,,,,,,,,,available,\n2026-06-08,2026-06-08,false,70,회사채(무보증),001,'=한글,-0.5,0,,,,,,,,,,,,,,available,\n2026-06-08,,,80,회사채(사모),,,,,,,,,,,,,,,,,,unavailable,source_data_unavailable: matrix returned no rows\n2026-06-11,2026-06-11,false,10,국채,001,'=한글,-0.5,0,,,,,,,,,,,,,,available,\n2026-06-11,2026-06-11,false,20,지방채,001,'=한글,-0.5,0,,,,,,,,,,,,,,available,\n2026-06-11,2026-06-11,false,30,특수채,001,'=한글,-0.5,0,,,,,,,,,,,,,,available,\n2026-06-11,2026-06-11,false,40,통안채,001,'=한글,-0.5,0,,,,,,,,,,,,,,available,\n2026-06-11,2026-06-11,false,50,은행채,001,'=한글,-0.5,0,,,,,,,,,,,,,,available,\n2026-06-11,2026-06-11,false,60,기타금융채,001,'=한글,-0.5,0,,,,,,,,,,,,,,available,\n2026-06-11,2026-06-11,false,70,회사채(무보증),001,'=한글,-0.5,0,,,,,,,,,,,,,,available,\n2026-06-11,2026-06-11,false,80,회사채(사모),001,'=한글,-0.5,0,,,,,,,,,,,,,,available,\n",
+    "stderr": ""
+  },
+  "cli:history:count-gaps:tsv": {
+    "status": 0,
+    "signal": null,
+    "stdout": "requestedBaseDate\tbaseDate\tusedFallback\tkindCode\tkindName\tpricingGroupCode\tpricingGroupName\t3M\t6M\t9M\t1Y\t1.5Y\t2Y\t2.5Y\t3Y\t5Y\t7Y\t10Y\t15Y\t20Y\t30Y\t50Y\tavailability\treason\n2026-06-08\t2026-06-08\tfalse\t10\t국채\t001\t'=한글\t-0.5\t0\t\t\t\t\t\t\t\t\t\t\t\t\t\tavailable\t\n2026-06-08\t2026-06-08\tfalse\t20\t지방채\t001\t'=한글\t-0.5\t0\t\t\t\t\t\t\t\t\t\t\t\t\t\tavailable\t\n2026-06-08\t2026-06-08\tfalse\t30\t특수채\t001\t'=한글\t-0.5\t0\t\t\t\t\t\t\t\t\t\t\t\t\t\tavailable\t\n2026-06-08\t2026-06-08\tfalse\t40\t통안채\t001\t'=한글\t-0.5\t0\t\t\t\t\t\t\t\t\t\t\t\t\t\tavailable\t\n2026-06-08\t2026-06-08\tfalse\t50\t은행채\t001\t'=한글\t-0.5\t0\t\t\t\t\t\t\t\t\t\t\t\t\t\tavailable\t\n2026-06-08\t2026-06-08\tfalse\t60\t기타금융채\t001\t'=한글\t-0.5\t0\t\t\t\t\t\t\t\t\t\t\t\t\t\tavailable\t\n2026-06-08\t2026-06-08\tfalse\t70\t회사채(무보증)\t001\t'=한글\t-0.5\t0\t\t\t\t\t\t\t\t\t\t\t\t\t\tavailable\t\n2026-06-08\t\t\t80\t회사채(사모)\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\tunavailable\tsource_data_unavailable: matrix returned no rows\n2026-06-11\t2026-06-11\tfalse\t10\t국채\t001\t'=한글\t-0.5\t0\t\t\t\t\t\t\t\t\t\t\t\t\t\tavailable\t\n2026-06-11\t2026-06-11\tfalse\t20\t지방채\t001\t'=한글\t-0.5\t0\t\t\t\t\t\t\t\t\t\t\t\t\t\tavailable\t\n2026-06-11\t2026-06-11\tfalse\t30\t특수채\t001\t'=한글\t-0.5\t0\t\t\t\t\t\t\t\t\t\t\t\t\t\tavailable\t\n2026-06-11\t2026-06-11\tfalse\t40\t통안채\t001\t'=한글\t-0.5\t0\t\t\t\t\t\t\t\t\t\t\t\t\t\tavailable\t\n2026-06-11\t2026-06-11\tfalse\t50\t은행채\t001\t'=한글\t-0.5\t0\t\t\t\t\t\t\t\t\t\t\t\t\t\tavailable\t\n2026-06-11\t2026-06-11\tfalse\t60\t기타금융채\t001\t'=한글\t-0.5\t0\t\t\t\t\t\t\t\t\t\t\t\t\t\tavailable\t\n2026-06-11\t2026-06-11\tfalse\t70\t회사채(무보증)\t001\t'=한글\t-0.5\t0\t\t\t\t\t\t\t\t\t\t\t\t\t\tavailable\t\n2026-06-11\t2026-06-11\tfalse\t80\t회사채(사모)\t001\t'=한글\t-0.5\t0\t\t\t\t\t\t\t\t\t\t\t\t\t\tavailable\t\n",
+    "stderr": ""
+  },
+  "cli:history:count-invalid-cli---count,1": {
+    "status": 2,
+    "signal": null,
+    "stdout": "{\"ok\":false,\"error\":{\"ok\":false,\"code\":\"invalid_parameter\",\"operationName\":\"history\",\"parameter\":\"count\",\"reason\":\"Count requires endDate, optional startDate, exact fallback, and no baseDates or lookbackDays.\",\"actual\":null,\"exampleInput\":{\"baseDates\":[\"2026-06-08\"]},\"recoveryHint\":\"Inspect command help and retry with a supported value.\",\"recoveryAction\":\"inspect_command_help\",\"recoverable\":true,\"retryable\":false}}\n",
+    "stderr": "\nhistory\n  Select repeated --base-date <date> OR --start-date <date> --end-date <date> (inclusive).\n  Count: --end-date <date> --count <1..2000> [--start-date <date>], exact only, no lookback.\n  Selects latest distinct dates with numeric yields; missing cells can remain.\n  Scans at most 2000 calendar days; insufficient_history fails with exit 1 and no export.\n  Maximum 2000 raw list entries or range days; dates normalize, sort and deduplicate.\n  Dates: YYYY-MM-DD, YYYY.MM.DD, YYYYMMDD. All categories and pricing groups are returned.\n  Exact dates are the default and recommended for historical exports.\n  Optional: --fallback previous-available --lookback-days <1..31> (default 10).\n    Returns the latest available observation on or before each requested date, within the lookback.\n    May repeat one observation across requested dates (e.g. Friday data for Saturday and Sunday).\n  Output: --format json|csv|tsv|xlsx [--pretty]\n  XLSX: --output <file.xlsx> [--overwrite]\n  Unavailable pairs are reported with exit 0; operational failures are fatal.\n  History, Availability and Metadata sheets preserve requested and actual dates.\n  CSV/TSV and Excel: requestedBaseDate is the requested date; baseDate is the observation date.\n  usedFallback is true when an earlier observation was substituted.\n\nCLI example:\n  ytm history --start-date 2026-06-01 --end-date 2026-06-08 --format xlsx --output history.xlsx\n"
+  },
+  "cli:history:count-invalid-cli---count,1,--count,2,--end-date,20260608": {
+    "status": 2,
+    "signal": null,
+    "stdout": "{\"ok\":false,\"error\":{\"ok\":false,\"code\":\"invalid_request\",\"operationName\":\"history\",\"parameter\":\"input\",\"reason\":\"Invalid command invocation.\",\"expected\":\"supported CLI options\",\"exampleInput\":{\"baseDates\":[\"2026-06-08\"]},\"recoveryHint\":\"Run ytm help history and retry with supported options.\",\"recoveryAction\":\"inspect_command_help\",\"recoverable\":true,\"retryable\":false}}\n",
+    "stderr": "\nhistory\n  Select repeated --base-date <date> OR --start-date <date> --end-date <date> (inclusive).\n  Count: --end-date <date> --count <1..2000> [--start-date <date>], exact only, no lookback.\n  Selects latest distinct dates with numeric yields; missing cells can remain.\n  Scans at most 2000 calendar days; insufficient_history fails with exit 1 and no export.\n  Maximum 2000 raw list entries or range days; dates normalize, sort and deduplicate.\n  Dates: YYYY-MM-DD, YYYY.MM.DD, YYYYMMDD. All categories and pricing groups are returned.\n  Exact dates are the default and recommended for historical exports.\n  Optional: --fallback previous-available --lookback-days <1..31> (default 10).\n    Returns the latest available observation on or before each requested date, within the lookback.\n    May repeat one observation across requested dates (e.g. Friday data for Saturday and Sunday).\n  Output: --format json|csv|tsv|xlsx [--pretty]\n  XLSX: --output <file.xlsx> [--overwrite]\n  Unavailable pairs are reported with exit 0; operational failures are fatal.\n  History, Availability and Metadata sheets preserve requested and actual dates.\n  CSV/TSV and Excel: requestedBaseDate is the requested date; baseDate is the observation date.\n  usedFallback is true when an earlier observation was substituted.\n\nCLI example:\n  ytm history --start-date 2026-06-01 --end-date 2026-06-08 --format xlsx --output history.xlsx\n"
+  },
+  "cli:history:count-invalid-cli---count,1,--end-date,20260608,--fallback,previous-available": {
+    "status": 2,
+    "signal": null,
+    "stdout": "{\"ok\":false,\"error\":{\"ok\":false,\"code\":\"invalid_parameter\",\"operationName\":\"history\",\"parameter\":\"count\",\"reason\":\"Count requires endDate, optional startDate, exact fallback, and no baseDates or lookbackDays.\",\"actual\":null,\"exampleInput\":{\"baseDates\":[\"2026-06-08\"]},\"recoveryHint\":\"Inspect command help and retry with a supported value.\",\"recoveryAction\":\"inspect_command_help\",\"recoverable\":true,\"retryable\":false}}\n",
+    "stderr": "\nhistory\n  Select repeated --base-date <date> OR --start-date <date> --end-date <date> (inclusive).\n  Count: --end-date <date> --count <1..2000> [--start-date <date>], exact only, no lookback.\n  Selects latest distinct dates with numeric yields; missing cells can remain.\n  Scans at most 2000 calendar days; insufficient_history fails with exit 1 and no export.\n  Maximum 2000 raw list entries or range days; dates normalize, sort and deduplicate.\n  Dates: YYYY-MM-DD, YYYY.MM.DD, YYYYMMDD. All categories and pricing groups are returned.\n  Exact dates are the default and recommended for historical exports.\n  Optional: --fallback previous-available --lookback-days <1..31> (default 10).\n    Returns the latest available observation on or before each requested date, within the lookback.\n    May repeat one observation across requested dates (e.g. Friday data for Saturday and Sunday).\n  Output: --format json|csv|tsv|xlsx [--pretty]\n  XLSX: --output <file.xlsx> [--overwrite]\n  Unavailable pairs are reported with exit 0; operational failures are fatal.\n  History, Availability and Metadata sheets preserve requested and actual dates.\n  CSV/TSV and Excel: requestedBaseDate is the requested date; baseDate is the observation date.\n  usedFallback is true when an earlier observation was substituted.\n\nCLI example:\n  ytm history --start-date 2026-06-01 --end-date 2026-06-08 --format xlsx --output history.xlsx\n"
+  },
+  "cli:history:count-invalid-cli---count,1.5,--end-date,20260608": {
+    "status": 2,
+    "signal": null,
+    "stdout": "{\"ok\":false,\"error\":{\"ok\":false,\"code\":\"invalid_parameter\",\"operationName\":\"history\",\"parameter\":\"input\",\"reason\":\"Invalid history input: invalid type: string \\\"1.5\\\", expected usize\",\"actual\":null,\"exampleInput\":{\"baseDates\":[\"2026-06-08\"]},\"recoveryHint\":\"Inspect command help and retry with a supported value.\",\"recoveryAction\":\"inspect_command_help\",\"recoverable\":true,\"retryable\":false}}\n",
+    "stderr": "\nhistory\n  Select repeated --base-date <date> OR --start-date <date> --end-date <date> (inclusive).\n  Count: --end-date <date> --count <1..2000> [--start-date <date>], exact only, no lookback.\n  Selects latest distinct dates with numeric yields; missing cells can remain.\n  Scans at most 2000 calendar days; insufficient_history fails with exit 1 and no export.\n  Maximum 2000 raw list entries or range days; dates normalize, sort and deduplicate.\n  Dates: YYYY-MM-DD, YYYY.MM.DD, YYYYMMDD. All categories and pricing groups are returned.\n  Exact dates are the default and recommended for historical exports.\n  Optional: --fallback previous-available --lookback-days <1..31> (default 10).\n    Returns the latest available observation on or before each requested date, within the lookback.\n    May repeat one observation across requested dates (e.g. Friday data for Saturday and Sunday).\n  Output: --format json|csv|tsv|xlsx [--pretty]\n  XLSX: --output <file.xlsx> [--overwrite]\n  Unavailable pairs are reported with exit 0; operational failures are fatal.\n  History, Availability and Metadata sheets preserve requested and actual dates.\n  CSV/TSV and Excel: requestedBaseDate is the requested date; baseDate is the observation date.\n  usedFallback is true when an earlier observation was substituted.\n\nCLI example:\n  ytm history --start-date 2026-06-01 --end-date 2026-06-08 --format xlsx --output history.xlsx\n"
+  },
+  "cli:history:count-one-leap": {
+    "status": 0,
+    "signal": null,
+    "stdout": "{\"ok\":true,\"operation\":\"history\",\"result\":{\"countSelection\":{\"count\":1,\"endDate\":\"2024-02-29\",\"startDate\":\"2024-02-29\",\"scannedStartDate\":\"2024-02-29\",\"scannedDateCount\":1},\"requestedDates\":[\"2024-02-29\"],\"discovery\":[{\"requestedBaseDate\":\"2024-02-29\",\"available\":true}],\"entries\":[{\"availability\":\"available\",\"matrix\":{\"baseDate\":\"2024-02-29\",\"kind\":{\"code\":\"10\",\"name\":\"국채\"},\"tenors\":[\"3M\",\"6M\",\"9M\",\"1Y\",\"1.5Y\",\"2Y\",\"2.5Y\",\"3Y\",\"5Y\",\"7Y\",\"10Y\",\"15Y\",\"20Y\",\"30Y\",\"50Y\"],\"rows\":[{\"groupName\":\"국채\",\"pricingGroupCode\":\"001\",\"pricingGroupName\":\"=한글\",\"yields\":{\"3M\":-0.5,\"6M\":0,\"9M\":null,\"1Y\":null,\"1.5Y\":null,\"2Y\":null,\"2.5Y\":null,\"3Y\":null,\"5Y\":null,\"7Y\":null,\"10Y\":null,\"15Y\":null,\"20Y\":null,\"30Y\":null,\"50Y\":null},\"yieldText\":{\"3M\":\"-0.500\",\"6M\":\"0.000\",\"9M\":\"-\",\"1Y\":\"-\",\"1.5Y\":\"-\",\"2Y\":\"-\",\"2.5Y\":\"-\",\"3Y\":\"-\",\"5Y\":\"-\",\"7Y\":\"-\",\"10Y\":\"-\",\"15Y\":\"-\",\"20Y\":\"-\",\"30Y\":\"-\",\"50Y\":\"-\"},\"raw\":{\"pricingGroupCode\":\"001\",\"pricingGroupName\":\"=한글\",\"m3\":\"-0.500\",\"m6\":\"0.000\",\"m9\":\"-\",\"y1\":\"-\",\"y15a\":\"-\",\"y2\":\"-\",\"y25\":\"-\",\"y3\":\"-\",\"y5\":\"-\",\"y7\":\"-\",\"y10\":\"-\",\"y15\":\"-\",\"y20\":\"-\",\"y30\":\"-\",\"y50\":\"-\"}}],\"source\":{\"pageUrl\":\"https://kis-net.kr/kisnet_mobile/index.html\",\"endpoint\":\"https://kis-net.kr/rateInfo/ytmMatrixMobileList.do\",\"method\":\"POST\",\"request\":{\"format\":\"Nexacro XML PlatformData\",\"inDatasets\":\"ds_search=ds_search gds_tranInfo=gds_tranInfo\",\"outDatasets\":\"ds_list=output1\",\"parameters\":{\"calBaseDt\":\"20240229\",\"cboYtmSort\":\"10\"}},\"inspectedWorkflow\":\"The mobile page posts ds_search to /rateInfo/ytmMatrixMobileList.do when 검색 is clicked.\"},\"requestedBaseDate\":\"2024-02-29\",\"dateResolution\":{\"mode\":\"exact\",\"requestedBaseDate\":\"2024-02-29\",\"resolvedBaseDate\":\"2024-02-29\",\"usedFallback\":false,\"attemptedDates\":[\"2024-02-29\"],\"lookbackDays\":0}}},{\"availability\":\"available\",\"matrix\":{\"baseDate\":\"2024-02-29\",\"kind\":{\"code\":\"20\",\"name\":\"지방채\"},\"tenors\":[\"3M\",\"6M\",\"9M\",\"1Y\",\"1.5Y\",\"2Y\",\"2.5Y\",\"3Y\",\"5Y\",\"7Y\",\"10Y\",\"15Y\",\"20Y\",\"30Y\",\"50Y\"],\"rows\":[{\"groupName\":\"지방채\",\"pricingGroupCode\":\"001\",\"pricingGroupName\":\"=한글\",\"yields\":{\"3M\":-0.5,\"6M\":0,\"9M\":null,\"1Y\":null,\"1.5Y\":null,\"2Y\":null,\"2.5Y\":null,\"3Y\":null,\"5Y\":null,\"7Y\":null,\"10Y\":null,\"15Y\":null,\"20Y\":null,\"30Y\":null,\"50Y\":null},\"yieldText\":{\"3M\":\"-0.500\",\"6M\":\"0.000\",\"9M\":\"-\",\"1Y\":\"-\",\"1.5Y\":\"-\",\"2Y\":\"-\",\"2.5Y\":\"-\",\"3Y\":\"-\",\"5Y\":\"-\",\"7Y\":\"-\",\"10Y\":\"-\",\"15Y\":\"-\",\"20Y\":\"-\",\"30Y\":\"-\",\"50Y\":\"-\"},\"raw\":{\"pricingGroupCode\":\"001\",\"pricingGroupName\":\"=한글\",\"m3\":\"-0.500\",\"m6\":\"0.000\",\"m9\":\"-\",\"y1\":\"-\",\"y15a\":\"-\",\"y2\":\"-\",\"y25\":\"-\",\"y3\":\"-\",\"y5\":\"-\",\"y7\":\"-\",\"y10\":\"-\",\"y15\":\"-\",\"y20\":\"-\",\"y30\":\"-\",\"y50\":\"-\"}}],\"source\":{\"pageUrl\":\"https://kis-net.kr/kisnet_mobile/index.html\",\"endpoint\":\"https://kis-net.kr/rateInfo/ytmMatrixMobileList.do\",\"method\":\"POST\",\"request\":{\"format\":\"Nexacro XML PlatformData\",\"inDatasets\":\"ds_search=ds_search gds_tranInfo=gds_tranInfo\",\"outDatasets\":\"ds_list=output1\",\"parameters\":{\"calBaseDt\":\"20240229\",\"cboYtmSort\":\"20\"}},\"inspectedWorkflow\":\"The mobile page posts ds_search to /rateInfo/ytmMatrixMobileList.do when 검색 is clicked.\"},\"requestedBaseDate\":\"2024-02-29\",\"dateResolution\":{\"mode\":\"exact\",\"requestedBaseDate\":\"2024-02-29\",\"resolvedBaseDate\":\"2024-02-29\",\"usedFallback\":false,\"attemptedDates\":[\"2024-02-29\"],\"lookbackDays\":0}}},{\"availability\":\"available\",\"matrix\":{\"baseDate\":\"2024-02-29\",\"kind\":{\"code\":\"30\",\"name\":\"특수채\"},\"tenors\":[\"3M\",\"6M\",\"9M\",\"1Y\",\"1.5Y\",\"2Y\",\"2.5Y\",\"3Y\",\"5Y\",\"7Y\",\"10Y\",\"15Y\",\"20Y\",\"30Y\",\"50Y\"],\"rows\":[{\"groupName\":\"특수채\",\"pricingGroupCode\":\"001\",\"pricingGroupName\":\"=한글\",\"yields\":{\"3M\":-0.5,\"6M\":0,\"9M\":null,\"1Y\":null,\"1.5Y\":null,\"2Y\":null,\"2.5Y\":null,\"3Y\":null,\"5Y\":null,\"7Y\":null,\"10Y\":null,\"15Y\":null,\"20Y\":null,\"30Y\":null,\"50Y\":null},\"yieldText\":{\"3M\":\"-0.500\",\"6M\":\"0.000\",\"9M\":\"-\",\"1Y\":\"-\",\"1.5Y\":\"-\",\"2Y\":\"-\",\"2.5Y\":\"-\",\"3Y\":\"-\",\"5Y\":\"-\",\"7Y\":\"-\",\"10Y\":\"-\",\"15Y\":\"-\",\"20Y\":\"-\",\"30Y\":\"-\",\"50Y\":\"-\"},\"raw\":{\"pricingGroupCode\":\"001\",\"pricingGroupName\":\"=한글\",\"m3\":\"-0.500\",\"m6\":\"0.000\",\"m9\":\"-\",\"y1\":\"-\",\"y15a\":\"-\",\"y2\":\"-\",\"y25\":\"-\",\"y3\":\"-\",\"y5\":\"-\",\"y7\":\"-\",\"y10\":\"-\",\"y15\":\"-\",\"y20\":\"-\",\"y30\":\"-\",\"y50\":\"-\"}}],\"source\":{\"pageUrl\":\"https://kis-net.kr/kisnet_mobile/index.html\",\"endpoint\":\"https://kis-net.kr/rateInfo/ytmMatrixMobileList.do\",\"method\":\"POST\",\"request\":{\"format\":\"Nexacro XML PlatformData\",\"inDatasets\":\"ds_search=ds_search gds_tranInfo=gds_tranInfo\",\"outDatasets\":\"ds_list=output1\",\"parameters\":{\"calBaseDt\":\"20240229\",\"cboYtmSort\":\"30\"}},\"inspectedWorkflow\":\"The mobile page posts ds_search to /rateInfo/ytmMatrixMobileList.do when 검색 is clicked.\"},\"requestedBaseDate\":\"2024-02-29\",\"dateResolution\":{\"mode\":\"exact\",\"requestedBaseDate\":\"2024-02-29\",\"resolvedBaseDate\":\"2024-02-29\",\"usedFallback\":false,\"attemptedDates\":[\"2024-02-29\"],\"lookbackDays\":0}}},{\"availability\":\"available\",\"matrix\":{\"baseDate\":\"2024-02-29\",\"kind\":{\"code\":\"40\",\"name\":\"통안채\"},\"tenors\":[\"3M\",\"6M\",\"9M\",\"1Y\",\"1.5Y\",\"2Y\",\"2.5Y\",\"3Y\",\"5Y\",\"7Y\",\"10Y\",\"15Y\",\"20Y\",\"30Y\",\"50Y\"],\"rows\":[{\"groupName\":\"통안채\",\"pricingGroupCode\":\"001\",\"pricingGroupName\":\"=한글\",\"yields\":{\"3M\":-0.5,\"6M\":0,\"9M\":null,\"1Y\":null,\"1.5Y\":null,\"2Y\":null,\"2.5Y\":null,\"3Y\":null,\"5Y\":null,\"7Y\":null,\"10Y\":null,\"15Y\":null,\"20Y\":null,\"30Y\":null,\"50Y\":null},\"yieldText\":{\"3M\":\"-0.500\",\"6M\":\"0.000\",\"9M\":\"-\",\"1Y\":\"-\",\"1.5Y\":\"-\",\"2Y\":\"-\",\"2.5Y\":\"-\",\"3Y\":\"-\",\"5Y\":\"-\",\"7Y\":\"-\",\"10Y\":\"-\",\"15Y\":\"-\",\"20Y\":\"-\",\"30Y\":\"-\",\"50Y\":\"-\"},\"raw\":{\"pricingGroupCode\":\"001\",\"pricingGroupName\":\"=한글\",\"m3\":\"-0.500\",\"m6\":\"0.000\",\"m9\":\"-\",\"y1\":\"-\",\"y15a\":\"-\",\"y2\":\"-\",\"y25\":\"-\",\"y3\":\"-\",\"y5\":\"-\",\"y7\":\"-\",\"y10\":\"-\",\"y15\":\"-\",\"y20\":\"-\",\"y30\":\"-\",\"y50\":\"-\"}}],\"source\":{\"pageUrl\":\"https://kis-net.kr/kisnet_mobile/index.html\",\"endpoint\":\"https://kis-net.kr/rateInfo/ytmMatrixMobileList.do\",\"method\":\"POST\",\"request\":{\"format\":\"Nexacro XML PlatformData\",\"inDatasets\":\"ds_search=ds_search gds_tranInfo=gds_tranInfo\",\"outDatasets\":\"ds_list=output1\",\"parameters\":{\"calBaseDt\":\"20240229\",\"cboYtmSort\":\"40\"}},\"inspectedWorkflow\":\"The mobile page posts ds_search to /rateInfo/ytmMatrixMobileList.do when 검색 is clicked.\"},\"requestedBaseDate\":\"2024-02-29\",\"dateResolution\":{\"mode\":\"exact\",\"requestedBaseDate\":\"2024-02-29\",\"resolvedBaseDate\":\"2024-02-29\",\"usedFallback\":false,\"attemptedDates\":[\"2024-02-29\"],\"lookbackDays\":0}}},{\"availability\":\"available\",\"matrix\":{\"baseDate\":\"2024-02-29\",\"kind\":{\"code\":\"50\",\"name\":\"은행채\"},\"tenors\":[\"3M\",\"6M\",\"9M\",\"1Y\",\"1.5Y\",\"2Y\",\"2.5Y\",\"3Y\",\"5Y\",\"7Y\",\"10Y\",\"15Y\",\"20Y\",\"30Y\",\"50Y\"],\"rows\":[{\"groupName\":\"은행채\",\"pricingGroupCode\":\"001\",\"pricingGroupName\":\"=한글\",\"yields\":{\"3M\":-0.5,\"6M\":0,\"9M\":null,\"1Y\":null,\"1.5Y\":null,\"2Y\":null,\"2.5Y\":null,\"3Y\":null,\"5Y\":null,\"7Y\":null,\"10Y\":null,\"15Y\":null,\"20Y\":null,\"30Y\":null,\"50Y\":null},\"yieldText\":{\"3M\":\"-0.500\",\"6M\":\"0.000\",\"9M\":\"-\",\"1Y\":\"-\",\"1.5Y\":\"-\",\"2Y\":\"-\",\"2.5Y\":\"-\",\"3Y\":\"-\",\"5Y\":\"-\",\"7Y\":\"-\",\"10Y\":\"-\",\"15Y\":\"-\",\"20Y\":\"-\",\"30Y\":\"-\",\"50Y\":\"-\"},\"raw\":{\"pricingGroupCode\":\"001\",\"pricingGroupName\":\"=한글\",\"m3\":\"-0.500\",\"m6\":\"0.000\",\"m9\":\"-\",\"y1\":\"-\",\"y15a\":\"-\",\"y2\":\"-\",\"y25\":\"-\",\"y3\":\"-\",\"y5\":\"-\",\"y7\":\"-\",\"y10\":\"-\",\"y15\":\"-\",\"y20\":\"-\",\"y30\":\"-\",\"y50\":\"-\"}}],\"source\":{\"pageUrl\":\"https://kis-net.kr/kisnet_mobile/index.html\",\"endpoint\":\"https://kis-net.kr/rateInfo/ytmMatrixMobileList.do\",\"method\":\"POST\",\"request\":{\"format\":\"Nexacro XML PlatformData\",\"inDatasets\":\"ds_search=ds_search gds_tranInfo=gds_tranInfo\",\"outDatasets\":\"ds_list=output1\",\"parameters\":{\"calBaseDt\":\"20240229\",\"cboYtmSort\":\"50\"}},\"inspectedWorkflow\":\"The mobile page posts ds_search to /rateInfo/ytmMatrixMobileList.do when 검색 is clicked.\"},\"requestedBaseDate\":\"2024-02-29\",\"dateResolution\":{\"mode\":\"exact\",\"requestedBaseDate\":\"2024-02-29\",\"resolvedBaseDate\":\"2024-02-29\",\"usedFallback\":false,\"attemptedDates\":[\"2024-02-29\"],\"lookbackDays\":0}}},{\"availability\":\"available\",\"matrix\":{\"baseDate\":\"2024-02-29\",\"kind\":{\"code\":\"60\",\"name\":\"기타금융채\"},\"tenors\":[\"3M\",\"6M\",\"9M\",\"1Y\",\"1.5Y\",\"2Y\",\"2.5Y\",\"3Y\",\"5Y\",\"7Y\",\"10Y\",\"15Y\",\"20Y\",\"30Y\",\"50Y\"],\"rows\":[{\"groupName\":\"기타금융채\",\"pricingGroupCode\":\"001\",\"pricingGroupName\":\"=한글\",\"yields\":{\"3M\":-0.5,\"6M\":0,\"9M\":null,\"1Y\":null,\"1.5Y\":null,\"2Y\":null,\"2.5Y\":null,\"3Y\":null,\"5Y\":null,\"7Y\":null,\"10Y\":null,\"15Y\":null,\"20Y\":null,\"30Y\":null,\"50Y\":null},\"yieldText\":{\"3M\":\"-0.500\",\"6M\":\"0.000\",\"9M\":\"-\",\"1Y\":\"-\",\"1.5Y\":\"-\",\"2Y\":\"-\",\"2.5Y\":\"-\",\"3Y\":\"-\",\"5Y\":\"-\",\"7Y\":\"-\",\"10Y\":\"-\",\"15Y\":\"-\",\"20Y\":\"-\",\"30Y\":\"-\",\"50Y\":\"-\"},\"raw\":{\"pricingGroupCode\":\"001\",\"pricingGroupName\":\"=한글\",\"m3\":\"-0.500\",\"m6\":\"0.000\",\"m9\":\"-\",\"y1\":\"-\",\"y15a\":\"-\",\"y2\":\"-\",\"y25\":\"-\",\"y3\":\"-\",\"y5\":\"-\",\"y7\":\"-\",\"y10\":\"-\",\"y15\":\"-\",\"y20\":\"-\",\"y30\":\"-\",\"y50\":\"-\"}}],\"source\":{\"pageUrl\":\"https://kis-net.kr/kisnet_mobile/index.html\",\"endpoint\":\"https://kis-net.kr/rateInfo/ytmMatrixMobileList.do\",\"method\":\"POST\",\"request\":{\"format\":\"Nexacro XML PlatformData\",\"inDatasets\":\"ds_search=ds_search gds_tranInfo=gds_tranInfo\",\"outDatasets\":\"ds_list=output1\",\"parameters\":{\"calBaseDt\":\"20240229\",\"cboYtmSort\":\"60\"}},\"inspectedWorkflow\":\"The mobile page posts ds_search to /rateInfo/ytmMatrixMobileList.do when 검색 is clicked.\"},\"requestedBaseDate\":\"2024-02-29\",\"dateResolution\":{\"mode\":\"exact\",\"requestedBaseDate\":\"2024-02-29\",\"resolvedBaseDate\":\"2024-02-29\",\"usedFallback\":false,\"attemptedDates\":[\"2024-02-29\"],\"lookbackDays\":0}}},{\"availability\":\"available\",\"matrix\":{\"baseDate\":\"2024-02-29\",\"kind\":{\"code\":\"70\",\"name\":\"회사채(무보증)\"},\"tenors\":[\"3M\",\"6M\",\"9M\",\"1Y\",\"1.5Y\",\"2Y\",\"2.5Y\",\"3Y\",\"5Y\",\"7Y\",\"10Y\",\"15Y\",\"20Y\",\"30Y\",\"50Y\"],\"rows\":[{\"groupName\":\"회사채(무보증)\",\"pricingGroupCode\":\"001\",\"pricingGroupName\":\"=한글\",\"yields\":{\"3M\":-0.5,\"6M\":0,\"9M\":null,\"1Y\":null,\"1.5Y\":null,\"2Y\":null,\"2.5Y\":null,\"3Y\":null,\"5Y\":null,\"7Y\":null,\"10Y\":null,\"15Y\":null,\"20Y\":null,\"30Y\":null,\"50Y\":null},\"yieldText\":{\"3M\":\"-0.500\",\"6M\":\"0.000\",\"9M\":\"-\",\"1Y\":\"-\",\"1.5Y\":\"-\",\"2Y\":\"-\",\"2.5Y\":\"-\",\"3Y\":\"-\",\"5Y\":\"-\",\"7Y\":\"-\",\"10Y\":\"-\",\"15Y\":\"-\",\"20Y\":\"-\",\"30Y\":\"-\",\"50Y\":\"-\"},\"raw\":{\"pricingGroupCode\":\"001\",\"pricingGroupName\":\"=한글\",\"m3\":\"-0.500\",\"m6\":\"0.000\",\"m9\":\"-\",\"y1\":\"-\",\"y15a\":\"-\",\"y2\":\"-\",\"y25\":\"-\",\"y3\":\"-\",\"y5\":\"-\",\"y7\":\"-\",\"y10\":\"-\",\"y15\":\"-\",\"y20\":\"-\",\"y30\":\"-\",\"y50\":\"-\"}}],\"source\":{\"pageUrl\":\"https://kis-net.kr/kisnet_mobile/index.html\",\"endpoint\":\"https://kis-net.kr/rateInfo/ytmMatrixMobileList.do\",\"method\":\"POST\",\"request\":{\"format\":\"Nexacro XML PlatformData\",\"inDatasets\":\"ds_search=ds_search gds_tranInfo=gds_tranInfo\",\"outDatasets\":\"ds_list=output1\",\"parameters\":{\"calBaseDt\":\"20240229\",\"cboYtmSort\":\"70\"}},\"inspectedWorkflow\":\"The mobile page posts ds_search to /rateInfo/ytmMatrixMobileList.do when 검색 is clicked.\"},\"requestedBaseDate\":\"2024-02-29\",\"dateResolution\":{\"mode\":\"exact\",\"requestedBaseDate\":\"2024-02-29\",\"resolvedBaseDate\":\"2024-02-29\",\"usedFallback\":false,\"attemptedDates\":[\"2024-02-29\"],\"lookbackDays\":0}}},{\"availability\":\"available\",\"matrix\":{\"baseDate\":\"2024-02-29\",\"kind\":{\"code\":\"80\",\"name\":\"회사채(사모)\"},\"tenors\":[\"3M\",\"6M\",\"9M\",\"1Y\",\"1.5Y\",\"2Y\",\"2.5Y\",\"3Y\",\"5Y\",\"7Y\",\"10Y\",\"15Y\",\"20Y\",\"30Y\",\"50Y\"],\"rows\":[{\"groupName\":\"회사채(사모)\",\"pricingGroupCode\":\"001\",\"pricingGroupName\":\"=한글\",\"yields\":{\"3M\":-0.5,\"6M\":0,\"9M\":null,\"1Y\":null,\"1.5Y\":null,\"2Y\":null,\"2.5Y\":null,\"3Y\":null,\"5Y\":null,\"7Y\":null,\"10Y\":null,\"15Y\":null,\"20Y\":null,\"30Y\":null,\"50Y\":null},\"yieldText\":{\"3M\":\"-0.500\",\"6M\":\"0.000\",\"9M\":\"-\",\"1Y\":\"-\",\"1.5Y\":\"-\",\"2Y\":\"-\",\"2.5Y\":\"-\",\"3Y\":\"-\",\"5Y\":\"-\",\"7Y\":\"-\",\"10Y\":\"-\",\"15Y\":\"-\",\"20Y\":\"-\",\"30Y\":\"-\",\"50Y\":\"-\"},\"raw\":{\"pricingGroupCode\":\"001\",\"pricingGroupName\":\"=한글\",\"m3\":\"-0.500\",\"m6\":\"0.000\",\"m9\":\"-\",\"y1\":\"-\",\"y15a\":\"-\",\"y2\":\"-\",\"y25\":\"-\",\"y3\":\"-\",\"y5\":\"-\",\"y7\":\"-\",\"y10\":\"-\",\"y15\":\"-\",\"y20\":\"-\",\"y30\":\"-\",\"y50\":\"-\"}}],\"source\":{\"pageUrl\":\"https://kis-net.kr/kisnet_mobile/index.html\",\"endpoint\":\"https://kis-net.kr/rateInfo/ytmMatrixMobileList.do\",\"method\":\"POST\",\"request\":{\"format\":\"Nexacro XML PlatformData\",\"inDatasets\":\"ds_search=ds_search gds_tranInfo=gds_tranInfo\",\"outDatasets\":\"ds_list=output1\",\"parameters\":{\"calBaseDt\":\"20240229\",\"cboYtmSort\":\"80\"}},\"inspectedWorkflow\":\"The mobile page posts ds_search to /rateInfo/ytmMatrixMobileList.do when 검색 is clicked.\"},\"requestedBaseDate\":\"2024-02-29\",\"dateResolution\":{\"mode\":\"exact\",\"requestedBaseDate\":\"2024-02-29\",\"resolvedBaseDate\":\"2024-02-29\",\"usedFallback\":false,\"attemptedDates\":[\"2024-02-29\"],\"lookbackDays\":0}}}],\"availableCount\":8,\"unavailableCount\":0,\"dataRowCount\":8,\"mode\":\"exact\",\"lookbackDays\":0}}\n",
+    "stderr": ""
+  },
+  "cli:history:count-one-leap:csv": {
+    "status": 0,
+    "signal": null,
+    "stdout": "requestedBaseDate,baseDate,usedFallback,kindCode,kindName,pricingGroupCode,pricingGroupName,3M,6M,9M,1Y,1.5Y,2Y,2.5Y,3Y,5Y,7Y,10Y,15Y,20Y,30Y,50Y,availability,reason\n2024-02-29,2024-02-29,false,10,국채,001,'=한글,-0.5,0,,,,,,,,,,,,,,available,\n2024-02-29,2024-02-29,false,20,지방채,001,'=한글,-0.5,0,,,,,,,,,,,,,,available,\n2024-02-29,2024-02-29,false,30,특수채,001,'=한글,-0.5,0,,,,,,,,,,,,,,available,\n2024-02-29,2024-02-29,false,40,통안채,001,'=한글,-0.5,0,,,,,,,,,,,,,,available,\n2024-02-29,2024-02-29,false,50,은행채,001,'=한글,-0.5,0,,,,,,,,,,,,,,available,\n2024-02-29,2024-02-29,false,60,기타금융채,001,'=한글,-0.5,0,,,,,,,,,,,,,,available,\n2024-02-29,2024-02-29,false,70,회사채(무보증),001,'=한글,-0.5,0,,,,,,,,,,,,,,available,\n2024-02-29,2024-02-29,false,80,회사채(사모),001,'=한글,-0.5,0,,,,,,,,,,,,,,available,\n",
+    "stderr": ""
+  },
+  "cli:history:count-one-leap:tsv": {
+    "status": 0,
+    "signal": null,
+    "stdout": "requestedBaseDate\tbaseDate\tusedFallback\tkindCode\tkindName\tpricingGroupCode\tpricingGroupName\t3M\t6M\t9M\t1Y\t1.5Y\t2Y\t2.5Y\t3Y\t5Y\t7Y\t10Y\t15Y\t20Y\t30Y\t50Y\tavailability\treason\n2024-02-29\t2024-02-29\tfalse\t10\t국채\t001\t'=한글\t-0.5\t0\t\t\t\t\t\t\t\t\t\t\t\t\t\tavailable\t\n2024-02-29\t2024-02-29\tfalse\t20\t지방채\t001\t'=한글\t-0.5\t0\t\t\t\t\t\t\t\t\t\t\t\t\t\tavailable\t\n2024-02-29\t2024-02-29\tfalse\t30\t특수채\t001\t'=한글\t-0.5\t0\t\t\t\t\t\t\t\t\t\t\t\t\t\tavailable\t\n2024-02-29\t2024-02-29\tfalse\t40\t통안채\t001\t'=한글\t-0.5\t0\t\t\t\t\t\t\t\t\t\t\t\t\t\tavailable\t\n2024-02-29\t2024-02-29\tfalse\t50\t은행채\t001\t'=한글\t-0.5\t0\t\t\t\t\t\t\t\t\t\t\t\t\t\tavailable\t\n2024-02-29\t2024-02-29\tfalse\t60\t기타금융채\t001\t'=한글\t-0.5\t0\t\t\t\t\t\t\t\t\t\t\t\t\t\tavailable\t\n2024-02-29\t2024-02-29\tfalse\t70\t회사채(무보증)\t001\t'=한글\t-0.5\t0\t\t\t\t\t\t\t\t\t\t\t\t\t\tavailable\t\n2024-02-29\t2024-02-29\tfalse\t80\t회사채(사모)\t001\t'=한글\t-0.5\t0\t\t\t\t\t\t\t\t\t\t\t\t\t\tavailable\t\n",
+    "stderr": ""
+  },
+  "cli:history:count-shortfall-file": {
+    "status": 1,
+    "signal": null,
+    "stdout": "{\"ok\":false,\"error\":{\"ok\":false,\"code\":\"insufficient_history\",\"operationName\":\"history\",\"parameter\":\"count\",\"reason\":\"Not enough distinct dates containing numeric yields within the search boundary.\",\"expected\":{\"count\":2},\"actual\":{\"foundCount\":1,\"scannedStartDate\":\"2026-06-08\",\"scannedEndDate\":\"2026-06-09\",\"scannedDateCount\":2,\"stopReason\":\"start_boundary\"},\"recoveryHint\":\"Lower count or move startDate earlier within the 2000-day search limit.\",\"recoveryAction\":\"adjust_history_selection\",\"recoverable\":true,\"retryable\":false}}\n",
+    "stderr": ""
+  },
   "cli:history:discovery-unavailable": {
     "status": 0,
     "signal": null,
@@ -519,7 +585,7 @@
   "cli:history:help": {
     "status": 0,
     "signal": null,
-    "stdout": "history\n  Select repeated --base-date <date> OR --start-date <date> --end-date <date> (inclusive).\n  Maximum 2000 raw list entries or range days; dates normalize, sort and deduplicate.\n  Dates: YYYY-MM-DD, YYYY.MM.DD, YYYYMMDD. All categories and pricing groups are returned.\n  Exact dates are the default and recommended for historical exports.\n  Optional: --fallback previous-available --lookback-days <1..31> (default 10).\n    Returns the latest available observation on or before each requested date, within the lookback.\n    May repeat one observation across requested dates (e.g. Friday data for Saturday and Sunday).\n  Output: --format json|csv|tsv|xlsx [--pretty]\n  XLSX: --output <file.xlsx> [--overwrite]\n  Unavailable pairs are reported with exit 0; operational failures are fatal.\n  History, Availability and Metadata sheets preserve requested and actual dates.\n  CSV/TSV and Excel: requestedBaseDate is the requested date; baseDate is the observation date.\n  usedFallback is true when an earlier observation was substituted.\n\nCLI example:\n  ytm history --start-date 2026-06-01 --end-date 2026-06-08 --format xlsx --output history.xlsx\n",
+    "stdout": "history\n  Select repeated --base-date <date> OR --start-date <date> --end-date <date> (inclusive).\n  Count: --end-date <date> --count <1..2000> [--start-date <date>], exact only, no lookback.\n  Selects latest distinct dates with numeric yields; missing cells can remain.\n  Scans at most 2000 calendar days; insufficient_history fails with exit 1 and no export.\n  Maximum 2000 raw list entries or range days; dates normalize, sort and deduplicate.\n  Dates: YYYY-MM-DD, YYYY.MM.DD, YYYYMMDD. All categories and pricing groups are returned.\n  Exact dates are the default and recommended for historical exports.\n  Optional: --fallback previous-available --lookback-days <1..31> (default 10).\n    Returns the latest available observation on or before each requested date, within the lookback.\n    May repeat one observation across requested dates (e.g. Friday data for Saturday and Sunday).\n  Output: --format json|csv|tsv|xlsx [--pretty]\n  XLSX: --output <file.xlsx> [--overwrite]\n  Unavailable pairs are reported with exit 0; operational failures are fatal.\n  History, Availability and Metadata sheets preserve requested and actual dates.\n  CSV/TSV and Excel: requestedBaseDate is the requested date; baseDate is the observation date.\n  usedFallback is true when an earlier observation was substituted.\n\nCLI example:\n  ytm history --start-date 2026-06-01 --end-date 2026-06-08 --format xlsx --output history.xlsx\n",
     "stderr": ""
   },
   "cli:history:leap-range": {
@@ -1011,6 +1077,2853 @@
       "signalAbortedAtEntry": false,
       "cancellationCode": "source_transport_error",
       "cancellationIsYtmError": true
+    }
+  },
+  "node:history:count-abort": {
+    "ok": true,
+    "value": {
+      "preservedDuringExecution": true,
+      "preservedAfterAbort": true,
+      "handlerCalls": 1,
+      "signalAbortedAtEntry": false,
+      "cancellationCode": "source_transport_error",
+      "cancellationIsYtmError": true
+    }
+  },
+  "node:history:count-gaps": {
+    "ok": true,
+    "value": {
+      "countSelection": {
+        "count": 2,
+        "endDate": "2026-06-12",
+        "startDate": "2026-06-07",
+        "scannedStartDate": "2026-06-08",
+        "scannedDateCount": 5
+      },
+      "requestedDates": [
+        "2026-06-08",
+        "2026-06-11"
+      ],
+      "discovery": [
+        {
+          "requestedBaseDate": "2026-06-08",
+          "available": true
+        },
+        {
+          "requestedBaseDate": "2026-06-11",
+          "available": true
+        }
+      ],
+      "entries": [
+        {
+          "availability": "available",
+          "matrix": {
+            "baseDate": "2026-06-08",
+            "kind": {
+              "code": "10",
+              "name": "국채"
+            },
+            "tenors": [
+              "3M",
+              "6M",
+              "9M",
+              "1Y",
+              "1.5Y",
+              "2Y",
+              "2.5Y",
+              "3Y",
+              "5Y",
+              "7Y",
+              "10Y",
+              "15Y",
+              "20Y",
+              "30Y",
+              "50Y"
+            ],
+            "rows": [
+              {
+                "groupName": "국채",
+                "pricingGroupCode": "001",
+                "pricingGroupName": "=한글",
+                "yields": {
+                  "3M": -0.5,
+                  "6M": 0,
+                  "9M": null,
+                  "1Y": null,
+                  "1.5Y": null,
+                  "2Y": null,
+                  "2.5Y": null,
+                  "3Y": null,
+                  "5Y": null,
+                  "7Y": null,
+                  "10Y": null,
+                  "15Y": null,
+                  "20Y": null,
+                  "30Y": null,
+                  "50Y": null
+                },
+                "yieldText": {
+                  "3M": "-0.500",
+                  "6M": "0.000",
+                  "9M": "-",
+                  "1Y": "-",
+                  "1.5Y": "-",
+                  "2Y": "-",
+                  "2.5Y": "-",
+                  "3Y": "-",
+                  "5Y": "-",
+                  "7Y": "-",
+                  "10Y": "-",
+                  "15Y": "-",
+                  "20Y": "-",
+                  "30Y": "-",
+                  "50Y": "-"
+                },
+                "raw": {
+                  "pricingGroupCode": "001",
+                  "pricingGroupName": "=한글",
+                  "m3": "-0.500",
+                  "m6": "0.000",
+                  "m9": "-",
+                  "y1": "-",
+                  "y15a": "-",
+                  "y2": "-",
+                  "y25": "-",
+                  "y3": "-",
+                  "y5": "-",
+                  "y7": "-",
+                  "y10": "-",
+                  "y15": "-",
+                  "y20": "-",
+                  "y30": "-",
+                  "y50": "-"
+                }
+              }
+            ],
+            "source": {
+              "pageUrl": "https://kis-net.kr/kisnet_mobile/index.html",
+              "endpoint": "https://kis-net.kr/rateInfo/ytmMatrixMobileList.do",
+              "method": "POST",
+              "request": {
+                "format": "Nexacro XML PlatformData",
+                "inDatasets": "ds_search=ds_search gds_tranInfo=gds_tranInfo",
+                "outDatasets": "ds_list=output1",
+                "parameters": {
+                  "calBaseDt": "20260608",
+                  "cboYtmSort": "10"
+                }
+              },
+              "inspectedWorkflow": "The mobile page posts ds_search to /rateInfo/ytmMatrixMobileList.do when 검색 is clicked."
+            },
+            "requestedBaseDate": "2026-06-08",
+            "dateResolution": {
+              "mode": "exact",
+              "requestedBaseDate": "2026-06-08",
+              "resolvedBaseDate": "2026-06-08",
+              "usedFallback": false,
+              "attemptedDates": [
+                "2026-06-08"
+              ],
+              "lookbackDays": 0
+            }
+          }
+        },
+        {
+          "availability": "available",
+          "matrix": {
+            "baseDate": "2026-06-08",
+            "kind": {
+              "code": "20",
+              "name": "지방채"
+            },
+            "tenors": [
+              "3M",
+              "6M",
+              "9M",
+              "1Y",
+              "1.5Y",
+              "2Y",
+              "2.5Y",
+              "3Y",
+              "5Y",
+              "7Y",
+              "10Y",
+              "15Y",
+              "20Y",
+              "30Y",
+              "50Y"
+            ],
+            "rows": [
+              {
+                "groupName": "지방채",
+                "pricingGroupCode": "001",
+                "pricingGroupName": "=한글",
+                "yields": {
+                  "3M": -0.5,
+                  "6M": 0,
+                  "9M": null,
+                  "1Y": null,
+                  "1.5Y": null,
+                  "2Y": null,
+                  "2.5Y": null,
+                  "3Y": null,
+                  "5Y": null,
+                  "7Y": null,
+                  "10Y": null,
+                  "15Y": null,
+                  "20Y": null,
+                  "30Y": null,
+                  "50Y": null
+                },
+                "yieldText": {
+                  "3M": "-0.500",
+                  "6M": "0.000",
+                  "9M": "-",
+                  "1Y": "-",
+                  "1.5Y": "-",
+                  "2Y": "-",
+                  "2.5Y": "-",
+                  "3Y": "-",
+                  "5Y": "-",
+                  "7Y": "-",
+                  "10Y": "-",
+                  "15Y": "-",
+                  "20Y": "-",
+                  "30Y": "-",
+                  "50Y": "-"
+                },
+                "raw": {
+                  "pricingGroupCode": "001",
+                  "pricingGroupName": "=한글",
+                  "m3": "-0.500",
+                  "m6": "0.000",
+                  "m9": "-",
+                  "y1": "-",
+                  "y15a": "-",
+                  "y2": "-",
+                  "y25": "-",
+                  "y3": "-",
+                  "y5": "-",
+                  "y7": "-",
+                  "y10": "-",
+                  "y15": "-",
+                  "y20": "-",
+                  "y30": "-",
+                  "y50": "-"
+                }
+              }
+            ],
+            "source": {
+              "pageUrl": "https://kis-net.kr/kisnet_mobile/index.html",
+              "endpoint": "https://kis-net.kr/rateInfo/ytmMatrixMobileList.do",
+              "method": "POST",
+              "request": {
+                "format": "Nexacro XML PlatformData",
+                "inDatasets": "ds_search=ds_search gds_tranInfo=gds_tranInfo",
+                "outDatasets": "ds_list=output1",
+                "parameters": {
+                  "calBaseDt": "20260608",
+                  "cboYtmSort": "20"
+                }
+              },
+              "inspectedWorkflow": "The mobile page posts ds_search to /rateInfo/ytmMatrixMobileList.do when 검색 is clicked."
+            },
+            "requestedBaseDate": "2026-06-08",
+            "dateResolution": {
+              "mode": "exact",
+              "requestedBaseDate": "2026-06-08",
+              "resolvedBaseDate": "2026-06-08",
+              "usedFallback": false,
+              "attemptedDates": [
+                "2026-06-08"
+              ],
+              "lookbackDays": 0
+            }
+          }
+        },
+        {
+          "availability": "available",
+          "matrix": {
+            "baseDate": "2026-06-08",
+            "kind": {
+              "code": "30",
+              "name": "특수채"
+            },
+            "tenors": [
+              "3M",
+              "6M",
+              "9M",
+              "1Y",
+              "1.5Y",
+              "2Y",
+              "2.5Y",
+              "3Y",
+              "5Y",
+              "7Y",
+              "10Y",
+              "15Y",
+              "20Y",
+              "30Y",
+              "50Y"
+            ],
+            "rows": [
+              {
+                "groupName": "특수채",
+                "pricingGroupCode": "001",
+                "pricingGroupName": "=한글",
+                "yields": {
+                  "3M": -0.5,
+                  "6M": 0,
+                  "9M": null,
+                  "1Y": null,
+                  "1.5Y": null,
+                  "2Y": null,
+                  "2.5Y": null,
+                  "3Y": null,
+                  "5Y": null,
+                  "7Y": null,
+                  "10Y": null,
+                  "15Y": null,
+                  "20Y": null,
+                  "30Y": null,
+                  "50Y": null
+                },
+                "yieldText": {
+                  "3M": "-0.500",
+                  "6M": "0.000",
+                  "9M": "-",
+                  "1Y": "-",
+                  "1.5Y": "-",
+                  "2Y": "-",
+                  "2.5Y": "-",
+                  "3Y": "-",
+                  "5Y": "-",
+                  "7Y": "-",
+                  "10Y": "-",
+                  "15Y": "-",
+                  "20Y": "-",
+                  "30Y": "-",
+                  "50Y": "-"
+                },
+                "raw": {
+                  "pricingGroupCode": "001",
+                  "pricingGroupName": "=한글",
+                  "m3": "-0.500",
+                  "m6": "0.000",
+                  "m9": "-",
+                  "y1": "-",
+                  "y15a": "-",
+                  "y2": "-",
+                  "y25": "-",
+                  "y3": "-",
+                  "y5": "-",
+                  "y7": "-",
+                  "y10": "-",
+                  "y15": "-",
+                  "y20": "-",
+                  "y30": "-",
+                  "y50": "-"
+                }
+              }
+            ],
+            "source": {
+              "pageUrl": "https://kis-net.kr/kisnet_mobile/index.html",
+              "endpoint": "https://kis-net.kr/rateInfo/ytmMatrixMobileList.do",
+              "method": "POST",
+              "request": {
+                "format": "Nexacro XML PlatformData",
+                "inDatasets": "ds_search=ds_search gds_tranInfo=gds_tranInfo",
+                "outDatasets": "ds_list=output1",
+                "parameters": {
+                  "calBaseDt": "20260608",
+                  "cboYtmSort": "30"
+                }
+              },
+              "inspectedWorkflow": "The mobile page posts ds_search to /rateInfo/ytmMatrixMobileList.do when 검색 is clicked."
+            },
+            "requestedBaseDate": "2026-06-08",
+            "dateResolution": {
+              "mode": "exact",
+              "requestedBaseDate": "2026-06-08",
+              "resolvedBaseDate": "2026-06-08",
+              "usedFallback": false,
+              "attemptedDates": [
+                "2026-06-08"
+              ],
+              "lookbackDays": 0
+            }
+          }
+        },
+        {
+          "availability": "available",
+          "matrix": {
+            "baseDate": "2026-06-08",
+            "kind": {
+              "code": "40",
+              "name": "통안채"
+            },
+            "tenors": [
+              "3M",
+              "6M",
+              "9M",
+              "1Y",
+              "1.5Y",
+              "2Y",
+              "2.5Y",
+              "3Y",
+              "5Y",
+              "7Y",
+              "10Y",
+              "15Y",
+              "20Y",
+              "30Y",
+              "50Y"
+            ],
+            "rows": [
+              {
+                "groupName": "통안채",
+                "pricingGroupCode": "001",
+                "pricingGroupName": "=한글",
+                "yields": {
+                  "3M": -0.5,
+                  "6M": 0,
+                  "9M": null,
+                  "1Y": null,
+                  "1.5Y": null,
+                  "2Y": null,
+                  "2.5Y": null,
+                  "3Y": null,
+                  "5Y": null,
+                  "7Y": null,
+                  "10Y": null,
+                  "15Y": null,
+                  "20Y": null,
+                  "30Y": null,
+                  "50Y": null
+                },
+                "yieldText": {
+                  "3M": "-0.500",
+                  "6M": "0.000",
+                  "9M": "-",
+                  "1Y": "-",
+                  "1.5Y": "-",
+                  "2Y": "-",
+                  "2.5Y": "-",
+                  "3Y": "-",
+                  "5Y": "-",
+                  "7Y": "-",
+                  "10Y": "-",
+                  "15Y": "-",
+                  "20Y": "-",
+                  "30Y": "-",
+                  "50Y": "-"
+                },
+                "raw": {
+                  "pricingGroupCode": "001",
+                  "pricingGroupName": "=한글",
+                  "m3": "-0.500",
+                  "m6": "0.000",
+                  "m9": "-",
+                  "y1": "-",
+                  "y15a": "-",
+                  "y2": "-",
+                  "y25": "-",
+                  "y3": "-",
+                  "y5": "-",
+                  "y7": "-",
+                  "y10": "-",
+                  "y15": "-",
+                  "y20": "-",
+                  "y30": "-",
+                  "y50": "-"
+                }
+              }
+            ],
+            "source": {
+              "pageUrl": "https://kis-net.kr/kisnet_mobile/index.html",
+              "endpoint": "https://kis-net.kr/rateInfo/ytmMatrixMobileList.do",
+              "method": "POST",
+              "request": {
+                "format": "Nexacro XML PlatformData",
+                "inDatasets": "ds_search=ds_search gds_tranInfo=gds_tranInfo",
+                "outDatasets": "ds_list=output1",
+                "parameters": {
+                  "calBaseDt": "20260608",
+                  "cboYtmSort": "40"
+                }
+              },
+              "inspectedWorkflow": "The mobile page posts ds_search to /rateInfo/ytmMatrixMobileList.do when 검색 is clicked."
+            },
+            "requestedBaseDate": "2026-06-08",
+            "dateResolution": {
+              "mode": "exact",
+              "requestedBaseDate": "2026-06-08",
+              "resolvedBaseDate": "2026-06-08",
+              "usedFallback": false,
+              "attemptedDates": [
+                "2026-06-08"
+              ],
+              "lookbackDays": 0
+            }
+          }
+        },
+        {
+          "availability": "available",
+          "matrix": {
+            "baseDate": "2026-06-08",
+            "kind": {
+              "code": "50",
+              "name": "은행채"
+            },
+            "tenors": [
+              "3M",
+              "6M",
+              "9M",
+              "1Y",
+              "1.5Y",
+              "2Y",
+              "2.5Y",
+              "3Y",
+              "5Y",
+              "7Y",
+              "10Y",
+              "15Y",
+              "20Y",
+              "30Y",
+              "50Y"
+            ],
+            "rows": [
+              {
+                "groupName": "은행채",
+                "pricingGroupCode": "001",
+                "pricingGroupName": "=한글",
+                "yields": {
+                  "3M": -0.5,
+                  "6M": 0,
+                  "9M": null,
+                  "1Y": null,
+                  "1.5Y": null,
+                  "2Y": null,
+                  "2.5Y": null,
+                  "3Y": null,
+                  "5Y": null,
+                  "7Y": null,
+                  "10Y": null,
+                  "15Y": null,
+                  "20Y": null,
+                  "30Y": null,
+                  "50Y": null
+                },
+                "yieldText": {
+                  "3M": "-0.500",
+                  "6M": "0.000",
+                  "9M": "-",
+                  "1Y": "-",
+                  "1.5Y": "-",
+                  "2Y": "-",
+                  "2.5Y": "-",
+                  "3Y": "-",
+                  "5Y": "-",
+                  "7Y": "-",
+                  "10Y": "-",
+                  "15Y": "-",
+                  "20Y": "-",
+                  "30Y": "-",
+                  "50Y": "-"
+                },
+                "raw": {
+                  "pricingGroupCode": "001",
+                  "pricingGroupName": "=한글",
+                  "m3": "-0.500",
+                  "m6": "0.000",
+                  "m9": "-",
+                  "y1": "-",
+                  "y15a": "-",
+                  "y2": "-",
+                  "y25": "-",
+                  "y3": "-",
+                  "y5": "-",
+                  "y7": "-",
+                  "y10": "-",
+                  "y15": "-",
+                  "y20": "-",
+                  "y30": "-",
+                  "y50": "-"
+                }
+              }
+            ],
+            "source": {
+              "pageUrl": "https://kis-net.kr/kisnet_mobile/index.html",
+              "endpoint": "https://kis-net.kr/rateInfo/ytmMatrixMobileList.do",
+              "method": "POST",
+              "request": {
+                "format": "Nexacro XML PlatformData",
+                "inDatasets": "ds_search=ds_search gds_tranInfo=gds_tranInfo",
+                "outDatasets": "ds_list=output1",
+                "parameters": {
+                  "calBaseDt": "20260608",
+                  "cboYtmSort": "50"
+                }
+              },
+              "inspectedWorkflow": "The mobile page posts ds_search to /rateInfo/ytmMatrixMobileList.do when 검색 is clicked."
+            },
+            "requestedBaseDate": "2026-06-08",
+            "dateResolution": {
+              "mode": "exact",
+              "requestedBaseDate": "2026-06-08",
+              "resolvedBaseDate": "2026-06-08",
+              "usedFallback": false,
+              "attemptedDates": [
+                "2026-06-08"
+              ],
+              "lookbackDays": 0
+            }
+          }
+        },
+        {
+          "availability": "available",
+          "matrix": {
+            "baseDate": "2026-06-08",
+            "kind": {
+              "code": "60",
+              "name": "기타금융채"
+            },
+            "tenors": [
+              "3M",
+              "6M",
+              "9M",
+              "1Y",
+              "1.5Y",
+              "2Y",
+              "2.5Y",
+              "3Y",
+              "5Y",
+              "7Y",
+              "10Y",
+              "15Y",
+              "20Y",
+              "30Y",
+              "50Y"
+            ],
+            "rows": [
+              {
+                "groupName": "기타금융채",
+                "pricingGroupCode": "001",
+                "pricingGroupName": "=한글",
+                "yields": {
+                  "3M": -0.5,
+                  "6M": 0,
+                  "9M": null,
+                  "1Y": null,
+                  "1.5Y": null,
+                  "2Y": null,
+                  "2.5Y": null,
+                  "3Y": null,
+                  "5Y": null,
+                  "7Y": null,
+                  "10Y": null,
+                  "15Y": null,
+                  "20Y": null,
+                  "30Y": null,
+                  "50Y": null
+                },
+                "yieldText": {
+                  "3M": "-0.500",
+                  "6M": "0.000",
+                  "9M": "-",
+                  "1Y": "-",
+                  "1.5Y": "-",
+                  "2Y": "-",
+                  "2.5Y": "-",
+                  "3Y": "-",
+                  "5Y": "-",
+                  "7Y": "-",
+                  "10Y": "-",
+                  "15Y": "-",
+                  "20Y": "-",
+                  "30Y": "-",
+                  "50Y": "-"
+                },
+                "raw": {
+                  "pricingGroupCode": "001",
+                  "pricingGroupName": "=한글",
+                  "m3": "-0.500",
+                  "m6": "0.000",
+                  "m9": "-",
+                  "y1": "-",
+                  "y15a": "-",
+                  "y2": "-",
+                  "y25": "-",
+                  "y3": "-",
+                  "y5": "-",
+                  "y7": "-",
+                  "y10": "-",
+                  "y15": "-",
+                  "y20": "-",
+                  "y30": "-",
+                  "y50": "-"
+                }
+              }
+            ],
+            "source": {
+              "pageUrl": "https://kis-net.kr/kisnet_mobile/index.html",
+              "endpoint": "https://kis-net.kr/rateInfo/ytmMatrixMobileList.do",
+              "method": "POST",
+              "request": {
+                "format": "Nexacro XML PlatformData",
+                "inDatasets": "ds_search=ds_search gds_tranInfo=gds_tranInfo",
+                "outDatasets": "ds_list=output1",
+                "parameters": {
+                  "calBaseDt": "20260608",
+                  "cboYtmSort": "60"
+                }
+              },
+              "inspectedWorkflow": "The mobile page posts ds_search to /rateInfo/ytmMatrixMobileList.do when 검색 is clicked."
+            },
+            "requestedBaseDate": "2026-06-08",
+            "dateResolution": {
+              "mode": "exact",
+              "requestedBaseDate": "2026-06-08",
+              "resolvedBaseDate": "2026-06-08",
+              "usedFallback": false,
+              "attemptedDates": [
+                "2026-06-08"
+              ],
+              "lookbackDays": 0
+            }
+          }
+        },
+        {
+          "availability": "available",
+          "matrix": {
+            "baseDate": "2026-06-08",
+            "kind": {
+              "code": "70",
+              "name": "회사채(무보증)"
+            },
+            "tenors": [
+              "3M",
+              "6M",
+              "9M",
+              "1Y",
+              "1.5Y",
+              "2Y",
+              "2.5Y",
+              "3Y",
+              "5Y",
+              "7Y",
+              "10Y",
+              "15Y",
+              "20Y",
+              "30Y",
+              "50Y"
+            ],
+            "rows": [
+              {
+                "groupName": "회사채(무보증)",
+                "pricingGroupCode": "001",
+                "pricingGroupName": "=한글",
+                "yields": {
+                  "3M": -0.5,
+                  "6M": 0,
+                  "9M": null,
+                  "1Y": null,
+                  "1.5Y": null,
+                  "2Y": null,
+                  "2.5Y": null,
+                  "3Y": null,
+                  "5Y": null,
+                  "7Y": null,
+                  "10Y": null,
+                  "15Y": null,
+                  "20Y": null,
+                  "30Y": null,
+                  "50Y": null
+                },
+                "yieldText": {
+                  "3M": "-0.500",
+                  "6M": "0.000",
+                  "9M": "-",
+                  "1Y": "-",
+                  "1.5Y": "-",
+                  "2Y": "-",
+                  "2.5Y": "-",
+                  "3Y": "-",
+                  "5Y": "-",
+                  "7Y": "-",
+                  "10Y": "-",
+                  "15Y": "-",
+                  "20Y": "-",
+                  "30Y": "-",
+                  "50Y": "-"
+                },
+                "raw": {
+                  "pricingGroupCode": "001",
+                  "pricingGroupName": "=한글",
+                  "m3": "-0.500",
+                  "m6": "0.000",
+                  "m9": "-",
+                  "y1": "-",
+                  "y15a": "-",
+                  "y2": "-",
+                  "y25": "-",
+                  "y3": "-",
+                  "y5": "-",
+                  "y7": "-",
+                  "y10": "-",
+                  "y15": "-",
+                  "y20": "-",
+                  "y30": "-",
+                  "y50": "-"
+                }
+              }
+            ],
+            "source": {
+              "pageUrl": "https://kis-net.kr/kisnet_mobile/index.html",
+              "endpoint": "https://kis-net.kr/rateInfo/ytmMatrixMobileList.do",
+              "method": "POST",
+              "request": {
+                "format": "Nexacro XML PlatformData",
+                "inDatasets": "ds_search=ds_search gds_tranInfo=gds_tranInfo",
+                "outDatasets": "ds_list=output1",
+                "parameters": {
+                  "calBaseDt": "20260608",
+                  "cboYtmSort": "70"
+                }
+              },
+              "inspectedWorkflow": "The mobile page posts ds_search to /rateInfo/ytmMatrixMobileList.do when 검색 is clicked."
+            },
+            "requestedBaseDate": "2026-06-08",
+            "dateResolution": {
+              "mode": "exact",
+              "requestedBaseDate": "2026-06-08",
+              "resolvedBaseDate": "2026-06-08",
+              "usedFallback": false,
+              "attemptedDates": [
+                "2026-06-08"
+              ],
+              "lookbackDays": 0
+            }
+          }
+        },
+        {
+          "availability": "unavailable",
+          "requestedBaseDate": "2026-06-08",
+          "kind": {
+            "code": "80",
+            "name": "회사채(사모)"
+          },
+          "attemptedDates": [
+            "2026-06-08"
+          ],
+          "mode": "exact",
+          "lookbackDays": 0,
+          "reason": "source_data_unavailable: matrix returned no rows",
+          "stage": "matrix"
+        },
+        {
+          "availability": "available",
+          "matrix": {
+            "baseDate": "2026-06-11",
+            "kind": {
+              "code": "10",
+              "name": "국채"
+            },
+            "tenors": [
+              "3M",
+              "6M",
+              "9M",
+              "1Y",
+              "1.5Y",
+              "2Y",
+              "2.5Y",
+              "3Y",
+              "5Y",
+              "7Y",
+              "10Y",
+              "15Y",
+              "20Y",
+              "30Y",
+              "50Y"
+            ],
+            "rows": [
+              {
+                "groupName": "국채",
+                "pricingGroupCode": "001",
+                "pricingGroupName": "=한글",
+                "yields": {
+                  "3M": -0.5,
+                  "6M": 0,
+                  "9M": null,
+                  "1Y": null,
+                  "1.5Y": null,
+                  "2Y": null,
+                  "2.5Y": null,
+                  "3Y": null,
+                  "5Y": null,
+                  "7Y": null,
+                  "10Y": null,
+                  "15Y": null,
+                  "20Y": null,
+                  "30Y": null,
+                  "50Y": null
+                },
+                "yieldText": {
+                  "3M": "-0.500",
+                  "6M": "0.000",
+                  "9M": "-",
+                  "1Y": "-",
+                  "1.5Y": "-",
+                  "2Y": "-",
+                  "2.5Y": "-",
+                  "3Y": "-",
+                  "5Y": "-",
+                  "7Y": "-",
+                  "10Y": "-",
+                  "15Y": "-",
+                  "20Y": "-",
+                  "30Y": "-",
+                  "50Y": "-"
+                },
+                "raw": {
+                  "pricingGroupCode": "001",
+                  "pricingGroupName": "=한글",
+                  "m3": "-0.500",
+                  "m6": "0.000",
+                  "m9": "-",
+                  "y1": "-",
+                  "y15a": "-",
+                  "y2": "-",
+                  "y25": "-",
+                  "y3": "-",
+                  "y5": "-",
+                  "y7": "-",
+                  "y10": "-",
+                  "y15": "-",
+                  "y20": "-",
+                  "y30": "-",
+                  "y50": "-"
+                }
+              }
+            ],
+            "source": {
+              "pageUrl": "https://kis-net.kr/kisnet_mobile/index.html",
+              "endpoint": "https://kis-net.kr/rateInfo/ytmMatrixMobileList.do",
+              "method": "POST",
+              "request": {
+                "format": "Nexacro XML PlatformData",
+                "inDatasets": "ds_search=ds_search gds_tranInfo=gds_tranInfo",
+                "outDatasets": "ds_list=output1",
+                "parameters": {
+                  "calBaseDt": "20260611",
+                  "cboYtmSort": "10"
+                }
+              },
+              "inspectedWorkflow": "The mobile page posts ds_search to /rateInfo/ytmMatrixMobileList.do when 검색 is clicked."
+            },
+            "requestedBaseDate": "2026-06-11",
+            "dateResolution": {
+              "mode": "exact",
+              "requestedBaseDate": "2026-06-11",
+              "resolvedBaseDate": "2026-06-11",
+              "usedFallback": false,
+              "attemptedDates": [
+                "2026-06-11"
+              ],
+              "lookbackDays": 0
+            }
+          }
+        },
+        {
+          "availability": "available",
+          "matrix": {
+            "baseDate": "2026-06-11",
+            "kind": {
+              "code": "20",
+              "name": "지방채"
+            },
+            "tenors": [
+              "3M",
+              "6M",
+              "9M",
+              "1Y",
+              "1.5Y",
+              "2Y",
+              "2.5Y",
+              "3Y",
+              "5Y",
+              "7Y",
+              "10Y",
+              "15Y",
+              "20Y",
+              "30Y",
+              "50Y"
+            ],
+            "rows": [
+              {
+                "groupName": "지방채",
+                "pricingGroupCode": "001",
+                "pricingGroupName": "=한글",
+                "yields": {
+                  "3M": -0.5,
+                  "6M": 0,
+                  "9M": null,
+                  "1Y": null,
+                  "1.5Y": null,
+                  "2Y": null,
+                  "2.5Y": null,
+                  "3Y": null,
+                  "5Y": null,
+                  "7Y": null,
+                  "10Y": null,
+                  "15Y": null,
+                  "20Y": null,
+                  "30Y": null,
+                  "50Y": null
+                },
+                "yieldText": {
+                  "3M": "-0.500",
+                  "6M": "0.000",
+                  "9M": "-",
+                  "1Y": "-",
+                  "1.5Y": "-",
+                  "2Y": "-",
+                  "2.5Y": "-",
+                  "3Y": "-",
+                  "5Y": "-",
+                  "7Y": "-",
+                  "10Y": "-",
+                  "15Y": "-",
+                  "20Y": "-",
+                  "30Y": "-",
+                  "50Y": "-"
+                },
+                "raw": {
+                  "pricingGroupCode": "001",
+                  "pricingGroupName": "=한글",
+                  "m3": "-0.500",
+                  "m6": "0.000",
+                  "m9": "-",
+                  "y1": "-",
+                  "y15a": "-",
+                  "y2": "-",
+                  "y25": "-",
+                  "y3": "-",
+                  "y5": "-",
+                  "y7": "-",
+                  "y10": "-",
+                  "y15": "-",
+                  "y20": "-",
+                  "y30": "-",
+                  "y50": "-"
+                }
+              }
+            ],
+            "source": {
+              "pageUrl": "https://kis-net.kr/kisnet_mobile/index.html",
+              "endpoint": "https://kis-net.kr/rateInfo/ytmMatrixMobileList.do",
+              "method": "POST",
+              "request": {
+                "format": "Nexacro XML PlatformData",
+                "inDatasets": "ds_search=ds_search gds_tranInfo=gds_tranInfo",
+                "outDatasets": "ds_list=output1",
+                "parameters": {
+                  "calBaseDt": "20260611",
+                  "cboYtmSort": "20"
+                }
+              },
+              "inspectedWorkflow": "The mobile page posts ds_search to /rateInfo/ytmMatrixMobileList.do when 검색 is clicked."
+            },
+            "requestedBaseDate": "2026-06-11",
+            "dateResolution": {
+              "mode": "exact",
+              "requestedBaseDate": "2026-06-11",
+              "resolvedBaseDate": "2026-06-11",
+              "usedFallback": false,
+              "attemptedDates": [
+                "2026-06-11"
+              ],
+              "lookbackDays": 0
+            }
+          }
+        },
+        {
+          "availability": "available",
+          "matrix": {
+            "baseDate": "2026-06-11",
+            "kind": {
+              "code": "30",
+              "name": "특수채"
+            },
+            "tenors": [
+              "3M",
+              "6M",
+              "9M",
+              "1Y",
+              "1.5Y",
+              "2Y",
+              "2.5Y",
+              "3Y",
+              "5Y",
+              "7Y",
+              "10Y",
+              "15Y",
+              "20Y",
+              "30Y",
+              "50Y"
+            ],
+            "rows": [
+              {
+                "groupName": "특수채",
+                "pricingGroupCode": "001",
+                "pricingGroupName": "=한글",
+                "yields": {
+                  "3M": -0.5,
+                  "6M": 0,
+                  "9M": null,
+                  "1Y": null,
+                  "1.5Y": null,
+                  "2Y": null,
+                  "2.5Y": null,
+                  "3Y": null,
+                  "5Y": null,
+                  "7Y": null,
+                  "10Y": null,
+                  "15Y": null,
+                  "20Y": null,
+                  "30Y": null,
+                  "50Y": null
+                },
+                "yieldText": {
+                  "3M": "-0.500",
+                  "6M": "0.000",
+                  "9M": "-",
+                  "1Y": "-",
+                  "1.5Y": "-",
+                  "2Y": "-",
+                  "2.5Y": "-",
+                  "3Y": "-",
+                  "5Y": "-",
+                  "7Y": "-",
+                  "10Y": "-",
+                  "15Y": "-",
+                  "20Y": "-",
+                  "30Y": "-",
+                  "50Y": "-"
+                },
+                "raw": {
+                  "pricingGroupCode": "001",
+                  "pricingGroupName": "=한글",
+                  "m3": "-0.500",
+                  "m6": "0.000",
+                  "m9": "-",
+                  "y1": "-",
+                  "y15a": "-",
+                  "y2": "-",
+                  "y25": "-",
+                  "y3": "-",
+                  "y5": "-",
+                  "y7": "-",
+                  "y10": "-",
+                  "y15": "-",
+                  "y20": "-",
+                  "y30": "-",
+                  "y50": "-"
+                }
+              }
+            ],
+            "source": {
+              "pageUrl": "https://kis-net.kr/kisnet_mobile/index.html",
+              "endpoint": "https://kis-net.kr/rateInfo/ytmMatrixMobileList.do",
+              "method": "POST",
+              "request": {
+                "format": "Nexacro XML PlatformData",
+                "inDatasets": "ds_search=ds_search gds_tranInfo=gds_tranInfo",
+                "outDatasets": "ds_list=output1",
+                "parameters": {
+                  "calBaseDt": "20260611",
+                  "cboYtmSort": "30"
+                }
+              },
+              "inspectedWorkflow": "The mobile page posts ds_search to /rateInfo/ytmMatrixMobileList.do when 검색 is clicked."
+            },
+            "requestedBaseDate": "2026-06-11",
+            "dateResolution": {
+              "mode": "exact",
+              "requestedBaseDate": "2026-06-11",
+              "resolvedBaseDate": "2026-06-11",
+              "usedFallback": false,
+              "attemptedDates": [
+                "2026-06-11"
+              ],
+              "lookbackDays": 0
+            }
+          }
+        },
+        {
+          "availability": "available",
+          "matrix": {
+            "baseDate": "2026-06-11",
+            "kind": {
+              "code": "40",
+              "name": "통안채"
+            },
+            "tenors": [
+              "3M",
+              "6M",
+              "9M",
+              "1Y",
+              "1.5Y",
+              "2Y",
+              "2.5Y",
+              "3Y",
+              "5Y",
+              "7Y",
+              "10Y",
+              "15Y",
+              "20Y",
+              "30Y",
+              "50Y"
+            ],
+            "rows": [
+              {
+                "groupName": "통안채",
+                "pricingGroupCode": "001",
+                "pricingGroupName": "=한글",
+                "yields": {
+                  "3M": -0.5,
+                  "6M": 0,
+                  "9M": null,
+                  "1Y": null,
+                  "1.5Y": null,
+                  "2Y": null,
+                  "2.5Y": null,
+                  "3Y": null,
+                  "5Y": null,
+                  "7Y": null,
+                  "10Y": null,
+                  "15Y": null,
+                  "20Y": null,
+                  "30Y": null,
+                  "50Y": null
+                },
+                "yieldText": {
+                  "3M": "-0.500",
+                  "6M": "0.000",
+                  "9M": "-",
+                  "1Y": "-",
+                  "1.5Y": "-",
+                  "2Y": "-",
+                  "2.5Y": "-",
+                  "3Y": "-",
+                  "5Y": "-",
+                  "7Y": "-",
+                  "10Y": "-",
+                  "15Y": "-",
+                  "20Y": "-",
+                  "30Y": "-",
+                  "50Y": "-"
+                },
+                "raw": {
+                  "pricingGroupCode": "001",
+                  "pricingGroupName": "=한글",
+                  "m3": "-0.500",
+                  "m6": "0.000",
+                  "m9": "-",
+                  "y1": "-",
+                  "y15a": "-",
+                  "y2": "-",
+                  "y25": "-",
+                  "y3": "-",
+                  "y5": "-",
+                  "y7": "-",
+                  "y10": "-",
+                  "y15": "-",
+                  "y20": "-",
+                  "y30": "-",
+                  "y50": "-"
+                }
+              }
+            ],
+            "source": {
+              "pageUrl": "https://kis-net.kr/kisnet_mobile/index.html",
+              "endpoint": "https://kis-net.kr/rateInfo/ytmMatrixMobileList.do",
+              "method": "POST",
+              "request": {
+                "format": "Nexacro XML PlatformData",
+                "inDatasets": "ds_search=ds_search gds_tranInfo=gds_tranInfo",
+                "outDatasets": "ds_list=output1",
+                "parameters": {
+                  "calBaseDt": "20260611",
+                  "cboYtmSort": "40"
+                }
+              },
+              "inspectedWorkflow": "The mobile page posts ds_search to /rateInfo/ytmMatrixMobileList.do when 검색 is clicked."
+            },
+            "requestedBaseDate": "2026-06-11",
+            "dateResolution": {
+              "mode": "exact",
+              "requestedBaseDate": "2026-06-11",
+              "resolvedBaseDate": "2026-06-11",
+              "usedFallback": false,
+              "attemptedDates": [
+                "2026-06-11"
+              ],
+              "lookbackDays": 0
+            }
+          }
+        },
+        {
+          "availability": "available",
+          "matrix": {
+            "baseDate": "2026-06-11",
+            "kind": {
+              "code": "50",
+              "name": "은행채"
+            },
+            "tenors": [
+              "3M",
+              "6M",
+              "9M",
+              "1Y",
+              "1.5Y",
+              "2Y",
+              "2.5Y",
+              "3Y",
+              "5Y",
+              "7Y",
+              "10Y",
+              "15Y",
+              "20Y",
+              "30Y",
+              "50Y"
+            ],
+            "rows": [
+              {
+                "groupName": "은행채",
+                "pricingGroupCode": "001",
+                "pricingGroupName": "=한글",
+                "yields": {
+                  "3M": -0.5,
+                  "6M": 0,
+                  "9M": null,
+                  "1Y": null,
+                  "1.5Y": null,
+                  "2Y": null,
+                  "2.5Y": null,
+                  "3Y": null,
+                  "5Y": null,
+                  "7Y": null,
+                  "10Y": null,
+                  "15Y": null,
+                  "20Y": null,
+                  "30Y": null,
+                  "50Y": null
+                },
+                "yieldText": {
+                  "3M": "-0.500",
+                  "6M": "0.000",
+                  "9M": "-",
+                  "1Y": "-",
+                  "1.5Y": "-",
+                  "2Y": "-",
+                  "2.5Y": "-",
+                  "3Y": "-",
+                  "5Y": "-",
+                  "7Y": "-",
+                  "10Y": "-",
+                  "15Y": "-",
+                  "20Y": "-",
+                  "30Y": "-",
+                  "50Y": "-"
+                },
+                "raw": {
+                  "pricingGroupCode": "001",
+                  "pricingGroupName": "=한글",
+                  "m3": "-0.500",
+                  "m6": "0.000",
+                  "m9": "-",
+                  "y1": "-",
+                  "y15a": "-",
+                  "y2": "-",
+                  "y25": "-",
+                  "y3": "-",
+                  "y5": "-",
+                  "y7": "-",
+                  "y10": "-",
+                  "y15": "-",
+                  "y20": "-",
+                  "y30": "-",
+                  "y50": "-"
+                }
+              }
+            ],
+            "source": {
+              "pageUrl": "https://kis-net.kr/kisnet_mobile/index.html",
+              "endpoint": "https://kis-net.kr/rateInfo/ytmMatrixMobileList.do",
+              "method": "POST",
+              "request": {
+                "format": "Nexacro XML PlatformData",
+                "inDatasets": "ds_search=ds_search gds_tranInfo=gds_tranInfo",
+                "outDatasets": "ds_list=output1",
+                "parameters": {
+                  "calBaseDt": "20260611",
+                  "cboYtmSort": "50"
+                }
+              },
+              "inspectedWorkflow": "The mobile page posts ds_search to /rateInfo/ytmMatrixMobileList.do when 검색 is clicked."
+            },
+            "requestedBaseDate": "2026-06-11",
+            "dateResolution": {
+              "mode": "exact",
+              "requestedBaseDate": "2026-06-11",
+              "resolvedBaseDate": "2026-06-11",
+              "usedFallback": false,
+              "attemptedDates": [
+                "2026-06-11"
+              ],
+              "lookbackDays": 0
+            }
+          }
+        },
+        {
+          "availability": "available",
+          "matrix": {
+            "baseDate": "2026-06-11",
+            "kind": {
+              "code": "60",
+              "name": "기타금융채"
+            },
+            "tenors": [
+              "3M",
+              "6M",
+              "9M",
+              "1Y",
+              "1.5Y",
+              "2Y",
+              "2.5Y",
+              "3Y",
+              "5Y",
+              "7Y",
+              "10Y",
+              "15Y",
+              "20Y",
+              "30Y",
+              "50Y"
+            ],
+            "rows": [
+              {
+                "groupName": "기타금융채",
+                "pricingGroupCode": "001",
+                "pricingGroupName": "=한글",
+                "yields": {
+                  "3M": -0.5,
+                  "6M": 0,
+                  "9M": null,
+                  "1Y": null,
+                  "1.5Y": null,
+                  "2Y": null,
+                  "2.5Y": null,
+                  "3Y": null,
+                  "5Y": null,
+                  "7Y": null,
+                  "10Y": null,
+                  "15Y": null,
+                  "20Y": null,
+                  "30Y": null,
+                  "50Y": null
+                },
+                "yieldText": {
+                  "3M": "-0.500",
+                  "6M": "0.000",
+                  "9M": "-",
+                  "1Y": "-",
+                  "1.5Y": "-",
+                  "2Y": "-",
+                  "2.5Y": "-",
+                  "3Y": "-",
+                  "5Y": "-",
+                  "7Y": "-",
+                  "10Y": "-",
+                  "15Y": "-",
+                  "20Y": "-",
+                  "30Y": "-",
+                  "50Y": "-"
+                },
+                "raw": {
+                  "pricingGroupCode": "001",
+                  "pricingGroupName": "=한글",
+                  "m3": "-0.500",
+                  "m6": "0.000",
+                  "m9": "-",
+                  "y1": "-",
+                  "y15a": "-",
+                  "y2": "-",
+                  "y25": "-",
+                  "y3": "-",
+                  "y5": "-",
+                  "y7": "-",
+                  "y10": "-",
+                  "y15": "-",
+                  "y20": "-",
+                  "y30": "-",
+                  "y50": "-"
+                }
+              }
+            ],
+            "source": {
+              "pageUrl": "https://kis-net.kr/kisnet_mobile/index.html",
+              "endpoint": "https://kis-net.kr/rateInfo/ytmMatrixMobileList.do",
+              "method": "POST",
+              "request": {
+                "format": "Nexacro XML PlatformData",
+                "inDatasets": "ds_search=ds_search gds_tranInfo=gds_tranInfo",
+                "outDatasets": "ds_list=output1",
+                "parameters": {
+                  "calBaseDt": "20260611",
+                  "cboYtmSort": "60"
+                }
+              },
+              "inspectedWorkflow": "The mobile page posts ds_search to /rateInfo/ytmMatrixMobileList.do when 검색 is clicked."
+            },
+            "requestedBaseDate": "2026-06-11",
+            "dateResolution": {
+              "mode": "exact",
+              "requestedBaseDate": "2026-06-11",
+              "resolvedBaseDate": "2026-06-11",
+              "usedFallback": false,
+              "attemptedDates": [
+                "2026-06-11"
+              ],
+              "lookbackDays": 0
+            }
+          }
+        },
+        {
+          "availability": "available",
+          "matrix": {
+            "baseDate": "2026-06-11",
+            "kind": {
+              "code": "70",
+              "name": "회사채(무보증)"
+            },
+            "tenors": [
+              "3M",
+              "6M",
+              "9M",
+              "1Y",
+              "1.5Y",
+              "2Y",
+              "2.5Y",
+              "3Y",
+              "5Y",
+              "7Y",
+              "10Y",
+              "15Y",
+              "20Y",
+              "30Y",
+              "50Y"
+            ],
+            "rows": [
+              {
+                "groupName": "회사채(무보증)",
+                "pricingGroupCode": "001",
+                "pricingGroupName": "=한글",
+                "yields": {
+                  "3M": -0.5,
+                  "6M": 0,
+                  "9M": null,
+                  "1Y": null,
+                  "1.5Y": null,
+                  "2Y": null,
+                  "2.5Y": null,
+                  "3Y": null,
+                  "5Y": null,
+                  "7Y": null,
+                  "10Y": null,
+                  "15Y": null,
+                  "20Y": null,
+                  "30Y": null,
+                  "50Y": null
+                },
+                "yieldText": {
+                  "3M": "-0.500",
+                  "6M": "0.000",
+                  "9M": "-",
+                  "1Y": "-",
+                  "1.5Y": "-",
+                  "2Y": "-",
+                  "2.5Y": "-",
+                  "3Y": "-",
+                  "5Y": "-",
+                  "7Y": "-",
+                  "10Y": "-",
+                  "15Y": "-",
+                  "20Y": "-",
+                  "30Y": "-",
+                  "50Y": "-"
+                },
+                "raw": {
+                  "pricingGroupCode": "001",
+                  "pricingGroupName": "=한글",
+                  "m3": "-0.500",
+                  "m6": "0.000",
+                  "m9": "-",
+                  "y1": "-",
+                  "y15a": "-",
+                  "y2": "-",
+                  "y25": "-",
+                  "y3": "-",
+                  "y5": "-",
+                  "y7": "-",
+                  "y10": "-",
+                  "y15": "-",
+                  "y20": "-",
+                  "y30": "-",
+                  "y50": "-"
+                }
+              }
+            ],
+            "source": {
+              "pageUrl": "https://kis-net.kr/kisnet_mobile/index.html",
+              "endpoint": "https://kis-net.kr/rateInfo/ytmMatrixMobileList.do",
+              "method": "POST",
+              "request": {
+                "format": "Nexacro XML PlatformData",
+                "inDatasets": "ds_search=ds_search gds_tranInfo=gds_tranInfo",
+                "outDatasets": "ds_list=output1",
+                "parameters": {
+                  "calBaseDt": "20260611",
+                  "cboYtmSort": "70"
+                }
+              },
+              "inspectedWorkflow": "The mobile page posts ds_search to /rateInfo/ytmMatrixMobileList.do when 검색 is clicked."
+            },
+            "requestedBaseDate": "2026-06-11",
+            "dateResolution": {
+              "mode": "exact",
+              "requestedBaseDate": "2026-06-11",
+              "resolvedBaseDate": "2026-06-11",
+              "usedFallback": false,
+              "attemptedDates": [
+                "2026-06-11"
+              ],
+              "lookbackDays": 0
+            }
+          }
+        },
+        {
+          "availability": "available",
+          "matrix": {
+            "baseDate": "2026-06-11",
+            "kind": {
+              "code": "80",
+              "name": "회사채(사모)"
+            },
+            "tenors": [
+              "3M",
+              "6M",
+              "9M",
+              "1Y",
+              "1.5Y",
+              "2Y",
+              "2.5Y",
+              "3Y",
+              "5Y",
+              "7Y",
+              "10Y",
+              "15Y",
+              "20Y",
+              "30Y",
+              "50Y"
+            ],
+            "rows": [
+              {
+                "groupName": "회사채(사모)",
+                "pricingGroupCode": "001",
+                "pricingGroupName": "=한글",
+                "yields": {
+                  "3M": -0.5,
+                  "6M": 0,
+                  "9M": null,
+                  "1Y": null,
+                  "1.5Y": null,
+                  "2Y": null,
+                  "2.5Y": null,
+                  "3Y": null,
+                  "5Y": null,
+                  "7Y": null,
+                  "10Y": null,
+                  "15Y": null,
+                  "20Y": null,
+                  "30Y": null,
+                  "50Y": null
+                },
+                "yieldText": {
+                  "3M": "-0.500",
+                  "6M": "0.000",
+                  "9M": "-",
+                  "1Y": "-",
+                  "1.5Y": "-",
+                  "2Y": "-",
+                  "2.5Y": "-",
+                  "3Y": "-",
+                  "5Y": "-",
+                  "7Y": "-",
+                  "10Y": "-",
+                  "15Y": "-",
+                  "20Y": "-",
+                  "30Y": "-",
+                  "50Y": "-"
+                },
+                "raw": {
+                  "pricingGroupCode": "001",
+                  "pricingGroupName": "=한글",
+                  "m3": "-0.500",
+                  "m6": "0.000",
+                  "m9": "-",
+                  "y1": "-",
+                  "y15a": "-",
+                  "y2": "-",
+                  "y25": "-",
+                  "y3": "-",
+                  "y5": "-",
+                  "y7": "-",
+                  "y10": "-",
+                  "y15": "-",
+                  "y20": "-",
+                  "y30": "-",
+                  "y50": "-"
+                }
+              }
+            ],
+            "source": {
+              "pageUrl": "https://kis-net.kr/kisnet_mobile/index.html",
+              "endpoint": "https://kis-net.kr/rateInfo/ytmMatrixMobileList.do",
+              "method": "POST",
+              "request": {
+                "format": "Nexacro XML PlatformData",
+                "inDatasets": "ds_search=ds_search gds_tranInfo=gds_tranInfo",
+                "outDatasets": "ds_list=output1",
+                "parameters": {
+                  "calBaseDt": "20260611",
+                  "cboYtmSort": "80"
+                }
+              },
+              "inspectedWorkflow": "The mobile page posts ds_search to /rateInfo/ytmMatrixMobileList.do when 검색 is clicked."
+            },
+            "requestedBaseDate": "2026-06-11",
+            "dateResolution": {
+              "mode": "exact",
+              "requestedBaseDate": "2026-06-11",
+              "resolvedBaseDate": "2026-06-11",
+              "usedFallback": false,
+              "attemptedDates": [
+                "2026-06-11"
+              ],
+              "lookbackDays": 0
+            }
+          }
+        }
+      ],
+      "availableCount": 15,
+      "unavailableCount": 1,
+      "dataRowCount": 15,
+      "mode": "exact",
+      "lookbackDays": 0
+    }
+  },
+  "node:history:count-invalid--1": {
+    "ok": false,
+    "error": {
+      "ok": false,
+      "name": "ValidationError",
+      "message": "Count requires an integer 1..=2000, endDate, optional startDate, and exact fallback without lookbackDays or baseDates.",
+      "code": "invalid_parameter",
+      "operationName": "history",
+      "parameter": "count",
+      "reason": "Count requires an integer 1..=2000, endDate, optional startDate, and exact fallback without lookbackDays or baseDates.",
+      "recoveryHint": "Select a date list, inclusive range, or count with endDate (maximum 2000).",
+      "recoveryAction": {
+        "kind": "review_method_input",
+        "method": "history"
+      },
+      "recoverable": true,
+      "retryable": false
+    }
+  },
+  "node:history:count-invalid-0": {
+    "ok": false,
+    "error": {
+      "ok": false,
+      "name": "ValidationError",
+      "message": "Count requires an integer 1..=2000, endDate, optional startDate, and exact fallback without lookbackDays or baseDates.",
+      "code": "invalid_parameter",
+      "operationName": "history",
+      "parameter": "count",
+      "reason": "Count requires an integer 1..=2000, endDate, optional startDate, and exact fallback without lookbackDays or baseDates.",
+      "recoveryHint": "Select a date list, inclusive range, or count with endDate (maximum 2000).",
+      "recoveryAction": {
+        "kind": "review_method_input",
+        "method": "history"
+      },
+      "recoverable": true,
+      "retryable": false
+    }
+  },
+  "node:history:count-invalid-1": {
+    "ok": false,
+    "error": {
+      "ok": false,
+      "name": "ValidationError",
+      "message": "Count requires an integer 1..=2000, endDate, optional startDate, and exact fallback without lookbackDays or baseDates.",
+      "code": "invalid_parameter",
+      "operationName": "history",
+      "parameter": "count",
+      "reason": "Count requires an integer 1..=2000, endDate, optional startDate, and exact fallback without lookbackDays or baseDates.",
+      "recoveryHint": "Select a date list, inclusive range, or count with endDate (maximum 2000).",
+      "recoveryAction": {
+        "kind": "review_method_input",
+        "method": "history"
+      },
+      "recoverable": true,
+      "retryable": false
+    }
+  },
+  "node:history:count-invalid-1.5": {
+    "ok": false,
+    "error": {
+      "ok": false,
+      "name": "ValidationError",
+      "message": "Count requires an integer 1..=2000, endDate, optional startDate, and exact fallback without lookbackDays or baseDates.",
+      "code": "invalid_parameter",
+      "operationName": "history",
+      "parameter": "count",
+      "reason": "Count requires an integer 1..=2000, endDate, optional startDate, and exact fallback without lookbackDays or baseDates.",
+      "recoveryHint": "Select a date list, inclusive range, or count with endDate (maximum 2000).",
+      "recoveryAction": {
+        "kind": "review_method_input",
+        "method": "history"
+      },
+      "recoverable": true,
+      "retryable": false
+    }
+  },
+  "node:history:count-invalid-1e+40": {
+    "ok": false,
+    "error": {
+      "ok": false,
+      "name": "ValidationError",
+      "message": "Count requires an integer 1..=2000, endDate, optional startDate, and exact fallback without lookbackDays or baseDates.",
+      "code": "invalid_parameter",
+      "operationName": "history",
+      "parameter": "count",
+      "reason": "Count requires an integer 1..=2000, endDate, optional startDate, and exact fallback without lookbackDays or baseDates.",
+      "recoveryHint": "Select a date list, inclusive range, or count with endDate (maximum 2000).",
+      "recoveryAction": {
+        "kind": "review_method_input",
+        "method": "history"
+      },
+      "recoverable": true,
+      "retryable": false
+    }
+  },
+  "node:history:count-invalid-2001": {
+    "ok": false,
+    "error": {
+      "ok": false,
+      "name": "ValidationError",
+      "message": "Count requires an integer 1..=2000, endDate, optional startDate, and exact fallback without lookbackDays or baseDates.",
+      "code": "invalid_parameter",
+      "operationName": "history",
+      "parameter": "count",
+      "reason": "Count requires an integer 1..=2000, endDate, optional startDate, and exact fallback without lookbackDays or baseDates.",
+      "recoveryHint": "Select a date list, inclusive range, or count with endDate (maximum 2000).",
+      "recoveryAction": {
+        "kind": "review_method_input",
+        "method": "history"
+      },
+      "recoverable": true,
+      "retryable": false
+    }
+  },
+  "node:history:count-invalid-true": {
+    "ok": false,
+    "error": {
+      "ok": false,
+      "name": "ValidationError",
+      "message": "Count requires an integer 1..=2000, endDate, optional startDate, and exact fallback without lookbackDays or baseDates.",
+      "code": "invalid_parameter",
+      "operationName": "history",
+      "parameter": "count",
+      "reason": "Count requires an integer 1..=2000, endDate, optional startDate, and exact fallback without lookbackDays or baseDates.",
+      "recoveryHint": "Select a date list, inclusive range, or count with endDate (maximum 2000).",
+      "recoveryAction": {
+        "kind": "review_method_input",
+        "method": "history"
+      },
+      "recoverable": true,
+      "retryable": false
+    }
+  },
+  "node:history:count-one-leap": {
+    "ok": true,
+    "value": {
+      "countSelection": {
+        "count": 1,
+        "endDate": "2024-02-29",
+        "startDate": "2024-02-29",
+        "scannedStartDate": "2024-02-29",
+        "scannedDateCount": 1
+      },
+      "requestedDates": [
+        "2024-02-29"
+      ],
+      "discovery": [
+        {
+          "requestedBaseDate": "2024-02-29",
+          "available": true
+        }
+      ],
+      "entries": [
+        {
+          "availability": "available",
+          "matrix": {
+            "baseDate": "2024-02-29",
+            "kind": {
+              "code": "10",
+              "name": "국채"
+            },
+            "tenors": [
+              "3M",
+              "6M",
+              "9M",
+              "1Y",
+              "1.5Y",
+              "2Y",
+              "2.5Y",
+              "3Y",
+              "5Y",
+              "7Y",
+              "10Y",
+              "15Y",
+              "20Y",
+              "30Y",
+              "50Y"
+            ],
+            "rows": [
+              {
+                "groupName": "국채",
+                "pricingGroupCode": "001",
+                "pricingGroupName": "=한글",
+                "yields": {
+                  "3M": -0.5,
+                  "6M": 0,
+                  "9M": null,
+                  "1Y": null,
+                  "1.5Y": null,
+                  "2Y": null,
+                  "2.5Y": null,
+                  "3Y": null,
+                  "5Y": null,
+                  "7Y": null,
+                  "10Y": null,
+                  "15Y": null,
+                  "20Y": null,
+                  "30Y": null,
+                  "50Y": null
+                },
+                "yieldText": {
+                  "3M": "-0.500",
+                  "6M": "0.000",
+                  "9M": "-",
+                  "1Y": "-",
+                  "1.5Y": "-",
+                  "2Y": "-",
+                  "2.5Y": "-",
+                  "3Y": "-",
+                  "5Y": "-",
+                  "7Y": "-",
+                  "10Y": "-",
+                  "15Y": "-",
+                  "20Y": "-",
+                  "30Y": "-",
+                  "50Y": "-"
+                },
+                "raw": {
+                  "pricingGroupCode": "001",
+                  "pricingGroupName": "=한글",
+                  "m3": "-0.500",
+                  "m6": "0.000",
+                  "m9": "-",
+                  "y1": "-",
+                  "y15a": "-",
+                  "y2": "-",
+                  "y25": "-",
+                  "y3": "-",
+                  "y5": "-",
+                  "y7": "-",
+                  "y10": "-",
+                  "y15": "-",
+                  "y20": "-",
+                  "y30": "-",
+                  "y50": "-"
+                }
+              }
+            ],
+            "source": {
+              "pageUrl": "https://kis-net.kr/kisnet_mobile/index.html",
+              "endpoint": "https://kis-net.kr/rateInfo/ytmMatrixMobileList.do",
+              "method": "POST",
+              "request": {
+                "format": "Nexacro XML PlatformData",
+                "inDatasets": "ds_search=ds_search gds_tranInfo=gds_tranInfo",
+                "outDatasets": "ds_list=output1",
+                "parameters": {
+                  "calBaseDt": "20240229",
+                  "cboYtmSort": "10"
+                }
+              },
+              "inspectedWorkflow": "The mobile page posts ds_search to /rateInfo/ytmMatrixMobileList.do when 검색 is clicked."
+            },
+            "requestedBaseDate": "2024-02-29",
+            "dateResolution": {
+              "mode": "exact",
+              "requestedBaseDate": "2024-02-29",
+              "resolvedBaseDate": "2024-02-29",
+              "usedFallback": false,
+              "attemptedDates": [
+                "2024-02-29"
+              ],
+              "lookbackDays": 0
+            }
+          }
+        },
+        {
+          "availability": "available",
+          "matrix": {
+            "baseDate": "2024-02-29",
+            "kind": {
+              "code": "20",
+              "name": "지방채"
+            },
+            "tenors": [
+              "3M",
+              "6M",
+              "9M",
+              "1Y",
+              "1.5Y",
+              "2Y",
+              "2.5Y",
+              "3Y",
+              "5Y",
+              "7Y",
+              "10Y",
+              "15Y",
+              "20Y",
+              "30Y",
+              "50Y"
+            ],
+            "rows": [
+              {
+                "groupName": "지방채",
+                "pricingGroupCode": "001",
+                "pricingGroupName": "=한글",
+                "yields": {
+                  "3M": -0.5,
+                  "6M": 0,
+                  "9M": null,
+                  "1Y": null,
+                  "1.5Y": null,
+                  "2Y": null,
+                  "2.5Y": null,
+                  "3Y": null,
+                  "5Y": null,
+                  "7Y": null,
+                  "10Y": null,
+                  "15Y": null,
+                  "20Y": null,
+                  "30Y": null,
+                  "50Y": null
+                },
+                "yieldText": {
+                  "3M": "-0.500",
+                  "6M": "0.000",
+                  "9M": "-",
+                  "1Y": "-",
+                  "1.5Y": "-",
+                  "2Y": "-",
+                  "2.5Y": "-",
+                  "3Y": "-",
+                  "5Y": "-",
+                  "7Y": "-",
+                  "10Y": "-",
+                  "15Y": "-",
+                  "20Y": "-",
+                  "30Y": "-",
+                  "50Y": "-"
+                },
+                "raw": {
+                  "pricingGroupCode": "001",
+                  "pricingGroupName": "=한글",
+                  "m3": "-0.500",
+                  "m6": "0.000",
+                  "m9": "-",
+                  "y1": "-",
+                  "y15a": "-",
+                  "y2": "-",
+                  "y25": "-",
+                  "y3": "-",
+                  "y5": "-",
+                  "y7": "-",
+                  "y10": "-",
+                  "y15": "-",
+                  "y20": "-",
+                  "y30": "-",
+                  "y50": "-"
+                }
+              }
+            ],
+            "source": {
+              "pageUrl": "https://kis-net.kr/kisnet_mobile/index.html",
+              "endpoint": "https://kis-net.kr/rateInfo/ytmMatrixMobileList.do",
+              "method": "POST",
+              "request": {
+                "format": "Nexacro XML PlatformData",
+                "inDatasets": "ds_search=ds_search gds_tranInfo=gds_tranInfo",
+                "outDatasets": "ds_list=output1",
+                "parameters": {
+                  "calBaseDt": "20240229",
+                  "cboYtmSort": "20"
+                }
+              },
+              "inspectedWorkflow": "The mobile page posts ds_search to /rateInfo/ytmMatrixMobileList.do when 검색 is clicked."
+            },
+            "requestedBaseDate": "2024-02-29",
+            "dateResolution": {
+              "mode": "exact",
+              "requestedBaseDate": "2024-02-29",
+              "resolvedBaseDate": "2024-02-29",
+              "usedFallback": false,
+              "attemptedDates": [
+                "2024-02-29"
+              ],
+              "lookbackDays": 0
+            }
+          }
+        },
+        {
+          "availability": "available",
+          "matrix": {
+            "baseDate": "2024-02-29",
+            "kind": {
+              "code": "30",
+              "name": "특수채"
+            },
+            "tenors": [
+              "3M",
+              "6M",
+              "9M",
+              "1Y",
+              "1.5Y",
+              "2Y",
+              "2.5Y",
+              "3Y",
+              "5Y",
+              "7Y",
+              "10Y",
+              "15Y",
+              "20Y",
+              "30Y",
+              "50Y"
+            ],
+            "rows": [
+              {
+                "groupName": "특수채",
+                "pricingGroupCode": "001",
+                "pricingGroupName": "=한글",
+                "yields": {
+                  "3M": -0.5,
+                  "6M": 0,
+                  "9M": null,
+                  "1Y": null,
+                  "1.5Y": null,
+                  "2Y": null,
+                  "2.5Y": null,
+                  "3Y": null,
+                  "5Y": null,
+                  "7Y": null,
+                  "10Y": null,
+                  "15Y": null,
+                  "20Y": null,
+                  "30Y": null,
+                  "50Y": null
+                },
+                "yieldText": {
+                  "3M": "-0.500",
+                  "6M": "0.000",
+                  "9M": "-",
+                  "1Y": "-",
+                  "1.5Y": "-",
+                  "2Y": "-",
+                  "2.5Y": "-",
+                  "3Y": "-",
+                  "5Y": "-",
+                  "7Y": "-",
+                  "10Y": "-",
+                  "15Y": "-",
+                  "20Y": "-",
+                  "30Y": "-",
+                  "50Y": "-"
+                },
+                "raw": {
+                  "pricingGroupCode": "001",
+                  "pricingGroupName": "=한글",
+                  "m3": "-0.500",
+                  "m6": "0.000",
+                  "m9": "-",
+                  "y1": "-",
+                  "y15a": "-",
+                  "y2": "-",
+                  "y25": "-",
+                  "y3": "-",
+                  "y5": "-",
+                  "y7": "-",
+                  "y10": "-",
+                  "y15": "-",
+                  "y20": "-",
+                  "y30": "-",
+                  "y50": "-"
+                }
+              }
+            ],
+            "source": {
+              "pageUrl": "https://kis-net.kr/kisnet_mobile/index.html",
+              "endpoint": "https://kis-net.kr/rateInfo/ytmMatrixMobileList.do",
+              "method": "POST",
+              "request": {
+                "format": "Nexacro XML PlatformData",
+                "inDatasets": "ds_search=ds_search gds_tranInfo=gds_tranInfo",
+                "outDatasets": "ds_list=output1",
+                "parameters": {
+                  "calBaseDt": "20240229",
+                  "cboYtmSort": "30"
+                }
+              },
+              "inspectedWorkflow": "The mobile page posts ds_search to /rateInfo/ytmMatrixMobileList.do when 검색 is clicked."
+            },
+            "requestedBaseDate": "2024-02-29",
+            "dateResolution": {
+              "mode": "exact",
+              "requestedBaseDate": "2024-02-29",
+              "resolvedBaseDate": "2024-02-29",
+              "usedFallback": false,
+              "attemptedDates": [
+                "2024-02-29"
+              ],
+              "lookbackDays": 0
+            }
+          }
+        },
+        {
+          "availability": "available",
+          "matrix": {
+            "baseDate": "2024-02-29",
+            "kind": {
+              "code": "40",
+              "name": "통안채"
+            },
+            "tenors": [
+              "3M",
+              "6M",
+              "9M",
+              "1Y",
+              "1.5Y",
+              "2Y",
+              "2.5Y",
+              "3Y",
+              "5Y",
+              "7Y",
+              "10Y",
+              "15Y",
+              "20Y",
+              "30Y",
+              "50Y"
+            ],
+            "rows": [
+              {
+                "groupName": "통안채",
+                "pricingGroupCode": "001",
+                "pricingGroupName": "=한글",
+                "yields": {
+                  "3M": -0.5,
+                  "6M": 0,
+                  "9M": null,
+                  "1Y": null,
+                  "1.5Y": null,
+                  "2Y": null,
+                  "2.5Y": null,
+                  "3Y": null,
+                  "5Y": null,
+                  "7Y": null,
+                  "10Y": null,
+                  "15Y": null,
+                  "20Y": null,
+                  "30Y": null,
+                  "50Y": null
+                },
+                "yieldText": {
+                  "3M": "-0.500",
+                  "6M": "0.000",
+                  "9M": "-",
+                  "1Y": "-",
+                  "1.5Y": "-",
+                  "2Y": "-",
+                  "2.5Y": "-",
+                  "3Y": "-",
+                  "5Y": "-",
+                  "7Y": "-",
+                  "10Y": "-",
+                  "15Y": "-",
+                  "20Y": "-",
+                  "30Y": "-",
+                  "50Y": "-"
+                },
+                "raw": {
+                  "pricingGroupCode": "001",
+                  "pricingGroupName": "=한글",
+                  "m3": "-0.500",
+                  "m6": "0.000",
+                  "m9": "-",
+                  "y1": "-",
+                  "y15a": "-",
+                  "y2": "-",
+                  "y25": "-",
+                  "y3": "-",
+                  "y5": "-",
+                  "y7": "-",
+                  "y10": "-",
+                  "y15": "-",
+                  "y20": "-",
+                  "y30": "-",
+                  "y50": "-"
+                }
+              }
+            ],
+            "source": {
+              "pageUrl": "https://kis-net.kr/kisnet_mobile/index.html",
+              "endpoint": "https://kis-net.kr/rateInfo/ytmMatrixMobileList.do",
+              "method": "POST",
+              "request": {
+                "format": "Nexacro XML PlatformData",
+                "inDatasets": "ds_search=ds_search gds_tranInfo=gds_tranInfo",
+                "outDatasets": "ds_list=output1",
+                "parameters": {
+                  "calBaseDt": "20240229",
+                  "cboYtmSort": "40"
+                }
+              },
+              "inspectedWorkflow": "The mobile page posts ds_search to /rateInfo/ytmMatrixMobileList.do when 검색 is clicked."
+            },
+            "requestedBaseDate": "2024-02-29",
+            "dateResolution": {
+              "mode": "exact",
+              "requestedBaseDate": "2024-02-29",
+              "resolvedBaseDate": "2024-02-29",
+              "usedFallback": false,
+              "attemptedDates": [
+                "2024-02-29"
+              ],
+              "lookbackDays": 0
+            }
+          }
+        },
+        {
+          "availability": "available",
+          "matrix": {
+            "baseDate": "2024-02-29",
+            "kind": {
+              "code": "50",
+              "name": "은행채"
+            },
+            "tenors": [
+              "3M",
+              "6M",
+              "9M",
+              "1Y",
+              "1.5Y",
+              "2Y",
+              "2.5Y",
+              "3Y",
+              "5Y",
+              "7Y",
+              "10Y",
+              "15Y",
+              "20Y",
+              "30Y",
+              "50Y"
+            ],
+            "rows": [
+              {
+                "groupName": "은행채",
+                "pricingGroupCode": "001",
+                "pricingGroupName": "=한글",
+                "yields": {
+                  "3M": -0.5,
+                  "6M": 0,
+                  "9M": null,
+                  "1Y": null,
+                  "1.5Y": null,
+                  "2Y": null,
+                  "2.5Y": null,
+                  "3Y": null,
+                  "5Y": null,
+                  "7Y": null,
+                  "10Y": null,
+                  "15Y": null,
+                  "20Y": null,
+                  "30Y": null,
+                  "50Y": null
+                },
+                "yieldText": {
+                  "3M": "-0.500",
+                  "6M": "0.000",
+                  "9M": "-",
+                  "1Y": "-",
+                  "1.5Y": "-",
+                  "2Y": "-",
+                  "2.5Y": "-",
+                  "3Y": "-",
+                  "5Y": "-",
+                  "7Y": "-",
+                  "10Y": "-",
+                  "15Y": "-",
+                  "20Y": "-",
+                  "30Y": "-",
+                  "50Y": "-"
+                },
+                "raw": {
+                  "pricingGroupCode": "001",
+                  "pricingGroupName": "=한글",
+                  "m3": "-0.500",
+                  "m6": "0.000",
+                  "m9": "-",
+                  "y1": "-",
+                  "y15a": "-",
+                  "y2": "-",
+                  "y25": "-",
+                  "y3": "-",
+                  "y5": "-",
+                  "y7": "-",
+                  "y10": "-",
+                  "y15": "-",
+                  "y20": "-",
+                  "y30": "-",
+                  "y50": "-"
+                }
+              }
+            ],
+            "source": {
+              "pageUrl": "https://kis-net.kr/kisnet_mobile/index.html",
+              "endpoint": "https://kis-net.kr/rateInfo/ytmMatrixMobileList.do",
+              "method": "POST",
+              "request": {
+                "format": "Nexacro XML PlatformData",
+                "inDatasets": "ds_search=ds_search gds_tranInfo=gds_tranInfo",
+                "outDatasets": "ds_list=output1",
+                "parameters": {
+                  "calBaseDt": "20240229",
+                  "cboYtmSort": "50"
+                }
+              },
+              "inspectedWorkflow": "The mobile page posts ds_search to /rateInfo/ytmMatrixMobileList.do when 검색 is clicked."
+            },
+            "requestedBaseDate": "2024-02-29",
+            "dateResolution": {
+              "mode": "exact",
+              "requestedBaseDate": "2024-02-29",
+              "resolvedBaseDate": "2024-02-29",
+              "usedFallback": false,
+              "attemptedDates": [
+                "2024-02-29"
+              ],
+              "lookbackDays": 0
+            }
+          }
+        },
+        {
+          "availability": "available",
+          "matrix": {
+            "baseDate": "2024-02-29",
+            "kind": {
+              "code": "60",
+              "name": "기타금융채"
+            },
+            "tenors": [
+              "3M",
+              "6M",
+              "9M",
+              "1Y",
+              "1.5Y",
+              "2Y",
+              "2.5Y",
+              "3Y",
+              "5Y",
+              "7Y",
+              "10Y",
+              "15Y",
+              "20Y",
+              "30Y",
+              "50Y"
+            ],
+            "rows": [
+              {
+                "groupName": "기타금융채",
+                "pricingGroupCode": "001",
+                "pricingGroupName": "=한글",
+                "yields": {
+                  "3M": -0.5,
+                  "6M": 0,
+                  "9M": null,
+                  "1Y": null,
+                  "1.5Y": null,
+                  "2Y": null,
+                  "2.5Y": null,
+                  "3Y": null,
+                  "5Y": null,
+                  "7Y": null,
+                  "10Y": null,
+                  "15Y": null,
+                  "20Y": null,
+                  "30Y": null,
+                  "50Y": null
+                },
+                "yieldText": {
+                  "3M": "-0.500",
+                  "6M": "0.000",
+                  "9M": "-",
+                  "1Y": "-",
+                  "1.5Y": "-",
+                  "2Y": "-",
+                  "2.5Y": "-",
+                  "3Y": "-",
+                  "5Y": "-",
+                  "7Y": "-",
+                  "10Y": "-",
+                  "15Y": "-",
+                  "20Y": "-",
+                  "30Y": "-",
+                  "50Y": "-"
+                },
+                "raw": {
+                  "pricingGroupCode": "001",
+                  "pricingGroupName": "=한글",
+                  "m3": "-0.500",
+                  "m6": "0.000",
+                  "m9": "-",
+                  "y1": "-",
+                  "y15a": "-",
+                  "y2": "-",
+                  "y25": "-",
+                  "y3": "-",
+                  "y5": "-",
+                  "y7": "-",
+                  "y10": "-",
+                  "y15": "-",
+                  "y20": "-",
+                  "y30": "-",
+                  "y50": "-"
+                }
+              }
+            ],
+            "source": {
+              "pageUrl": "https://kis-net.kr/kisnet_mobile/index.html",
+              "endpoint": "https://kis-net.kr/rateInfo/ytmMatrixMobileList.do",
+              "method": "POST",
+              "request": {
+                "format": "Nexacro XML PlatformData",
+                "inDatasets": "ds_search=ds_search gds_tranInfo=gds_tranInfo",
+                "outDatasets": "ds_list=output1",
+                "parameters": {
+                  "calBaseDt": "20240229",
+                  "cboYtmSort": "60"
+                }
+              },
+              "inspectedWorkflow": "The mobile page posts ds_search to /rateInfo/ytmMatrixMobileList.do when 검색 is clicked."
+            },
+            "requestedBaseDate": "2024-02-29",
+            "dateResolution": {
+              "mode": "exact",
+              "requestedBaseDate": "2024-02-29",
+              "resolvedBaseDate": "2024-02-29",
+              "usedFallback": false,
+              "attemptedDates": [
+                "2024-02-29"
+              ],
+              "lookbackDays": 0
+            }
+          }
+        },
+        {
+          "availability": "available",
+          "matrix": {
+            "baseDate": "2024-02-29",
+            "kind": {
+              "code": "70",
+              "name": "회사채(무보증)"
+            },
+            "tenors": [
+              "3M",
+              "6M",
+              "9M",
+              "1Y",
+              "1.5Y",
+              "2Y",
+              "2.5Y",
+              "3Y",
+              "5Y",
+              "7Y",
+              "10Y",
+              "15Y",
+              "20Y",
+              "30Y",
+              "50Y"
+            ],
+            "rows": [
+              {
+                "groupName": "회사채(무보증)",
+                "pricingGroupCode": "001",
+                "pricingGroupName": "=한글",
+                "yields": {
+                  "3M": -0.5,
+                  "6M": 0,
+                  "9M": null,
+                  "1Y": null,
+                  "1.5Y": null,
+                  "2Y": null,
+                  "2.5Y": null,
+                  "3Y": null,
+                  "5Y": null,
+                  "7Y": null,
+                  "10Y": null,
+                  "15Y": null,
+                  "20Y": null,
+                  "30Y": null,
+                  "50Y": null
+                },
+                "yieldText": {
+                  "3M": "-0.500",
+                  "6M": "0.000",
+                  "9M": "-",
+                  "1Y": "-",
+                  "1.5Y": "-",
+                  "2Y": "-",
+                  "2.5Y": "-",
+                  "3Y": "-",
+                  "5Y": "-",
+                  "7Y": "-",
+                  "10Y": "-",
+                  "15Y": "-",
+                  "20Y": "-",
+                  "30Y": "-",
+                  "50Y": "-"
+                },
+                "raw": {
+                  "pricingGroupCode": "001",
+                  "pricingGroupName": "=한글",
+                  "m3": "-0.500",
+                  "m6": "0.000",
+                  "m9": "-",
+                  "y1": "-",
+                  "y15a": "-",
+                  "y2": "-",
+                  "y25": "-",
+                  "y3": "-",
+                  "y5": "-",
+                  "y7": "-",
+                  "y10": "-",
+                  "y15": "-",
+                  "y20": "-",
+                  "y30": "-",
+                  "y50": "-"
+                }
+              }
+            ],
+            "source": {
+              "pageUrl": "https://kis-net.kr/kisnet_mobile/index.html",
+              "endpoint": "https://kis-net.kr/rateInfo/ytmMatrixMobileList.do",
+              "method": "POST",
+              "request": {
+                "format": "Nexacro XML PlatformData",
+                "inDatasets": "ds_search=ds_search gds_tranInfo=gds_tranInfo",
+                "outDatasets": "ds_list=output1",
+                "parameters": {
+                  "calBaseDt": "20240229",
+                  "cboYtmSort": "70"
+                }
+              },
+              "inspectedWorkflow": "The mobile page posts ds_search to /rateInfo/ytmMatrixMobileList.do when 검색 is clicked."
+            },
+            "requestedBaseDate": "2024-02-29",
+            "dateResolution": {
+              "mode": "exact",
+              "requestedBaseDate": "2024-02-29",
+              "resolvedBaseDate": "2024-02-29",
+              "usedFallback": false,
+              "attemptedDates": [
+                "2024-02-29"
+              ],
+              "lookbackDays": 0
+            }
+          }
+        },
+        {
+          "availability": "available",
+          "matrix": {
+            "baseDate": "2024-02-29",
+            "kind": {
+              "code": "80",
+              "name": "회사채(사모)"
+            },
+            "tenors": [
+              "3M",
+              "6M",
+              "9M",
+              "1Y",
+              "1.5Y",
+              "2Y",
+              "2.5Y",
+              "3Y",
+              "5Y",
+              "7Y",
+              "10Y",
+              "15Y",
+              "20Y",
+              "30Y",
+              "50Y"
+            ],
+            "rows": [
+              {
+                "groupName": "회사채(사모)",
+                "pricingGroupCode": "001",
+                "pricingGroupName": "=한글",
+                "yields": {
+                  "3M": -0.5,
+                  "6M": 0,
+                  "9M": null,
+                  "1Y": null,
+                  "1.5Y": null,
+                  "2Y": null,
+                  "2.5Y": null,
+                  "3Y": null,
+                  "5Y": null,
+                  "7Y": null,
+                  "10Y": null,
+                  "15Y": null,
+                  "20Y": null,
+                  "30Y": null,
+                  "50Y": null
+                },
+                "yieldText": {
+                  "3M": "-0.500",
+                  "6M": "0.000",
+                  "9M": "-",
+                  "1Y": "-",
+                  "1.5Y": "-",
+                  "2Y": "-",
+                  "2.5Y": "-",
+                  "3Y": "-",
+                  "5Y": "-",
+                  "7Y": "-",
+                  "10Y": "-",
+                  "15Y": "-",
+                  "20Y": "-",
+                  "30Y": "-",
+                  "50Y": "-"
+                },
+                "raw": {
+                  "pricingGroupCode": "001",
+                  "pricingGroupName": "=한글",
+                  "m3": "-0.500",
+                  "m6": "0.000",
+                  "m9": "-",
+                  "y1": "-",
+                  "y15a": "-",
+                  "y2": "-",
+                  "y25": "-",
+                  "y3": "-",
+                  "y5": "-",
+                  "y7": "-",
+                  "y10": "-",
+                  "y15": "-",
+                  "y20": "-",
+                  "y30": "-",
+                  "y50": "-"
+                }
+              }
+            ],
+            "source": {
+              "pageUrl": "https://kis-net.kr/kisnet_mobile/index.html",
+              "endpoint": "https://kis-net.kr/rateInfo/ytmMatrixMobileList.do",
+              "method": "POST",
+              "request": {
+                "format": "Nexacro XML PlatformData",
+                "inDatasets": "ds_search=ds_search gds_tranInfo=gds_tranInfo",
+                "outDatasets": "ds_list=output1",
+                "parameters": {
+                  "calBaseDt": "20240229",
+                  "cboYtmSort": "80"
+                }
+              },
+              "inspectedWorkflow": "The mobile page posts ds_search to /rateInfo/ytmMatrixMobileList.do when 검색 is clicked."
+            },
+            "requestedBaseDate": "2024-02-29",
+            "dateResolution": {
+              "mode": "exact",
+              "requestedBaseDate": "2024-02-29",
+              "resolvedBaseDate": "2024-02-29",
+              "usedFallback": false,
+              "attemptedDates": [
+                "2024-02-29"
+              ],
+              "lookbackDays": 0
+            }
+          }
+        }
+      ],
+      "availableCount": 8,
+      "unavailableCount": 0,
+      "dataRowCount": 8,
+      "mode": "exact",
+      "lookbackDays": 0
+    }
+  },
+  "node:history:count-shortfall": {
+    "ok": false,
+    "error": {
+      "ok": false,
+      "code": "insufficient_history",
+      "operationName": "history",
+      "parameter": "count",
+      "reason": "Not enough distinct dates containing numeric yields within the search boundary.",
+      "expected": {
+        "count": 2
+      },
+      "actual": {
+        "foundCount": 1,
+        "scannedStartDate": "2026-06-08",
+        "scannedEndDate": "2026-06-09",
+        "scannedDateCount": 2,
+        "stopReason": "start_boundary"
+      },
+      "recoveryHint": "Lower count or move startDate earlier within the 2000-day search limit.",
+      "recoveryAction": {
+        "kind": "adjust_history_selection"
+      },
+      "recoverable": true,
+      "retryable": false,
+      "name": "InsufficientHistoryError",
+      "message": "Not enough distinct dates containing numeric yields within the search boundary."
     }
   },
   "node:history:discovery-unavailable": {
@@ -6325,7 +9238,7 @@
       "operationName": "history",
       "parameter": "lookbackDays",
       "reason": "lookbackDays requires previous-available and an integer from 1 to 31.",
-      "recoveryHint": "Select a date list or inclusive range of at most 2000 dates.",
+      "recoveryHint": "Select a date list, inclusive range, or count with endDate (maximum 2000).",
       "recoveryAction": {
         "kind": "review_method_input",
         "method": "history"
@@ -6344,7 +9257,7 @@
       "operationName": "history",
       "parameter": "baseDates",
       "reason": "Select 1..=2000 date strings without range bounds.",
-      "recoveryHint": "Select a date list or inclusive range of at most 2000 dates.",
+      "recoveryHint": "Select a date list, inclusive range, or count with endDate (maximum 2000).",
       "recoveryAction": {
         "kind": "review_method_input",
         "method": "history"
@@ -6363,7 +9276,7 @@
       "operationName": "history",
       "parameter": "baseDates",
       "reason": "Select 1..=2000 date strings without range bounds.",
-      "recoveryHint": "Select a date list or inclusive range of at most 2000 dates.",
+      "recoveryHint": "Select a date list, inclusive range, or count with endDate (maximum 2000).",
       "recoveryAction": {
         "kind": "review_method_input",
         "method": "history"
@@ -6422,7 +9335,7 @@
       "operationName": "history",
       "parameter": "dates",
       "reason": "Supply baseDates or both startDate and endDate.",
-      "recoveryHint": "Select a date list or inclusive range of at most 2000 dates.",
+      "recoveryHint": "Select a date list, inclusive range, or count with endDate (maximum 2000).",
       "recoveryAction": {
         "kind": "review_method_input",
         "method": "history"
@@ -10920,7 +13833,7 @@
       "operationName": "history",
       "parameter": "baseDates",
       "reason": "Select 1..=2000 date strings without range bounds.",
-      "recoveryHint": "Select a date list or inclusive range of at most 2000 dates.",
+      "recoveryHint": "Select a date list, inclusive range, or count with endDate (maximum 2000).",
       "recoveryAction": {
         "kind": "review_method_input",
         "method": "history"

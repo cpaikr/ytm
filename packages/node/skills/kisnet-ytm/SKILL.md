@@ -9,6 +9,13 @@ Import `YtmClient` and the operation-specific validation helpers from
 `@sjunepark/ytm`. The package is a Rust-backed Node SDK and does not declare or
 distribute a CLI. Publication of the rewritten package is not yet authorized.
 
+- For the latest N observation dates, use `history({ count: N, endDate: "YYYY-MM-DD" })`,
+  with optional inclusive `startDate`. Count is 1–2000; the exact backward scan
+  stops within 2000 calendar days. Do not combine count with a date list or
+  previous-available fallback. A shortfall raises `insufficient_history`.
+- A numeric yield anywhere qualifies a date; missing cells may remain. Report
+  `requestedDates.length` as the selected date count and preserve `countSelection`.
+  `availableCount` counts date/category pairs, not dates.
 - Dates accept `YYYY-MM-DD`, `YYYY.MM.DD`, or `YYYYMMDD`.
 - Kind accepts a source code or Korean label. The canonical catalog includes
   `80` 회사채(사모), distinct from `70` 회사채(무보증).

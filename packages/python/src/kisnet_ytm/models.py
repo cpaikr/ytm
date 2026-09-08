@@ -89,6 +89,15 @@ class UnavailableHistoryEntry:
 HistoryEntry = AvailableHistoryEntry | UnavailableHistoryEntry
 
 @dataclass(frozen=True)
+class CountSelectionMetadata:
+    count: int
+    end_date: str
+    start_date: str | None
+    scanned_start_date: str
+    scanned_date_count: int
+
+
+@dataclass(frozen=True)
 class HistoryResult:
     requested_dates: tuple[str, ...]
     discovery: tuple[HistoryDiscovery, ...]
@@ -98,3 +107,4 @@ class HistoryResult:
     data_row_count: int
     mode: Fallback
     lookback_days: int
+    count_selection: CountSelectionMetadata | None = None

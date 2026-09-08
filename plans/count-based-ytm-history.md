@@ -15,9 +15,7 @@ categories; do not imply that every series has N numeric observations.
 
 ## Current state
 
-Planning only; no feature implementation or runtime validation has been done.
-This plan is queued in [the roadmap](../ROADMAP.md); it does not change the
-current release work or authorize implementation, a PR, or publication.
+Implementation active under [the goal contract](../goals/count-based-ytm-history.md). One connected PR targets `codex/count-history-integration`; release work remains queued and excluded.
 
 Repository evidence:
 
@@ -36,9 +34,7 @@ Repository evidence:
 
 ## Next action
 
-When implementation is requested, redispatch through `$progress`, reconcile
-the current queue and any goal authority, then begin the contract and fixture
-slice below. No product decision remains blocking this plan.
+Create the single ready PR, handle feedback, and merge into `codex/count-history-integration`; then persist terminal goal and roadmap metadata.
 
 ## Public behavior
 
@@ -184,27 +180,27 @@ Primary integration points:
 
 ## Work and acceptance checklist
 
-- [ ] **Contract and fixtures:** update the current specification for the new
+- [x] **Contract and fixtures:** update the current specification for the new
   selection, validity predicate, error, metadata, and limits. Add deterministic
   fixtures with numeric, empty, null-only, and partially available dates;
   expected dates and request counts must be independent of the implementation.
-- [ ] **Core:** implement typed input, exact backward retrieval, date grouping,
+- [x] **Core:** implement typed input, exact backward retrieval, date grouping,
   error reporting, and metadata. Exercise the public core API and transport
   fixtures, including stopping at the Nth valid day and bounded memory behavior.
-- [ ] **SDK parity:** wire Node and Python sync/async inputs and immutable
+- [x] **SDK parity:** wire Node and Python sync/async inputs and immutable
   results; update type declarations and shape validators. Preserve invalid-input
   rejection, AbortSignal, per-call cancellation, and Python close/drain behavior.
   Update Rust and installed/local SDK consumer checks for old and new inputs.
-- [ ] **CLI and exports:** implement count parsing/help, progress, receipts,
+- [x] **CLI and exports:** implement count parsing/help, progress, receipts,
   tables and Excel metadata. Validate output consistency and atomic publication
   through the existing independent judges and lifecycle harnesses.
-- [ ] **Review and documentation:** perform one bounded code review, including
+- [x] **Review and documentation:** perform one bounded code review, including
   an independent reviewer for the shared public behavior. Resolve material
   findings and reconcile the root/core/Node/Python README and SPEC files,
   capability/help output, bundled Node skill, and capacity documentation where
   affected. Keep historical completed plans historical. Follow applicable
   documentation reconciliation instructions at implementation time.
-- [ ] **Validation and completion:** run the repository gate once after focused
+- [x] **Validation and completion:** run the repository gate once after focused
   checks pass; record actual evidence, limitations, and next action here.
   Remove this item from the active queue only when implementation and required
   checks are complete. PR, release, and live provider qualification are separate
@@ -246,3 +242,20 @@ not be presented as a measured live-provider latency or quota guarantee.
 - The acceptance matrix covers the count guarantee, retained contracts,
   boundaries, consumers, and errors. No unresolved consequential assumption
   prevents implementation after authorization.
+
+## Execution evidence
+
+- Core targeted history suite passes, including 180 dates and acceptance of the
+  2,000th candidate. Node/CLI independent assertions and updated golden
+  expectations cover gaps, null-only dates, partial categories, shortfalls,
+  cancellation, and JSON/CSV/TSV/XLSX consistency. Existing golden changes are
+  limited to count-aware help/recovery wording.
+- Python fixture and release-wheel validation and strict typing pass; Node
+  consumer typing passes. CLI PTY/redirected cancellation preserves destinations.
+- One independent bounded code review found an omitted Node error-code type;
+  it was fixed with a consumer assertion. No unresolved findings. Affected
+  root/core/Node/Python docs and bundled skill have been reconciled.
+- [Capacity evidence](../docs/history-capacity.md#count-selection): 180-date
+  success used 1,620 requests; null-only 2,000-candidate exhaustion used 18,000.
+  This is synthetic evidence, not live-provider qualification.
+- Full `PYO3_PYTHON=/opt/homebrew/bin/python3.13 bun run validate` passed on 2026-09-08, including all repository-required checks. PR delivery remains pending.

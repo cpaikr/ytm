@@ -97,7 +97,10 @@ async fn measure() {
     if sparse {
         input.fallback = FallbackPolicy::PreviousAvailable(LookbackDays::new(31).unwrap());
     }
-    let dates = input.selection.as_dates().len();
+    let dates = match &input.selection {
+        ytm_core::HistorySelection::Dates(dates) => dates.as_dates().len(),
+        ytm_core::HistorySelection::Count(selection) => selection.count(),
+    };
     let started = Instant::now();
     let result = client.history(input).await.unwrap();
     let retrieval_ms = started.elapsed().as_millis();
@@ -169,5 +172,54 @@ async fn delayed_history_cancellation_latency() {
     println!(
         "CANCELLATION latency_us={}",
         cancelled.elapsed().as_micros()
+    );
+}
+
+#[tokio::test]
+#[ignore = "synthetic count capacity; run built binary under a process memory monitor"]
+async fn count_success() {
+    measure_count(false).await;
+}
+
+#[tokio::test]
+#[ignore = "synthetic count capacity; run built binary under a process memory monitor"]
+async fn count_exhaustion() {
+    measure_count(true).await;
+}
+
+async fn measure_count(exhaustion: bool) {
+    let mut transport = synthetic(10, false, Duration::ZERO);
+    if exhaustion {
+        transport.rows = String::from_utf8(transport.rows)
+            .unwrap()
+            .replace("2.500", "-")
+            .into_bytes();
+    }
+    let requests = transport.count.clone();
+    let client = YtmService::with_transport(transport);
+    let input = HistoryInput::new(
+        ytm_core::CountSelection::new(180, "2026-09-08".parse().unwrap(), None).unwrap(),
+    );
+    let started = Instant::now();
+    let result = client.history(input).await;
+    let scanned = if exhaustion { 2000 } else { 180 };
+    if exhaustion {
+        let error = result.unwrap_err();
+        assert_eq!(error.details.code, "insufficient_history");
+        assert_eq!(
+            error.details.actual.as_ref().unwrap()["scannedDateCount"],
+            2000
+        );
+        assert_eq!(error.details.actual.as_ref().unwrap()["foundCount"], 0);
+    } else {
+        let result = result.unwrap();
+        assert_eq!(result.requested_dates.len(), 180);
+        assert_eq!(result.data_row_count, 180 * 8 * 10);
+        assert_eq!(result.count_selection.unwrap().scanned_date_count, 180);
+    }
+    assert_eq!(requests.load(Ordering::Relaxed), scanned * 9);
+    println!(
+        "COUNT_CAPACITY {}",
+        serde_json::json!({"exhaustion":exhaustion,"scannedDates":scanned,"physicalRequests":requests.load(Ordering::Relaxed),"retrievalMs":started.elapsed().as_millis()})
     );
 }

@@ -51,3 +51,7 @@ class ClientStateError(YtmError):
 
 class DefectError(YtmError):
     """An unexpected implementation failure was contained."""
+
+
+class InsufficientHistoryError(YtmError):
+    """The bounded search found fewer numeric observation dates than requested."""

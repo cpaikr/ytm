@@ -61,6 +61,11 @@ arguments are keyword-only. `fallback="previous-available"` permits a bounded
 search, with optional `lookback_days`. See [the API contract](SPEC.md) for
 results, errors, cancellation, and lifecycle behavior.
 
+`history(count=180, end_date="2026-09-08")` returns the latest 180 distinct
+dates containing numeric yields, with optional inclusive `start_date`.
+Count mode is exact-only; missing cells can remain. A bounded-search shortfall
+raises `InsufficientHistoryError`. Frozen `count_selection` records the scan.
+
 `history(start_date="2026-06-01", end_date="2026-06-08")` or
 `history(base_dates=["2026-06-08", "2026-06-09"])` retrieves all categories and
 pricing groups, with available and unavailable entries. It accepts the same

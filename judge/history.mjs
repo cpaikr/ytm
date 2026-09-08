@@ -10,7 +10,13 @@ export function historyScenarios({ runNode, runCli, check, fixture, initPath, ma
   const init = (date, body = catalog()) => ({ path: initPath, body, expectedCells: { calBaseDt: date } });
   const pair = (date, code, body = matrix) => ({ path: matrixPath, body, expectedCells: { calBaseDt: date, cboYtmSort: code } });
   const day = (date, extra) => [init(date, catalog(extra)), ...[...codes, ...(extra ? [extra] : [])].map(code => pair(date, code))];
+  const nullMatrix = matrix.replace("-0.500", "-").replace("0.000", "-");
   const cases = [
+    { name: "count-gaps", input: {count: 2, endDate: "2026-06-12", startDate: "2026-06-07"},
+      steps: [init("20260612", xml("")), ...day("20260611"), init("20260610"), ...codes.map(code=>pair("20260610",code,nullMatrix)),
+        init("20260609"), ...codes.map(code=>pair("20260609",code,xml(""))), init("20260608"), ...codes.map(code=>pair("20260608",code,code==="80"?xml(""):matrix))],
+      available: 15, unavailable: 1, dates: ["2026-06-08","2026-06-11"], scanned: 5 },
+    { name: "count-one-leap", input: {count:1, endDate:"2024-02-29", startDate:"2024-02-29", fallback:"exact"}, steps:day("20240229"), available:8, unavailable:0, dates:["2024-02-29"], scanned:1 },
     { name: "dynamic-catalog", input: { baseDates: ["20260609", "2026.06.08", "2026-06-09"] }, steps: [...day("20260608", "090"), ...day("20260609", "091")], available: 18, unavailable: 0, dates: ["2026-06-08", "2026-06-09"] },
     { name: "partial", input: { startDate: "2026-06-08", endDate: "2026-06-09" }, steps: [...day("20260608"), init("20260609"), ...codes.map(code => pair("20260609", code, code === "80" ? xml("") : matrix))], available: 15, unavailable: 1, dates: ["2026-06-08", "2026-06-09"] },
     { name: "discovery-unavailable", input: { baseDates: ["20260608", "20260609"] }, steps: [init("20260608", xml("")), init("20260609", xml(""))], available: 0, unavailable: 16, dates: ["2026-06-08", "2026-06-09"] },
@@ -20,9 +26,16 @@ export function historyScenarios({ runNode, runCli, check, fixture, initPath, ma
     { name: "leap-range", input: { startDate: "2024-02-28", endDate: "2024-03-01" }, steps: ["20240228", "20240229", "20240301"].flatMap(date => day(date)), available: 24, unavailable: 0, dates: ["2024-02-28", "2024-02-29", "2024-03-01"] }
   ];
   function args(input) {
-    return ["history", ...(input.baseDates ? input.baseDates.flatMap(date => ["--base-date", date]) : ["--start-date", input.startDate, "--end-date", input.endDate]), ...(input.fallback ? ["--fallback", input.fallback, "--lookback-days", String(input.lookbackDays)] : [])];
+    return ["history", ...(input.baseDates ? input.baseDates.flatMap(date => ["--base-date", date]) : []),
+      ...(input.startDate ? ["--start-date",input.startDate] : []), ...(input.endDate ? ["--end-date",input.endDate] : []),
+      ...(input.count !== undefined ? ["--count",String(input.count)] : []), ...(input.fallback ? ["--fallback",input.fallback] : []),
+      ...(input.lookbackDays !== undefined ? ["--lookback-days",String(input.lookbackDays)] : [])];
   }
   function resultCheck(value, c, label) {
+    if(c.input.count) {
+      check(JSON.stringify(value.countSelection) === JSON.stringify({count:c.input.count,endDate:c.input.endDate,...(c.input.startDate?{startDate:c.input.startDate}:{}),scannedStartDate:c.dates[0],scannedDateCount:c.scanned}), `${label} exact scan metadata`);
+      check(value.entries.every(e=>!e.matrix || (!e.matrix.dateResolution.usedFallback && e.matrix.baseDate===e.matrix.requestedBaseDate)), `${label} exact observations`);
+    } else check(value.countSelection === undefined, `${label} ordinary shape unchanged`);
     check(value?.availableCount === c.available && value?.unavailableCount === c.unavailable && value?.dataRowCount === c.available, `${label} pair/data counts`);
     check(JSON.stringify(value?.requestedDates) === JSON.stringify(c.dates), `${label} normalized ordered dates`);
     check(value?.entries?.length === c.available + c.unavailable, `${label} every pair represented once`);
@@ -57,6 +70,7 @@ export function historyScenarios({ runNode, runCli, check, fixture, initPath, ma
       if (result.status !== 0) return;
       const receipt = JSON.parse(result.stdout).result;
       check(receipt.rowCount === c.available && receipt.availableCount === c.available && receipt.unavailableCount === c.unavailable && receipt.dataRowCount === c.available, `${label} complete receipt`);
+      if(c.input.count) check(receipt.selectedDateCount===c.input.count && receipt.countSelection.scannedDateCount===c.scanned, `${label} selection receipt`);
       const reference = JSON.parse(invokeCli(cliBin, [...args(c.input), "--format=json"], config).stdout).result;
       const inspected = spawnSync(process.env.PYO3_PYTHON || "python3", [resolve(root,"judge/inspect-xlsx.py"), resolve(cwd,"history.xlsx")], { encoding:"utf8", timeout:15000, maxBuffer:8*1024*1024 });
       check(inspected.status === 0, `${label} independent OOXML parser: ${inspected.stderr}`);
@@ -93,6 +107,10 @@ export function historyScenarios({ runNode, runCli, check, fixture, initPath, ma
     const fields={};
     for(let i=2;metadata.cells[`A${i}`];i++) fields[metadata.cells[`A${i}`].value]=metadata.cells[`B${i}`]?.value;
     check(fields.operation === "history" && fields.availableCount === String(expected.availableCount) && fields.unavailableCount === String(expected.unavailableCount), `${label} metadata counts`);
+    if(expected.countSelection) {
+      check(fields.selectedDateCount===String(expected.requestedDates.length), `${label} selected date metadata`);
+      for(const [key,value] of Object.entries(expected.countSelection)) check(fields[`countSelection.${key}`]===String(value), `${label} scan metadata ${key}`);
+    }
     expected.discovery.forEach((d,i)=>check(fields[`discovery[${i}].available`]===String(d.available), `${label} discovery provenance`));
     expected.entries.forEach((e,i)=> {
       const m=e.matrix;
@@ -103,6 +121,19 @@ export function historyScenarios({ runNode, runCli, check, fixture, initPath, ma
   for (const input of [{}, {baseDates:[]}, {baseDates:["2026-02-30"]}, {baseDates:["20260608"],startDate:"2026-06-08",endDate:"2026-06-09"}, {startDate:"2026-06-09",endDate:"2026-06-08"}, {startDate:"2020-01-01",endDate:"2026-01-01"}, {baseDates:["20260608"],lookbackDays:1}]) {
     runNode(`history:invalid-${JSON.stringify(input)}`, {action:"execute",operation:"history",input}, fixture([]), (r,label)=>check(!r.ok && r.error?.code === "invalid_parameter",`${label} invalid before source`));
   }
+  for(const count of [0,-1,2001,1.5,true,"1",1e40]) {
+    runNode(`history:count-invalid-${count}`, {action:"execute",operation:"history",input:{count,endDate:"20260608"}},fixture([]),(r,label)=>check(!r.ok && r.error?.code==="invalid_parameter",`${label} rejected before I/O`));
+  }
+  for(const flags of [["--count","1"],["--count","1","--count","2","--end-date","20260608"],["--count","1.5","--end-date","20260608"],["--count","1","--end-date","20260608","--fallback","previous-available"]]) {
+    runCli(`history:count-invalid-cli-${flags}`, ["history",...flags], fixture([]),(r,label)=>check(r.status===2,`${label} validation exit`));
+  }
+  const shortfall = fixture([init("20260609",xml("")),...day("20260608")]);
+  runNode("history:count-shortfall",{action:"execute",operation:"history",input:{count:2,endDate:"20260609",startDate:"20260608"}},shortfall,(r,label)=>check(!r.ok && r.error?.code==="insufficient_history" && r.error.actual.foundCount===1 && r.error.actual.scannedDateCount===2,`${label} typed shortfall`));
+  runCli("history:count-shortfall-file",["history","--count","2","--start-date","20260608","--end-date","20260609","--format=xlsx","--output=history.xlsx","--overwrite"],shortfall,(r,label,cwd)=>{
+    check(r.status===1 && JSON.parse(r.stdout).error.code==="insufficient_history",`${label} runtime shortfall`);
+    check(readFileSync(resolve(cwd,"history.xlsx"),"utf8")==="prior workbook",`${label} preserves file`);
+  },{isolated:true,setup:cwd=>writeFileSync(resolve(cwd,"history.xlsx"),"prior workbook")});
+  runNode("history:count-abort",{action:"abort-handler-preservation",operation:"history",input:{count:1,endDate:"20260608"}},fixture([{path:initPath,waitForCancellation:true,expectedCells:{calBaseDt:"20260608"}}]),(r,label)=>check(r.ok && r.value?.cancellationCode==="source_transport_error",`${label} count abort`));
   runNode("history:sparse-input", {action:"history-sparse-input"}, fixture([]), (r,label)=>check(!r.ok && r.error?.code === "invalid_parameter", `${label} rejects holes before native serialization`));
   const fatal = fixture([init("20260608"), pair("20260608","10"), {...pair("20260608","20"), body:undefined, transportError:"synthetic failure"}]);
   runNode("history:fatal",{action:"execute",operation:"history",input:{baseDates:["20260608","20260609"]}},fatal,(r,label)=>check(!r.ok && r.error?.actual?.kind?.code === "20" && r.error?.operationName === "history",`${label} fatal pair context`));
