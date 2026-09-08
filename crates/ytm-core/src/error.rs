@@ -74,7 +74,8 @@ impl YtmError {
         self
     }
 
-    pub(crate) fn cancelled(operation: &str) -> Self {
+    /// Build the shared cancellation error for adapters and custom transports.
+    pub fn cancelled(operation: &str) -> Self {
         Self::cancelled_with_reason(operation, "KIS-NET request was cancelled.")
     }
 

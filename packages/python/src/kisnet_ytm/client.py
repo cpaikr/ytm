@@ -11,6 +11,7 @@ from .errors import (
     SourceTransportError, YtmError,
 )
 from .models import (
+    AvailableHistoryEntry, UnavailableHistoryEntry, HistoryDiscovery, HistoryResult,
     DateResolution, Fallback, Kind, KindsResult, MatrixResult, MatrixRow,
     SourceMetadata, SourceParameters, SourceRequest,
 )
@@ -84,6 +85,35 @@ def _matrix(value: dict[str, Any]) -> MatrixResult:
                                        tuple(resolution["attemptedDates"]), resolution["lookbackDays"]))
 
 
+def _history_shape(base_dates: list[str] | tuple[str, ...] | None, start_date: str | None,
+                   end_date: str | None, fallback: Fallback, lookback_days: int | None) -> str:
+    if base_dates is not None and (type(base_dates) not in (list, tuple) or
+                                  not 1 <= len(base_dates) <= 2000 or
+                                  any(type(date) is not str for date in base_dates)):
+        raise InvalidParameterError("invalid_parameter", "base_dates must contain 1..=2000 date strings.")
+    if any(value is not None and type(value) is not str for value in (start_date, end_date)):
+        raise InvalidParameterError("invalid_parameter", "Range bounds must be strings.")
+    if type(fallback) is not str or (lookback_days is not None and type(lookback_days) is not int):
+        raise InvalidParameterError("invalid_parameter", "Invalid fallback or lookback_days shape.")
+    if lookback_days is not None and not 1 <= lookback_days <= 31:
+        raise InvalidParameterError("invalid_parameter", "lookback_days must be between 1 and 31.",
+                                    {"parameter": "lookback_days"})
+    return json.dumps({"baseDates": base_dates, "startDate": start_date, "endDate": end_date,
+                       "fallback": fallback, "lookbackDays": lookback_days})
+
+
+def _history(value: dict[str, Any]) -> HistoryResult:
+    entries = tuple(AvailableHistoryEntry(_matrix(entry["matrix"])) if entry["availability"] == "available"
+                    else UnavailableHistoryEntry(entry["requestedBaseDate"], Kind(**entry["kind"]),
+                                                 tuple(entry["attemptedDates"]), entry["mode"],
+                                                 entry["lookbackDays"], entry["reason"], entry["stage"])
+                    for entry in value["entries"])
+    return HistoryResult(tuple(value["requestedDates"]),
+                         tuple(HistoryDiscovery(item["requestedBaseDate"], item["available"]) for item in value["discovery"]),
+                         entries, value["availableCount"], value["unavailableCount"], value["dataRowCount"],
+                         value["mode"], value["lookbackDays"])
+
+
 class Client:
     """Synchronous, thread-safe client; use a context manager for cleanup."""
     def __init__(self) -> None:
@@ -93,6 +123,12 @@ class Client:
                lookback_days: int | None = None) -> MatrixResult:
         """Retrieve a matrix, with an optional bounded previous-date search."""
         return _matrix(self._run("matrix", _shape(base_date, kind, fallback, lookback_days, matrix=True)))
+
+    def history(self, *, base_dates: list[str] | tuple[str, ...] | None = None,
+                      start_date: str | None = None, end_date: str | None = None,
+                      fallback: Fallback = "exact", lookback_days: int | None = None) -> HistoryResult:
+        """Retrieve all categories for a date list or inclusive range (up to 2000 days)."""
+        return _history(self._run("history", _history_shape(base_dates, start_date, end_date, fallback, lookback_days)))
 
     def kinds(self, *, base_date: str | None = None) -> KindsResult:
         """Return the canonical catalog, or merge source discovery for a date."""
@@ -137,6 +173,12 @@ class AsyncClient:
                      lookback_days: int | None = None) -> MatrixResult:
         """Retrieve a matrix without blocking the event loop."""
         return _matrix(await self._run("matrix", _shape(base_date, kind, fallback, lookback_days, matrix=True)))
+
+    async def history(self, *, base_dates: list[str] | tuple[str, ...] | None = None,
+                      start_date: str | None = None, end_date: str | None = None,
+                      fallback: Fallback = "exact", lookback_days: int | None = None) -> HistoryResult:
+        """Retrieve all categories for a date list or inclusive range (up to 2000 days)."""
+        return _history(await self._run("history", _history_shape(base_dates, start_date, end_date, fallback, lookback_days)))
 
     async def kinds(self, *, base_date: str | None = None) -> KindsResult:
         """Return the canonical catalog, or merge source discovery for a date."""

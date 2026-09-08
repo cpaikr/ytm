@@ -41,7 +41,7 @@ executable entry, and the repository supports only the Rust `ytm` CLI.
   named profile for constraints OpenAPI cannot express directly.
 - [`crates/ytm-core`](crates/ytm-core) — public Rust SDK. It owns prepared
   requests, bounded transport, strict XML parsing, kind resolution,
-  normalization, date fallback, typed inputs and results, source metadata, and
+  normalization, date fallback, history orchestration, typed inputs and results, source metadata, and
   tagged errors without Node-API or CLI types.
 - [`crates/ytm-node`](crates/ytm-node) — async Node-API projection over the
   public Rust SDK. It owns JavaScript cancellation and stable boundary
@@ -56,17 +56,18 @@ executable entry, and the repository supports only the Rust `ytm` CLI.
   [Python API contract](packages/python/SPEC.md) owns lifecycle details.
 - [`crates/ytm-cli`](crates/ytm-cli) — workspace crate producing the standalone `ytm`
   binary. It owns Clap parsing, command help, terminal diagnostics, tabular
-  rendering, and exit statuses while delegating product behavior to
-  `ytm-core`.
+  rendering, Excel workbook publication, and exit statuses while delegating
+  product behavior to `ytm-core`. Private `table.rs` owns the shared typed
+  projection; `xlsx.rs` owns workbook layout, provenance, and file publication.
 - [`packages/native`](packages/native) — generated platform package manifests;
-  Node release builds add exactly one Node-API artifact to each package.
+  local and CI builds add exactly one Node-API artifact to each package.
 - [`judge`](judge) — process-isolated public-product conformance scenarios for
   the Node SDK and Rust CLI. It does not import core internals.
 - [`native-targets.json`](native-targets.json) — canonical Node native support
   matrix and source for optional dependencies, manifests, loader selection,
   and CI.
 - [`python-targets.json`](python-targets.json) — Python native and interpreter
-  matrix shared by CI and tagged wheel candidates.
+  matrix shared by local and CI wheel candidates.
 - [`cli-targets.json`](cli-targets.json) — independent standalone CLI support
   matrix and source for archive names, installer selection, and CLI artifact CI.
 - [`docs/provider-qualification.md`](docs/provider-qualification.md) — source
@@ -83,7 +84,26 @@ For a Rust SDK call or Rust CLI command:
    status or datasets, then returns typed domain data and source metadata.
 4. Only confirmed unavailable data can advance previous-date fallback.
 5. The SDK returns typed results or tagged errors; the CLI projects them to the
-   approved JSON, CSV, TSV, diagnostic, and exit-code contract.
+   approved JSON, CSV, TSV, XLSX receipt, diagnostic, and exit-code contract.
+
+History is a core operation, not an adapter loop over `matrix`. The core
+normalizes the bounded date selection, discovers each requested date's catalog,
+and resolves every date/kind pair sequentially. Invocation-local caches share
+confirmed dated catalogs and date/kind observations across overlapping fallback
+windows and evict observations outside future windows. They never persist data
+or convert operational failures into absence. Result entries preserve each
+requested pair even when observations are reused. The [history contract](SPEC.md#multi-date-history)
+owns selection limits, availability, ordering, and fallback semantics.
+
+For XLSX, the CLI validates the destination before source execution, projects
+one typed result through the same table model as CSV/TSV, and renders the
+workbook in memory with `rust_xlsxwriter`. `tempfile` stages and syncs the
+complete bytes in the destination directory and closes the file handle before
+no-clobber publication or explicit replacement. Success reaches textual stdout
+only after publication. Export failures stay in the CLI and cannot re-enter
+core fallback. These dependencies belong only to the CLI; sibling SDKs retain
+their existing result and dependency boundaries. The [Excel contract](SPEC.md#cli-excel-export)
+owns cells, provenance, and observable failure guarantees.
 
 For a Node SDK call:
 
@@ -176,16 +196,17 @@ an explicit `upgrade` command. It verifies release metadata, checksums, and the
 generated installer before delegating archive download and replacement. Unix
 uses an installer transaction with fixed recovery links; Windows uses an
 out-of-process PowerShell helper so the running mapped executable can exit
-before replacement. Matrix, kinds, help, and version execution do not depend on
-release infrastructure.
+before replacement. History, matrix, kinds, help, and version execution do not depend on
+release infrastructure. Exact installed candidates also exercise network-free
+XLSX export, overwrite policy, and native publication failures; the judge owns
+full workbook semantics through an independent test-only ZIP/XML inspector.
 
-The disabled tagged-source workflow rebuilds these outputs from one immutable
-approved tag and attaches them only after exact native-consumer validation. No
-public installer URL is active. Selecting or publishing an actual version
-remains separately authorized release work.
+The tag-triggered workflow rebuilds these outputs from an immutable release
+tag and publishes only after exact native-consumer validation. The release
+migration does not itself select or publish a version.
 
 The Python facade uses PyO3's `abi3-py311` boundary and the maintained Tokio
-bridge. `python-targets.json` drives the shared CI/tagged workflow for native
+bridge. `python-targets.json` drives the development CI workflow for native
 builds, complete aggregation, and exact consumers. Fresh builds must produce
 identical wheel bytes; integrity validation binds those bytes, native identity,
 typing, and legal notices to the source commit. Consumers install outside the
@@ -202,18 +223,15 @@ development, ordinary CI, and immutable tagged-source validation delegate to
 that same command; credentialed live source checks remain a separate
 operational boundary.
 
-The disabled Release Please preparation workflow owns one root product release
-PR, `VERSION`, and the root changelog; it explicitly skips tag and GitHub
-Release creation. A separately gated publication workflow accepts only the
-approved version at the merged PR head, creates exactly its changelog-derived
-`vX.Y.Z` tag and draft, and rebuilds and consumes every CLI, npm, and Python
-candidate from that SHA. A unified asset manifest binds the complete canonical
-set before visibility. npm and independently gated PyPI project those downloaded
-bytes through OIDC after GitHub becomes public. Draft recovery is additive and
-byte-identical; public recovery preserves exact completed projections and permits
-only wholly absent projections. Partial or conflicting versions fail closed.
+Local `release-it` owns version and changelog preparation. Its hook synchronizes
+all local Rust, Node, and Python version copies and runs the complete gate
+before staging, committing, tagging, and pushing from synchronized `main`.
+Pushed stable version tags trigger the CLI release workflow; manual dispatch
+certifies candidates without publication. Only the publisher has write access.
+It downloads the exact verified CLI candidate, reconciles changelog metadata
+and existing draft bytes, and confirms the complete set before public visibility.
+Draft recovery is additive and byte-identical; public assets are immutable.
 
-The registry release at `0.2.0` predates the rewrite; the checkout retains that
-version until a new release is authorized. The SDK/CLI migration does not
-authorize crates.io publication, npm publication, CLI binaries or installers,
-GitHub Releases, provider-state changes, or PyPI deprecation.
+Node and native packages are private; Python wheels remain development
+artifacts. The release pipeline has no npm/PyPI projection or registry identity.
+Historical registry packages and component releases remain unchanged.

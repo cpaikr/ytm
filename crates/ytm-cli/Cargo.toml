@@ -16,6 +16,8 @@ path = "src/main.rs"
 judge-fixtures = ["ytm-core/judge-fixtures"]
 
 [dependencies]
+rust_xlsxwriter.workspace = true
+tempfile.workspace = true
 clap.workspace = true
 futures-util.workspace = true
 reqwest.workspace = true
@@ -23,8 +25,9 @@ semver.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
-tokio.workspace = true
-ytm-core = { path = "../ytm-core", version = "=0.2.0" } # x-release-please-version
+tokio = { workspace = true, features = ["signal"] }
+async-trait.workspace = true
+ytm-core = { path = "../ytm-core", version = "=0.2.0" }
 
 [build-dependencies]
 serde_json.workspace = true

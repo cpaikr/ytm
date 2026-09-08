@@ -22,8 +22,9 @@ cargo run --locked -p ytm-core --example basic
 Or use `ytm-core` through a path or Git dependency; its public API and typed
 inputs are documented in [`crates/ytm-core`](crates/ytm-core/README.md).
 
-Publication of the rewritten products is not yet authorized, so build and run
-the checked-out source rather than historical registry releases.
+Build and run the checked-out source for the current SDK APIs; historical
+registry releases predate this implementation. CLI publication follows the
+[release runbook](docs/release.md).
 
 ```sh
 bun install --frozen-lockfile
@@ -41,6 +42,35 @@ newer. Run `bun run cli -- --help` and
 [`docs/provider-qualification.md`](docs/provider-qualification.md) before
 treating source availability as production suitability.
 
+Save an Excel workbook from the checkout:
+
+```sh
+bun run cli -- matrix --base-date 2026-06-08 --kind 국채 --format xlsx --output yields.xlsx
+bun run cli -- kinds --format xlsx --output kinds.xlsx
+bun run cli -- history --start-date 2026-06-01 --end-date 2026-06-08 --format xlsx --output history.xlsx
+```
+
+`history` retrieves all categories and pricing groups for an inclusive date
+range or repeated `--base-date` values, up to 2,000 dates. It uses exact dates by
+default; explicit `--fallback previous-available` resolves each date/category
+pair independently. Unavailable pairs remain visible in the result. Its Excel
+workbook contains `History`, `Availability`, and `Metadata` sheets. See the
+[history contract](SPEC.md#multi-date-history) for ordering, limits, and errors.
+
+Use the default exact-date mode for historical exports and statistical analysis.
+Enable `--fallback previous-available` only when you want the latest available
+observation on or before each requested date, within the configured lookback.
+Fallback can repeat one observation across several requested dates—for example,
+Friday's data for Saturday and Sunday—so those rows are not new observations.
+In CSV/TSV and Excel, `requestedBaseDate` identifies the requested date,
+`baseDate` identifies the observation date, and `usedFallback` marks a substitution.
+
+The parent directory must exist. Existing files require `--overwrite`; stdout
+returns a JSON receipt after the workbook is saved. Workbooks preserve numeric
+yields, blank missing values, literal Korean labels, and a separate provenance
+sheet. Excel is not required to export. See the [Excel contract](SPEC.md#cli-excel-export)
+for file safety and typed-cell details.
+
 The standalone binary also exposes an exact, network-free identity:
 
 ```sh
@@ -57,20 +87,22 @@ adjacent executable receipt, and support explicit, recoverable managed upgrades
 through `ytm upgrade` and the read-only `ytm upgrade --check`. Locally built or
 modified executables are deliberately unmanaged. Native clean-consumer jobs
 install the exact aggregated candidate on every claimed target and verify its
-identity, receipt, integrity failures, and managed replacement. Transaction
+identity, receipt, integrity failures, managed replacement, and network-free
+Excel export with overwrite and platform-specific publication failures. Transaction
 faults are injected into bounded temporary installer copies to verify rollback
-and recoverable failure evidence without shipping a test failpoint. The
-disabled tagged-source workflow rebuilds and tests those exact candidates,
-publishes GitHub canonically, and then projects the same source and version to
-npm and separately enabled PyPI projections. No installer URL is active until an exact version is separately authorized
-and published.
+and recoverable failure evidence without shipping a test failpoint.
+
+The tag-triggered release workflow certifies and publishes only these CLI
+assets to GitHub Releases. Local `release-it` prepares the synchronized version
+and changelog before committing, tagging, and pushing. See the
+[release runbook](docs/release.md) for the publishing command and recovery policy.
 
 The [Python package](packages/python/README.md) provides `Client` and
 `AsyncClient` over the same core. Build its local mixed wheel with Python 3.11+
 and Rust; historical PyPI 0.2.0 has a different API. The
 [Python matrix](python-targets.json) drives portable `abi3` wheel builds and
-exact consumers for conventional CPython 3.11–3.14. The unified release workflow
-includes these wheels and a separately disabled PyPI trusted projection.
+exact development CI consumers for conventional CPython 3.11–3.14. Node packages
+are private, and npm/PyPI publication is outside the release pipeline.
 
 ## Repository validation
 
@@ -92,8 +124,6 @@ gate builds isolated fixture and release wheels and checks the installed public
 API and typing. Credentialed live source checks remain separate.
 
 Live KIS-NET smoke checks are scheduled and manually dispatchable rather than
-pull-request gates. Release preparation, creation, and publication remain
-disabled. The GitHub-canonical, npm/PyPI-secondary distribution lifecycle is
-implemented but has not run for the rewritten product. Selecting or publishing
-an actual version still requires separate authorization; see
-[`docs/release.md`](docs/release.md).
+pull-request gates. The [release migration plan](plans/release-delivery.md)
+records validation and delivery status. This migration selects no actual
+version and performs no tag push or publication.

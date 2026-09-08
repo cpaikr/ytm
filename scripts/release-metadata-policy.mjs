@@ -1,9 +1,14 @@
-import { expectedReleaseTag } from "./release-state-policy.mjs";
+export function expectedReleaseTag(version) {
+  if (!/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(version || "")) {
+    throw new Error("Release version must be stable SemVer.");
+  }
+  return `v${version}`;
+}
 
 export function releaseMetadataFromChangelog(changelog, version) {
   const tag = expectedReleaseTag(version);
   const normalized = normalizeReleaseBody(changelog);
-  const heading = /^## \[([^\]]+)\]\([^\n]+\)(?: \([^\n]+\))?[ \t]*$/gm;
+  const heading = /^##? (?:\[)?(\d+\.\d+\.\d+)(?:\])?(?:\([^\n]+\))?(?: \([^\n]+\))?[ \t]*$/gm;
   const first = heading.exec(normalized);
   if (!first || first[1] !== version) {
     throw new Error(`The first changelog release must be ${version}.`);

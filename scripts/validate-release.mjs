@@ -39,7 +39,6 @@ const [
   ciWorkflow,
   liveWorkflow,
   releaseWorkflow,
-  releasePleaseWorkflow,
   pythonPackagePresent,
   pythonWorkflowPresent,
   cliCargo,
@@ -50,12 +49,6 @@ const [
   cliArtifactTest,
   cliConsumerTest,
   nativeConsumerTest,
-  releaseDraftCreator,
-  releaseMetadataPolicy,
-  releaseMetadataVerifier,
-  releaseStateResolver,
-  releaseAssetPlanner,
-  releasePublicationTest,
   specification
 ] = await Promise.all([
   readJson("package.json"),
@@ -68,7 +61,6 @@ const [
   readYaml(".github/workflows/ci.yml"),
   readYaml(".github/workflows/live-smoke.yml"),
   readYaml(".github/workflows/release.yml"),
-  readYaml(".github/workflows/release-please.yml"),
   pathExists("packages/python/pyproject.toml"),
   pathExists(".github/workflows/release-python.yml"),
   readFile("crates/ytm-cli/Cargo.toml", "utf8"),
@@ -79,17 +71,11 @@ const [
   readFile("scripts/test-cli-release-artifacts.mjs", "utf8"),
   readFile("scripts/test-cli-release-consumer.mjs", "utf8"),
   readFile("scripts/test-native-consumer.mjs", "utf8"),
-  readFile("scripts/create-release-draft.mjs", "utf8"),
-  readFile("scripts/release-metadata-policy.mjs", "utf8"),
-  readFile("scripts/verify-release-metadata.mjs", "utf8"),
-  readFile("scripts/resolve-release-state.mjs", "utf8"),
-  readFile("scripts/plan-cli-release-upload.mjs", "utf8"),
-  readFile("scripts/test-release-publication.mjs", "utf8"),
   readFile("SPEC.md", "utf8")
 ]);
 
 check(rootPackage.private === true, "root package must remain private");
-check(rootPackage.version === undefined, "root package must not become a release component");
+check(rootPackage.version === nodePackage.version, "release-it workspace version must match the SDK source");
 equal(rootPackage.workspaces, ["packages/node", "packages/native/*"], "root workspaces must contain only the Node root and native packages");
 check(rootPackage.scripts?.validate === "bun run release:check && node scripts/validate-repository.mjs", "root validation must enforce release policy before delegating the remaining repository gate");
 equal(repositoryValidation, [
@@ -114,8 +100,7 @@ check(repositoryValidator.includes("spawnSync(command, args") && repositoryValid
 check(repositoryValidator.includes("result.status !== 0") && repositoryValidator.includes("process.exit(result.status ?? 1)"), "repository validation must stop on the first failed command");
 check(nodePackage.name === "@sjunepark/ytm", "Node package identity must remain @sjunepark/ytm");
 check(nodePackage.bin === undefined, "Node package must not own or distribute a CLI bin");
-check(nodePackage.private !== true, "Node package must be publishable");
-check(nodePackage.publishConfig?.access === "public", "Node package must retain public scoped publishing");
+check(nodePackage.private === true && nodePackage.publishConfig === undefined, "Node SDK development packages must not publish to npm");
 check(
   nodePackage.engines?.node === `>=${nativeTargets.minimumNodeMajor}`,
   "Node package engine must match the canonical native target policy"
@@ -224,19 +209,6 @@ for (const target of nativeTargets.targets) {
   check(await pathExists(`${nativeTargets.nativePackageRoot}/${target.packageDirectory}/THIRD_PARTY_LICENSES.html`), `${target.rustTarget} native package must ship third-party notices`);
 }
 
-equal(Object.keys(releasePleaseWorkflow.jobs || {}), ["release_pr"], "Release Please workflow must only prepare the product release PR");
-check(releasePleaseWorkflow.on?.push?.branches?.includes("main"), "Release Please must update release PRs from main");
-check(releasePleaseWorkflow.on?.workflow_dispatch !== undefined, "Release Please must support an explicit preparation retry");
-check(releasePleaseWorkflow.permissions?.contents === "read", "Release Please workflow default permissions must remain read-only");
-const releasePleaseJob = releasePleaseWorkflow.jobs?.release_pr;
-check(releasePleaseJob?.if === "${{ vars.RELEASE_PLEASE_ENABLED == 'true' }}", "Release Please must remain externally disabled until release preparation is authorized");
-check(releasePleaseJob?.["runs-on"] === "blacksmith-2vcpu-ubuntu-2404" && releasePleaseJob?.["timeout-minutes"] === 10, "Release Please must use the 2-vCPU Blacksmith runner with a bounded timeout");
-check(releasePleaseJob?.permissions?.contents === "write" && releasePleaseJob?.permissions?.issues === "write" && releasePleaseJob?.permissions?.["pull-requests"] === "write", "Release Please job permissions must be explicit and sufficient for release PRs");
-const releasePleaseStep = findNamedStep(releasePleaseJob, "Create or update the product release PR");
-check(/^googleapis\/release-please-action@[0-9a-f]{40}$/.test(releasePleaseStep?.uses || ""), "Release Please action must be pinned to a full commit SHA");
-check(releasePleaseStep?.with?.token === "${{ secrets.RELEASE_PLEASE_TOKEN }}", "Release Please must use the configured automation credential so release PR checks run");
-check(releasePleaseStep?.with?.["config-file"] === "release-please-config.json" && releasePleaseStep?.with?.["manifest-file"] === ".release-please-manifest.json", "Release Please must use the repository-owned product config and manifest");
-check(releasePleaseStep?.with?.["skip-github-release"] === true, "Release preparation must not create a tag or GitHub Release before the protected release workflow");
 check(pythonPackagePresent && !pythonWorkflowPresent, "Python foundation must exist without an independent publishing workflow");
 equal(Object.keys(ciWorkflow.jobs || {}), ["python-candidate", "validate", "cli-metadata", "cli-archive", "cli-artifact-set", "cli-consumer", "native-consumer", "platform-gate"], "CI must contain validation, CLI artifacts, and native consumers only");
 equal(Object.keys(liveWorkflow.jobs || {}), ["rust-cli"], "live smoke must exercise only the standalone Rust CLI");
@@ -346,155 +318,73 @@ check(/^actions\/download-artifact@[0-9a-f]{40}$/.test(cliConsumerDownload?.uses
 check(cliConsumerDownload?.with?.name === "cli-candidate-${{ github.sha }}" && cliConsumerDownload?.with?.path === "dist/cli", "CLI consumers must download the exact aggregated candidate without repacking it");
 check(activeShell(findNamedStep(cliConsumerJob, "Test exact standalone CLI consumer")) === "node scripts/test-cli-release-consumer.mjs dist/cli", "CLI consumers must run the repository-owned exact-distributable harness");
 
-check(!releaseWorkflow.on?.push, "product publishing must not trigger automatically from pushed tags");
-equal(Object.keys(releaseWorkflow.on?.workflow_dispatch?.inputs || {}), ["expected_version"], "product publishing must accept only the approved version input");
-check(releaseWorkflow.on?.workflow_dispatch?.inputs?.expected_version?.required === true, "product publishing must require an explicitly approved expected version");
-check(releaseWorkflow.permissions?.contents === "read", "release workflow defaults must remain read-only");
-check(releaseWorkflow.concurrency?.group === "release-${{ inputs.expected_version }}" && releaseWorkflow.concurrency?.["cancel-in-progress"] === false, "release runs must serialize per approved version without cancellation");
-equal(Object.keys(releaseWorkflow.jobs || {}), ["release_authority", "python_candidate", "cli_metadata", "cli_archive", "cli_artifact_set", "cli_consumer", "native_packages", "root_package", "npm_candidate", "npm_consumer", "publish_github", "publish_npm", "publish_pypi"], "release workflow must contain only the complete tagged-source lifecycle");
-
-const authorityJob = releaseWorkflow.jobs?.release_authority;
-check(authorityJob?.if === "${{ vars.RELEASE_ENABLED == 'true' }}", "external release state must remain disabled until repository settings are authorized");
-check(authorityJob?.["runs-on"] === "ubuntu-24.04" && authorityJob?.["timeout-minutes"] === 15, "release authority must use a bounded GitHub-hosted job");
-check(authorityJob?.environment?.name === "release" && authorityJob?.permissions?.contents === "write", "tag and draft creation must use the protected release environment with explicit write permission");
-check(authorityJob?.outputs?.version === "${{ steps.resolve.outputs.version }}", "release authority must expose verified version");
-check(authorityJob?.outputs?.tag === "${{ steps.resolve.outputs.tag }}", "release authority must expose verified tag");
-check(authorityJob?.outputs?.source_sha === "${{ steps.resolve.outputs.source_sha }}", "release authority must expose verified source SHA");
-check(authorityJob?.outputs?.release_id === "${{ steps.resolve.outputs.release_id }}", "release authority must expose verified release ID");
-check(authorityJob?.outputs?.release_url === "${{ steps.resolve.outputs.release_url }}", "release authority must expose verified release URL");
-check(authorityJob?.outputs?.publication_mode === "${{ steps.resolve.outputs.publication_mode }}", "release authority must expose draft or projection-only recovery mode");
-const authorityCheckout = findNamedStep(authorityJob, "Check out submitted source");
-check(authorityCheckout?.with?.ref === "${{ github.sha }}" && authorityCheckout?.with?.["fetch-depth"] === 0 && authorityCheckout?.with?.["persist-credentials"] === false, "release authority must inspect the exact dispatch source without persisted credentials");
-const stateStep = findNamedStep(authorityJob, "Validate approved version and classify release state");
-check(stateStep?.env?.EXPECTED_VERSION === "${{ inputs.expected_version }}" && activeShell(stateStep).includes("scripts/resolve-release-state.mjs inspect"), "release state inspection must reconcile the submitted version through repository policy");
-const protectedReleaseStep = findNamedStep(authorityJob, "Create exact immutable tag and draft");
-check(protectedReleaseStep?.if?.includes("create_draft") && activeShell(protectedReleaseStep) === "node scripts/create-release-draft.mjs", "protected release authority must recover only exact tag-without-draft state");
-for (const contract of ["git/refs", "target_commitish", "generate_release_notes: false", "releaseMetadataFromChangelog"]) check(releaseDraftCreator.includes(contract), `exact draft creation must retain ${contract}`);
-check(releaseMetadataPolicy.includes("first changelog release") && releaseMetadataPolicy.includes("non-empty body"), "release metadata must derive deterministically from the tagged changelog");
-check(activeShell(findNamedStep(authorityJob, "Resolve immutable release identity")) === "node scripts/resolve-release-state.mjs resolve", "downstream release identity must come only from repository-owned resolution");
-for (const contract of ["approvedReleasePullRequest", "canonicalReleaseUrl", '/commits/${workflowSha}/pulls?per_page=100', "AbortSignal.timeout", "refs/remotes/origin/main", "merge-base", "publication_mode", "FETCH_HEAD^{commit}"]) check(releaseStateResolver.includes(contract), `release state resolution must retain ${contract}`);
-check(!releaseStateResolver.includes("release_pr:"), "release inspection must not expose an unused release PR output after validating its identity");
-check(releasePublicationTest.includes("ordinary main change") && releaseStateResolver.includes("listPullRequests"), "tag creation must bind the approved version to its exact merged Release Please PR SHA");
-check(releaseDraftCreator.includes("normalizeReleaseBody(release.body)") && releaseDraftCreator.includes("AbortSignal.timeout"), "draft creation must normalize GitHub body line endings and bound every mutation request");
-check(releaseMetadataVerifier.includes("AbortSignal.timeout"), "release metadata verification must use a bounded GitHub request");
-check(releasePublicationTest.includes("line one\\r\\nline two") && releaseMetadataPolicy.includes("normalizeReleaseBody"), "release publication tests must retain CRLF normalization coverage");
-
-const immutableRef = "${{ needs.release_authority.outputs.source_sha }}";
-for (const name of ["cli_metadata", "cli_archive", "cli_artifact_set", "cli_consumer", "native_packages", "root_package", "npm_candidate", "npm_consumer", "publish_github", "publish_npm"]) {
-  check(findNamedStep(releaseWorkflow.jobs?.[name], "Check out immutable release source")?.with?.ref === immutableRef, `${name} must check out the verified tagged source`);
+const preparation = rootPackage['release-it'];
+check(rootPackage.scripts.release === 'release-it', 'release command must use release-it');
+check(preparation?.npm?.publish === false && preparation?.github?.release === false, 'local preparation must not publish assets or registry packages');
+check(preparation?.git?.requireBranch === 'main' && preparation.git.requireUpstream === true && preparation.git.requireCleanWorkingDir === true, 'preparation requires clean main with an upstream');
+check(preparation?.git?.tagName === 'v${version}', 'release tags must use the unified version');
+equal(preparation?.hooks?.['after:@release-it/conventional-changelog:beforeRelease'], ['node scripts/release-version.mjs sync', 'bun run validate'], 'version synchronization and validation must finish before commit/tag/push');
+check(preparation?.hooks?.['after:init'] === 'node scripts/release-version.mjs upstream', 'preparation must verify freshly fetched origin/main');
+check(preparation?.plugins?.['@release-it/conventional-changelog']?.infile === 'CHANGELOG.md', 'release-it must own the product changelog');
+for (const path of ['.release-please-manifest.json', 'release-please-config.json', '.github/workflows/release-please.yml']) {
+  check(!await pathExists(path), `${path} must not retain a second release authority`);
 }
-const releaseCliMetadata = releaseWorkflow.jobs?.cli_metadata;
-check(activeShell(findNamedStep(releaseCliMetadata, "Emit CLI target matrix")).includes("scripts/print-cli-matrix.mjs"), "release CLI targets must derive from cli-targets.json");
-const releaseCliArchive = releaseWorkflow.jobs?.cli_archive;
-check(releaseCliArchive?.strategy?.matrix === "${{ fromJSON(needs.cli_metadata.outputs.matrix) }}" && releaseCliArchive?.["runs-on"] === "${{ matrix.runner }}", "release CLI builders must consume the generated native-runner matrix");
-check(releaseCliArchive?.env?.SOURCE_COMMIT === immutableRef, "release CLI archive identity must use the verified source SHA");
-check(activeShell(findNamedStep(releaseCliArchive, "Assemble and inspect standalone CLI archive")).includes("--source-commit \"$SOURCE_COMMIT\""), "release CLI archives must embed the verified source SHA");
-const releaseCliCandidate = activeShell(findNamedStep(releaseWorkflow.jobs?.cli_artifact_set, "Generate and validate complete CLI candidate"));
-for (const command of ["scripts/generate-cli-installers.mjs", "scripts/finalize-cli-artifacts.mjs", "scripts/validate-cli-artifact-set.mjs"]) check(releaseCliCandidate.includes(command), `release CLI aggregation must invoke ${command}`);
-check(findNamedStep(releaseWorkflow.jobs?.cli_artifact_set, "Upload complete CLI candidate")?.with?.["retention-days"] === 90, "release CLI candidates must outlive protected-environment approval delays");
-check(activeShell(findNamedStep(releaseWorkflow.jobs?.cli_consumer, "Test exact standalone CLI consumer")) === "node scripts/test-cli-release-consumer.mjs dist/cli", "release CLI consumers must exercise the exact aggregated candidate");
-
-const nativeJob = releaseWorkflow.jobs?.native_packages;
-check(nativeJob?.["timeout-minutes"] === 30, "release native packages must have a bounded timeout");
-equal(nativeJob?.strategy?.matrix?.target?.map(({ rust }) => rust), nativeTargets.targets.map(({ rustTarget }) => rustTarget), "release native matrix must match the target manifest");
-equal(nativeJob?.strategy?.matrix?.target?.map(({ runner }) => runner), nativeTargets.targets.map(({ runner }) => runner), "release native matrix must use the manifest runners");
-const releaseLinuxToolchain = findNamedStep(nativeJob, "Install pinned Linux native build toolchain");
-check(releaseLinuxToolchain?.if === linuxNativeCondition && activeShell(releaseLinuxToolchain).includes("scripts/install-linux-native-toolchain.mjs"), "Release Linux native builds must install the pinned toolchain");
-check(activeShell(findNamedStep(nativeJob, "Build native artifact")).includes("scripts/build-native-artifact.mjs"), "Release native builds must use the target policy build script");
-check(activeShell(findNamedStep(nativeJob, "Assemble and pack native package")).includes("scripts/assemble-native-package.mjs"), "native release jobs must assemble generated packages");
-
-const rootJob = releaseWorkflow.jobs?.root_package;
-check(rootJob?.["timeout-minutes"] === 45 && rootJob?.["runs-on"] === "ubuntu-24.04", "release root package must allow bounded time for pinned security-tool builds on a GitHub-hosted job");
-checkPythonValidation(rootJob);
-const validationToolInstall = activeShell(findNamedStep(rootJob, "Install pinned validation tools"));
-for (const install of requiredValidationToolInstalls) check(validationToolInstall.includes(install), `root package validation must install ${install}`);
-const immutableSourceValidation = activeShell(findNamedStep(rootJob, "Validate immutable source"));
-check(immutableSourceValidation === "bun run validate", "release source validation must invoke the complete repository validation command exactly");
-check(activeShell(findNamedStep(rootJob, "Pack root package without a native binary")).includes("build:sdk"), "root release artifact must be packed without a native binary");
-
-const npmCandidateJob = releaseWorkflow.jobs?.npm_candidate;
-equal(npmCandidateJob?.needs, ["release_authority", "native_packages", "root_package"], "npm aggregation must wait for every package builder");
-check(activeShell(findNamedStep(npmCandidateJob, "Validate complete npm artifact set")) === "node scripts/validate-release-artifacts.mjs dist/native dist/root", "npm aggregation must validate the exact five-tarball set");
-check(/^actions\/upload-artifact@[0-9a-f]{40}$/.test(findNamedStep(npmCandidateJob, "Upload complete npm candidate")?.uses || ""), "npm candidate upload must be commit-pinned");
-check(findNamedStep(npmCandidateJob, "Upload complete npm candidate")?.with?.["retention-days"] === 90, "npm candidates must outlive protected-environment approval delays");
-check(findNamedStep(npmCandidateJob, "Upload complete npm candidate")?.with?.path?.includes("dist/native/*.tgz") && findNamedStep(npmCandidateJob, "Upload complete npm candidate")?.with?.path?.includes("dist/root/*.tgz"), "npm candidate artifacts must retain native and root directory layout");
-const npmConsumerJob = releaseWorkflow.jobs?.npm_consumer;
-equal(npmConsumerJob?.strategy?.matrix?.node, nativeTargets.validationNodeMajors, "exact npm consumers must cover every declared Node major");
-equal(npmConsumerJob?.strategy?.matrix?.target?.map(({ rust }) => rust), nativeTargets.targets.map(({ rustTarget }) => rustTarget), "exact npm consumers must cover every native target");
-check(activeShell(findNamedStep(npmConsumerJob, "Test exact aggregated Node SDK consumer")).includes("dist/native dist/root"), "npm consumers must install downloaded aggregate tarballs without repacking");
-check(nativeConsumerTest.includes("findPackageTarball") && nativeConsumerTest.includes("listTarball(rootTarball)") && nativeConsumerTest.includes("exact aggregated"), "Node consumer harness must inspect exact aggregate tarball contents without repacking");
-
-const githubPublishJob = releaseWorkflow.jobs?.publish_github;
-equal(githubPublishJob?.needs, ["release_authority", "cli_artifact_set", "cli_consumer", "npm_candidate", "npm_consumer", "python_candidate"], "canonical publication must wait for both exact-distributable consumer matrices");
-check(githubPublishJob?.environment?.name === "release" && githubPublishJob?.permissions?.contents === "write", "canonical publication must use the protected release environment");
-const githubSourceValidation = activeShell(findNamedStep(githubPublishJob, "Validate tagged candidates and source identity"));
-for (const command of ["validate-product-version.mjs", "validate-cli-artifact-set.mjs", "validate-release-artifacts.mjs", "FETCH_HEAD^{commit}"]) check(githubSourceValidation.includes(command), `canonical publication must revalidate ${command}`);
-const githubRegistryPreflight = activeShell(findNamedStep(githubPublishJob, "Verify npm projection state before visibility"));
-check(githubRegistryPreflight.includes("registry-projection.mjs npm dist/product") && githubRegistryPreflight.includes("public") && githubRegistryPreflight.includes("draft"), "canonical publication must fail closed unless every npm package is absent");
-const reconcileAssets = activeShell(findNamedStep(githubPublishJob, "Reconcile canonical assets without replacement"));
-const uploadAssets = activeShell(findNamedStep(githubPublishJob, "Upload only missing canonical assets"));
-const verifyDraft = activeShell(findNamedStep(githubPublishJob, "Re-download and verify canonical assets"));
-check(reconcileAssets.includes("product-artifacts.mjs plan") && uploadAssets.includes("gh release upload") && !uploadAssets.includes("--clobber"), "draft recovery must reuse only byte-identical assets and upload only missing assets");
-check(reconcileAssets.includes("RELEASE_MODE") && reconcileAssets.includes(".missing | length == 0"), "projection-only recovery must require the public GitHub asset set to remain exact");
-check(verifyDraft.includes("product-artifacts.mjs plan") && verifyDraft.includes("product-artifacts.mjs validate"), "canonical publication must re-download and validate every draft asset");
-const canonicalPublish = activeShell(findNamedStep(githubPublishJob, "Publish canonical GitHub Release"));
-check(canonicalPublish.includes("--method PATCH") && canonicalPublish.includes("draft=false"), "GitHub publication must be the explicit canonical visibility transition");
-check(findNamedStep(githubPublishJob, "Publish canonical GitHub Release")?.if === "env.RELEASE_MODE != 'project'", "projection-only recovery must never mutate the public GitHub Release");
-check(activeShell(findNamedStep(githubPublishJob, "Revalidate immutable Release metadata")).includes("verify-release-metadata.mjs"), "canonical publication must revalidate changelog-derived metadata immediately before visibility changes");
-check(activeShell(findNamedStep(githubPublishJob, "Verify canonical GitHub Release is public")).includes("verify-release-metadata.mjs"), "canonical publication and projection recovery must finish by re-reading public metadata");
-check(releaseMetadataVerifier.includes("release.name !== metadata.name") && releaseMetadataVerifier.includes("normalizeReleaseBody(release.body) !== metadata.body"), "Release metadata verification must compare immutable name and normalized body");
-check(releaseAssetPlanner.includes("does not match the rebuilt candidate") && releaseAssetPlanner.includes("unexpected assets"), "draft asset planner must fail closed on replacement or unexpected state");
-check(releasePublicationTest.includes("main has advanced") && releasePublicationTest.includes("unexpected assets"), "release publication tests must inject source-state and draft-asset failures");
-
-const publishJob = releaseWorkflow.jobs?.publish_npm;
-equal(publishJob?.needs, ["release_authority", "npm_candidate", "publish_github"], "npm projection must start only after canonical GitHub publication");
-check(publishJob?.["timeout-minutes"] === 30 && publishJob?.["runs-on"] === "ubuntu-latest", "npm trusted publishing must use a bounded GitHub-hosted job");
-check(publishJob?.environment?.name === "npm", "npm publishing must use the npm environment");
-check(publishJob?.permissions?.contents === "read" && publishJob?.permissions?.["id-token"] === "write", "npm publishing must retain read contents and OIDC permissions");
-const npmReleaseVerification = activeShell(findNamedStep(publishJob, "Verify canonical release and exact npm candidate"));
-check(npmReleaseVerification.includes("verify-release-metadata.mjs") && npmReleaseVerification.includes("product-artifacts.mjs validate"), "npm must revalidate the public canonical release and exact aggregate");
-const registryPreflight = activeShell(findNamedStep(publishJob, "Classify exact npm projection"));
-check(registryPreflight.includes("registry-projection.mjs npm dist/product public") && findNamedStep(publishJob, "Publish native packages, then root package")?.if === "steps.registry.outputs.state == 'absent'", "npm must re-prove complete registry absence before its first publish");
-const publishShell = activeShell(findNamedStep(publishJob, "Publish native packages, then root package"));
-check(publishShell.includes("mapfile -t root_tarballs") && publishShell.includes("Expected exactly one root package tarball") && publishShell.includes("if ! package_name=") && publishShell.includes("for tarball in dist/native/*.tgz") && publishShell.indexOf("dist/native/*.tgz") < publishShell.indexOf('root_tarballs[0]'), "npm publication must validate package identity, require one root tarball, and publish all native packages before it");
-check(publishShell.includes("--provenance --access public") && publishShell.includes("npm projection incomplete") && publishShell.includes("Never repair published bytes"), "npm trusted publication must emit provenance and explicit partial-failure guidance");
-check(!publishShell.includes("npm view") && !publishShell.includes("skipping"), "npm publication must not repair a partial version in place");
-
-const pythonWorkflow = await readYaml(".github/workflows/python-candidate.yml");
-const pythonTargets = await readJson("python-targets.json");
-equal(pythonTargets.pythonVersions, ["3.11", "3.12", "3.13", "3.14"], "Python consumers must enumerate validated stable conventional CPython versions");
-equal(pythonTargets.targets.map(t => t.rust), nativeTargets.targets.map(t => t.rustTarget), "Python targets must cover the approved native matrix");
-equal(Object.keys(pythonWorkflow.jobs), ["matrix", "build", "aggregate", "consumer"], "Python candidate must build, aggregate, then consume");
-for (const job of Object.values(pythonWorkflow.jobs)) {
-  const checkout = job.steps.find(step => step.uses?.startsWith("actions/checkout@"));
-  check(checkout?.with?.ref === "${{ inputs.source_sha }}" && checkout.with["persist-credentials"] === false, "Python jobs must use exact source without stored credentials");
-  for (const step of job.steps.filter(step => step.uses)) check(/@[0-9a-f]{40}$/.test(step.uses), "Python actions must be commit-pinned");
+equal(releaseWorkflow.on, {push: {tags: ['v*']}, workflow_dispatch: {}}, 'tag pushes publish; manual runs only certify candidates');
+check(releaseWorkflow.permissions?.contents === 'read', 'release default token must be read-only');
+equal(releaseWorkflow.concurrency, {group: 'release-${{ github.ref }}', 'cancel-in-progress': false}, 'same-tag release runs must serialize without interruption');
+equal(Object.keys(releaseWorkflow.jobs), ['verify', 'cli_metadata', 'cli_archive', 'cli_artifact_set', 'cli_consumer', 'publish'], 'release contains only source verification and CLI delivery');
+const verify = releaseWorkflow.jobs.verify;
+check(activeShell(findNamedStep(verify, 'Validate repository')) === 'bun run validate', 'tagged source must pass the complete repository gate');
+checkPythonValidation(verify);
+for (const install of requiredValidationToolInstalls) check(activeShell(findNamedStep(verify, 'Install pinned validation tools')).includes(install), `release source verification must install ${install}`);
+check(activeShell(findNamedStep(verify, 'Verify version and tag identity')).includes('release-version.mjs check "$RELEASE_TAG"'), 'tag identity must be reconciled before building');
+check(verify.outputs?.source_sha === '${{ github.sha }}', 'release jobs must share the immutable workflow SHA');
+const sourceRef = '${{ needs.verify.outputs.source_sha }}';
+for (const [name, job] of Object.entries(releaseWorkflow.jobs)) {
+  check(job['timeout-minutes'] > 0, `${name} must have a timeout`);
+  const checkout = job.steps.find(step => step.uses?.startsWith('actions/checkout@'));
+  check(checkout?.with?.ref === (name === 'verify' ? '${{ github.sha }}' : sourceRef), `${name} must check out the exact verified source`);
+  check(checkout?.with?.['persist-credentials'] === false, `${name} must not retain checkout credentials`);
+  for (const step of job.steps.filter(step => step.uses)) check(/@[0-9a-f]{40}$/.test(step.uses), `${name} actions must be commit-pinned`);
+  check(name === 'publish' || job.permissions?.contents !== 'write', `${name} must not publish`);
 }
-check(pythonWorkflow.jobs.build.strategy.matrix.includes("needs.matrix.outputs.builds") && pythonWorkflow.jobs.consumer.strategy.matrix.includes("needs.matrix.outputs.consumers"), "Python build/consumer matrix must come from one authority");
-equal(pythonWorkflow.jobs.consumer.needs, ["matrix", "aggregate"], "Python consumers must await complete aggregate");
-check(ciWorkflow.jobs["python-candidate"].uses === "./.github/workflows/python-candidate.yml" && ciWorkflow.jobs["python-candidate"].with.source_sha === "${{ github.sha }}", "CI must use shared Python candidate validation");
-check(releaseWorkflow.jobs.python_candidate.uses === "./.github/workflows/python-candidate.yml" && releaseWorkflow.jobs.python_candidate.with.source_sha === "${{ needs.release_authority.outputs.source_sha }}", "Release must use identical tagged Python candidate validation");
-const pypi = releaseWorkflow.jobs.publish_pypi;
-equal(pypi.needs, ["release_authority", "publish_github"], "PyPI must follow canonical visibility independently of npm");
-check(pypi.if === "vars.PYPI_RELEASE_ENABLED == 'true'" && pypi.environment.name === "pypi", "PyPI must remain separately gated and protected");
-check(pypi.permissions["id-token"] === "write" && pypi.permissions.contents === "read", "PyPI must use scoped trusted identity");
-const pypiUpload = findNamedStep(pypi, "Publish exact canonical wheels through trusted publishing");
-check(pypiUpload.uses === "pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33" && pypiUpload.if === "steps.registry.outputs.state == 'absent'" && pypiUpload.with["skip-existing"] === false && pypiUpload.with["packages-dir"] === "dist/pypi", "PyPI must upload only wholly absent canonical wheels without repair");
-check(findNamedStep(githubPublishJob, "Verify enabled PyPI projection state before visibility")?.if === "vars.PYPI_RELEASE_ENABLED == 'true'", "Enabled PyPI must pass absence policy before canonical visibility");
-for (const [job, label] of [[publishJob, "npm"], [pypi, "PyPI"]]) {
-  check(activeShell(findNamedStep(job, `Download immutable canonical product assets`)).includes("gh release download"), `${label} must use canonical downloaded bytes`);
-  check(findNamedStep(job, `Verify complete ${label} projection`)?.run?.endsWith('public --wait-complete'), 'Post-publication verification must bound registry propagation');
-  check(activeShell(findNamedStep(job, `Require complete ${label} projection`)).includes("= complete"), `${label} must verify completed publication`);
+const releaseJobs = releaseWorkflow.jobs;
+check(activeShell(findNamedStep(releaseJobs.cli_metadata, 'Emit CLI target matrix')).includes('scripts/print-cli-matrix.mjs'), 'release matrix must include every declared CLI target');
+for (const name of ['cli_archive', 'cli_consumer']) {
+  check(releaseJobs[name].strategy?.matrix === '${{ fromJSON(needs.cli_metadata.outputs.matrix) }}' && !releaseJobs[name].if, `${name} must run every release target`);
+  check(releaseJobs[name]['runs-on'] === '${{ matrix.runner }}', `${name} must run natively on the declared target`);
 }
-
+equal(releaseJobs.cli_artifact_set.needs, ['verify', 'cli_archive'], 'candidate must await all archives');
+equal(releaseJobs.cli_consumer.needs, ['verify', 'cli_metadata', 'cli_artifact_set'], 'consumers must await the complete candidate');
+check(releaseJobs.cli_archive.env.SOURCE_COMMIT === sourceRef, 'archive assembly must verify the exact source');
+const releaseAssembly = activeShell(findNamedStep(releaseJobs.cli_archive, 'Assemble and inspect standalone CLI archive'));
+check(releaseAssembly.includes('--source-commit "$SOURCE_COMMIT"') && releaseAssembly.includes('--execute'), 'each archived binary must pass identity checks');
+const releaseCandidate = activeShell(findNamedStep(releaseJobs.cli_artifact_set, 'Generate and validate complete CLI candidate'));
+for (const command of ['generate-cli-installers.mjs', 'finalize-cli-artifacts.mjs', 'validate-cli-artifact-set.mjs']) check(releaseCandidate.includes(command), `release aggregation must run ${command}`);
+check(activeShell(findNamedStep(releaseJobs.cli_consumer, 'Test exact standalone CLI consumer')) === 'node scripts/test-cli-release-consumer.mjs dist/cli', 'every target must test the exact archives and installers');
+const publication = releaseJobs.publish;
+check(publication.if === "github.event_name == 'push' && github.ref_type == 'tag'", 'manual dispatch must never publish, including tag-ref dispatch');
+equal(publication.needs, ['verify', 'cli_artifact_set', 'cli_consumer'], 'publication must await all release certification');
+equal(publication.permissions, {contents:'write'}, 'only GitHub contents permission is needed to publish');
+check(activeShell(findNamedStep(publication, 'Publish immutable GitHub assets')) === 'node scripts/publish-release.mjs dist/cli "$RELEASE_TAG"', 'publication must use the immutable CLI publisher');
+for (const [job, stepName] of [[releaseJobs.cli_consumer, 'Download exact complete CLI candidate'], [publication, 'Download exact verified CLI candidate']]) {
+  const download = findNamedStep(job, stepName);
+  check(download?.with?.name === 'cli-candidate-${{ needs.verify.outputs.source_sha }}' && download.with.path === 'dist/cli', 'consumers and publisher must use identical candidate bytes');
+}
+for (const target of nativeTargets.targets) {
+  const native = await readJson(`${nativeTargets.nativePackageRoot}/${target.packageDirectory}/package.json`);
+  check(native.private === true && native.publishConfig === undefined, 'native SDK development packages must not publish to npm');
+}
+const pythonWorkflow = await readYaml('.github/workflows/python-candidate.yml');
+const pythonTargets = await readJson('python-targets.json');
+equal(pythonTargets.targets.map(t => t.rust), nativeTargets.targets.map(t => t.rustTarget), 'Python development checks must retain the supported native targets');
+check(ciWorkflow.jobs['python-candidate'].uses === './.github/workflows/python-candidate.yml', 'CI must retain Python consumer validation');
+equal(Object.keys(pythonWorkflow.jobs), ['matrix','build','aggregate','consumer'], 'Python development candidates must retain clean consumer checks');
 const manualCandidate = await readYaml('.github/workflows/cross-platform-candidate.yml');
-equal(Object.keys(manualCandidate.on), ['workflow_dispatch'], 'Named cross-platform candidate must remain manual');
-check('workflow_call' in ciWorkflow.on, 'CI must expose the shared candidate workflow');
-equal(Object.keys(manualCandidate.jobs), ['candidate'], 'Manual candidate must reuse CI without duplicating its matrix');
-check(manualCandidate.jobs.candidate.uses === './.github/workflows/ci.yml', 'Manual candidates must run the same validated CI jobs');
+check(manualCandidate.jobs.candidate.uses === './.github/workflows/ci.yml', 'full development candidates must reuse CI');
 
 if (failures.length > 0) {
-  console.error(failures.map((failure) => `- ${failure}`).join("\n"));
+  console.error(failures.map(failure => `- ${failure}`).join('\n'));
   process.exit(1);
 }
-console.log(`Tagged-source release configuration is valid at ${nodePackage.version}`);
+console.log(`CLI release and SDK development configuration is valid at ${rootPackage.version}`);

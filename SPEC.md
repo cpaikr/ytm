@@ -3,8 +3,8 @@
 ## Capability
 
 `ytm` retrieves KIS-NET YTM Matrix rows by `baseDate` (`기준일`) and
-`kind` (`종류`). It reproduces the source protocol directly and does not drive
-a browser.
+`kind` (`종류`), or all categories across multiple dates with `history`. It
+reproduces the source protocol directly and does not drive a browser.
 
 ## Authority and evidence
 
@@ -52,6 +52,52 @@ boundaries live in [`ARCHITECTURE.md`](ARCHITECTURE.md).
 - Source kinds, pricing groups, and unknown row columns remain open for source
   compatibility. Output tenor labels and order remain deterministic.
 
+## Multi-date history
+
+`history` accepts exactly one selection: a nonempty `baseDates` list or both
+`startDate` and `endDate` for an inclusive calendar range. Dates use the matrix
+formats, normalize, sort ascending, and deduplicate. The bound is 2,000 raw list
+entries before deduplication or 2,000 inclusive range days. Reversed, incomplete,
+mixed, oversized, or unknown inputs fail before source I/O. History accepts no
+kind or pricing-group filter: each requested date targets the canonical catalog
+plus its dated live-only kinds, preserving canonical then source order, and
+returns every source pricing-group row and tenor.
+
+Exact-date lookup is the default. Explicit `previous-available` uses the same
+1–31 prior-calendar-day bound and default 10 as matrix. Each requested-date/kind
+pair resolves independently without changing kind code. Confirmed empty dated
+discovery is recorded and uses canonical targets; it can advance fallback.
+Fallback discovery does not add new targets to the requested date. Confirmed
+empty matrices also advance fallback. Operational errors, conflicting catalogs,
+invalid source cells, and cancellation abort the whole call without a partial
+success. Fatal source errors retain requested date, kind when known, and
+attempt history under operation `history`.
+
+The result contains `requestedDates`, dated `discovery` availability, ordered
+`entries`, `availableCount`, `unavailableCount`, `dataRowCount`, `mode`, and
+`lookbackDays`. Counts of availability refer to date/kind pairs; data rows count
+pricing groups. An entry tagged `availability: "available"` contains a complete
+`matrix` with requested, attempted, and actual dates and source provenance.
+An `unavailable` entry carries `requestedBaseDate`, `kind`, `attemptedDates`,
+`mode`, `lookbackDays`, `reason`, and final `stage` (`discovery` or `matrix`).
+Unavailable pairs, including an entirely unavailable selection, are a successful
+result and CLI exit 0. Requested dates remain distinct even when they resolve
+to the same observation; output order is date, catalog kind, then source row.
+
+CLI CSV/TSV use the matrix identity and tenor columns followed by `availability`
+and `reason`. An unavailable pair produces one row with empty actual-date,
+fallback, pricing-group, and yield cells. JSON retains the complete result.
+The CLI handles Ctrl-C through cancellation; history exports check cancellation
+before publication. Interactive stderr may show throttled discovery and
+retrieval counts, including fallback; redirected stderr remains quiet and all
+machine-readable results remain on stdout.
+
+The [capacity evidence](docs/history-capacity.md) records measured synthetic
+workloads and memory limits. The selection bound is a resource guard, not provider
+approval for sustained collection. Production enablement and release publication remain separate
+boundaries under [provider qualification](docs/provider-qualification.md) and
+[release policy](docs/release.md).
+
 ## Supported-kind policy and kind 80
 
 The product owns a canonical inspected kind catalog; live discovery augments it
@@ -82,18 +128,19 @@ The standalone Rust CLI is:
 
 ```sh
 ytm --version
-ytm matrix --base-date <기준일> --kind <종류> [--fallback previous-available] [--lookback-days <days>] [--format json|csv|tsv] [--pretty]
-ytm kinds [--base-date <기준일>] [--format json|csv|tsv] [--pretty]
+ytm history (--base-date <date>... | --start-date <date> --end-date <date>) [--fallback previous-available] [--lookback-days <days>] [--format json|csv|tsv|xlsx] [--output <file.xlsx>] [--overwrite] [--pretty]
+ytm matrix --base-date <기준일> --kind <종류> [--fallback previous-available] [--lookback-days <days>] [--format json|csv|tsv|xlsx] [--output <file.xlsx>] [--overwrite] [--pretty]
+ytm kinds [--base-date <기준일>] [--format json|csv|tsv|xlsx] [--output <file.xlsx>] [--overwrite] [--pretty]
 ytm upgrade [--check]
 ```
 
-For `matrix` and `kinds`, `--help` or `-h` prints command help without network
+For `history`, `matrix`, and `kinds`, `--help` or `-h` prints command help without network
 I/O while validating supplied options. Value options accept `--option value`
 and `--option=value`; repeated `--pretty` is allowed.
 
 `ytm --version` is network-free and prints exactly `ytm <product-version>`
 followed by one newline on stdout. It has no update-check or other side effect.
-Matrix and kinds commands never inspect a receipt, check for updates, wait for
+History, matrix, and kinds commands never inspect a receipt, check for updates, wait for
 release infrastructure, or change their stdout or exit status because a newer
 release exists.
 
@@ -147,16 +194,117 @@ Subsequent checks fail closed and report the exact
 executable, receipt, and recovery paths instead of guessing or deleting
 evidence.
 
-JSON is the default. A successful data command prints exactly one
-`{ "ok": true, "operation", "result" }` object. Execution and invalid-invocation
+JSON is the default. A successful JSON data command prints exactly one
+`{ "ok": true, "operation", "result" }` object; CSV and TSV print a header and data rows. Execution and invalid-invocation
 failures print exactly one structured JSON object and exit nonzero; data needed
 to consume the result is never available only on stderr. The help lookup
 `ytm help <unknown>` is the sole plain-text failure: it reports the unknown help
 topic and exits with status 2.
 
+### CLI Excel export
+
+All three data commands accept `--format xlsx --output <file.xlsx>`. The path must
+have a nonempty filename ending in `.xlsx` (case-insensitive); relative and
+absolute Unicode paths, spaces, and Korean filenames are supported. The CLI
+does not infer a format, append an extension, create parent directories, or
+write binary stdout. `--output -` is invalid. `--output` and `--overwrite` are
+XLSX-only; duplicate value options (except history’s repeated `--base-date`)
+and repeated `--overwrite` are invalid.
+Invalid combinations and path syntax fail before filesystem or network I/O
+with the existing structured invocation error and exit 2. Command help
+validates supplied options without requiring execution inputs or a destination.
+
+The parent directory must exist. Preflight rejects an existing destination
+without `--overwrite`, and rejects directories, symlinks, and special files
+with either policy, before source requests. A successful export publishes a
+complete workbook and then returns exit 0 and one JSON receipt (interactive
+history progress may appear on stderr):
+
+```json
+{"ok":true,"operation":"matrix","result":{"format":"xlsx","path":"yields.xlsx","rowCount":1}}
+```
+
+`path` echoes the supplied path; `rowCount` excludes headers and metadata.
+`--pretty` affects only the success receipt. Failures remain compact JSON.
+If stdout fails after publication, the command exits 1 and retains the saved
+workbook.
+
+Matrix and kinds workbooks have exactly two visible worksheets: `Matrix` or `Kinds`, followed
+by `Metadata`. `Matrix` has these columns in order, followed by `result.tenors`
+in source order:
+
+```text
+requestedBaseDate, baseDate, usedFallback, kindCode, kindName,
+pricingGroupCode, pricingGroupName
+```
+
+Rows preserve source order. `Kinds` has `code` and `name`. Yields are numeric
+cells with no rounding or scaling and display format `0.000`; missing yields
+are blank. Codes preserve leading zeros as text. Dates are ISO text, including
+years outside Excel serial-date support. Fallback flags are boolean. Names,
+headers, dates, URLs, and codes are literal Unicode text, with no formula or
+hyperlink inference or CSV apostrophe prefix. Data sheets have bold contrasting
+headers, autofilters, wrapped names, and readable column widths. `Matrix`
+freezes the header and seven identity columns; `Kinds` freezes the header.
+Empty tables retain headers and metadata with `rowCount: 0` without changing
+the core's unavailable-data semantics.
+
+For matrix and kinds, `Metadata` has `field` and `value` columns, a frozen header, wrapped values,
+and this explicit provenance mapping:
+
+- Common: `operation`, `baseDate`, `source.pageUrl`, and available
+  `source.endpoint`, `source.method`, `source.inspectedWorkflow`, `source.note`.
+- Matrix: `requestedBaseDate`, `kind.code`, `kind.name`,
+  `dateResolution.mode`, `dateResolution.resolvedBaseDate`,
+  `dateResolution.usedFallback`, `dateResolution.lookbackDays`, and ordered
+  `dateResolution.attemptedDates[0]`, `[1]`, etc.
+- When a source request exists: `source.request.format`,
+  `source.request.inDatasets`, `source.request.outDatasets`,
+  `source.request.parameters.calBaseDt`, and
+  `source.request.parameters.cboYtmSort`.
+
+Absent optional source fields are omitted; undated kinds has a blank
+`baseDate`. Metadata booleans and lookback counts retain native types; all
+other values are literal text. Raw XML, raw columns, and source `yieldText`
+remain available through existing interfaces rather than additional sheets.
+
+History workbooks have exactly three visible worksheets: `History`,
+`Availability`, and `Metadata`. `History` uses the matrix columns and formatting
+above and contains only available pricing-group rows. `Availability` has one row
+per date/kind pair with `requestedBaseDate`, `kindCode`, `kindName`,
+`availability`, `baseDate`, `usedFallback`, `rowCount`, `reason`, and
+`discoveryAvailable`. `Metadata` records normalized requested dates, discovery
+outcomes, mode, lookback, aggregate counts, each pair's attempted dates, and
+available observations' source provenance. History metadata values are literal
+text. A wholly unavailable history still publishes headers, availability, and
+metadata. Its receipt adds `availableCount`, `unavailableCount`, and
+`dataRowCount`; `rowCount` counts only `History` data rows.
+
+The CLI renders a complete buffer, writes and syncs a private staging file
+beside the destination, closes its handle, and publishes it. Without
+`--overwrite`, publication cannot replace an entry created after preflight.
+With overwrite, publication replaces the directory entry without first
+deleting it or writing through a raced destination symlink. Concurrent
+explicit overwrites accept the last successful publication. Normal failures
+preserve existing bytes and clean owned staging files; cleanup errors do not
+mask the primary failure. The final path never exposes a partial workbook.
+Power-loss durability and recovery from uncatchable termination are not
+promised; termination can leave private staging files.
+
+Export runtime failures exit 1 with the existing error envelope; only
+interactive history progress may have been written to stderr. CLI-owned codes are `output_exists`, `output_write_error`,
+`export_error`, and `request_cancelled` (export cancelled before publication);
+each identifies the operation and `output`, with a reason and
+recovery information. Worksheet limits and oversized cells fail explicitly
+without truncation. Source failures retain their existing codes and leave the
+workbook untouched. Rendering and publication failures never trigger source
+fallback or another request. SDK APIs and dependencies are unaffected.
+
+### SDK results and errors
+
 `@sjunepark/ytm` is the Rust-backed Node SDK. Its root export provides
-`YtmClient` with typed `matrix()` and `kinds()` methods. The operation-specific
-`validateMatrixInput()` and `validateKindsInput()` helpers return either
+`YtmClient` with typed `history()`, `matrix()`, and `kinds()` methods. The operation-specific
+`validateHistoryInput()`, `validateMatrixInput()`, and `validateKindsInput()` helpers return either
 `{ ok: true, input }` or `{ ok: false, error }` without performing network I/O.
 `YtmError` and `serializeYtmError()` preserve stable `name`, `message`, project
 error fields, and a tagged `recoveryAction` object. Client methods accept
@@ -181,6 +329,8 @@ and a standalone Rust CLI over the same core. The
 [Python API contract](packages/python/SPEC.md) defines its typed sync/async
 clients, values, cancellation, lifecycle, and errors. The
 [Python matrix](python-targets.json) owns the conventional CPython and native
-wheel coverage. Exact consumers and the disabled unified release/PyPI
-projection validate that distribution boundary. Historical Python releases and component tags remain immutable
-registry and Git history and do not expose the new Python API.
+wheel coverage. Exact development consumers validate that packaging boundary.
+GitHub release publication distributes only the standalone CLI; Node and Python
+SDKs remain available from source and local packages. Historical Python releases
+and component tags remain immutable registry and Git history and do not expose
+the new Python API.

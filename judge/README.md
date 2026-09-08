@@ -26,12 +26,31 @@ remain available for focused debugging only.
 
 Coverage authority is intentionally split: `judge/run.mjs` owns the executable
 scenario definitions, assertions, filters, and fixture accounting;
+[`history.mjs`](history.mjs) supplies the history public-surface scenarios;
+[`history-cli-lifecycle.py`](history-cli-lifecycle.py) verifies executable
+history export, POSIX interrupts and terminal progress as part of `bun run test`;
 [`golden-results.json`](golden-results.json) owns the reviewed public-result
 oracle; and [`../contracts/kisnet/cases.json`](../contracts/kisnet/cases.json)
 owns the observed wire fixtures and evidence cases. There is deliberately no
 `judge/scenarios.json` coverage manifest: it was unused parallel authority.
 Contract validation fails if that path reappears, so new coverage belongs in
 the executable judge or the wire-evidence manifest that owns it.
+
+Excel scenarios run in temporary child working directories and check captured
+requests separately from golden stdout/stderr. They compare workbook values
+with fixture-backed JSON results while checking types, literal text, layout,
+provenance, fallback ordering, preflight rejection, and preserved files.
+[`inspect-xlsx.py`](inspect-xlsx.py) independently reads compressed ZIP and
+OOXML using the Python standard library (`PYO3_PYTHON`, or `python3`). It resolves
+worksheet relationships, shared/inline strings, types and styles, and rejects
+formulas and external links. Raw ZIP bytes and timestamps are not goldened.
+Python is a validation dependency only. Full application compatibility is
+checked separately by opening a synthetic workbook in Excel.
+
+The exact standalone candidate consumer also exports undated kinds, checks
+receipt and ZIP identity, exercises overwrite, and verifies failed replacement
+of an exclusively locked workbook on Windows or permission-denied directories
+on Unix. No Excel, Python, or Node runtime is needed by the product binary.
 
 `judge:broken` copies the built package, corrupts the public source envelope,
 and proves that the approved golden result rejects the mutation.

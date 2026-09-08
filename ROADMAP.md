@@ -2,11 +2,11 @@
 
 ## Current
 
-None.
+- [CLI release migration](plans/release-delivery.md) — implementation and local validation complete; hosted certification not run.
 
 ## Plans
 
-1. [Add Excel export to the CLI](plans/cli-excel-export.md)
+None.
 
 ## Tasks
 

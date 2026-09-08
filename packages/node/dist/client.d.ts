@@ -15,7 +15,7 @@ export interface KindsInput {
 
 export type RecoveryAction =
   | { readonly kind: "review_client_usage" }
-  | { readonly kind: "review_method_input"; readonly method: "matrix" | "kinds" }
+  | { readonly kind: "review_method_input"; readonly method: "matrix" | "kinds" | "history" }
   | { readonly kind: "use_previous_available_fallback" }
   | { readonly kind: "try_nearby_business_day" }
   | { readonly kind: "start_new_request" }
@@ -112,6 +112,7 @@ export interface ListYtmKindsResult {
 }
 
 export class YtmClient {
+  history(input: HistoryInput, options?: RequestOptions): Promise<HistoryResult>;
   matrix(
     input: MatrixInput,
     options?: RequestOptions
@@ -130,3 +131,26 @@ export class YtmError extends Error {
 export function validateMatrixInput(input: unknown): ValidationResult<MatrixInput>;
 export function validateKindsInput(input?: unknown): ValidationResult<KindsInput>;
 export function serializeYtmError(error: unknown): SerializedError;
+
+
+/** Exactly one date selection; Rust validates, sorts and deduplicates up to 2000 dates. */
+export type HistoryInput = (
+  | { readonly baseDates: readonly string[]; readonly startDate?: never; readonly endDate?: never }
+  | { readonly baseDates?: never; readonly startDate: string; readonly endDate: string }
+) & { readonly fallback?: "exact" | "previous-available"; readonly lookbackDays?: number };
+export type HistoryEntry =
+  | { readonly availability: "available"; readonly matrix: LookupYtmMatrixResult }
+  | { readonly availability: "unavailable"; readonly requestedBaseDate: string; readonly kind: YtmKind;
+      readonly attemptedDates: readonly string[]; readonly mode: "exact" | "previous-available";
+      readonly lookbackDays: number; readonly reason: string; readonly stage: "discovery" | "matrix" };
+export interface HistoryResult {
+  readonly requestedDates: readonly string[];
+  readonly discovery: readonly { readonly requestedBaseDate: string; readonly available: boolean }[];
+  readonly entries: readonly HistoryEntry[];
+  readonly availableCount: number;
+  readonly unavailableCount: number;
+  readonly dataRowCount: number;
+  readonly mode: "exact" | "previous-available";
+  readonly lookbackDays: number;
+}
+export function validateHistoryInput(input: unknown): ValidationResult<HistoryInput>;

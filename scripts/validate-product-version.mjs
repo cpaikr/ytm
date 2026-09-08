@@ -14,8 +14,7 @@ const version = (await readFile("VERSION", "utf8")).trim();
 check(/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(version), `VERSION must contain a stable SemVer value, received ${version}`);
 
 const [
-  manifest,
-  config,
+  rootPackage,
   cargoWorkspace,
   cargoLock,
   cliManifest,
@@ -28,8 +27,7 @@ const [
   bunLock,
   changelog,
 ] = await Promise.all([
-  readJson(".release-please-manifest.json"),
-  readJson("release-please-config.json"),
+  readJson("package.json"),
   readFile("Cargo.toml", "utf8"),
   readFile("Cargo.lock", "utf8"),
   readFile("crates/ytm-cli/Cargo.toml", "utf8"),
@@ -43,35 +41,7 @@ const [
   readFile("CHANGELOG.md", "utf8"),
 ]);
 
-equal(manifest["."], version, "Release Please manifest must match VERSION");
-check(config["release-type"] === "simple", "Release Please must use the single-product simple strategy");
-check(config["include-v-in-tag"] === true && config["include-component-in-tag"] === false, "Release Please must retain the unified vX.Y.Z naming policy");
-check(config.draft === undefined && config["force-tag-creation"] === undefined, "Release Please preparation config must not own tag or draft mutation");
-check(config.packages?.["."]?.["version-file"] === "VERSION", "Release Please must update VERSION as the product authority");
-check(config.packages?.["."]?.["changelog-path"] === "CHANGELOG.md", "Release Please must own the root product changelog");
-
-const extraFiles = new Set((config.packages?.["."]?.["extra-files"] || []).map(({ type, path, jsonpath }) => [type, path, jsonpath].filter(Boolean).join(":")));
-const requiredExtraFiles = [
-  "toml:Cargo.toml:$.workspace.package.version",
-  "generic:crates/ytm-cli/Cargo.toml",
-  "generic:crates/ytm-node/Cargo.toml",
-  "generic:crates/ytm-python/Cargo.toml",
-  "toml:packages/python/pyproject.toml:$.project.version",
-  "toml:Cargo.lock:$.package[?(@.name=='ytm-python')].version",
-  "generic:tests/rust-sdk-consumer/Cargo.toml",
-  "toml:Cargo.lock:$.package[?(@.name=='ytm-cli')].version",
-  "toml:Cargo.lock:$.package[?(@.name=='ytm-core')].version",
-  "toml:Cargo.lock:$.package[?(@.name=='ytm-node')].version",
-  "toml:tests/rust-sdk-consumer/Cargo.lock:$.package[?(@.name=='ytm-core')].version",
-  "json:packages/node/package.json:$.version",
-  ...Object.keys(nodePackage.optionalDependencies).map((name) => `json:packages/node/package.json:$['optionalDependencies']['${name}']`),
-  ...["darwin-arm64", "linux-arm64-gnu", "linux-x64-gnu", "win32-x64-msvc"].map((target) => `json:packages/native/${target}/package.json:$.version`),
-  "yaml:bun.lock:$['workspaces']['packages/node'].version",
-  ...Object.keys(nodePackage.optionalDependencies).map((name) => `yaml:bun.lock:$['workspaces']['packages/node']['optionalDependencies']['${name}']`),
-  ...["darwin-arm64", "linux-arm64-gnu", "linux-x64-gnu", "win32-x64-msvc"].map((target) => `yaml:bun.lock:$['workspaces']['packages/native/${target}'].version`),
-];
-for (const entry of requiredExtraFiles) check(extraFiles.has(entry), `Release Please update set is missing ${entry}`);
-equal(extraFiles.size, requiredExtraFiles.length, "Release Please update set must not contain unvalidated version paths");
+equal(rootPackage.version, version, "release-it workspace version must match VERSION");
 
 const workspaceVersion = cargoWorkspace.match(/\[workspace\.package\][\s\S]*?\nversion = "([^"]+)"/)?.[1];
 equal(workspaceVersion, version, "Cargo workspace version must match VERSION");
@@ -81,7 +51,7 @@ for (const [path, contents] of [
   ["crates/ytm-python/Cargo.toml", pythonRustManifest],
   ["tests/rust-sdk-consumer/Cargo.toml", rustConsumerManifest],
 ]) {
-  const dependencyVersion = contents.match(/ytm-core = \{[^\n]*version = "=([^"]+)"[^\n]*# x-release-please-version/)?.[1];
+  const dependencyVersion = contents.match(/ytm-core = \{[^\n]*version = "=([^"]+)"/)?.[1];
   equal(dependencyVersion, version, `${path} ytm-core dependency must match VERSION`);
 }
 const rustConsumerLockVersion = rustConsumerLock.match(/name = "ytm-core"\nversion = "([^"]+)"/)?.[1];
@@ -108,7 +78,7 @@ for (const [name, dependencyVersion] of Object.entries(bunLock.workspaces["packa
   equal(dependencyVersion, version, `bun.lock ${name} optional dependency must match VERSION`);
 }
 
-const changelogVersion = changelog.match(/^## \[([^\]]+)\]/m)?.[1];
+const changelogVersion = changelog.match(/^##? (?:\[)?(\d+\.\d+\.\d+)(?:\])?/m)?.[1];
 equal(changelogVersion, version, "latest product changelog entry must match VERSION");
 
 if (failures.length > 0) {
