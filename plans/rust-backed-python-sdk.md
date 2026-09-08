@@ -1,6 +1,10 @@
 # Rust-backed Python SDK
 
-Status: complete
+Status: complete (historical delivery)
+
+This records the original delivery. The [release migration](release-delivery.md)
+supersedes its release-preparation and registry-publication design; the
+[current runbook](../docs/release.md) owns operations.
 
 ## Outcome
 

@@ -1,9 +1,14 @@
 # Release
 
-No product release is authorized by this document. Selecting or publishing an
-exact version remains a separate approval. The repository implements one
-product lifecycle for the Rust core, standalone CLI, Node SDK, and Python SDK; this is the
-runbook for that disabled-by-default lifecycle.
+The release pipeline distributes the standalone CLI through GitHub Releases.
+Local `release-it` prepares the version, changelog, commit, and tag; pushing a
+stable `vX.Y.Z` tag starts CI certification and publication. npm and PyPI
+publication have been removed. SDK source, local packaging, and development
+CI remain supported.
+
+The [delivery plan](../plans/release-delivery.md) records migration evidence and
+the selected release. GitHub Releases and Actions own publication status.
+Historical releases and registry packages remain unchanged.
 
 ## CI platform policy
 
@@ -18,10 +23,9 @@ selection and derives matrices from the target manifests. Pushes to `main`
 and `dev` run Linux validation without repeating the full pre-merge matrix.
 
 Linux x64 CLI/Node CI and orchestration use the available 2-vCPU Blacksmith
-runner. Release PR preparation uses that runner too. Other architectures and
-operating systems retain their native runners.
+runner. Other architectures and operating systems retain their native runners.
 The reusable Python candidate retains its GitHub-hosted build/consumer runners;
-release jobs retain their existing runners, including trusted-publishing hosts.
+CLI release orchestration uses Blacksmith and target jobs use their declared runners.
 These are intentional runner-provider exceptions pending equivalent validation.
 
 `Platform compatibility` is the required aggregate check: all selected jobs
@@ -34,82 +38,92 @@ The dedicated [`cross-platform-candidate.yml`](../.github/workflows/cross-platfo
 entry point calls that same workflow, retaining the manual candidate path
 without a second copy of the build and consumer jobs.
 
-## Release authority
+## Prepare a release
 
-Release Please owns release PR preparation from Conventional Commits. One root
-component named `ytm` updates:
+From a clean `main` checkout tracking `origin/main`, install the frozen
+JavaScript dependencies and the [validation prerequisites](../README.md#repository-validation),
+cache both Cargo dependency graphs, then prepare the approved stable version
+locally without pushing. Replace `X.Y.Z` with that exact version and select the
+configured Python 3.11+ interpreter through `PYO3_PYTHON`:
 
-- [`VERSION`](../VERSION), the human-readable product version authority;
-- the root [`CHANGELOG.md`](../CHANGELOG.md), the product changelog;
-- the Release Please manifest;
-- the Cargo workspace version, internal `ytm-core` dependency requirements,
-  workspace and clean-consumer lockfiles;
-- the Node root and native package versions and optional dependency versions;
-- the Bun workspace lock entries;
-- the Python package version and binding lock entry.
+```sh
+cargo fetch --locked
+cargo fetch --locked --manifest-path tests/rust-sdk-consumer/Cargo.toml
+bun run release X.Y.Z --ci --no-git.push
+```
 
-`bun run release:version:check` fails when any version copy, changelog head, or
-configured Release Please update path diverges. The root private JavaScript
-workspace is not a published component. The historical
-`packages/node/CHANGELOG.md` remains a record of the pre-unification Node tags;
-new product entries belong only in the root changelog.
+The upstream hook fetches `origin/main` and requires the local commit to match
+it before preparation. Release-it validates, commits, and creates the local
+tag. `--no-git.push` leaves the commit and tag unpublished.
 
-The Release Please preparation workflow is deliberately gated by the
-`RELEASE_PLEASE_ENABLED` repository variable and invokes the action with
-`skip-github-release: true`. It may create or update a release PR, but it cannot
-create a tag or GitHub Release. Its `RELEASE_PLEASE_TOKEN` must be a narrowly
-scoped GitHub App or fine-grained token whose pull requests trigger required
-checks. Keep the variable `false` until release preparation is explicitly
-authorized.
+Use the pull-request path for protected `main`; direct promotion was rejected
+even after checks on the exact commit passed. Push the prepared commit to a candidate branch without
+pushing its tag, then open a PR to `main`:
 
-## Release lifecycle
+```sh
+git push origin HEAD:refs/heads/codex/release-X.Y.Z
+gh pr create --base main --head codex/release-X.Y.Z
+```
 
-The release lifecycle has these stages:
+Wait for required checks and review, then merge while preserving the prepared
+commit (no squash or rebase). Fetch and fast-forward local `main` to the merge
+result. Verify that the local tag still identifies the original certified
+release commit and that this commit is reachable from `origin/main`:
 
-1. Release Please proposes one release PR against `main`. The PR reconciles
-   every product-version copy and generates the root changelog entry.
-2. Reviewers validate the exact proposed version and complete artifact plan.
-   Merging that specific PR requires explicit approval of that version.
-3. A separately authorized job in the protected `release` environment accepts
-   only an exact stable version from the merged Release Please PR head. It
-   creates exactly that immutable `vX.Y.Z` tag and a deterministic draft GitHub
-   Release whose name and body come from the tagged changelog. This narrow
-   mutation cannot create another pending Release Please candidate. On recovery
-   it may finish a missing draft after exact tag creation or resolve an existing
-   matching draft. Version, manifest, changelog, workflow checkout, tag, main
-   ancestry, and draft identity must all agree.
-4. CLI archives, npm packages, and Python wheels are rebuilt from that verified
-   SHA on their claimed native runners. Complete candidates are installed
-   without repacking on every declared target and supported runtime version.
-5. A second protected `release` job assembles one canonical candidate with
-   `release-assets.json`: exact version, source SHA, names, sizes, and SHA-256
-   digests. It proves registry absence before first visibility, reconciles draft
-   assets byte for byte, uploads only missing assets, and re-downloads and
-   verifies the complete set before making GitHub public.
-6. The protected `npm` and separately enabled `pypi` jobs independently download
-   those canonical bytes. A complete matching projection is verified and left
-   intact; a wholly absent projection may publish through trusted identity.
-   Partial, conflicting, or unknown registry state fails closed.
+```sh
+git fetch origin main
+git merge --ff-only origin/main
+git rev-parse 'refs/tags/vX.Y.Z^{commit}'
+git merge-base --is-ancestor 'refs/tags/vX.Y.Z^{commit}' origin/main
+```
 
-Both workflows remain disabled by repository variables, and no unified
-post-rewrite lifecycle release has been run. Historical `v0.1.1`,
-`node-v0.2.0`, and `python-v0.2.0` releases predate this lifecycle.
-`RELEASE_PLEASE_ENABLED=true` enables release-PR preparation;
-`RELEASE_ENABLED=true` permits the publication workflow to reach its protected
-environment gates. `PYPI_RELEASE_ENABLED=true` separately admits the PyPI
-projection. Enabling these variables or approving an environment is
-an operational authorization, not a repository-code change.
+Compare the printed SHA with the prepared commit certified in the PR. Only
+after the PR has landed and these checks pass, push the original tag:
 
-For an approved version `X.Y.Z`, dispatch `release.yml` from the exact merged
-release-PR head on `main` with `expected_version=X.Y.Z`. If the immutable tag and
-draft already exist and the workflow must be recovered after `main` advances,
-dispatch the same workflow from ref `vX.Y.Z` with the same expected version. A
-tag-ref recovery can add missing assets only when every retained draft asset is
-byte-identical to the rebuilt candidate. It cannot replace assets or reopen a
-public Release. After GitHub visibility, an exact-tag rerun rebuilds and verifies
-all unchanged canonical assets and checks each registry independently. An exact
-completed projection remains intact; a wholly absent projection can proceed.
-Local upload logs cannot prove registry absence after a lost response.
+```sh
+git push origin refs/tags/vX.Y.Z
+```
+
+The tag push starts CLI certification and publication. Keep the tag on the
+prepared release commit; do not move it to the PR merge commit or bypass branch
+protection. If integration requires changes to the prepared commit, reconcile
+and certify the release candidate before publishing its tag.
+
+The private root [`package.json`](../package.json) owns release-it's version.
+The Conventional Commits plugin writes the root [`CHANGELOG.md`](../CHANGELOG.md).
+After that update, a hook synchronizes [`VERSION`](../VERSION), Cargo versions
+and internal requirements, Node and Python package versions, generated native
+manifests, and workspace/consumer lockfiles. It runs `bun run validate` before
+release-it stages, commits, tags, or pushes. SDK version copies identify local
+builds; they do not create registry release channels.
+
+Only stable semantic versions are accepted. `bun run release:version:check`
+checks all version copies and the changelog head. Historical component
+changelogs and tags remain records of earlier releases; new entries belong in
+the root changelog.
+
+## Certification and publication
+
+[`release.yml`](../.github/workflows/release.yml) validates the source and tag
+identity, builds every declared CLI target, and tests the exact aggregated
+archives and installers on every target. It requires the tagged commit to be
+reachable from `origin/main` and the tag to equal `v` plus the product version.
+The publishing job downloads that same candidate after all consumers pass.
+
+Manual dispatch of `release.yml` performs certification only, even when run
+from a tag ref. It never publishes. A pushed tag is the publication trigger;
+there are no release-enablement variables or protected environments in this
+workflow. Its default token is read-only, and only the publisher receives
+`contents: write`. The prepared release commit reaches `main` through its
+protected PR path before the authorized maintainer pushes the tag. Release
+tags must remain protected against replacement or deletion.
+
+The publisher creates a changelog-derived draft, uploads only missing assets,
+and downloads the complete set to verify its bytes before making it public.
+It verifies remote tag identity and confirms public metadata and assets after
+publication. The canonical assets contain only CLI archives, the generated
+installers, and `SHA256SUMS`; Node tarballs and Python wheels are development
+CI artifacts.
 
 ## Standalone CLI candidate assets
 
@@ -134,7 +148,14 @@ A downstream matrix downloads that exact aggregated candidate onto every
 declared native runner. Each clean consumer serves the untouched assets over
 loopback HTTP, runs the platform installer, compares the installed executable
 with the archived bytes, validates the exact receipt, and executes version and
-help identity. It also rejects failed downloads and corrupted archives without
+help identity. The installed executable also exports undated kinds to XLSX,
+checks its receipt and ZIP signature, rejects an existing destination, and
+replaces it only with `--overwrite`. Publication failure tests preserve prior
+bytes and check staging cleanup using an exclusively locked destination on
+Windows and an unwritable parent on non-root Unix consumers. These tests need
+no Excel installation and add no runtime dependency to the binary.
+
+The consumer also rejects failed downloads and corrupted archives without
 publishing state and exercises managed replacement with the unmodified
 candidate. Single-anchor temporary copies of that validated generated installer
 inject replacement, receipt, interruption, restoration, and Windows terminal
@@ -153,83 +174,33 @@ at most 120 seconds for the exact parent process to exit, fails closed when
 identity cannot be confirmed, and atomically writes adjacent no-BOM UTF-8
 status states. Interrupted upgrades
 either restore the verified pair or retain fixed marker/`.previous` evidence;
-when recovery is required, the command reports the paths to inspect. These
-capabilities are wired into the tagged publication workflow, but they are not a
-public installation path until an exact version is separately approved and the
-resulting GitHub Release is made public.
+when recovery is required, the command reports the paths to inspect. The
+installation path becomes available when a verified CLI release is public.
 
-## Visibility and failure policy
+## Visibility and recovery
 
-Release state is monotonic and corrections use a new approved version:
+| State | Recovery |
+| --- | --- |
+| Local preparation fails before commit | Inspect the version/changelog edits and fix the failed gate before continuing. |
+| Tag pushed; build or consumer fails | Inspect the failed run. Retry the original tag-triggered run only if the unchanged source can pass; code corrections require a new version. |
+| Draft has some assets | Rerun the original tag-triggered run. Existing assets must match the verified candidate byte for byte; only missing assets may be added. |
+| Release is public | A rerun verifies the complete unchanged set and metadata. It cannot repair or replace public assets. |
+| Tag, metadata, inventory, or bytes conflict | Stop and investigate; corrections require a new version. |
 
-| State | Visibility | Permitted recovery |
-| --- | --- | --- |
-| Release PR open | Reviewers only | Update or close the PR; no tag exists. |
-| Tag/draft creation failed | No public release | Fix the workflow and rerun. If the exact tag was committed but draft creation failed, the same tagged source may create only its missing deterministic draft. |
-| Draft exists; build or validation failed | Draft is unavailable to normal consumers | Rerun the exact tagged source only with byte-identical retained assets and absent registry versions. Add only missing assets. |
-| GitHub public; either projection absent | Canonical assets are immutable | Rebuild and verify the exact public set. Verify any completed projection and publish only the wholly absent projection. |
-| Either projection partially failed or conflicts | GitHub and any completed projection remain intact | Approve a new product version. Never overwrite bytes or skip individual existing files. |
-| Registry response is unknown | No absence or completeness claim | Resolve the read failure, then reclassify. Do not infer state from a local upload exit code. |
+Rerun the original pushed-tag workflow for publication recovery. A new manual
+dispatch is always certification-only. Never move an existing tag, replace
+published bytes, or delete a draft to hide recovery evidence. Unknown GitHub
+responses fail closed and must be resolved before retrying. No registry
+credentials, trusted publishers, or npm/PyPI environments are used by this
+pipeline; any legacy remote settings are outside the repository migration.
 
-The workflow fails closed on divergent tag/source/version identity, edited
-changelog-derived metadata, missing or unexpected assets, checksum conflicts,
-and unknown or partial registry state. It never deletes tags or drafts:
-those are recovery evidence. Before first canonical visibility, npm and an
-enabled PyPI projection must be wholly absent. After visibility, exact completed
-registry versions are allowed and are not republished. Post-publication checks
-poll for up to two minutes with cache bypass, allowing absent or matching partial
-results and transient read failures to settle. Conflicting bytes fail immediately.
-The deadline never permits repair or another upload; recovery requires a fresh
-state classification under the table above.
+## SDK development candidates
 
-## Required GitHub settings
-
-Before enabling release preparation or approving a release:
-
-1. Protect `main` with `Platform compatibility` and the existing required
-   validation/native checks. Deploy this workflow change before promoting to
-   `main`; older workflow revisions do not emit the aggregate check.
-2. Add a `v*` tag ruleset that blocks updates and deletion and permits creation
-   only by the release automation identity.
-3. Create a `release` environment with required reviewers, prevent self-review,
-   disallow administrator bypass, and restrict deployment to protected `main`
-   plus protected `v*` tags so an immutable tagged draft can be recovered after
-   `main` advances.
-4. Keep the `npm` environment equally strict. A different actor must start a
-   run when the sole configured reviewer is expected to approve it.
-5. Configure npm Trusted Publishing for `@sjunepark/ytm` and all native
-   packages with owner `cpaikr`, repository `ytm`, workflow `release.yml`, and
-   environment `npm`. No long-lived npm token is required.
-6. Before separately enabling PyPI, create an equally protected `pypi`
-   environment and configure the `kisnet-ytm` trusted publisher for owner
-   `cpaikr`, repository `ytm`, workflow `release.yml`, environment `pypi`.
-   The job uses scoped OIDC; no long-lived PyPI token is required.
-
-Repository settings are operational prerequisites, not repository code. On
-2026-09-06, `release`, `npm`, and `pypi` were configured with the existing
-`sjunepark` reviewer, self-review prevention, no administrator bypass, and
-separate `main` branch / `v*` tag deployment policies. The `v*` tag ruleset and
-registry trusted-publisher configurations still require verification before
-publication. Environment name patterns alone do not make tags immutable.
-Release preparation and publication remain disabled; these settings authorize
-no product version.
-
-## Node assembly and npm projection
-
-[`native-targets.json`](../native-targets.json) currently owns the Node-API
-matrix: Linux GNU x64/ARM64, macOS ARM64, and Windows x64. GNU/Linux artifacts
-target glibc 2.28 or newer. Full-platform CI builds every target on a native
-runner and clean-installs the packed root and native packages
-under Node 22, 24, and 26.
-
-The tagged workflow aggregates those exact tarballs and installs them on all
-target/Node-major combinations. Canonical GitHub assets include the root and
-native tarballs. The npm job downloads them again, verifies the complete
-canonical manifest, and queries every exact package version. Completed tarballs
-must match downloaded registry bytes. A wholly absent projection publishes
-native packages before the root, with provenance, then verifies the whole set.
-
-## Python wheels and PyPI projection
+The Node SDK and generated native packages are private. Full-platform CI
+builds the [`native-targets.json`](../native-targets.json) targets and installs
+exact local tarballs under the declared Node versions. Local package assembly
+and consumers remain part of the repository gate; the release workflow does
+not publish them.
 
 [`python-targets.json`](../python-targets.json) owns the Python target and
 interpreter matrix: conventional CPython 3.11–3.14, GNU/Linux x64 and ARM64 at
@@ -237,13 +208,13 @@ glibc 2.28, macOS ARM64 at 11.0, and Windows x64. Alternative interpreters,
 free-threaded builds, and future stable versions need evidence before joining
 that matrix. One `cp311-abi3` mixed wheel serves each target.
 
-Full-platform CI and tagged builds share `python-candidate.yml`. Pinned maturin
-builds twice
-from fresh native output directories and requires identical wheel bytes. Build
+Full-platform development CI uses `python-candidate.yml`. Pinned maturin
+builds twice from fresh native output directories and requires identical wheel bytes. Build
 inputs use the source commit timestamp, normalized source paths, LF package
 files on every host, and the macOS deployment floor. Source attribution rejects
 tracked changes and untracked build inputs before and after building, and when
-validating the complete set. Generated artifact directories remain separate. Optional generated SBOM output is disabled because its random
+validating the complete set. Generated artifact directories remain separate.
+Optional generated SBOM output is disabled because its random
 IDs, timestamps, and host paths vary; canonical license notices remain required.
 Linux uses the pinned Zig toolchain and maturin's embedded cargo-zigbuild
 wrapper, with a manylinux 2.28 dependency audit. The repository-installed
@@ -259,27 +230,19 @@ safe errors and strict typing, and proves release injection variables have no
 effect. Separate fixture builds test source behavior, cancellation and panic
 containment on each native host.
 
-The complete wheel set and evidence join `release-assets.json` before GitHub
-visibility. The independently gated PyPI job downloads canonical assets, checks
-that exact version's full filename/digest set, and publishes only when absent.
-It never uses `skip-existing`. Post-upload verification requires the complete
-matching wheel set; a partial upload needs a new approved version.
-
-Historical PyPI `0.2.0` and `python-v*` tags remain unchanged and expose a
-different API. Rewritten PyPI publication requires a separately approved version
-greater than `0.2.0`; this implementation selects and publishes no version.
+Python wheels likewise remain local/development CI artifacts and are not
+attached to CLI releases or uploaded to PyPI. Historical PyPI `0.2.0` exposes
+a different API.
 
 ## Validation
 
-Install the pinned validation tools documented in the
-[repository validation](../README.md#repository-validation), install frozen
-JavaScript dependencies, and run `bun run validate` on the exact candidate
-commit. Ordinary CI and the tagged-source root-package job invoke that same
-complete uncredentialed gate. `bun run release:check` is its targeted release
-subset and includes product-version, Release Please, release-state failure
-injection, draft-asset recovery, native-package, exact-distributable, and
-publishing-boundary checks. These checks do not publish or change external
-release state.
+`bun run validate` is the complete uncredentialed gate for local preparation,
+ordinary CI, and tagged-source verification. `bun run release:check` is its
+targeted release subset: real release-it preparation in a disposable local Git
+repository, product-version synchronization, CLI artifact policy,
+publication recovery, CI platform policy, and workflow boundaries. These tests
+do not publish or change external state. Credentialed live source checks remain
+separate.
 
 `bun run pack:node` rebuilds tracked Node distribution files before inspecting
 the dry-run tarball; use `bun run build:check` when the checkout must remain

@@ -15,3 +15,8 @@ from .models import (
     SourceMetadata as SourceMetadata, SourceParameters as SourceParameters,
     SourceRequest as SourceRequest,
 )
+
+from .models import (
+    AvailableHistoryEntry as AvailableHistoryEntry, UnavailableHistoryEntry as UnavailableHistoryEntry,
+    HistoryEntry as HistoryEntry, HistoryDiscovery as HistoryDiscovery, HistoryResult as HistoryResult,
+)

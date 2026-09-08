@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { spawn } from "node:child_process";
 import { createServer } from "node:http";
-import { access, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { access, chmod, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -87,6 +87,59 @@ async function testFreshInstall(mode) {
   const executable = executablePath(installDir);
   assertSucceeded(await runProcess(executable, ["--version"]), "installed --version", `ytm ${version}`);
   assertSucceeded(await runProcess(executable, ["--help"]), "installed --help", "CLI usage:");
+  await testExcelExport(executable);
+}
+
+async function testExcelExport(executable) {
+  const directory = join(temporaryRoot, "excel export");
+  await mkdir(directory);
+  const path = join(directory, "종류 workbook.XLSX");
+  const args = ["kinds", "--format=xlsx", "--output", path];
+  const success = await runProcess(executable, args);
+  assertSucceeded(success, "installed kinds XLSX export");
+  const receipt = JSON.parse(success.stdout);
+  if (success.stderr !== "" || receipt.ok !== true || receipt.operation !== "kinds"
+    || receipt.result?.format !== "xlsx" || receipt.result.path !== path || receipt.result.rowCount !== 8) {
+    throw new Error("Exact binary XLSX receipt does not identify the kinds workbook.");
+  }
+  const original = await readFile(path);
+  if (!original.subarray(0, 4).equals(Buffer.from([0x50, 0x4b, 0x03, 0x04]))) throw new Error("Exact binary did not save an XLSX ZIP file.");
+  const exists = await runProcess(executable, args);
+  if (exists.status !== 1 || exists.stderr !== "" || JSON.parse(exists.stdout).error?.code !== "output_exists") throw new Error("Exact binary did not refuse to overwrite XLSX.");
+  if (!(await readFile(path)).equals(original)) throw new Error("No-overwrite changed the existing workbook.");
+  await writeFile(path, "old workbook");
+  assertSucceeded(await runProcess(executable, [...args, "--overwrite"]), "installed kinds XLSX replacement");
+  const replacement = await readFile(path);
+  if (!replacement.subarray(0, 4).equals(original.subarray(0, 4))) throw new Error("Replacement is not a complete XLSX archive.");
+  if (target.os === "win32") {
+    const command = "$ErrorActionPreference = 'Stop'; $file = [System.IO.File]::Open($env:YTM_TEST_LOCK_PATH, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::None); try { [Console]::WriteLine('locked'); [Console]::Out.Flush(); [Console]::ReadLine() | Out-Null } finally { $file.Dispose() }";
+    const locker = spawn("powershell.exe", ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command", command], { env: { ...process.env, YTM_TEST_LOCK_PATH: path }, windowsHide: true });
+    try {
+      await new Promise((ready, reject) => {
+        let stdout = ""; let stderr = "";
+        const deadline = setTimeout(() => reject(new Error("Windows workbook lock did not become ready.")), 15_000);
+        locker.stdout.on("data", (chunk) => { stdout += chunk; if (stdout.includes("locked")) { clearTimeout(deadline); ready(); } });
+        locker.stderr.on("data", (chunk) => { stderr += chunk; });
+        locker.once("error", (error) => { clearTimeout(deadline); reject(error); });
+        locker.once("close", () => { clearTimeout(deadline); reject(new Error(`Windows workbook lock exited early: ${stderr}`)); });
+      });
+      const locked = await runProcess(executable, [...args, "--overwrite"]);
+      if (locked.status !== 1 || locked.stderr !== "" || JSON.parse(locked.stdout).error?.code !== "output_write_error") throw new Error("Locked Windows XLSX must fail with a destination error.");
+    } finally {
+      await stopChild(locker);
+    }
+    if (!(await readFile(path)).equals(replacement)) throw new Error("Failed locked-file overwrite changed workbook bytes.");
+  } else if (process.getuid?.() !== 0) {
+    await chmod(directory, 0o500);
+    try {
+      const denied = await runProcess(executable, [...args, "--overwrite"]);
+      if (denied.status !== 1 || denied.stderr !== "" || JSON.parse(denied.stdout).error?.code !== "output_write_error") throw new Error("Permission-denied XLSX must fail with a destination error.");
+      if (!(await readFile(path)).equals(replacement)) throw new Error("Permission failure changed workbook bytes.");
+    } finally {
+      await chmod(directory, 0o700);
+    }
+  }
+  if ((await readdir(directory)).some((name) => name.startsWith(".ytm-"))) throw new Error("Exact binary left XLSX staging files.");
 }
 
 async function testFreshFailure(mode, diagnostic) {

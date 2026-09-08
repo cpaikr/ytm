@@ -2,10 +2,29 @@ use std::{ffi::OsString, io::Write, process::ExitCode};
 
 #[tokio::main]
 async fn main() -> ExitCode {
-    let output = ytm_cli::run(std::env::args_os().collect::<Vec<OsString>>()).await;
+    let cancellation = ytm_core::CancellationToken::new();
+    let interrupt_token = cancellation.clone();
+    let interrupt = tokio::spawn(async move {
+        while tokio::signal::ctrl_c().await.is_ok() {
+            if interrupt_token.is_cancelled() {
+                std::process::exit(130);
+            }
+            interrupt_token.cancel();
+        }
+    });
+    let output = ytm_cli::run_with_cancellation(
+        std::env::args_os().collect::<Vec<OsString>>(),
+        cancellation.clone(),
+    )
+    .await;
+    // Retrieval has ended: an interrupt must terminate even if output blocks.
+    // Keep the monitor alive because Tokio does not restore default SIGINT handling.
+    cancellation.cancel();
     let mut stdout = std::io::stdout().lock();
     let mut stderr = std::io::stderr().lock();
-    ExitCode::from(write_output(&output, &mut stdout, &mut stderr))
+    let code = write_output(&output, &mut stdout, &mut stderr);
+    interrupt.abort();
+    ExitCode::from(code)
 }
 
 fn write_output(
@@ -53,6 +72,28 @@ mod tests {
         fn flush(&mut self) -> std::io::Result<()> {
             Err(std::io::Error::other("flush failed"))
         }
+    }
+
+    #[tokio::test]
+    async fn stdout_failure_does_not_remove_a_published_workbook() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("kinds.xlsx");
+        let output = ytm_cli::run(vec![
+            "ytm".into(),
+            "kinds".into(),
+            "--format=xlsx".into(),
+            "--output".into(),
+            path.as_os_str().to_owned(),
+        ])
+        .await;
+        assert_eq!(output.code, 0);
+        let bytes = std::fs::read(&path).unwrap();
+        assert!(bytes.starts_with(b"PK\x03\x04"));
+        assert_eq!(
+            write_output(&output, &mut FailingWriter, &mut Vec::new()),
+            1
+        );
+        assert_eq!(std::fs::read(path).unwrap(), bytes);
     }
 
     #[test]

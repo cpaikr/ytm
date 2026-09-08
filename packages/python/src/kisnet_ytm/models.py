@@ -63,3 +63,38 @@ class MatrixResult:
     source: SourceMetadata
     requested_base_date: str
     date_resolution: DateResolution
+
+
+@dataclass(frozen=True)
+class HistoryDiscovery:
+    requested_base_date: str
+    available: bool
+
+@dataclass(frozen=True)
+class AvailableHistoryEntry:
+    matrix: MatrixResult
+    availability: Literal["available"] = "available"
+
+@dataclass(frozen=True)
+class UnavailableHistoryEntry:
+    requested_base_date: str
+    kind: Kind
+    attempted_dates: tuple[str, ...]
+    mode: Fallback
+    lookback_days: int
+    reason: str
+    stage: Literal["discovery", "matrix"]
+    availability: Literal["unavailable"] = "unavailable"
+
+HistoryEntry = AvailableHistoryEntry | UnavailableHistoryEntry
+
+@dataclass(frozen=True)
+class HistoryResult:
+    requested_dates: tuple[str, ...]
+    discovery: tuple[HistoryDiscovery, ...]
+    entries: tuple[HistoryEntry, ...]
+    available_count: int
+    unavailable_count: int
+    data_row_count: int
+    mode: Fallback
+    lookback_days: int

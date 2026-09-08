@@ -9,6 +9,10 @@ have a different API.
 
 `Client` is synchronous; `AsyncClient` exposes the same operations as coroutines:
 
+- `history(*, base_dates: list[str] | tuple[str, ...] | None = None,
+  start_date: str | None = None, end_date: str | None = None,
+  fallback: Literal["exact", "previous-available"] = "exact",
+  lookback_days: int | None = None)` returns `HistoryResult`.
 - `matrix(*, base_date: str, kind: str | int, fallback: Literal["exact",
   "previous-available"] = "exact", lookback_days: int | None = None)` returns
   `MatrixResult`.
@@ -23,6 +27,19 @@ Results are frozen dataclasses with tuples and read-only mappings: `Kind`,
 `MatrixRow`, `DateResolution`, `SourceMetadata`, `SourceRequest`, and
 `SourceParameters`. Yields are floats or `None`; original yield text and raw
 columns are preserved. Field names are snake_case and retain all core information.
+
+History takes exactly one nonempty list/tuple or complete inclusive range,
+normalizes and orders dates, and enforces the shared 2,000-entry/day bound.
+It returns every category and pricing group; there is no `kind` filter.
+`HistoryResult` contains `requested_dates`, `discovery`, `entries`,
+`available_count`, `unavailable_count`, `data_row_count`, `mode`, and
+`lookback_days`. `HistoryDiscovery` records requested-date catalog availability.
+`HistoryEntry` is a union of `AvailableHistoryEntry` (with a `matrix`) and
+`UnavailableHistoryEntry` (requested date, kind, attempted dates, mode, lookback,
+reason, and `stage`). They use literal `availability` tags and immutable values.
+Confirmed unavailable pairs remain successful entries; operational failures
+and cancellation abort the call. The shared [history contract](../../SPEC.md#multi-date-history)
+owns all-category targeting, fallback, ordering, and provenance semantics.
 
 ## Ownership and cancellation
 

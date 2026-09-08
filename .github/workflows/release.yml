@@ -1,95 +1,64 @@
-name: Release product
-
+name: CLI release
 on:
-  workflow_dispatch:
-    inputs:
-      expected_version:
-        description: Exact approved stable product version (X.Y.Z)
-        required: true
-        type: string
-
+  push:
+    tags:
+      - v*
+  workflow_dispatch: {}
 permissions:
   contents: read
-
 concurrency:
-  group: release-${{ inputs.expected_version }}
+  group: release-${{ github.ref }}
   cancel-in-progress: false
-
 jobs:
-  release_authority:
-    name: Resolve approved release authority
-    if: ${{ vars.RELEASE_ENABLED == 'true' }}
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    environment:
-      name: release
-      url: https://github.com/${{ github.repository }}/releases/tag/v${{ inputs.expected_version }}
-    permissions:
-      # Create the exact immutable tag and its recoverable draft Release.
-      contents: write
-    outputs:
-      version: ${{ steps.resolve.outputs.version }}
-      tag: ${{ steps.resolve.outputs.tag }}
-      source_sha: ${{ steps.resolve.outputs.source_sha }}
-      release_id: ${{ steps.resolve.outputs.release_id }}
-      release_url: ${{ steps.resolve.outputs.release_url }}
-      publication_mode: ${{ steps.resolve.outputs.publication_mode }}
-
+  verify:
+    runs-on: blacksmith-2vcpu-ubuntu-2404
+    timeout-minutes: 45
     steps:
-      - name: Check out submitted source
+      - name: Check out source
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
         with:
           persist-credentials: false
           fetch-depth: 0
           ref: ${{ github.sha }}
-
       - name: Set up Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
-
       - name: Set up Node
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
         with:
           node-version: 24
           package-manager-cache: false
-
       - name: Install frozen JavaScript dependencies
         run: bun install --frozen-lockfile
-
-      - name: Validate approved version and classify release state
-        id: state
-        env:
-          EXPECTED_VERSION: ${{ inputs.expected_version }}
-          RELEASE_GITHUB_TOKEN: ${{ github.token }}
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: "3.11"
+      - name: Select Python for workspace and wheel validation
         run: |
-          bun run release:version:check
-          node scripts/resolve-release-state.mjs inspect
-
-      - name: Create exact immutable tag and draft
-        if: steps.state.outputs.mode == 'create' || steps.state.outputs.mode == 'create_draft'
+          python -c 'import sys; assert sys.version_info[:2] == (3, 11)'
+          echo "PYO3_PYTHON=$(command -v python)" >> "$GITHUB_ENV"
+      - name: Install pinned validation tools
+        run: |
+          cargo install --locked --features cli cargo-about --version 0.9.2
+          cargo install --locked cargo-audit --version 0.22.2
+          cargo install --locked cargo-deny --version 0.19.0
+      - name: Verify version and tag identity
+        id: version
         env:
-          EXPECTED_VERSION: ${{ inputs.expected_version }}
-          RELEASE_GITHUB_TOKEN: ${{ github.token }}
-          RELEASE_MODE: ${{ steps.state.outputs.mode }}
-        run: node scripts/create-release-draft.mjs
-
-      - name: Resolve immutable release identity
-        id: resolve
-        env:
-          EXPECTED_VERSION: ${{ inputs.expected_version }}
-          RELEASE_GITHUB_TOKEN: ${{ github.token }}
-          RELEASE_MODE: ${{ steps.state.outputs.mode }}
-        run: node scripts/resolve-release-state.mjs resolve
-
-  python_candidate:
-    needs: release_authority
-    uses: ./.github/workflows/python-candidate.yml
-    with:
-      source_sha: ${{ needs.release_authority.outputs.source_sha }}
-
+          RELEASE_TAG: ${{ github.event_name == 'push' && github.ref_type == 'tag' && github.ref_name || '' }}
+        run: |-
+          node scripts/release-version.mjs check "$RELEASE_TAG"
+          echo "version=$(cat VERSION)" >> "$GITHUB_OUTPUT"
+      - name: Validate repository
+        run: bun run validate
+    name: Verify release source
+    outputs:
+      source_sha: ${{ github.sha }}
+      version: ${{ steps.version.outputs.version }}
   cli_metadata:
     name: Standalone CLI matrix
-    needs: release_authority
-    runs-on: ubuntu-24.04
+    needs: verify
+    runs-on: blacksmith-2vcpu-ubuntu-2404
     timeout-minutes: 5
     outputs:
       matrix: ${{ steps.targets.outputs.matrix }}
@@ -98,7 +67,7 @@ jobs:
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
         with:
           persist-credentials: false
-          ref: ${{ needs.release_authority.outputs.source_sha }}
+          ref: ${{ needs.verify.outputs.source_sha }}
       - name: Set up Node
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
         with:
@@ -108,10 +77,11 @@ jobs:
         id: targets
         shell: bash
         run: echo "matrix=$(node scripts/print-cli-matrix.mjs)" >> "$GITHUB_OUTPUT"
-
   cli_archive:
     name: CLI archive (${{ matrix.key }})
-    needs: [release_authority, cli_metadata]
+    needs:
+      - verify
+      - cli_metadata
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 20
     defaults:
@@ -122,13 +92,13 @@ jobs:
       matrix: ${{ fromJSON(needs.cli_metadata.outputs.matrix) }}
     env:
       RUST_TARGET: ${{ matrix.rust }}
-      SOURCE_COMMIT: ${{ needs.release_authority.outputs.source_sha }}
+      SOURCE_COMMIT: ${{ needs.verify.outputs.source_sha }}
     steps:
       - name: Check out immutable release source
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
         with:
           persist-credentials: false
-          ref: ${{ needs.release_authority.outputs.source_sha }}
+          ref: ${{ needs.verify.outputs.source_sha }}
       - name: Set up Node
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
         with:
@@ -152,22 +122,23 @@ jobs:
       - name: Upload standalone CLI archive
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: cli-${{ matrix.key }}-${{ needs.release_authority.outputs.source_sha }}
+          name: cli-${{ matrix.key }}-${{ needs.verify.outputs.source_sha }}
           path: .artifacts/cli/*
           if-no-files-found: error
           retention-days: 1
-
   cli_artifact_set:
     name: Complete standalone CLI candidate
-    needs: [release_authority, cli_archive]
-    runs-on: ubuntu-24.04
+    needs:
+      - verify
+      - cli_archive
+    runs-on: blacksmith-2vcpu-ubuntu-2404
     timeout-minutes: 10
     steps:
       - name: Check out immutable release source
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
         with:
           persist-credentials: false
-          ref: ${{ needs.release_authority.outputs.source_sha }}
+          ref: ${{ needs.verify.outputs.source_sha }}
       - name: Set up Node
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
         with:
@@ -176,7 +147,7 @@ jobs:
       - name: Download standalone CLI archives
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
-          pattern: cli-*-${{ needs.release_authority.outputs.source_sha }}
+          pattern: cli-*-${{ needs.verify.outputs.source_sha }}
           path: dist/cli
           merge-multiple: true
       - name: Generate and validate complete CLI candidate
@@ -187,14 +158,16 @@ jobs:
       - name: Upload complete CLI candidate
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: cli-candidate-${{ needs.release_authority.outputs.source_sha }}
+          name: cli-candidate-${{ needs.verify.outputs.source_sha }}
           path: dist/cli/*
           if-no-files-found: error
           retention-days: 90
-
   cli_consumer:
     name: Standalone CLI consumer (${{ matrix.key }})
-    needs: [release_authority, cli_metadata, cli_artifact_set]
+    needs:
+      - verify
+      - cli_metadata
+      - cli_artifact_set
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 20
     strategy:
@@ -207,7 +180,7 @@ jobs:
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
         with:
           persist-credentials: false
-          ref: ${{ needs.release_authority.outputs.source_sha }}
+          ref: ${{ needs.verify.outputs.source_sha }}
       - name: Set up Node
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
         with:
@@ -217,481 +190,42 @@ jobs:
       - name: Download exact complete CLI candidate
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
-          name: cli-candidate-${{ needs.release_authority.outputs.source_sha }}
+          name: cli-candidate-${{ needs.verify.outputs.source_sha }}
           path: dist/cli
       - name: Test exact standalone CLI consumer
         run: node scripts/test-cli-release-consumer.mjs dist/cli
-
-  native_packages:
-    name: Native package (${{ matrix.target.rust }})
-    needs: release_authority
-    timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        target:
-          - rust: x86_64-unknown-linux-gnu
-            runner: ubuntu-24.04
-            directory: linux-x64-gnu
-          - rust: aarch64-unknown-linux-gnu
-            runner: ubuntu-24.04-arm
-            directory: linux-arm64-gnu
-          - rust: aarch64-apple-darwin
-            runner: macos-15
-            directory: darwin-arm64
-          - rust: x86_64-pc-windows-msvc
-            runner: windows-2025
-            directory: win32-x64-msvc
-    runs-on: ${{ matrix.target.runner }}
-    steps:
-      - name: Check out immutable release source
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
-        with:
-          persist-credentials: false
-          ref: ${{ needs.release_authority.outputs.source_sha }}
-      - name: Set up Node
-        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
-        with:
-          node-version: 24
-          package-manager-cache: false
-      - name: Install pinned Linux native build toolchain
-        if: matrix.target.rust == 'x86_64-unknown-linux-gnu' || matrix.target.rust == 'aarch64-unknown-linux-gnu'
-        run: node scripts/install-linux-native-toolchain.mjs
-      - name: Install Rust target
-        run: rustup target add ${{ matrix.target.rust }}
-      - name: Build native artifact
-        run: node scripts/build-native-artifact.mjs ${{ matrix.target.rust }}
-      - name: Validate Linux artifact glibc floor
-        if: matrix.target.rust == 'x86_64-unknown-linux-gnu' || matrix.target.rust == 'aarch64-unknown-linux-gnu'
-        run: node scripts/validate-native-artifact.mjs ${{ matrix.target.rust }}
-      - name: Assemble and pack native package
-        shell: bash
-        run: |
-          node scripts/generate-native-packages.mjs
-          node scripts/assemble-native-package.mjs ${{ matrix.target.rust }}
-          mkdir -p .artifacts
-          npm pack --pack-destination .artifacts packages/native/${{ matrix.target.directory }}
-      - name: Upload native package
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        with:
-          name: native-${{ matrix.target.directory }}-${{ needs.release_authority.outputs.source_sha }}
-          path: .artifacts/*.tgz
-          if-no-files-found: error
-          retention-days: 1
-
-  root_package:
-    name: Root Node SDK package
-    needs: release_authority
-    runs-on: ubuntu-24.04
-    timeout-minutes: 45
-    steps:
-      - name: Check out immutable release source
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
-        with:
-          persist-credentials: false
-          ref: ${{ needs.release_authority.outputs.source_sha }}
-      - name: Set up Bun
-        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
-      - name: Set up Node
-        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
-        with:
-          node-version: 24
-          package-manager-cache: false
-      - name: Install frozen JavaScript dependencies
-        run: bun install --frozen-lockfile
-      - name: Set up Python
-        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
-        with:
-          python-version: '3.11'
-
-      - name: Select Python for workspace and wheel validation
-        run: |
-          python -c 'import sys; assert sys.version_info[:2] == (3, 11)'
-          echo "PYO3_PYTHON=$(command -v python)" >> "$GITHUB_ENV"
-
-      - name: Install pinned validation tools
-        run: |
-          cargo install --locked --features cli cargo-about --version 0.9.2
-          cargo install --locked cargo-audit --version 0.22.2
-          cargo install --locked cargo-deny --version 0.19.0
-      - name: Validate immutable source
-        run: bun run validate
-      - name: Pack root package without a native binary
-        shell: bash
-        run: |
-          bun run build:sdk
-          mkdir -p .artifacts
-          npm pack --pack-destination .artifacts --workspace packages/node
-      - name: Upload root package
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        with:
-          name: root-${{ needs.release_authority.outputs.source_sha }}
-          path: .artifacts/*.tgz
-          if-no-files-found: error
-          retention-days: 1
-
-  npm_candidate:
-    name: Complete npm candidate
-    needs: [release_authority, native_packages, root_package]
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    steps:
-      - name: Check out immutable release source
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
-        with:
-          persist-credentials: false
-          ref: ${{ needs.release_authority.outputs.source_sha }}
-      - name: Set up Node
-        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
-        with:
-          node-version: 24
-          package-manager-cache: false
-      - name: Download native packages
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
-        with:
-          pattern: native-*-${{ needs.release_authority.outputs.source_sha }}
-          path: dist/native
-          merge-multiple: true
-      - name: Download root package
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
-        with:
-          name: root-${{ needs.release_authority.outputs.source_sha }}
-          path: dist/root
-      - name: Validate complete npm artifact set
-        run: node scripts/validate-release-artifacts.mjs dist/native dist/root
-      - name: Upload complete npm candidate
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        with:
-          name: npm-candidate-${{ needs.release_authority.outputs.source_sha }}
-          path: |
-            dist/native/*.tgz
-            dist/root/*.tgz
-          if-no-files-found: error
-          retention-days: 90
-
-  npm_consumer:
-    name: Exact npm consumer (${{ matrix.target.rust }} / Node ${{ matrix.node }})
-    needs: [release_authority, npm_candidate]
+  publish:
+    name: Publish verified CLI release
+    if: github.event_name == 'push' && github.ref_type == 'tag'
+    needs:
+      - verify
+      - cli_artifact_set
+      - cli_consumer
+    runs-on: blacksmith-2vcpu-ubuntu-2404
     timeout-minutes: 20
-    strategy:
-      fail-fast: false
-      matrix:
-        node: [22, 24, 26]
-        target:
-          - rust: x86_64-unknown-linux-gnu
-            runner: ubuntu-24.04
-            arch: x64
-          - rust: aarch64-unknown-linux-gnu
-            runner: ubuntu-24.04-arm
-            arch: arm64
-          - rust: aarch64-apple-darwin
-            runner: macos-15
-            arch: arm64
-          - rust: x86_64-pc-windows-msvc
-            runner: windows-2025
-            arch: x64
-    runs-on: ${{ matrix.target.runner }}
-    steps:
-      - name: Check out immutable release source
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
-        with:
-          persist-credentials: false
-          ref: ${{ needs.release_authority.outputs.source_sha }}
-      - name: Set up Node
-        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
-        with:
-          node-version: ${{ matrix.node }}
-          architecture: ${{ matrix.target.arch }}
-          package-manager-cache: false
-      - name: Download exact complete npm candidate
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
-        with:
-          name: npm-candidate-${{ needs.release_authority.outputs.source_sha }}
-          path: dist
-      - name: Test exact aggregated Node SDK consumer
-        run: node scripts/test-native-consumer.mjs ${{ matrix.target.rust }} dist/native dist/root
-
-  publish_github:
-    name: Publish canonical GitHub Release
-    needs: [release_authority, cli_artifact_set, cli_consumer, npm_candidate, npm_consumer, python_candidate]
-    runs-on: ubuntu-24.04
-    timeout-minutes: 20
-    environment:
-      name: release
-      url: ${{ needs.release_authority.outputs.release_url }}
     permissions:
-      # Upload canonical assets and publish the verified draft Release.
       contents: write
     env:
-      RELEASE_TAG: ${{ needs.release_authority.outputs.tag }}
-      RELEASE_VERSION: ${{ needs.release_authority.outputs.version }}
-      RELEASE_SHA: ${{ needs.release_authority.outputs.source_sha }}
-      RELEASE_ID: ${{ needs.release_authority.outputs.release_id }}
-      RELEASE_MODE: ${{ needs.release_authority.outputs.publication_mode }}
       GH_TOKEN: ${{ github.token }}
-    steps:
-      - name: Check out immutable release source
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
-        with:
-          persist-credentials: false
-          fetch-depth: 0
-          ref: ${{ needs.release_authority.outputs.source_sha }}
-      - name: Set up Node
-        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
-        with:
-          node-version: 24
-          package-manager-cache: false
-      - name: Download exact complete CLI candidate
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
-        with:
-          name: cli-candidate-${{ needs.release_authority.outputs.source_sha }}
-          path: dist/cli
-      - name: Download exact complete npm candidate
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
-        with:
-          name: npm-candidate-${{ needs.release_authority.outputs.source_sha }}
-          path: dist/npm
-      - name: Set up Python for wheel integrity checks
-        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
-        with:
-          python-version: '3.11'
-      - name: Download exact complete Python candidate
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
-        with:
-          name: python-candidate-${{ needs.release_authority.outputs.source_sha }}
-          path: dist/python
-      - name: Validate tagged candidates and source identity
-        shell: bash
-        run: |
-          test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
-          test "$(cat VERSION)" = "$RELEASE_VERSION"
-          git fetch --no-tags origin "refs/tags/$RELEASE_TAG"
-          test "$(git rev-parse 'FETCH_HEAD^{commit}')" = "$RELEASE_SHA"
-          node scripts/validate-product-version.mjs
-          node scripts/validate-cli-artifact-set.mjs dist/cli
-          node scripts/validate-release-artifacts.mjs dist/npm/native dist/npm/root
-          node scripts/product-artifacts.mjs assemble dist/product
-          node scripts/product-artifacts.mjs validate dist/product
-      - name: Verify npm projection state before visibility
-        run: node scripts/registry-projection.mjs npm dist/product "${{ env.RELEASE_MODE == 'project' && 'public' || 'draft' }}"
-      - name: Verify enabled PyPI projection state before visibility
-        if: vars.PYPI_RELEASE_ENABLED == 'true'
-        run: node scripts/registry-projection.mjs pypi dist/product "${{ env.RELEASE_MODE == 'project' && 'public' || 'draft' }}"
-      - name: Reconcile canonical assets without replacement
-        id: assets
-        shell: bash
-        run: |
-          release_json=$(gh api "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID")
-          expected_draft=true
-          if [ "$RELEASE_MODE" = project ]; then expected_draft=false; fi
-          jq -e --arg tag "$RELEASE_TAG" --argjson draft "$expected_draft" '
-            (.tag_name == $tag) and (.draft == $draft) and (.prerelease == false) and
-            (.assets | type == "array")
-          ' <<<"$release_json" >/dev/null
-          mkdir -p dist/current-release
-          if [ "$(jq '.assets | length' <<<"$release_json")" -gt 0 ]; then
-            gh release download "$RELEASE_TAG" --dir dist/current-release
-          fi
-          plan=$(node scripts/product-artifacts.mjs plan dist/product dist/current-release)
-          if [ "$RELEASE_MODE" = project ]; then
-            jq -e '.missing | length == 0' <<<"$plan" >/dev/null
-          fi
-          echo "plan=$plan" >> "$GITHUB_OUTPUT"
-      - name: Upload only missing canonical assets
-        if: env.RELEASE_MODE != 'project'
-        shell: bash
-        env:
-          UPLOAD_PLAN: ${{ steps.assets.outputs.plan }}
-        run: |
-          jq -r '.missing[]' <<<"$UPLOAD_PLAN" | while IFS= read -r asset; do
-            gh release upload "$RELEASE_TAG" "dist/product/$asset"
-          done
-      - name: Re-download and verify canonical assets
-        shell: bash
-        run: |
-          mkdir -p dist/verified-release
-          gh release download "$RELEASE_TAG" --dir dist/verified-release
-          plan=$(node scripts/product-artifacts.mjs plan dist/product dist/verified-release)
-          jq -e '.missing | length == 0' <<<"$plan" >/dev/null
-          node scripts/product-artifacts.mjs validate dist/verified-release
-      - name: Revalidate immutable Release metadata
-        shell: bash
-        run: |
-          visibility=draft
-          if [ "$RELEASE_MODE" = project ]; then visibility=public; fi
-          EXPECTED_RELEASE_VISIBILITY="$visibility" node scripts/verify-release-metadata.mjs
-      - name: Publish canonical GitHub Release
-        if: env.RELEASE_MODE != 'project'
-        shell: bash
-        run: |
-          gh api --method PATCH "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" -F draft=false -f make_latest=true >/dev/null
-      - name: Verify canonical GitHub Release is public
-        shell: bash
-        run: |
-          EXPECTED_RELEASE_VISIBILITY=public node scripts/verify-release-metadata.mjs
-          published=$(gh api "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID")
-          jq -e --arg tag "$RELEASE_TAG" '
-            (.tag_name == $tag) and (.draft == false) and (.prerelease == false) and
-            (.html_url == "${{ needs.release_authority.outputs.release_url }}")
-          ' <<<"$published" >/dev/null
-
-  publish_npm:
-    name: Publish synchronized npm projection
-    needs: [release_authority, npm_candidate, publish_github]
-    # npm Trusted Publishing does not support self-hosted runners.
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    environment:
-      name: npm
-      url: https://www.npmjs.com/package/@sjunepark/ytm/v/${{ needs.release_authority.outputs.version }}
-    permissions:
-      contents: read
-      # Exchange the GitHub job identity for npm trusted-publishing credentials.
-      id-token: write
-    env:
-      RELEASE_TAG: ${{ needs.release_authority.outputs.tag }}
-      RELEASE_VERSION: ${{ needs.release_authority.outputs.version }}
-      RELEASE_SHA: ${{ needs.release_authority.outputs.source_sha }}
-      RELEASE_ID: ${{ needs.release_authority.outputs.release_id }}
-      GH_TOKEN: ${{ github.token }}
-    steps:
-      - name: Check out immutable release source
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
-        with:
-          persist-credentials: false
-          fetch-depth: 0
-          ref: ${{ needs.release_authority.outputs.source_sha }}
-      - name: Download immutable canonical product assets
-        run: gh release download "$RELEASE_TAG" --dir dist/product
-      - name: Set up Node for npm trusted publishing
-        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
-        with:
-          node-version: 24
-          registry-url: https://registry.npmjs.org
-          package-manager-cache: false
-      - name: Use pinned npm with trusted publishing support
-        run: |
-          npm install --global npm@11.6.2
-          npm --version
-      - name: Verify canonical release and exact npm candidate
-        shell: bash
-        run: |
-          test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
-          test "$(cat VERSION)" = "$RELEASE_VERSION"
-          git fetch --no-tags origin "refs/tags/$RELEASE_TAG"
-          test "$(git rev-parse 'FETCH_HEAD^{commit}')" = "$RELEASE_SHA"
-          EXPECTED_RELEASE_VISIBILITY=public node scripts/verify-release-metadata.mjs
-          release_json=$(gh api "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID")
-          jq -e --arg tag "$RELEASE_TAG" '(.tag_name == $tag) and (.draft == false) and (.prerelease == false)' <<<"$release_json" >/dev/null
-          node scripts/product-artifacts.mjs validate dist/product
-      - name: Classify exact npm projection
-        id: registry
-        run: node scripts/registry-projection.mjs npm dist/product public
-      - name: Publish native packages, then root package
-        if: steps.registry.outputs.state == 'absent'
-        shell: bash
-        run: |
-          mkdir -p dist/native dist/root
-          root_name=$(node -p "require('./packages/node/package.json').name.replace('@','').replace('/','-')")
-          for tarball in dist/product/*.tgz; do
-            if [ "$(basename "$tarball")" = "$root_name-$RELEASE_VERSION.tgz" ]; then
-              cp "$tarball" dist/root/
-            else
-              cp "$tarball" dist/native/
-            fi
-          done
-          published=()
-          mapfile -t root_tarballs < <(find dist/root -maxdepth 1 -type f -name '*.tgz' -print | sort)
-          if [ "${#root_tarballs[@]}" -ne 1 ]; then
-            echo "Expected exactly one root package tarball; found ${#root_tarballs[@]}." >&2
-            exit 1
-          fi
-          publish_one() {
-            local tarball=$1
-            local package_name
-            if ! package_name=$(tar -xOf "$tarball" package/package.json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const name=JSON.parse(s).name;if(typeof name!=="string"||!name)process.exit(1);process.stdout.write(name)})'); then
-              {
-                echo "### npm projection incomplete"
-                echo
-                echo "Canonical GitHub Release $RELEASE_TAG is public, but package identity could not be read from $tarball."
-                echo "Published before the failure: ${published[*]:-none}. Recheck registry state: wholly absent permits an exact-tag retry; partial or conflicting requires a new version; complete is preserved. Never repair published bytes."
-              } >> "$GITHUB_STEP_SUMMARY"
-              return 1
-            fi
-            if npm publish "$tarball" --provenance --access public; then
-              published+=("$package_name@$RELEASE_VERSION")
-              return 0
-            fi
-            {
-              echo "### npm projection incomplete"
-              echo
-              echo "Canonical GitHub Release $RELEASE_TAG is public, but npm failed at $package_name@$RELEASE_VERSION."
-              echo "Published before the failure: ${published[*]:-none}. Recheck registry state: wholly absent permits an exact-tag retry; partial or conflicting requires a new version; complete is preserved. Never repair published bytes."
-            } >> "$GITHUB_STEP_SUMMARY"
-            return 1
-          }
-          for tarball in dist/native/*.tgz; do
-            publish_one "$tarball" || exit 1
-          done
-          publish_one "${root_tarballs[0]}" || exit 1
-          echo "Published npm projection: ${published[*]}" >> "$GITHUB_STEP_SUMMARY"
-      - name: Verify complete npm projection
-        id: verified
-        run: node scripts/registry-projection.mjs npm dist/product public --wait-complete
-      - name: Require complete npm projection
-        run: test '${{ steps.verified.outputs.state }}' = complete
-
-  publish_pypi:
-    name: Publish synchronized PyPI projection
-    if: vars.PYPI_RELEASE_ENABLED == 'true'
-    needs: [release_authority, publish_github]
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    environment:
-      name: pypi
-      url: https://pypi.org/project/kisnet-ytm/${{ needs.release_authority.outputs.version }}/
-    permissions:
-      contents: read
-      id-token: write
-    env:
-      RELEASE_TAG: ${{ needs.release_authority.outputs.tag }}
-      RELEASE_VERSION: ${{ needs.release_authority.outputs.version }}
-      RELEASE_SHA: ${{ needs.release_authority.outputs.source_sha }}
-      RELEASE_ID: ${{ needs.release_authority.outputs.release_id }}
-      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: ${{ github.ref_name }}
+      SOURCE_COMMIT: ${{ needs.verify.outputs.source_sha }}
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
         with:
           persist-credentials: false
           fetch-depth: 0
-          ref: ${{ needs.release_authority.outputs.source_sha }}
+          ref: ${{ needs.verify.outputs.source_sha }}
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
         with:
           node-version: 24
           package-manager-cache: false
-      - name: Verify public canonical release identity
-        run: |
-          test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
-          git fetch --no-tags origin "refs/tags/$RELEASE_TAG"
-          test "$(git rev-parse 'FETCH_HEAD^{commit}')" = "$RELEASE_SHA"
-          EXPECTED_RELEASE_VISIBILITY=public node scripts/verify-release-metadata.mjs
-      - name: Download immutable canonical product assets
-        run: gh release download "$RELEASE_TAG" --dir dist/product
-      - name: Classify exact PyPI projection
-        id: registry
-        run: node scripts/registry-projection.mjs pypi dist/product public
-      - name: Publish exact canonical wheels through trusted publishing
-        if: steps.registry.outputs.state == 'absent'
-        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33
+      - name: Download exact verified CLI candidate
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
-          packages-dir: dist/pypi
-          skip-existing: false
-      - name: Verify complete PyPI projection
-        id: verified
-        run: node scripts/registry-projection.mjs pypi dist/product public --wait-complete
-      - name: Require complete PyPI projection
-        run: test '${{ steps.verified.outputs.state }}' = complete
-      - name: Record projection failure policy
+          name: cli-candidate-${{ needs.verify.outputs.source_sha }}
+          path: dist/cli
+      - name: Publish immutable GitHub assets
+        run: node scripts/publish-release.mjs dist/cli "$RELEASE_TAG"
+      - name: Report interrupted publication
         if: failure()
-        run: |
-          echo 'Canonical GitHub assets and any completed registry projection remain intact. If every wheel is absent, rerun the exact tagged source after resolving the cause. A partial or conflicting PyPI version requires a newly approved version; never overwrite or skip existing files.' >> "$GITHUB_STEP_SUMMARY"
+        run: echo 'Publication failed. Inspect the GitHub Release and failed step. Retry the unchanged tag only when retained assets match; never move a tag or replace published assets. See docs/release.md.' >> "$GITHUB_STEP_SUMMARY"
