@@ -31,6 +31,12 @@ const result = await ytm.matrix(validation.input);
 and `serializeYtmError()` preserve stable `name` and `message` fields alongside
 the source `code`, `reason`, and tagged `recoveryAction`.
 
+`ytm.history({ count: 180, endDate: "2026-09-08" })` returns the latest 180
+distinct dates containing numeric yields, with optional inclusive `startDate`.
+Missing cells can remain. Count mode is exact-only and fails with
+`insufficient_history` if its bounded scan cannot satisfy the count.
+`countSelection` records the scan; ordinary results omit it.
+
 `ytm.history({ baseDates: ["2026-06-08", "2026-06-09"] })` or
 `ytm.history({ startDate: "2026-06-01", endDate: "2026-06-08" })` retrieves all
 categories and pricing groups. Selections normalize, sort, and deduplicate

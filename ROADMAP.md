@@ -2,11 +2,11 @@
 
 ## Current
 
-- [CLI release migration](plans/release-delivery.md)
+- [Count-based YTM history](plans/count-based-ytm-history.md)
 
 ## Plans
 
-1. [Count-based YTM history](plans/count-based-ytm-history.md)
+1. [CLI release migration](plans/release-delivery.md)
 
 ## Tasks
 

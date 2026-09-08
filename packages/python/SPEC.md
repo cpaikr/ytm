@@ -12,7 +12,7 @@ have a different API.
 - `history(*, base_dates: list[str] | tuple[str, ...] | None = None,
   start_date: str | None = None, end_date: str | None = None,
   fallback: Literal["exact", "previous-available"] = "exact",
-  lookback_days: int | None = None)` returns `HistoryResult`.
+  lookback_days: int | None = None, count: int | None = None)` returns `HistoryResult`.
 - `matrix(*, base_date: str, kind: str | int, fallback: Literal["exact",
   "previous-available"] = "exact", lookback_days: int | None = None)` returns
   `MatrixResult`.
@@ -28,16 +28,21 @@ Results are frozen dataclasses with tuples and read-only mappings: `Kind`,
 `SourceParameters`. Yields are floats or `None`; original yield text and raw
 columns are preserved. Field names are snake_case and retain all core information.
 
-History takes exactly one nonempty list/tuple or complete inclusive range,
+History accepts a nonempty list/tuple or complete inclusive range,
 normalizes and orders dates, and enforces the shared 2,000-entry/day bound.
 It returns every category and pricing group; there is no `kind` filter.
 `HistoryResult` contains `requested_dates`, `discovery`, `entries`,
 `available_count`, `unavailable_count`, `data_row_count`, `mode`, and
-`lookback_days`. `HistoryDiscovery` records requested-date catalog availability.
+`lookback_days`, and optional `count_selection` (None for fixed selections). `HistoryDiscovery` records requested-date catalog availability.
 `HistoryEntry` is a union of `AvailableHistoryEntry` (with a `matrix`) and
 `UnavailableHistoryEntry` (requested date, kind, attempted dates, mode, lookback,
 reason, and `stage`). They use literal `availability` tags and immutable values.
-Confirmed unavailable pairs remain successful entries; operational failures
+Count selection uses `count` with an explicit `end_date` and optional
+`start_date`, exact fallback only. It returns exactly N dates containing numeric
+yields or raises `InsufficientHistoryError`; missing cells can remain. Frozen
+`CountSelectionMetadata` contains `count`, `end_date`, `start_date` (None when
+omitted), `scanned_start_date`, and `scanned_date_count`.
+Confirmed unavailable pairs remain successful entries within selected dates; operational failures
 and cancellation abort the call. The shared [history contract](../../SPEC.md#multi-date-history)
 owns all-category targeting, fallback, ordering, and provenance semantics.
 
@@ -67,7 +72,7 @@ closed and cancellation requested; calling it again drains outstanding work.
 
 All expected failures use `YtmError` subclasses: `InvalidParameterError`,
 `SourceTransportError`, `SourceProtocolError`, `SourceFormatError`,
-`SourceDataUnavailableError`, `RequestCancelledError`, `ClientStateError`, and
+`SourceDataUnavailableError`, `InsufficientHistoryError`, `RequestCancelledError`, `ClientStateError`, and
 `DefectError`. Each exposes `code` and immutable `details` with safe core error
 metadata, including attempted dates and recovery fields when supplied. Error
 messages never expose binding exceptions, panic payloads, or dependency errors.

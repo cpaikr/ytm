@@ -36,6 +36,25 @@ memory proportional to output size. Ten rows per category is a stated synthetic
 sample, not a bound on provider row counts. Large real results can consume more
 memory or exceed Excel dimensions; request smaller ranges when necessary.
 
+## Count selection
+
+Measured on 2026-09-08 on the same macOS ARM64 host with Rust 1.92 debug
+builds. Each candidate returns eight categories and ten rows per category.
+The success fixture has numeric yields on every date; exhaustion returns
+null-only rows on every date. The tests assert exact request counts and no
+post-target requests.
+
+| Workload | Scanned dates | Selected dates | Physical requests | Retrieval ms | Peak RSS bytes |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Count 180 | 180 | 180 | 1,620 | 2,641 | 128,172,032 |
+| Count 180, null-only exhaustion | 2,000 | 0 (error) | 18,000 | 28,006 | 12,533,760 |
+
+Neither run swapped. Rejected matrices are dropped per candidate; retained
+memory grows with selected output, rather than the entire scanned history.
+These synthetic measurements establish no live-provider latency or quota guarantee.
+Run the built CLI test binary with `capacity::count_success --ignored --nocapture`
+or `capacity::count_exhaustion --ignored --nocapture` under `/usr/bin/time -l`.
+
 ## Reproduction and acceptance
 
 The ignored `capacity::measure` CLI test uses a generated public `Transport` and

@@ -47,12 +47,17 @@ Save an Excel workbook from the checkout:
 ```sh
 bun run cli -- matrix --base-date 2026-06-08 --kind 국채 --format xlsx --output yields.xlsx
 bun run cli -- kinds --format xlsx --output kinds.xlsx
-bun run cli -- history --start-date 2026-06-01 --end-date 2026-06-08 --format xlsx --output history.xlsx
+bun run cli -- history --end-date 2026-09-08 --count 180 --format xlsx --output history.xlsx
 ```
 
-`history` retrieves all categories and pricing groups for an inclusive date
-range or repeated `--base-date` values, up to 2,000 dates. It uses exact dates by
-default; explicit `--fallback previous-available` resolves each date/category
+`history --end-date 2026-09-08 --count 180` retrieves the latest 180 distinct
+dates with numeric yields across all categories and pricing groups. Missing
+cells and unavailable categories remain visible; the count applies to dates,
+not each series. It scans at most 2,000 calendar days and fails without an export
+if the count cannot be met. Optional `--start-date` sets a hard lower boundary.
+
+History also accepts an inclusive date range or repeated `--base-date` values,
+up to 2,000 dates. These fixed selections use exact dates by default; explicit `--fallback previous-available` resolves each date/category
 pair independently. Unavailable pairs remain visible in the result. Its Excel
 workbook contains `History`, `Availability`, and `Metadata` sheets. See the
 [history contract](SPEC.md#multi-date-history) for ordering, limits, and errors.

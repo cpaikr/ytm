@@ -18,6 +18,7 @@ export type RecoveryAction =
   | { readonly kind: "review_method_input"; readonly method: "matrix" | "kinds" | "history" }
   | { readonly kind: "use_previous_available_fallback" }
   | { readonly kind: "try_nearby_business_day" }
+  | { readonly kind: "adjust_history_selection" }
   | { readonly kind: "start_new_request" }
   | { readonly kind: "update_package" };
 
@@ -26,6 +27,7 @@ export type ErrorCode =
   | "invalid_parameter"
   | "unknown_parameter"
   | "invalid_request"
+  | "insufficient_history"
   | "source_data_unavailable"
   | "source_transport_error"
   | "source_protocol_error"
@@ -134,16 +136,26 @@ export function serializeYtmError(error: unknown): SerializedError;
 
 
 /** Exactly one date selection; Rust validates, sorts and deduplicates up to 2000 dates. */
-export type HistoryInput = (
+export type HistoryInput = ((
   | { readonly baseDates: readonly string[]; readonly startDate?: never; readonly endDate?: never }
   | { readonly baseDates?: never; readonly startDate: string; readonly endDate: string }
-) & { readonly fallback?: "exact" | "previous-available"; readonly lookbackDays?: number };
+) & { readonly count?: never; readonly fallback?: "exact" | "previous-available"; readonly lookbackDays?: number })
+  | { readonly count: number; readonly endDate: string; readonly startDate?: string; readonly baseDates?: never;
+      readonly fallback?: "exact"; readonly lookbackDays?: never };
 export type HistoryEntry =
   | { readonly availability: "available"; readonly matrix: LookupYtmMatrixResult }
   | { readonly availability: "unavailable"; readonly requestedBaseDate: string; readonly kind: YtmKind;
       readonly attemptedDates: readonly string[]; readonly mode: "exact" | "previous-available";
       readonly lookbackDays: number; readonly reason: string; readonly stage: "discovery" | "matrix" };
+export interface CountSelectionMetadata {
+  readonly count: number;
+  readonly endDate: string;
+  readonly startDate?: string;
+  readonly scannedStartDate: string;
+  readonly scannedDateCount: number;
+}
 export interface HistoryResult {
+  readonly countSelection?: CountSelectionMetadata;
   readonly requestedDates: readonly string[];
   readonly discovery: readonly { readonly requestedBaseDate: string; readonly available: boolean }[];
   readonly entries: readonly HistoryEntry[];

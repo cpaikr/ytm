@@ -16,7 +16,7 @@ project `code`/`reason`, and a tagged `recoveryAction`.
 
 The package is the Rust-backed Node SDK and has no `bin` entry or JavaScript
 CLI. It mirrors public fallback-input validation but does not own HTTP, XML,
-fallback execution, source semantics, or command-line behavior; the standalone
+count selection or fallback execution, source semantics, or command-line behavior; the standalone
 CLI lives in `crates/ytm-cli` and depends directly on `ytm-core`.
 
 Native loader failures remain distinct: `unsupported_platform` means the

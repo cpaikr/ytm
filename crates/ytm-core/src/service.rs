@@ -6,10 +6,10 @@ use serde_json::json;
 use crate::{
     error::YtmError,
     model::{
-        canonical_kinds, BaseDate, Capabilities, DateResolution, FallbackMode, FallbackPolicy,
-        HistoryDiscovery, HistoryEntry, HistoryInput, HistoryResult, Kind, KindsInput, KindsResult,
-        MatrixInput, MatrixResult, MatrixRow, SourceMetadata, SourceParameters, SourceRequest,
-        UnavailableStage, TENORS,
+        canonical_kinds, BaseDate, Capabilities, CountSelectionMetadata, DateResolution,
+        FallbackMode, FallbackPolicy, HistoryDiscovery, HistoryEntry, HistoryInput, HistoryResult,
+        HistorySelection, Kind, KindsInput, KindsResult, MatrixInput, MatrixResult, MatrixRow,
+        SourceMetadata, SourceParameters, SourceRequest, UnavailableStage, TENORS,
     },
     nexacro,
     request::{self, INIT_PATH, MATRIX_PATH, SOURCE_ORIGIN, SOURCE_PAGE_URL},
@@ -221,8 +221,30 @@ impl YtmService {
                 (FallbackMode::PreviousAvailable, days.get())
             }
         };
+        let count_selection = match &input.selection {
+            HistorySelection::Count(selection) => {
+                if input.fallback != FallbackPolicy::Exact {
+                    return Err(YtmError::invalid_parameter(
+                        "history",
+                        "fallback",
+                        "Count selection requires exact fallback.",
+                        json!("previous-available"),
+                    ));
+                }
+                Some(selection)
+            }
+            HistorySelection::Dates(_) => None,
+        };
+        let candidates = match &input.selection {
+            HistorySelection::Dates(dates) => dates.as_dates().to_vec(),
+            HistorySelection::Count(selection) => (0..crate::MAX_HISTORY_DATES)
+                .map_while(|offset| selection.end_date().checked_sub_days(offset as u64))
+                .take_while(|date| selection.start_date().is_none_or(|start| *date >= start))
+                .collect(),
+        };
         let mut result = HistoryResult {
-            requested_dates: input.selection.as_dates().to_vec(),
+            count_selection: None,
+            requested_dates: Vec::new(),
             discovery: Vec::new(),
             entries: Vec::new(),
             available_count: 0,
@@ -231,142 +253,232 @@ impl YtmService {
             mode,
             lookback_days,
         };
+        let mut days = Vec::new();
+        let mut scanned = 0;
         // Only confirmed outcomes enter these invocation-local caches. Operational
         // failures terminate the call immediately and are never stored as missingness.
         let mut catalogs: HashMap<BaseDate, Option<KindsResult>> = HashMap::new();
         let mut observations: HashMap<(BaseDate, String), Option<MatrixObservation>> =
             HashMap::new();
-        for &requested in input.selection.as_dates() {
-            let discovery = self
-                .history_catalog(requested, &mut catalogs, &cancellation)
-                .await
-                .map_err(|e| history_error(e, requested, None, &[requested], lookback_days))?;
-            let targets = discovery
-                .as_ref()
-                .map(|v| v.kinds.clone())
-                .unwrap_or_else(canonical_kinds);
-            result.discovery.push(HistoryDiscovery {
-                requested_base_date: requested,
-                available: discovery.is_some(),
+        for &requested in &candidates {
+            scanned += 1;
+            let mut day = self
+                .history_day(
+                    requested,
+                    mode,
+                    lookback_days,
+                    &mut catalogs,
+                    &mut observations,
+                    &cancellation,
+                )
+                .await?;
+            let qualifies = day.entries.iter().any(|entry| match entry {
+                HistoryEntry::Available { matrix } => matrix
+                    .rows
+                    .iter()
+                    .any(|row| row.yields.values().any(Option::is_some)),
+                HistoryEntry::Unavailable { .. } => false,
             });
-            for kind in targets {
-                let mut attempted = Vec::new();
-                let mut available = None;
-                let mut stage = UnavailableStage::Discovery;
-                for offset in 0..=u64::from(lookback_days) {
-                    let date = requested.checked_sub_days(offset).ok_or_else(|| {
-                        history_error(
-                            YtmError::invalid_parameter(
-                                "history",
-                                "dates",
-                                "History fallback underflowed the calendar date domain.",
-                                json!(requested),
-                            ),
-                            requested,
-                            Some(&kind),
-                            &attempted,
-                            lookback_days,
-                        )
-                    })?;
-                    attempted.push(date);
-                    let context =
-                        |e| history_error(e, requested, Some(&kind), &attempted, lookback_days);
-                    check_cancellation(&cancellation, "history").map_err(context)?;
-                    let catalog = self
-                        .history_catalog(date, &mut catalogs, &cancellation)
-                        .await
-                        .map_err(context)?;
-                    if catalog.is_none() {
-                        stage = UnavailableStage::Discovery;
-                        continue;
-                    }
-                    stage = UnavailableStage::Matrix;
-                    let key = (date, kind.code.clone());
-                    if !observations.contains_key(&key) {
-                        let observation_kind = catalog
-                            .as_ref()
-                            .and_then(|c| c.kinds.iter().find(|k| k.code == kind.code))
-                            .cloned()
-                            .unwrap_or_else(|| kind.clone());
-                        let observation = self
-                            .matrix_for_kind(
-                                date,
-                                &date.compact(),
-                                observation_kind,
-                                cancellation.clone(),
-                            )
-                            .await;
-                        check_cancellation(&cancellation, "history").map_err(context)?;
-                        let value = match observation {
-                            Ok(value) => Some(value),
-                            Err(e) if e.is_unavailable() => None,
-                            Err(e) => return Err(context(e)),
-                        };
-                        observations.insert(key.clone(), value);
-                    }
-                    if let Some((observed_kind, rows, source)) = &observations[&key] {
-                        available = Some(MatrixResult {
-                            base_date: date,
-                            requested_base_date: requested,
-                            kind: observed_kind.clone(),
-                            tenors: TENORS
-                                .iter()
-                                .map(|(_, label)| (*label).to_owned())
-                                .collect(),
-                            rows: rows.clone(),
-                            source: source.clone(),
-                            date_resolution: DateResolution {
-                                mode,
-                                requested_base_date: requested,
-                                resolved_base_date: date,
-                                used_fallback: date != requested,
-                                attempted_dates: attempted.clone(),
-                                lookback_days,
-                            },
-                        });
-                        break;
-                    }
-                }
-                check_cancellation(&cancellation, "history").map_err(|e| {
-                    history_error(e, requested, Some(&kind), &attempted, lookback_days)
-                })?;
-                if let Some(matrix) = available {
-                    result.available_count += 1;
-                    result.data_row_count += matrix.rows.len();
-                    result.entries.push(HistoryEntry::Available {
-                        matrix: Box::new(matrix),
-                    });
-                } else {
-                    result.unavailable_count += 1;
-                    let reason = match stage {
-                        UnavailableStage::Discovery => {
-                            "source_data_unavailable: dated catalog discovery returned no kinds"
-                        }
-                        UnavailableStage::Matrix => {
-                            "source_data_unavailable: matrix returned no rows"
-                        }
-                    }
-                    .to_owned();
-                    result.entries.push(HistoryEntry::Unavailable {
-                        requested_base_date: requested,
-                        kind,
-                        attempted_dates: attempted,
-                        mode,
-                        lookback_days,
-                        reason,
-                        stage,
-                    });
-                }
+            if count_selection.is_none() || qualifies {
+                day.requested_dates.push(requested);
+                days.push(day);
             }
-            // Sorted requests can never revisit dates older than the next window.
-            // Evict observations as soon as they cannot contribute to another pair.
-            let oldest = requested
-                .checked_sub_days(u64::from(lookback_days))
-                .unwrap_or(requested);
-            observations.retain(|(date, _), _| *date >= oldest);
-            catalogs.retain(|date, _| *date >= oldest);
+            if let Some(selection) = count_selection {
+                // Backward exact traversal never revisits a date. Drop rejected data immediately.
+                catalogs.clear();
+                observations.clear();
+                if days.len() == selection.count() {
+                    result.count_selection = Some(CountSelectionMetadata {
+                        count: selection.count(),
+                        end_date: selection.end_date(),
+                        start_date: selection.start_date(),
+                        scanned_start_date: requested,
+                        scanned_date_count: scanned,
+                    });
+                    break;
+                }
+            } else {
+                let oldest = requested
+                    .checked_sub_days(u64::from(lookback_days))
+                    .unwrap_or(requested);
+                observations.retain(|(date, _), _| *date >= oldest);
+                catalogs.retain(|date, _| *date >= oldest);
+            }
         }
         check_cancellation(&cancellation, "history")?;
+        if let Some(selection) = count_selection {
+            if days.len() != selection.count() {
+                let start = *candidates
+                    .last()
+                    .expect("validated count search has an end date");
+                let reason = if selection.start_date() == Some(start) {
+                    "start_boundary"
+                } else if scanned == crate::MAX_HISTORY_DATES {
+                    "search_limit"
+                } else {
+                    "date_floor"
+                };
+                return Err(YtmError::insufficient_history(
+                    selection.count(),
+                    days.len(),
+                    start,
+                    selection.end_date(),
+                    scanned,
+                    reason,
+                ));
+            }
+            days.reverse();
+        }
+        for day in days {
+            result.requested_dates.extend(day.requested_dates);
+            result.discovery.extend(day.discovery);
+            result.entries.extend(day.entries);
+            result.available_count += day.available_count;
+            result.unavailable_count += day.unavailable_count;
+            result.data_row_count += day.data_row_count;
+        }
+        Ok(result)
+    }
+
+    async fn history_day(
+        &self,
+        requested: BaseDate,
+        mode: FallbackMode,
+        lookback_days: u8,
+        catalogs: &mut HashMap<BaseDate, Option<KindsResult>>,
+        observations: &mut HashMap<(BaseDate, String), Option<MatrixObservation>>,
+        cancellation: &CancellationToken,
+    ) -> Result<HistoryResult, YtmError> {
+        let mut result = HistoryResult {
+            count_selection: None,
+            requested_dates: Vec::new(),
+            discovery: Vec::new(),
+            entries: Vec::new(),
+            available_count: 0,
+            unavailable_count: 0,
+            data_row_count: 0,
+            mode,
+            lookback_days,
+        };
+
+        let discovery = self
+            .history_catalog(requested, catalogs, cancellation)
+            .await
+            .map_err(|e| history_error(e, requested, None, &[requested], lookback_days))?;
+        let targets = discovery
+            .as_ref()
+            .map(|v| v.kinds.clone())
+            .unwrap_or_else(canonical_kinds);
+        result.discovery.push(HistoryDiscovery {
+            requested_base_date: requested,
+            available: discovery.is_some(),
+        });
+        for kind in targets {
+            let mut attempted = Vec::new();
+            let mut available = None;
+            let mut stage = UnavailableStage::Discovery;
+            for offset in 0..=u64::from(lookback_days) {
+                let date = requested.checked_sub_days(offset).ok_or_else(|| {
+                    history_error(
+                        YtmError::invalid_parameter(
+                            "history",
+                            "dates",
+                            "History fallback underflowed the calendar date domain.",
+                            json!(requested),
+                        ),
+                        requested,
+                        Some(&kind),
+                        &attempted,
+                        lookback_days,
+                    )
+                })?;
+                attempted.push(date);
+                let context =
+                    |e| history_error(e, requested, Some(&kind), &attempted, lookback_days);
+                check_cancellation(cancellation, "history").map_err(context)?;
+                let catalog = self
+                    .history_catalog(date, catalogs, cancellation)
+                    .await
+                    .map_err(context)?;
+                if catalog.is_none() {
+                    stage = UnavailableStage::Discovery;
+                    continue;
+                }
+                stage = UnavailableStage::Matrix;
+                let key = (date, kind.code.clone());
+                if !observations.contains_key(&key) {
+                    let observation_kind = catalog
+                        .as_ref()
+                        .and_then(|c| c.kinds.iter().find(|k| k.code == kind.code))
+                        .cloned()
+                        .unwrap_or_else(|| kind.clone());
+                    let observation = self
+                        .matrix_for_kind(
+                            date,
+                            &date.compact(),
+                            observation_kind,
+                            cancellation.clone(),
+                        )
+                        .await;
+                    check_cancellation(cancellation, "history").map_err(context)?;
+                    let value = match observation {
+                        Ok(value) => Some(value),
+                        Err(e) if e.is_unavailable() => None,
+                        Err(e) => return Err(context(e)),
+                    };
+                    observations.insert(key.clone(), value);
+                }
+                if let Some((observed_kind, rows, source)) = &observations[&key] {
+                    available = Some(MatrixResult {
+                        base_date: date,
+                        requested_base_date: requested,
+                        kind: observed_kind.clone(),
+                        tenors: TENORS
+                            .iter()
+                            .map(|(_, label)| (*label).to_owned())
+                            .collect(),
+                        rows: rows.clone(),
+                        source: source.clone(),
+                        date_resolution: DateResolution {
+                            mode,
+                            requested_base_date: requested,
+                            resolved_base_date: date,
+                            used_fallback: date != requested,
+                            attempted_dates: attempted.clone(),
+                            lookback_days,
+                        },
+                    });
+                    break;
+                }
+            }
+            check_cancellation(cancellation, "history")
+                .map_err(|e| history_error(e, requested, Some(&kind), &attempted, lookback_days))?;
+            if let Some(matrix) = available {
+                result.available_count += 1;
+                result.data_row_count += matrix.rows.len();
+                result.entries.push(HistoryEntry::Available {
+                    matrix: Box::new(matrix),
+                });
+            } else {
+                result.unavailable_count += 1;
+                let reason = match stage {
+                    UnavailableStage::Discovery => {
+                        "source_data_unavailable: dated catalog discovery returned no kinds"
+                    }
+                    UnavailableStage::Matrix => "source_data_unavailable: matrix returned no rows",
+                }
+                .to_owned();
+                result.entries.push(HistoryEntry::Unavailable {
+                    requested_base_date: requested,
+                    kind,
+                    attempted_dates: attempted,
+                    mode,
+                    lookback_days,
+                    reason,
+                    stage,
+                });
+            }
+        }
         Ok(result)
     }
 

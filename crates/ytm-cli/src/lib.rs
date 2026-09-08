@@ -208,6 +208,10 @@ pub async fn run_with_cancellation(
             receipt["availableCount"] = json!(history.available_count);
             receipt["unavailableCount"] = json!(history.unavailable_count);
             receipt["dataRowCount"] = json!(history.data_row_count);
+            if let Some(selection) = &history.count_selection {
+                receipt["countSelection"] = json!(selection);
+                receipt["selectedDateCount"] = json!(history.requested_dates.len());
+            }
         }
         return match xlsx::export_with_cancellation(&result, path, *overwrite, &cancellation) {
             Ok(row_count) => stdout_output(
@@ -331,6 +335,7 @@ fn operation_command(name: &'static str) -> Command {
         )
         .arg(value_arg("start_date", "start-date"))
         .arg(value_arg("end_date", "end-date"))
+        .arg(value_arg("count", "count"))
         .arg(value_arg("format", "format"))
         .arg(value_arg("output", "output"))
         .arg(
@@ -372,18 +377,20 @@ fn input_from_matches(matches: &ArgMatches, operation: Operation) -> Map<String,
     if let Some(value) = matches.get_one::<String>("fallback") {
         input.insert("fallback".into(), Value::String(value.clone()));
     }
-    if let Some(value) = matches.get_one::<String>("lookback_days") {
-        let parsed = if value.bytes().all(|byte| byte.is_ascii_digit()) {
-            value
-                .parse::<u64>()
-                .ok()
-                .map(Number::from)
-                .map(Value::Number)
-                .unwrap_or_else(|| Value::String(value.clone()))
-        } else {
-            Value::String(value.clone())
-        };
-        input.insert("lookbackDays".into(), parsed);
+    for (flag, field) in [("lookback_days", "lookbackDays"), ("count", "count")] {
+        if let Some(value) = matches.get_one::<String>(flag) {
+            let parsed = if value.bytes().all(|byte| byte.is_ascii_digit()) {
+                value
+                    .parse::<u64>()
+                    .ok()
+                    .map(Number::from)
+                    .map(Value::Number)
+                    .unwrap_or_else(|| Value::String(value.clone()))
+            } else {
+                Value::String(value.clone())
+            };
+            input.insert(field.into(), parsed);
+        }
     }
     input
 }
@@ -558,6 +565,7 @@ fn validate_operation_help(args: &[OsString], operation: Operation) -> Result<()
         input.entry("kind").or_insert_with(|| json!("10"));
     }
     if operation == Operation::History
+        && !input.contains_key("count")
         && !input.contains_key("baseDates")
         && !input.contains_key("startDate")
         && !input.contains_key("endDate")
@@ -1095,7 +1103,7 @@ fn invalid_upgrade_invocation_output(actual: &[String]) -> ProcessOutput {
 
 fn command_help(operation: Operation) -> String {
     let body = match operation {
-        Operation::History => "history\n  Select repeated --base-date <date> OR --start-date <date> --end-date <date> (inclusive).\n  Maximum 2000 raw list entries or range days; dates normalize, sort and deduplicate.\n  Dates: YYYY-MM-DD, YYYY.MM.DD, YYYYMMDD. All categories and pricing groups are returned.\n  Exact dates are the default and recommended for historical exports.\n  Optional: --fallback previous-available --lookback-days <1..31> (default 10).\n    Returns the latest available observation on or before each requested date, within the lookback.\n    May repeat one observation across requested dates (e.g. Friday data for Saturday and Sunday).\n  Output: --format json|csv|tsv|xlsx [--pretty]\n  XLSX: --output <file.xlsx> [--overwrite]\n  Unavailable pairs are reported with exit 0; operational failures are fatal.\n  History, Availability and Metadata sheets preserve requested and actual dates.\n  CSV/TSV and Excel: requestedBaseDate is the requested date; baseDate is the observation date.\n  usedFallback is true when an earlier observation was substituted.".into(),
+        Operation::History => "history\n  Select repeated --base-date <date> OR --start-date <date> --end-date <date> (inclusive).\n  Count: --end-date <date> --count <1..2000> [--start-date <date>], exact only, no lookback.\n  Selects latest distinct dates with numeric yields; missing cells can remain.\n  Scans at most 2000 calendar days; insufficient_history fails with exit 1 and no export.\n  Maximum 2000 raw list entries or range days; dates normalize, sort and deduplicate.\n  Dates: YYYY-MM-DD, YYYY.MM.DD, YYYYMMDD. All categories and pricing groups are returned.\n  Exact dates are the default and recommended for historical exports.\n  Optional: --fallback previous-available --lookback-days <1..31> (default 10).\n    Returns the latest available observation on or before each requested date, within the lookback.\n    May repeat one observation across requested dates (e.g. Friday data for Saturday and Sunday).\n  Output: --format json|csv|tsv|xlsx [--pretty]\n  XLSX: --output <file.xlsx> [--overwrite]\n  Unavailable pairs are reported with exit 0; operational failures are fatal.\n  History, Availability and Metadata sheets preserve requested and actual dates.\n  CSV/TSV and Excel: requestedBaseDate is the requested date; baseDate is the observation date.\n  usedFallback is true when an earlier observation was substituted.".into(),
         Operation::Matrix => format!(
             "matrix\n  Required: --base-date <기준일> --kind <종류>\n  Optional: --fallback previous-available --lookback-days <days>\n  Output: --format json|csv|tsv|xlsx [--pretty]\n  XLSX: --output <file.xlsx> [--overwrite]\n  base-date accepts YYYY-MM-DD, YYYY.MM.DD, or YYYYMMDD.\n  kind maps to 종류 and accepts one of these Korean labels or source codes:\n{}\n  fallback=previous-available tries the requested date once, then walks backward until rows are found.\n  lookback-days defaults to {DEFAULT_LOOKBACK_DAYS} and may not exceed {MAX_LOOKBACK_DAYS}.\n  Run ytm kinds to print accepted kinds as JSON, CSV, TSV, or XLSX.\n  Result rows include 적용대상채권, tenors 3M through 50Y, and dateResolution metadata.",
             formatted_kinds("    ")

@@ -3,6 +3,7 @@ from ._native import __version__ as __version__
 from .client import AsyncClient as AsyncClient, Client as Client
 from .errors import (
     ClientStateError as ClientStateError, DefectError as DefectError,
+    InsufficientHistoryError as InsufficientHistoryError,
     InvalidParameterError as InvalidParameterError,
     RequestCancelledError as RequestCancelledError,
     SourceDataUnavailableError as SourceDataUnavailableError,
@@ -18,5 +19,6 @@ from .models import (
 
 from .models import (
     AvailableHistoryEntry as AvailableHistoryEntry, UnavailableHistoryEntry as UnavailableHistoryEntry,
+    CountSelectionMetadata as CountSelectionMetadata,
     HistoryEntry as HistoryEntry, HistoryDiscovery as HistoryDiscovery, HistoryResult as HistoryResult,
 )

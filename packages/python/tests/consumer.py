@@ -8,6 +8,12 @@ def sync_usage() -> None:
         catalog: KindsResult = client.kinds()
         assert catalog.kinds[0].code == "10"
         try:
+            client.history(count=1, end_date="invalid")
+        except InvalidParameterError:
+            pass
+        else:
+            raise AssertionError("invalid history accepted")
+        try:
             client.matrix(base_date="invalid", kind="국채")
         except InvalidParameterError as error:
             assert error.code == "invalid_parameter"
@@ -26,6 +32,12 @@ async def async_usage() -> None:
     async with AsyncClient() as client:
         catalog: KindsResult = await client.kinds()
         assert catalog.kinds[0].code == "10"
+        try:
+            await client.history(count=1, end_date="invalid")
+        except InvalidParameterError:
+            pass
+        else:
+            raise AssertionError("invalid history accepted")
         try:
             await client.matrix(base_date="invalid", kind=10)
         except InvalidParameterError:

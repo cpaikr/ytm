@@ -24,15 +24,17 @@ _None._
 ## Execution status
 
 ### Completed included results
-_None._
+Implementation, targeted SDK/export/lifecycle checks, independent local review, and affected documentation. The full repository gate passed. PR delivery remains pending.
 
 ### Current in-scope result
 Count-based retrieval, SDK/CLI integration, exports, regression coverage, and documentation.
 
 ### Next in-scope action
-Implement one connected slice and deliver its PR into `codex/count-history-integration`.
+Push the validated narrow review fixes on PR #38, resolve feedback, merge, and persist terminal metadata.
 
 ### Evidence and blockers
 - Clean starting commit: `5386c0a`. The project current release work remains outside this goal.
 - Temporary non-production integration branch `codex/count-history-integration` starts at current main; remote push succeeded. Existing dev predates current implementation. Final metadata will be pushed directly to this integration branch after the slice PR merges.
 - Candidate: count history implementation and required validation/review. Classification: included and necessary under the named result and completion criteria. No release preparation or publication.
+- Candidate: create the single implementation PR. Classification: included delivery under the contract. Local gate and independent review passed; only PR feedback, merge, and terminal metadata remain.
+- PR #38 (`0ee948c`) passed full cross-platform CI and Codex review. CodeRabbit completed with two narrow findings: derive recovery limit text from the shared constant and correct the synchronous count-history close fixture. Both are fixed and within included validation/implementation scope. Targeted core tests, pinned Clippy, and installed Python wheel/typing checks passed; the follow-up diff was reviewed locally.

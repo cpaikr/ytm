@@ -39,7 +39,9 @@ def environment(steps, capture):
     return env
 
 
-def command(binary, output):
+def command(binary, output, count=False):
+    if count:
+        return [str(binary), 'history', '--count', '180', '--end-date', '2026-06-09', '--format=xlsx', '--output', str(output), '--overwrite']
     return [str(binary), 'history', '--start-date', '2026-06-08', '--end-date',
             '2026-06-09', '--format=xlsx', '--output', str(output), '--overwrite']
 
@@ -84,7 +86,7 @@ def export(binary, output):
         print('PASS: synthetic two-date workbook, 15 available / 1 unavailable; 18 exact requests; redirected stderr empty')
 
 
-def cancel(binary, terminal):
+def cancel(binary, terminal, count=False):
     # Only stderr is a terminal: JSON stdout must remain machine-readable.
     import pty
     with tempfile.TemporaryDirectory(prefix='ytm-history-cancel-') as directory:
@@ -96,7 +98,7 @@ def cancel(binary, terminal):
         # Keep the parent slave open until draining: macOS can discard unread
         # terminal output when the last slave closes at child exit.
         master, slave = pty.openpty() if terminal else (None, None)
-        process = subprocess.Popen(command(binary, output), cwd=directory,
+        process = subprocess.Popen(command(binary, output, count), cwd=directory,
                                    env=environment(steps, capture), stdout=subprocess.PIPE,
                                    stderr=slave if terminal else subprocess.PIPE, text=True)
         try:
@@ -236,6 +238,8 @@ def main():
     else:
         cancel(binary, False)
         cancel(binary, True)
+        cancel(binary, False, count=True)
+        cancel(binary, True, count=True)
         interrupt_blocked_output(binary)
         interrupt_blocked_cancellation(binary)
 
