@@ -34,7 +34,7 @@ Repository evidence:
 
 ## Next action
 
-Create the single ready PR, handle feedback, and merge into `codex/count-history-integration`; then persist terminal goal and roadmap metadata.
+Push the validated narrow CodeRabbit fixes on [PR #38](https://github.com/cpaikr/ytm/pull/38), close feedback, merge, and persist terminal goal/roadmap metadata.
 
 ## Public behavior
 
@@ -259,3 +259,4 @@ not be presented as a measured live-provider latency or quota guarantee.
   success used 1,620 requests; null-only 2,000-candidate exhaustion used 18,000.
   This is synthetic evidence, not live-provider qualification.
 - Full `PYO3_PYTHON=/opt/homebrew/bin/python3.13 bun run validate` passed on 2026-09-08, including all repository-required checks. PR delivery remains pending.
+- PR #38 passed full cross-platform CI and Codex review. Two CodeRabbit findings are being fixed: shared-constant recovery hints and synchronous count-history close-fixture dispatch.

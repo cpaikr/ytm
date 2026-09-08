@@ -193,7 +193,11 @@ def child(scenario, mode):
             elif scenario in ("cancel", "close_active", "cancel_close"):
                 if mode == "sync":
                     with ThreadPoolExecutor() as pool:
-                        active = pool.submit(client.matrix, base_date="2026-06-08", kind=10)
+                        if history_lifecycle:
+                            kwargs = dict(count=1, end_date="20260608") if count_lifecycle else dict(base_dates=["20260608"])
+                            active = pool.submit(client.history, **kwargs)
+                        else:
+                            active = pool.submit(client.matrix, base_date="2026-06-08", kind=10)
                         await started()  # also proves run_sync releases the GIL
                         before = time.monotonic()
                         client.close()
