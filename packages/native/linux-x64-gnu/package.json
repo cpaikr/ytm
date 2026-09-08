@@ -1,6 +1,6 @@
 {
   "name": "@sjunepark/ytm-linux-x64-gnu",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Native Node-API binary for @sjunepark/ytm on linux-x64.",
   "main": "ytm.linux-x64-gnu.node",
   "files": [

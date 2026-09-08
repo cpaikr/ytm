@@ -33,7 +33,7 @@
     "release:check": "bun run release:version:check && bun run release:version:test && bun run release:preparation:test && bun run release:cli:test && bun run release:publication:test && node scripts/test-ci-platform-policy.mjs && node scripts/validate-release.mjs",
     "pack:node": "npm pack --dry-run --workspace packages/node",
     "cli": "cargo run --locked -p ytm-cli --",
-    "smoke:cli": "cargo run --locked -p ytm-cli -- matrix --base-date 2026-06-08 --kind \uad6d\ucc44 --format json",
+    "smoke:cli": "cargo run --locked -p ytm-cli -- matrix --base-date 2026-06-08 --kind 국채 --format json",
     "release": "release-it",
     "release:preparation:test": "node scripts/test-release-preparation.mjs"
   },
@@ -44,7 +44,7 @@
     "release-it": "19.2.4",
     "@release-it/conventional-changelog": "10.0.5"
   },
-  "version": "0.2.0",
+  "version": "0.3.0",
   "release-it": {
     "$schema": "https://unpkg.com/release-it/schema/release-it.json",
     "hooks": {

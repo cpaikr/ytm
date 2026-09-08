@@ -2227,7 +2227,7 @@ dependencies = [
 
 [[package]]
 name = "ytm-cli"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "async-trait",
  "clap",
@@ -2246,7 +2246,7 @@ dependencies = [
 
 [[package]]
 name = "ytm-core"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "async-trait",
  "chrono",
@@ -2264,7 +2264,7 @@ dependencies = [
 
 [[package]]
 name = "ytm-node"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "futures-util",
  "napi",
@@ -2277,7 +2277,7 @@ dependencies = [
 
 [[package]]
 name = "ytm-python"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "futures-util",
  "pyo3",
