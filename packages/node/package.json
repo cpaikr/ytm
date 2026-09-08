@@ -31,9 +31,6 @@
     "node": ">=22"
   },
   "license": "MIT",
-  "publishConfig": {
-    "access": "public"
-  },
   "scripts": {
     "build": "cargo build --manifest-path ../../Cargo.toml --locked -p ytm-node && node scripts/build.mjs",
     "build:sdk": "node scripts/build.mjs --sdk-only",
@@ -47,5 +44,6 @@
     "@sjunepark/ytm-linux-arm64-gnu": "0.2.0",
     "@sjunepark/ytm-darwin-arm64": "0.2.0",
     "@sjunepark/ytm-win32-x64-msvc": "0.2.0"
-  }
+  },
+  "private": true
 }

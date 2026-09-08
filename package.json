@@ -30,14 +30,93 @@
     "release:version:test": "node scripts/test-product-version.mjs",
     "release:cli:test": "node scripts/test-cli-release-artifacts.mjs",
     "release:publication:test": "node scripts/test-release-publication.mjs",
-    "release:check": "bun run release:version:check && bun run release:version:test && bun run release:cli:test && bun run release:publication:test && node scripts/test-ci-platform-policy.mjs && node scripts/validate-release.mjs",
+    "release:check": "bun run release:version:check && bun run release:version:test && bun run release:preparation:test && bun run release:cli:test && bun run release:publication:test && node scripts/test-ci-platform-policy.mjs && node scripts/validate-release.mjs",
     "pack:node": "npm pack --dry-run --workspace packages/node",
     "cli": "cargo run --locked -p ytm-cli --",
-    "smoke:cli": "cargo run --locked -p ytm-cli -- matrix --base-date 2026-06-08 --kind 국채 --format json"
+    "smoke:cli": "cargo run --locked -p ytm-cli -- matrix --base-date 2026-06-08 --kind \uad6d\ucc44 --format json",
+    "release": "release-it",
+    "release:preparation:test": "node scripts/test-release-preparation.mjs"
   },
   "devDependencies": {
     "@seriousme/openapi-schema-validator": "2.9.1",
     "typescript": "5.9.3",
-    "yaml": "^2.9.0"
+    "yaml": "^2.9.0",
+    "release-it": "19.2.4",
+    "@release-it/conventional-changelog": "10.0.5"
+  },
+  "version": "0.2.0",
+  "release-it": {
+    "$schema": "https://unpkg.com/release-it/schema/release-it.json",
+    "hooks": {
+      "after:init": "node scripts/release-version.mjs upstream",
+      "after:@release-it/conventional-changelog:beforeRelease": [
+        "node scripts/release-version.mjs sync",
+        "bun run validate"
+      ]
+    },
+    "git": {
+      "requireBranch": "main",
+      "requireUpstream": true,
+      "requireCleanWorkingDir": true,
+      "tagName": "v${version}",
+      "commitMessage": "chore(release): v${version}\n\nSynchronize product versions and changelog after the complete local validation gate.\nCI certifies the tagged CLI artifacts before publishing the immutable GitHub Release."
+    },
+    "github": {
+      "release": false
+    },
+    "npm": {
+      "publish": false
+    },
+    "plugins": {
+      "@release-it/conventional-changelog": {
+        "preset": "conventionalcommits",
+        "infile": "CHANGELOG.md",
+        "header": "# Changelog",
+        "writerOpts": {
+          "types": [
+            {
+              "type": "feat",
+              "section": "New Features"
+            },
+            {
+              "type": "fix",
+              "section": "Bug Fixes"
+            },
+            {
+              "type": "refactor",
+              "section": "Refactoring"
+            },
+            {
+              "type": "perf",
+              "section": "Performance"
+            },
+            {
+              "type": "build",
+              "section": "Build System"
+            },
+            {
+              "type": "ci",
+              "section": "Build System"
+            },
+            {
+              "type": "docs",
+              "section": "Documentation"
+            },
+            {
+              "type": "test",
+              "section": "Tests"
+            },
+            {
+              "type": "revert",
+              "section": "Miscellaneous"
+            },
+            {
+              "type": "chore",
+              "section": "Miscellaneous"
+            }
+          ]
+        }
+      }
+    }
   }
 }

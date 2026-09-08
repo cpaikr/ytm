@@ -2,8 +2,8 @@
 
 Typed synchronous and asyncio Python clients over the shared Rust YTM core.
 This new source API is not published yet; historical PyPI 0.2.0 is a different
-implementation. The repository builds portable wheel candidates; installation
-from PyPI uses the new API only after a separately authorized release.
+implementation. The repository builds portable wheels for local use and development CI.
+The CLI release pipeline does not publish Python packages.
 
 The declared target/interpreter matrix is owned by
 [`python-targets.json`](../../python-targets.json): conventional CPython
@@ -34,8 +34,8 @@ isolated behavior, wheel-integrity failure injection, and strict installed-packa
 typing checks. [Full-platform CI](../../docs/release.md#ci-platform-policy)
 builds each target twice from fresh native output, requires
 identical bytes, and exercises every declared interpreter against the untouched
-aggregate. [Release documentation](../../docs/release.md#python-wheels-and-pypi-projection)
-owns integrity policy and disabled publication gates.
+aggregate. [Release documentation](../../docs/release.md#sdk-development-candidates)
+owns candidate integrity policy and the CLI-only publication boundary.
 
 ```python
 from kisnet_ytm import Client

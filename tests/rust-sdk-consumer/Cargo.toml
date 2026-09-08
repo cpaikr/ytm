@@ -7,6 +7,6 @@ publish = false
 [dependencies]
 async-trait = "=0.1.89"
 tokio = { version = "=1.53.1", features = ["macros", "rt-multi-thread"] }
-ytm-core = { version = "=0.2.0", path = "../../crates/ytm-core" } # x-release-please-version
+ytm-core = { version = "=0.2.0", path = "../../crates/ytm-core" }
 
 [workspace]

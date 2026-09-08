@@ -31,7 +31,7 @@ for (const target of manifest.targets) {
     os: [target.npmPlatform],
     cpu: [target.npmArch],
     engines: { node: nodeEngine },
-    publishConfig: { access: "public" },
+    private: true,
     repository: {
       ...rootPackage.repository,
       directory: `${manifest.nativePackageRoot}/${target.packageDirectory}`

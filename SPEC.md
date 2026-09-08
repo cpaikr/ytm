@@ -329,6 +329,8 @@ and a standalone Rust CLI over the same core. The
 [Python API contract](packages/python/SPEC.md) defines its typed sync/async
 clients, values, cancellation, lifecycle, and errors. The
 [Python matrix](python-targets.json) owns the conventional CPython and native
-wheel coverage. Exact consumers and the disabled unified release/PyPI
-projection validate that distribution boundary. Historical Python releases and component tags remain immutable
-registry and Git history and do not expose the new Python API.
+wheel coverage. Exact development consumers validate that packaging boundary.
+GitHub release publication distributes only the standalone CLI; Node and Python
+SDKs remain available from source and local packages. Historical Python releases
+and component tags remain immutable registry and Git history and do not expose
+the new Python API.

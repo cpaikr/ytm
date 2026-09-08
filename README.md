@@ -22,8 +22,9 @@ cargo run --locked -p ytm-core --example basic
 Or use `ytm-core` through a path or Git dependency; its public API and typed
 inputs are documented in [`crates/ytm-core`](crates/ytm-core/README.md).
 
-Publication of the rewritten products is not yet authorized, so build and run
-the checked-out source rather than historical registry releases.
+Build and run the checked-out source for the current SDK APIs; historical
+registry releases predate this implementation. CLI publication follows the
+[release runbook](docs/release.md).
 
 ```sh
 bun install --frozen-lockfile
@@ -89,18 +90,19 @@ install the exact aggregated candidate on every claimed target and verify its
 identity, receipt, integrity failures, managed replacement, and network-free
 Excel export with overwrite and platform-specific publication failures. Transaction
 faults are injected into bounded temporary installer copies to verify rollback
-and recoverable failure evidence without shipping a test failpoint. The
-disabled tagged-source workflow rebuilds and tests those exact candidates,
-publishes GitHub canonically, and then projects the same source and version to
-npm and separately enabled PyPI projections. No installer URL is active until an exact version is separately authorized
-and published.
+and recoverable failure evidence without shipping a test failpoint.
+
+The tag-triggered release workflow certifies and publishes only these CLI
+assets to GitHub Releases. Local `release-it` prepares the synchronized version
+and changelog before committing, tagging, and pushing. See the
+[release runbook](docs/release.md) for the publishing command and recovery policy.
 
 The [Python package](packages/python/README.md) provides `Client` and
 `AsyncClient` over the same core. Build its local mixed wheel with Python 3.11+
 and Rust; historical PyPI 0.2.0 has a different API. The
 [Python matrix](python-targets.json) drives portable `abi3` wheel builds and
-exact consumers for conventional CPython 3.11–3.14. The unified release workflow
-includes these wheels and a separately disabled PyPI trusted projection.
+exact development CI consumers for conventional CPython 3.11–3.14. Node packages
+are private, and npm/PyPI publication is outside the release pipeline.
 
 ## Repository validation
 
@@ -122,8 +124,6 @@ gate builds isolated fixture and release wheels and checks the installed public
 API and typing. Credentialed live source checks remain separate.
 
 Live KIS-NET smoke checks are scheduled and manually dispatchable rather than
-pull-request gates. Release preparation, creation, and publication remain
-disabled. The GitHub-canonical, npm/PyPI-secondary distribution lifecycle is
-implemented but has not run for the rewritten product. Selecting or publishing
-an actual version still requires separate authorization; see
-[`docs/release.md`](docs/release.md).
+pull-request gates. The [release migration plan](plans/release-delivery.md)
+records validation and delivery status. This migration selects no actual
+version and performs no tag push or publication.

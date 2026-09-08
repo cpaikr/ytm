@@ -1,7 +1,12 @@
 # Goal: Standalone CLI release distribution
 
-Status: complete
+Status: complete (historical delivery)
 Planning scope: ROADMAP.md
+
+The original contract and evidence below describe its completed delivery. The
+[release migration](../plans/release-delivery.md) supersedes its Release Please
+and registry-publication design; [release operations](../docs/release.md) are
+maintained separately.
 
 ## Original contract
 

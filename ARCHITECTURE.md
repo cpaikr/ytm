@@ -60,14 +60,14 @@ executable entry, and the repository supports only the Rust `ytm` CLI.
   product behavior to `ytm-core`. Private `table.rs` owns the shared typed
   projection; `xlsx.rs` owns workbook layout, provenance, and file publication.
 - [`packages/native`](packages/native) — generated platform package manifests;
-  Node release builds add exactly one Node-API artifact to each package.
+  local and CI builds add exactly one Node-API artifact to each package.
 - [`judge`](judge) — process-isolated public-product conformance scenarios for
   the Node SDK and Rust CLI. It does not import core internals.
 - [`native-targets.json`](native-targets.json) — canonical Node native support
   matrix and source for optional dependencies, manifests, loader selection,
   and CI.
 - [`python-targets.json`](python-targets.json) — Python native and interpreter
-  matrix shared by CI and tagged wheel candidates.
+  matrix shared by local and CI wheel candidates.
 - [`cli-targets.json`](cli-targets.json) — independent standalone CLI support
   matrix and source for archive names, installer selection, and CLI artifact CI.
 - [`docs/provider-qualification.md`](docs/provider-qualification.md) — source
@@ -201,13 +201,12 @@ release infrastructure. Exact installed candidates also exercise network-free
 XLSX export, overwrite policy, and native publication failures; the judge owns
 full workbook semantics through an independent test-only ZIP/XML inspector.
 
-The disabled tagged-source workflow rebuilds these outputs from one immutable
-approved tag and attaches them only after exact native-consumer validation. No
-public installer URL is active. Selecting or publishing an actual version
-remains separately authorized release work.
+The tag-triggered workflow rebuilds these outputs from an immutable release
+tag and publishes only after exact native-consumer validation. The release
+migration does not itself select or publish a version.
 
 The Python facade uses PyO3's `abi3-py311` boundary and the maintained Tokio
-bridge. `python-targets.json` drives the shared CI/tagged workflow for native
+bridge. `python-targets.json` drives the development CI workflow for native
 builds, complete aggregation, and exact consumers. Fresh builds must produce
 identical wheel bytes; integrity validation binds those bytes, native identity,
 typing, and legal notices to the source commit. Consumers install outside the
@@ -224,18 +223,15 @@ development, ordinary CI, and immutable tagged-source validation delegate to
 that same command; credentialed live source checks remain a separate
 operational boundary.
 
-The disabled Release Please preparation workflow owns one root product release
-PR, `VERSION`, and the root changelog; it explicitly skips tag and GitHub
-Release creation. A separately gated publication workflow accepts only the
-approved version at the merged PR head, creates exactly its changelog-derived
-`vX.Y.Z` tag and draft, and rebuilds and consumes every CLI, npm, and Python
-candidate from that SHA. A unified asset manifest binds the complete canonical
-set before visibility. npm and independently gated PyPI project those downloaded
-bytes through OIDC after GitHub becomes public. Draft recovery is additive and
-byte-identical; public recovery preserves exact completed projections and permits
-only wholly absent projections. Partial or conflicting versions fail closed.
+Local `release-it` owns version and changelog preparation. Its hook synchronizes
+all local Rust, Node, and Python version copies and runs the complete gate
+before staging, committing, tagging, and pushing from synchronized `main`.
+Pushed stable version tags trigger the CLI release workflow; manual dispatch
+certifies candidates without publication. Only the publisher has write access.
+It downloads the exact verified CLI candidate, reconciles changelog metadata
+and existing draft bytes, and confirms the complete set before public visibility.
+Draft recovery is additive and byte-identical; public assets are immutable.
 
-The registry release at `0.2.0` predates the rewrite; the checkout retains that
-version until a new release is authorized. The SDK/CLI migration does not
-authorize crates.io publication, npm publication, CLI binaries or installers,
-GitHub Releases, provider-state changes, or PyPI deprecation.
+Node and native packages are private; Python wheels remain development
+artifacts. The release pipeline has no npm/PyPI projection or registry identity.
+Historical registry packages and component releases remain unchanged.

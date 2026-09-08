@@ -10,8 +10,9 @@ standalone `ytm` executable is the Rust/Clap workspace binary in
 Node.js 22 or newer is required. Supported native targets are Linux GNU
 x64/ARM64 with glibc 2.28 or newer, macOS ARM64, and Windows x64.
 
-This rewrite has not been published yet. For the current checkout, follow the
-root README instead of installing the historical npm `latest` release.
+This package and its native packages are private development packages. The
+release pipeline publishes only the standalone CLI. Follow the root README
+for local use; historical npm releases expose an earlier implementation.
 
 ```js
 import { YtmClient, validateMatrixInput } from "@sjunepark/ytm";
