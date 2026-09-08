@@ -6,8 +6,8 @@ stable `vX.Y.Z` tag starts CI certification and publication. npm and PyPI
 publication have been removed. SDK source, local packaging, and development
 CI remain supported.
 
-This runbook does not select a version or authorize a tag push. The migration's
-validation and delivery status lives in [the delivery plan](../plans/release-delivery.md).
+The [delivery plan](../plans/release-delivery.md) records migration evidence and
+the selected release. GitHub Releases and Actions own publication status.
 Historical releases and registry packages remain unchanged.
 
 ## CI platform policy
@@ -42,18 +42,52 @@ without a second copy of the build and consumer jobs.
 
 From a clean `main` checkout tracking `origin/main`, install the frozen
 JavaScript dependencies and the [validation prerequisites](../README.md#repository-validation),
-cache both Cargo dependency graphs, then run with the configured Python 3.11+
-interpreter (`PYO3_PYTHON`):
+cache both Cargo dependency graphs, then prepare the approved stable version
+locally without pushing. Replace `X.Y.Z` with that exact version and select the
+configured Python 3.11+ interpreter through `PYO3_PYTHON`:
 
 ```sh
 cargo fetch --locked
 cargo fetch --locked --manifest-path tests/rust-sdk-consumer/Cargo.toml
-bun run release
+bun run release X.Y.Z --ci --no-git.push
 ```
 
-This is a publishing operation: accepting release-it's commit, tag, and push
-steps starts the release workflow. The upstream hook fetches `origin/main` and
-requires the local commit to match it before preparation begins.
+The upstream hook fetches `origin/main` and requires the local commit to match
+it before preparation. Release-it validates, commits, and creates the local
+tag. `--no-git.push` leaves the commit and tag unpublished.
+
+Use the pull-request path for protected `main`; direct promotion was rejected
+even after checks on the exact commit passed. Push the prepared commit to a candidate branch without
+pushing its tag, then open a PR to `main`:
+
+```sh
+git push origin HEAD:refs/heads/codex/release-X.Y.Z
+gh pr create --base main --head codex/release-X.Y.Z
+```
+
+Wait for required checks and review, then merge while preserving the prepared
+commit (no squash or rebase). Fetch and fast-forward local `main` to the merge
+result. Verify that the local tag still identifies the original certified
+release commit and that this commit is reachable from `origin/main`:
+
+```sh
+git fetch origin main
+git merge --ff-only origin/main
+git rev-parse 'refs/tags/vX.Y.Z^{commit}'
+git merge-base --is-ancestor 'refs/tags/vX.Y.Z^{commit}' origin/main
+```
+
+Compare the printed SHA with the prepared commit certified in the PR. Only
+after the PR has landed and these checks pass, push the original tag:
+
+```sh
+git push origin refs/tags/vX.Y.Z
+```
+
+The tag push starts CLI certification and publication. Keep the tag on the
+prepared release commit; do not move it to the PR merge commit or bypass branch
+protection. If integration requires changes to the prepared commit, reconcile
+and certify the release candidate before publishing its tag.
 
 The private root [`package.json`](../package.json) owns release-it's version.
 The Conventional Commits plugin writes the root [`CHANGELOG.md`](../CHANGELOG.md).
@@ -80,9 +114,9 @@ Manual dispatch of `release.yml` performs certification only, even when run
 from a tag ref. It never publishes. A pushed tag is the publication trigger;
 there are no release-enablement variables or protected environments in this
 workflow. Its default token is read-only, and only the publisher receives
-`contents: write`. Repository rules must permit the authorized maintainer to
-push the release commit and create its tag. Protect `main` with the required
-CI checks and protect release tags against replacement or deletion.
+`contents: write`. The prepared release commit reaches `main` through its
+protected PR path before the authorized maintainer pushes the tag. Release
+tags must remain protected against replacement or deletion.
 
 The publisher creates a changelog-derived draft, uploads only missing assets,
 and downloads the complete set to verify its bytes before making it public.

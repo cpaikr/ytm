@@ -125,5 +125,5 @@ API and typing. Credentialed live source checks remain separate.
 
 Live KIS-NET smoke checks are scheduled and manually dispatchable rather than
 pull-request gates. The [release migration plan](plans/release-delivery.md)
-records validation and delivery status. This migration selects no actual
-version and performs no tag push or publication.
+records validation and delivery evidence. The [release runbook](docs/release.md)
+explains protected-main preparation and tag publication.

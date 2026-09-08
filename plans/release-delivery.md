@@ -1,6 +1,6 @@
 # CLI release migration
 
-Status: implementation and local validation complete; hosted certification not run
+Status: implementation, local validation, and full hosted CI certified
 
 ## Selected outcome
 
@@ -35,7 +35,18 @@ packaging, and development CI. Historical published artifacts remain intact.
 - Actionlint, `git diff --check`, bounded code review, and scoped documentation
   reconciliation passed.
 
-Hosted cross-platform certification and a real release have not run for this
-migration. No actual release version has been selected, no real tag pushed,
-and no external settings changed. The next delivery check is a certification-only
-manual `release.yml` run after the changes reach GitHub.
+## Hosted delivery evidence
+
+- Full-platform [CI run 34181314759](https://github.com/cpaikr/ytm/actions/runs/34181314759)
+  passed on candidate commit `7be5832961c3b915e8abeab6e68a2d82292d6b0c`.
+- [PR #36](https://github.com/cpaikr/ytm/pull/36) integrates the candidate into
+  protected `main`. Direct pushes were rejected even after the exact commit's
+  required checks passed; release delivery uses the PR path and preserves commits.
+- The selected release is `0.3.0`. Its
+  [GitHub Release](https://github.com/cpaikr/ytm/releases/tag/v0.3.0) and
+  [release workflow runs](https://github.com/cpaikr/ytm/actions/workflows/release.yml)
+  are authoritative for publication and artifact-certification status.
+
+The [runbook](../docs/release.md#prepare-a-release) defines the release
+sequence: prepare without push, merge the certified release commit through a
+PR, and push its original tag after confirming ancestry on `origin/main`.

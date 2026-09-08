@@ -202,8 +202,8 @@ XLSX export, overwrite policy, and native publication failures; the judge owns
 full workbook semantics through an independent test-only ZIP/XML inspector.
 
 The tag-triggered workflow rebuilds these outputs from an immutable release
-tag and publishes only after exact native-consumer validation. The release
-migration does not itself select or publish a version.
+tag and publishes only after exact native-consumer validation. The tagged
+release commit must be reachable from `origin/main`.
 
 The Python facade uses PyO3's `abi3-py311` boundary and the maintained Tokio
 bridge. `python-targets.json` drives the development CI workflow for native
@@ -225,8 +225,10 @@ operational boundary.
 
 Local `release-it` owns version and changelog preparation. Its hook synchronizes
 all local Rust, Node, and Python version copies and runs the complete gate
-before staging, committing, tagging, and pushing from synchronized `main`.
-Pushed stable version tags trigger the CLI release workflow; manual dispatch
+before staging, committing, and tagging from synchronized `main`. Preparation
+disables push so the release commit can pass protected-main PR checks and merge
+without rewriting it. The original tag is pushed after that commit reaches
+`main`. Pushed stable version tags trigger the CLI release workflow; manual dispatch
 certifies candidates without publication. Only the publisher has write access.
 It downloads the exact verified CLI candidate, reconciles changelog metadata
 and existing draft bytes, and confirms the complete set before public visibility.
