@@ -21,7 +21,7 @@ napi.workspace = true
 napi-derive.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-ytm-core = { version = "=0.2.0", path = "../ytm-core" }
+ytm-core = { version = "=0.3.0", path = "../ytm-core" }
 
 [build-dependencies]
 napi-build.workspace = true
