@@ -28,7 +28,8 @@ Coverage authority is intentionally split: `judge/run.mjs` owns the executable
 scenario definitions, assertions, filters, and fixture accounting;
 [`history.mjs`](history.mjs) supplies the history public-surface scenarios;
 [`history-cli-lifecycle.py`](history-cli-lifecycle.py) verifies executable
-history export, POSIX interrupts and terminal progress as part of `bun run test`;
+history export, POSIX interrupts (including first and repeated Ctrl-C with
+blocked output), and terminal progress as part of `bun run test`;
 [`golden-results.json`](golden-results.json) owns the reviewed public-result
 oracle; and [`../contracts/kisnet/cases.json`](../contracts/kisnet/cases.json)
 owns the observed wire fixtures and evidence cases. There is deliberately no

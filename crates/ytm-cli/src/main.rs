@@ -5,19 +5,26 @@ async fn main() -> ExitCode {
     let cancellation = ytm_core::CancellationToken::new();
     let interrupt_token = cancellation.clone();
     let interrupt = tokio::spawn(async move {
-        if tokio::signal::ctrl_c().await.is_ok() {
+        while tokio::signal::ctrl_c().await.is_ok() {
+            if interrupt_token.is_cancelled() {
+                std::process::exit(130);
+            }
             interrupt_token.cancel();
         }
     });
     let output = ytm_cli::run_with_cancellation(
         std::env::args_os().collect::<Vec<OsString>>(),
-        cancellation,
+        cancellation.clone(),
     )
     .await;
-    interrupt.abort();
+    // Retrieval has ended: an interrupt must terminate even if output blocks.
+    // Keep the monitor alive because Tokio does not restore default SIGINT handling.
+    cancellation.cancel();
     let mut stdout = std::io::stdout().lock();
     let mut stderr = std::io::stderr().lock();
-    ExitCode::from(write_output(&output, &mut stdout, &mut stderr))
+    let code = write_output(&output, &mut stdout, &mut stderr);
+    interrupt.abort();
+    ExitCode::from(code)
 }
 
 fn write_output(

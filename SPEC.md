@@ -87,8 +87,10 @@ to the same observation; output order is date, catalog kind, then source row.
 CLI CSV/TSV use the matrix identity and tenor columns followed by `availability`
 and `reason`. An unavailable pair produces one row with empty actual-date,
 fallback, pricing-group, and yield cells. JSON retains the complete result.
-The CLI handles Ctrl-C through cancellation; history exports check cancellation
-before publication. Interactive stderr may show throttled discovery and
+The first Ctrl-C during an operation requests graceful cancellation; history
+exports check cancellation before publication. A repeated Ctrl-C, or any Ctrl-C
+after the operation returns, exits with status 130 even when stdout or stderr
+is blocked. Interactive stderr may show throttled discovery and
 retrieval counts, including fallback; redirected stderr remains quiet and all
 machine-readable results remain on stdout.
 

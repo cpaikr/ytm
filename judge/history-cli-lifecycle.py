@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import signal
+import select
 import subprocess
 import tempfile
 import time
@@ -148,6 +149,80 @@ def cancel(binary, terminal):
                 os.close(master)
 
 
+def interrupt_blocked_output(binary):
+    with tempfile.TemporaryDirectory(prefix='ytm-history-blocked-output-') as directory:
+        directory = Path(directory)
+        capture = directory / 'requests.json'
+        rows = ''.join(
+            f'<Row><Col id="pricingGroupCode">{index:03}</Col>'
+            f'<Col id="pricingGroupName">group {index}</Col>' + ''.join(
+                f'<Col id="{key}">1.000</Col>' for key in KEYS) + '</Row>'
+            for index in range(300))
+        fixture = directory / 'rows.xml'
+        fixture.write_text(xml(rows))
+        steps = [{'path': INIT, 'body': CATALOG}] + [
+            {'path': MATRIX, 'fixture': str(fixture)} for _ in CODES]
+        process = subprocess.Popen(
+            [str(binary), 'history', '--start-date', '2026-06-08',
+             '--end-date', '2026-06-08', '--format=json'],
+            env=environment(steps, capture), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        try:
+            # Readability proves output has started. Keep the >1 MB result
+            # unread so writing cannot finish within the OS pipe capacity.
+            assert select.select([process.stdout], [], [], 10)[0], 'No history output'
+            assert len(read_captures(capture)) == 9
+            process.send_signal(signal.SIGINT)
+            assert process.wait(timeout=3) == 130, process.returncode
+            print('PASS: first Ctrl-C during blocked history output exits 130')
+        finally:
+            if process.poll() is None:
+                process.kill()
+            process.communicate()
+
+
+def interrupt_blocked_cancellation(binary):
+    with tempfile.TemporaryDirectory(prefix='ytm-history-blocked-cancel-') as directory:
+        capture = Path(directory) / 'requests.json'
+        steps = [{'path': INIT, 'body': CATALOG}, {'path': MATRIX, 'waitForCancellation': True}]
+        reader, writer = os.pipe()
+        try:
+            os.set_blocking(writer, False)
+            try:
+                while True:
+                    os.write(writer, b'x' * 4096)
+            except BlockingIOError:
+                pass
+            os.set_blocking(writer, True)
+            process = subprocess.Popen(
+                [str(binary), 'history', '--start-date', '2026-06-08',
+                 '--end-date', '2026-06-08', '--format=json'],
+                env=environment(steps, capture), stdout=writer, stderr=subprocess.PIPE)
+        finally:
+            os.close(writer)
+        try:
+            deadline = time.monotonic() + 4
+            while len(read_captures(capture)) < 2:
+                assert process.poll() is None, 'CLI exited before delayed matrix request'
+                assert time.monotonic() < deadline, 'Fixture capture deadline exceeded'
+                time.sleep(0.01)
+            process.send_signal(signal.SIGINT)
+            # The first interrupt must allow graceful cancellation, whose
+            # small error envelope cannot fit in the prefilled output pipe.
+            try:
+                process.wait(timeout=0.5)
+                raise AssertionError(f'First Ctrl-C bypassed graceful cancellation: {process.returncode}')
+            except subprocess.TimeoutExpired:
+                pass
+            process.send_signal(signal.SIGINT)
+            assert process.wait(timeout=3) == 130, process.returncode
+            print('PASS: second Ctrl-C during blocked cancellation output exits 130')
+        finally:
+            if process.poll() is None:
+                process.kill()
+            process.communicate()
+            os.close(reader)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--cli-bin', type=Path, default=ROOT / 'target' / 'debug' / ('ytm.exe' if os.name == 'nt' else 'ytm'))
@@ -161,6 +236,8 @@ def main():
     else:
         cancel(binary, False)
         cancel(binary, True)
+        interrupt_blocked_output(binary)
+        interrupt_blocked_cancellation(binary)
 
 
 if __name__ == '__main__':

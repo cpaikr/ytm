@@ -30,6 +30,9 @@ packaging, and development CI. Historical published artifacts remain intact.
   successful preparation commits all synchronized versions and the validation
   marker before pushing to a local fixture remote. Resolved dependencies stay
   unchanged.
+- Executable regression coverage exercises Ctrl-C while history output is
+  blocked: the first interrupt after retrieval and a repeated interrupt during
+  cancellation exit 130. The signal monitor remains active through output.
 - Publication tests cover interrupted upload, draft visibility recovery,
   changed tags, conflicting bytes, and read-only completed-release retries.
 - Actionlint, `git diff --check`, bounded code review, and scoped documentation
