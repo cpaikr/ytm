@@ -31,8 +31,10 @@ outside this change.
   executed PATH transformations in PowerShell 7.6.6 on macOS. Registry I/O is
   isolated; tests cover custom paths, empty PATH, repeated registration,
   preservation of existing entries, case/quotes/trailing separators, environment
-  expansion, and separate session changes. This does not test Windows registry
-  persistence.
+  expansion, and separate session changes. PR review follow-up added matching
+  application and alias/function/wrong-executable guard cases, which also passed
+  targeted release CLI tests and bounded review. This does not test Windows
+  registry persistence.
 - Published v0.4.0 archives matched their published checksums. With installers
   regenerated from this checkout, the macOS ARM64 consumer suite passed native
   install, receipt identity, full-path and command-name version/help in parent

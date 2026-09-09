@@ -39,8 +39,9 @@ execution was not separately confirmed. Run the checks below for YTM itself.
 ## PATH setup
 
 In the independent terminal, select the directory actually used above. If this
-is a different terminal, set `YTM_INSTALL_DIR` again for a custom destination;
-otherwise the block selects the default.
+is a different terminal, set `YTM_INSTALL_DIR` to the same absolute custom path
+used for installation; otherwise the block selects the default. Do not reuse a
+relative path across terminals with different working directories.
 
 ```powershell
 $ytmBin = if ($env:YTM_INSTALL_DIR) { $env:YTM_INSTALL_DIR } else { Join-Path $env:LOCALAPPDATA 'ytm\bin' }
@@ -82,16 +83,18 @@ the persistent value changes. Run after the preceding blocks:
 if (-not (Test-YtmPathEntry $env:Path $ytmBin)) {
   $env:Path = $ytmBin + ';' + $env:Path
 }
-Get-Command ytm -All -ErrorAction Stop
+$ytmCommand = Get-Command ytm -ErrorAction Stop
+if ($ytmCommand.CommandType -ne 'Application' -or $ytmCommand.Source -ne $ytmExe) {
+  throw "ytm resolves to a different command: $($ytmCommand.Definition). Resolve the alias, function, or PATH conflict first."
+}
 ytm --version
 if ($LASTEXITCODE -ne 0) { throw 'Command-name version check failed' }
 ytm --help
 if ($LASTEXITCODE -ne 0) { throw 'Command-name help check failed' }
 ```
 
-Check that `Get-Command` resolves to the selected executable and the version
-matches the installed release. If an alias, function, or older installation
-wins, resolve that conflict before claiming command discovery works.
+The block rejects aliases, functions, and other executable paths before running
+`ytm`. Check that the reported version matches the installed release.
 
 ## Consumer verification
 

@@ -48,7 +48,8 @@ terminals.
 
 Run in an ordinary PowerShell terminal opened independently of a packaged desktop
 agent. The default is `%LOCALAPPDATA%\ytm\bin`; an existing `YTM_INSTALL_DIR`
-overrides it. For a custom destination, set that variable before this block.
+overrides it. For a custom destination, set that variable to an absolute path
+before this block and reuse the same absolute value in other terminals.
 
 ```powershell
 & {

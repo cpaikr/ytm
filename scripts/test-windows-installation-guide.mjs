@@ -17,8 +17,10 @@ export async function testWindowsInstallationGuide(installer) {
   const readme = await readFile(new URL("../README.md", import.meta.url), "utf8");
   const blocks = [...guide.matchAll(/```powershell\n([\s\S]*?)```/g)].map((match) => match[1]);
   const registration = blocks.find((block) => block.includes("function Test-YtmPathEntry"));
-  const current = blocks.find((block) => block.startsWith("if (-not (Test-YtmPathEntry $env:Path"))?.split("Get-Command")[0];
-  if (!registration || !current) throw new Error("Windows PATH examples are missing.");
+  const sessionBlock = blocks.find((block) => block.startsWith("if (-not (Test-YtmPathEntry $env:Path"));
+  const current = sessionBlock?.split("$ytmCommand =")[0];
+  const commandGuard = sessionBlock?.match(/(\$ytmCommand = [\s\S]*?)\nytm --version/)?.[1];
+  if (!registration || !current || !commandGuard) throw new Error("Windows PATH examples are missing.");
   const isolated = registration
     .replace("[Environment]::GetEnvironmentVariable('Path', 'User')", "$storedPath")
     .replace("[Environment]::SetEnvironmentVariable('Path', $ytmNewUserPath, 'User')", "$storedPath = $ytmNewUserPath; $writes++");
@@ -28,6 +30,7 @@ export async function testWindowsInstallationGuide(installer) {
     await writeFile(join(directory, "snippets.json"), JSON.stringify(snippets));
     await writeFile(join(directory, "test.ps1"), `
 $ErrorActionPreference = 'Stop'
+$originalProcessPath = $env:Path
 foreach ($source in (Get-Content -Raw -LiteralPath (Join-Path $PSScriptRoot 'snippets.json') | ConvertFrom-Json)) {
   $tokens = $null; $parseErrors = $null
   [Management.Automation.Language.Parser]::ParseInput($source, [ref]$tokens, [ref]$parseErrors) | Out-Null
@@ -56,7 +59,28 @@ foreach ($case in @(
   if ($env:Path -cne ($ytmBin + ';C:\\SessionOnly')) { throw 'Current-session setup lost entries or duplicated destination' }
   if ($storedPath -cne $case.after) { throw 'Session setup changed persistent PATH' }
 }
-Write-Output 'Windows guide syntax and isolated PATH behavior passed; registry persistence and independent Windows visibility are not certified.'
+$env:Path = $originalProcessPath
+$shellExecutable = (Get-Process -Id $PID).Path
+function Assert-CommandGuard([string]$probeName, [string]$expected, [bool]$shouldPass) {
+  $ytmExe = $expected
+  $passed = $false
+  try {
+    . { ${commandGuard.replace('Get-Command ytm', 'Get-Command $probeName')} }
+    $passed = $true
+  } catch {
+    if ($_.Exception.Message -notlike 'ytm resolves to a different command:*') { throw }
+  }
+  if ($passed -ne $shouldPass) { throw "Unexpected command guard result for $probeName" }
+}
+Assert-CommandGuard $shellExecutable $shellExecutable $true
+Assert-CommandGuard $shellExecutable ($shellExecutable + '.other') $false
+Set-Alias -Name ytm -Value Get-Item
+Assert-CommandGuard 'ytm' $shellExecutable $false
+Remove-Item Alias:ytm
+function ytm { throw 'Shadowing function must not run' }
+Assert-CommandGuard 'ytm' $shellExecutable $false
+Remove-Item Function:ytm
+Write-Output 'Windows guide syntax, isolated PATH behavior, and command-shadowing guards passed; registry persistence and independent Windows visibility are not certified.'
 `);
     const result = spawnSync(shell, ["-NoProfile", "-NonInteractive", "-File", join(directory, "test.ps1")], { encoding: "utf8", timeout: 30_000 });
     if (result.error || result.status !== 0) throw new Error(`Windows guide test failed: ${result.error || ""}\n${result.stdout}\n${result.stderr}`);
