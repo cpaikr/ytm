@@ -32,6 +32,7 @@ class Source:
     def __init__(self, scenario):
         self.scenario = scenario
         self.requests = []
+        self.lock = threading.Lock()
         source = self
 
         class Handler(http.server.BaseHTTPRequestHandler):
@@ -42,8 +43,9 @@ class Source:
 
             def do_POST(self):
                 body = self.rfile.read(int(self.headers['Content-Length']))
-                index = len(source.requests)
-                source.requests.append((self.path, body, tuple(self.headers.items())))
+                with source.lock:
+                    index = len(source.requests)
+                    source.requests.append((self.path, body, tuple(self.headers.items())))
                 assert self.path in (INIT, MATRIX), self.path
                 status, payload, guidance = 200, CATALOG if self.path == INIT else MATRIX_BODY, None
                 fail_at = 0 if scenario == 'initialization' else 16
@@ -204,7 +206,8 @@ assert.equal((await client.kinds({}, {operationTimeoutMs:1})).kinds.length, 8);
         else:
             script = r'''import asyncio
 from kisnet_ytm import Client, AsyncClient, InvalidParameterError
-values = [0, -1, 1.5, float('nan'), float('inf'), True, '1', [], {}, 2**64, 2**63]
+# Instant range varies by OS; u64::MAX overflows when added to the current clock.
+values = [0, -1, 1.5, float('nan'), float('inf'), True, '1', [], {}, 2**64, 2**64 - 1]
 inputs = [('history', dict(base_dates=['2026-06-09'])), ('matrix', dict(base_date='2026-06-09',kind='10')), ('kinds',dict(base_date='2026-06-09'))]
 async def run():
     async with AsyncClient() as client:
@@ -212,7 +215,7 @@ async def run():
             for value in values:
                 try: await getattr(client, operation)(**payload, operation_timeout_seconds=value)
                 except InvalidParameterError as error: assert error.details['parameter'] == 'operation_timeout_seconds'
-                else: raise AssertionError('invalid timeout accepted')
+                else: raise AssertionError(f'invalid timeout accepted: {value!r}')
         assert len((await client.kinds(operation_timeout_seconds=1)).kinds) == 8
 if __ASYNC__:
     asyncio.run(run())
@@ -222,7 +225,7 @@ else:
             for value in values:
                 try: getattr(client, operation)(**payload, operation_timeout_seconds=value)
                 except InvalidParameterError as error: assert error.details['parameter'] == 'operation_timeout_seconds'
-                else: raise AssertionError('invalid timeout accepted')
+                else: raise AssertionError(f'invalid timeout accepted: {value!r}')
         assert len(client.kinds(operation_timeout_seconds=1).kinds) == 8
 '''.replace('__ASYNC__', 'True' if surface == 'python-async' else 'False')
             result = subprocess.run([executable, '-I', '-c', script], env=source.environment(), capture_output=True, text=True, timeout=10)

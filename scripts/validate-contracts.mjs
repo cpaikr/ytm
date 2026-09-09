@@ -1,4 +1,5 @@
 import { access, readFile, readdir } from "node:fs/promises";
+import { isDeepStrictEqual } from "node:util";
 import { Validator } from "@seriousme/openapi-schema-validator";
 import { parseDocument } from "yaml";
 import { isNodeCliArtifact } from "./node-cli-artifact-policy.mjs";
@@ -109,7 +110,7 @@ check(profile?.transport?.redirects === "forbidden", "redirects must remain forb
 check(profile?.transport?.automaticRetries === 2 && profile?.transport?.maxAttempts === 3, "one initial attempt plus two bounded retries");
 equal(profile?.transport?.retryOperations, ["initializeYtmMatrix", "listYtmMatrix"], "only the two read-only lookups may replay");
 equal(profile?.transport?.retryableStatuses, [408, 429, 500, 502, 503, 504], "HTTP retry eligibility must remain explicit");
-equal(profile?.transport?.retryBackoff, {kind: "exponential-full-jitter", capsMilliseconds: [500, 1000], retryAfter: "delta-seconds-or-http-date-not-before"}, "retry waits must honor bounded jitter and provider guidance");
+check(isDeepStrictEqual(profile?.transport?.retryBackoff, {kind: "exponential-full-jitter", capsMilliseconds: [500, 1000], retryAfter: "delta-seconds-or-http-date-not-before"}), "retry waits must honor bounded jitter and provider guidance");
 check(profile?.transport?.defaultRetrievalTimeoutMilliseconds === 1_800_000, "default retrieval deadline must remain finite at 30 minutes");
 check(profile?.transport?.retrievalDeadlineScope === "invocation-source-calls-retry-waits-and-cooperative-normalization", "retrieval budget must span the invocation");
 
