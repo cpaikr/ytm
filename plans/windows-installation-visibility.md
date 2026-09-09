@@ -47,5 +47,6 @@ outside this change.
   Python 3.9 and stopped at the Python minimum-version check; correcting the
   interpreter resolved it. Changed-document local links and `git diff --check`
   also passed.
-- Next: obtain independent Windows consumer evidence using the guide. Ship
-  installer output in a future release; immutable v0.4.0 assets remain unchanged.
+- Next: obtain independent Windows consumer evidence using the guide.
+  [GitHub Releases](https://github.com/cpaikr/ytm/releases) own installer-message
+  publication status; immutable v0.4.0 assets remain unchanged.

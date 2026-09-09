@@ -169,7 +169,8 @@ Record unavailable independent validation explicitly; launching another shell
 under the installer is insufficient. The checkout's fresh Windows installer
 reports this unverified boundary and points to recovery guidance without claiming
 to detect redirection or modifying the selected destination, PATH, or profiles.
-This message is unreleased until included in a new immutable release.
+The immutable v0.4.0 installer predates this message; GitHub Releases own
+publication status for newer installers.
 
 The consumer also rejects failed downloads and corrupted archives without
 publishing state and exercises managed replacement with the unmodified

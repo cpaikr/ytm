@@ -1,8 +1,8 @@
 # Windows installation and recovery
 
 Use the [official release installer](../README.md#windows) in an ordinary
-PowerShell terminal. These steps work with the released installer; the checkout's
-additional installer visibility message will ship with a future release.
+PowerShell terminal. These recovery steps also work with the v0.4.0 installer,
+which predates the additional installer visibility message in this checkout.
 
 ## Visibility recovery
 
