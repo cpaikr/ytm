@@ -1,0 +1,78 @@
+{
+  "method": "Main-agent review of raw responses and work logs against assertions frozen after unscored observation. All applicable assertions critical; no subjective numerical grading.",
+  "cases": [
+    {
+      "id": "scoped-review",
+      "baseline": "cli-a.json",
+      "candidate": "cli-b.json",
+      "shared_assertions": [
+        true,
+        true
+      ],
+      "baseline_assertions": [
+        true,
+        true,
+        false,
+        true
+      ],
+      "candidate_assertions": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "evidence": "Both retain Node/Commander, identify stdout contamination, cite accepted contract, and leave source untouched. Only candidate records HEAD, consulted local changes, and freshness limitation. Candidate reads one additional adjacent distribution document but does not expand recommendations; noted as minor efficiency cost."
+    },
+    {
+      "id": "proposal-boundary",
+      "baseline": "desktop-a.json",
+      "candidate": "desktop-b.json",
+      "shared_assertions": [
+        true,
+        true
+      ],
+      "baseline_assertions": [
+        true,
+        true,
+        true,
+        false
+      ],
+      "candidate_assertions": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "evidence": "Both reject draft mandates and assess SQLite conditionally without edits or claiming runtime proof. Only candidate reports source revision, local README changes, and unverified remote freshness."
+    },
+    {
+      "id": "holdout",
+      "baseline": "missing-a.json",
+      "candidate": "missing-b.json",
+      "shared_assertions": [
+        true,
+        true
+      ],
+      "baseline_assertions": [
+        true,
+        true,
+        false
+      ],
+      "candidate_assertions": [
+        true,
+        true,
+        true
+      ],
+      "evidence": "Both respect missing-source constraint and diagnose multiplication. Candidate additionally requests restoring the permitted source so consultation can resume; baseline reports the failure without resolving next input."
+    }
+  ],
+  "candidate_total": "17/17 assertions passed across 3 cases",
+  "baseline_total": "14/17; core substantive advice and authority preserved in all cases",
+  "cost": "Candidate adds skill read and Git provenance operations. CLI reads one adjacent extra doc; desktop consults fewer guidance docs. Timing scopes and operation definitions differ, so no speed comparison is supported.",
+  "limitations": [
+    "Synthetic descriptions, no real consuming-project implementation or edit branch.",
+    "No remote fallback, installed-host discovery, or ambiguous-location trial.",
+    "One trial per behavior condition; no population reliability claim.",
+    "Trigger evidence is selection simulation only."
+  ]
+}

@@ -9,10 +9,7 @@ Move the current worktree onto its intended base branch and update it without di
 
 ## Protect the current worktree
 
-Inspect the branch, status, and worktrees. If dirty, assess the target and
-upstream read-only, then report any ambiguity with the request to commit or
-stash local work. Fetch or switch only after verifying a clean worktree;
-never stash automatically.
+Inspect the current branch, status, and all worktrees first. Stop if the current worktree has staged, unstaged, or untracked changes. Ask the user to commit or stash them; do not fetch, select a target, switch branches, or stash automatically while local work is unprotected.
 
 ## Resolve the target
 

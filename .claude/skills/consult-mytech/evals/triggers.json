@@ -1,0 +1,51 @@
+{
+  "catalog": {
+    "name": "consult-mytech",
+    "description": "Consult mytech technical preferences to guide a coding task or assess a project's alignment. Explicit invocation only.",
+    "allow_implicit_invocation": false
+  },
+  "cases": [
+    {
+      "id": "explicit-review",
+      "prompt": "Use $consult-mytech to check this API design.",
+      "activate": true
+    },
+    {
+      "id": "explicit-implement",
+      "prompt": "$consult-mytech \u2014 apply relevant preferences while implementing the requested CLI fix.",
+      "activate": true
+    },
+    {
+      "id": "explicit-unknown",
+      "prompt": "Invoke consult-mytech for this project; locate my preferences and identify gaps.",
+      "activate": true
+    },
+    {
+      "id": "uninvoked-relevant",
+      "prompt": "Check this project against mytech preferences.",
+      "activate": false
+    },
+    {
+      "id": "uninvoked-design",
+      "prompt": "Use my preferred stack to design this service.",
+      "activate": false
+    },
+    {
+      "id": "adjacent-edit",
+      "prompt": "Update the accepted HTTP preferences in the mytech repository.",
+      "activate": false
+    },
+    {
+      "id": "unrelated",
+      "prompt": "Fix the off-by-one error in this loop.",
+      "activate": false
+    },
+    {
+      "id": "ambiguous",
+      "prompt": "Mytech might have something relevant here; what do you think?",
+      "activate": false
+    }
+  ],
+  "acceptance": "All eight labels correct in both independent simulation repetitions; real installed-host catalog/invocation is unverified.",
+  "boundary": "Manual-only: subject match does not constitute invocation."
+}
