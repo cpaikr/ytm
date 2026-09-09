@@ -58,7 +58,11 @@ asyncio.run(main())
 
 `matrix(base_date="2026-06-08", kind="국채")` makes a source request; all
 arguments are keyword-only. `fallback="previous-available"` permits a bounded
-search, with optional `lookback_days`. See [the API contract](SPEC.md) for
+search, with optional `lookback_days`. All three sync/async operations accept
+`operation_timeout_seconds`, a positive integer (booleans rejected); omission
+uses the shared 30-minute retrieval timeout. A larger finite value can permit
+slower calls. This budget starts after the client's queue and leaves the client
+reusable on expiry. See [the API contract](SPEC.md) for
 results, errors, cancellation, and lifecycle behavior.
 
 `history(count=180, end_date="2026-09-08")` returns the latest 180 distinct

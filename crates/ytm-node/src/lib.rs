@@ -18,8 +18,8 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 use ytm_core::{
     BaseDate, CancellationToken, HistoryInput, HistoryRequest, HttpTransport, KindSelector,
-    KindsInput, LookbackDays, MatrixInput, Transport, YtmError, YtmService, DEFAULT_LOOKBACK_DAYS,
-    MAX_LOOKBACK_DAYS,
+    KindsInput, LookbackDays, MatrixInput, RetrievalOptions, Transport, YtmError, YtmService,
+    DEFAULT_LOOKBACK_DAYS, MAX_LOOKBACK_DAYS,
 };
 
 #[derive(Deserialize)]
@@ -49,6 +49,7 @@ fn history(
     input_json: String,
     signal: Option<AbortSignal>,
     pre_aborted: Option<bool>,
+    operation_timeout_ms: Option<f64>,
 ) -> napi::Result<AsyncBlock<String>> {
     let input = serde_json::from_str(&input_json)
         .map_err(|e| napi::Error::from_reason(format!("invalid history input JSON: {e}")))?;
@@ -57,6 +58,7 @@ fn history(
         Operation::History(input),
         signal,
         pre_aborted.unwrap_or(false),
+        operation_timeout_ms,
     )
 }
 
@@ -66,6 +68,7 @@ fn matrix(
     input_json: String,
     signal: Option<AbortSignal>,
     pre_aborted: Option<bool>,
+    operation_timeout_ms: Option<f64>,
 ) -> napi::Result<AsyncBlock<String>> {
     let input: MatrixInputDto = serde_json::from_str(&input_json)
         .map_err(|error| napi::Error::from_reason(format!("invalid matrix input JSON: {error}")))?;
@@ -74,6 +77,7 @@ fn matrix(
         Operation::Matrix(Box::new(input)),
         signal,
         pre_aborted.unwrap_or(false),
+        operation_timeout_ms,
     )
 }
 
@@ -83,6 +87,7 @@ fn kinds(
     input_json: String,
     signal: Option<AbortSignal>,
     pre_aborted: Option<bool>,
+    operation_timeout_ms: Option<f64>,
 ) -> napi::Result<AsyncBlock<String>> {
     let input: KindsInputDto = serde_json::from_str(&input_json)
         .map_err(|error| napi::Error::from_reason(format!("invalid kinds input JSON: {error}")))?;
@@ -91,6 +96,7 @@ fn kinds(
         Operation::Kinds(input),
         signal,
         pre_aborted.unwrap_or(false),
+        operation_timeout_ms,
     )
 }
 
@@ -115,6 +121,7 @@ fn task(
     operation: Operation,
     signal: Option<AbortSignal>,
     pre_aborted: bool,
+    operation_timeout_ms: Option<f64>,
 ) -> napi::Result<AsyncBlock<String>> {
     let cancellation = CancellationToken::new();
     if pre_aborted {
@@ -126,7 +133,7 @@ fn task(
     }
 
     let future = async move {
-        let result = AssertUnwindSafe(execute(operation, cancellation))
+        let result = AssertUnwindSafe(execute(operation, cancellation, operation_timeout_ms))
             .catch_unwind()
             .await;
         let envelope = match result {
@@ -140,23 +147,61 @@ fn task(
     AsyncBlockBuilder::new(future).build(env)
 }
 
-async fn execute(operation: Operation, cancellation: CancellationToken) -> Result<Value, YtmError> {
+async fn execute(
+    operation: Operation,
+    cancellation: CancellationToken,
+    operation_timeout_ms: Option<f64>,
+) -> Result<Value, YtmError> {
     let transport = transport()?;
     let service = YtmService::with_shared_transport(transport);
     match operation {
         Operation::History(input) => service
-            .history_with_cancellation(HistoryInput::try_from(input)?, cancellation)
+            .history_with_options_and_cancellation(
+                HistoryInput::try_from(input)?,
+                retrieval_options("history", operation_timeout_ms)?,
+                cancellation,
+            )
             .await
             .and_then(|v| serde_json::to_value(v).map_err(|_| YtmError::defect())),
         Operation::Matrix(input) => service
-            .matrix_with_cancellation(matrix_input(*input)?, cancellation)
+            .matrix_with_options_and_cancellation(
+                matrix_input(*input)?,
+                retrieval_options("matrix", operation_timeout_ms)?,
+                cancellation,
+            )
             .await
             .map(|value| serde_json::to_value(value).expect("matrix result serializes")),
         Operation::Kinds(input) => service
-            .kinds_with_cancellation(kinds_input(input)?, cancellation)
+            .kinds_with_options_and_cancellation(
+                kinds_input(input)?,
+                retrieval_options("kinds", operation_timeout_ms)?,
+                cancellation,
+            )
             .await
             .map(|value| serde_json::to_value(value).expect("kinds result serializes")),
     }
+}
+
+fn retrieval_options(
+    operation: &str,
+    milliseconds: Option<f64>,
+) -> Result<RetrievalOptions, YtmError> {
+    let Some(milliseconds) = milliseconds else {
+        return Ok(RetrievalOptions::default());
+    };
+    let invalid = || {
+        YtmError::invalid_parameter(operation, "operationTimeoutMs",
+        "operationTimeoutMs must be a positive safe integer representable by the monotonic clock.", json!(milliseconds))
+    };
+    if !milliseconds.is_finite()
+        || milliseconds <= 0.0
+        || milliseconds.fract() != 0.0
+        || milliseconds > 9_007_199_254_740_991.0
+    {
+        return Err(invalid());
+    }
+    RetrievalOptions::new(std::time::Duration::from_millis(milliseconds as u64))
+        .map_err(|_| invalid())
 }
 
 fn matrix_input(input: MatrixInputDto) -> Result<MatrixInput, YtmError> {
@@ -352,6 +397,43 @@ mod tests {
             kind: json!("국채"),
             fallback: fallback.map(str::to_owned),
             lookback_days,
+        }
+    }
+}
+
+#[cfg(test)]
+mod retrieval_option_tests {
+    use super::*;
+    #[test]
+    fn defaults_and_numeric_boundaries_match_core() {
+        assert_eq!(
+            retrieval_options("history", None)
+                .unwrap()
+                .operation_timeout(),
+            RetrievalOptions::default().operation_timeout()
+        );
+        assert_eq!(
+            retrieval_options("history", Some(1.0))
+                .unwrap()
+                .operation_timeout(),
+            std::time::Duration::from_millis(1)
+        );
+        for value in [
+            0.0,
+            -1.0,
+            0.5,
+            f64::NAN,
+            f64::INFINITY,
+            9_007_199_254_740_992.0,
+        ] {
+            assert_eq!(
+                retrieval_options("history", Some(value))
+                    .unwrap_err()
+                    .details
+                    .parameter
+                    .as_deref(),
+                Some("operationTimeoutMs")
+            );
         }
     }
 }

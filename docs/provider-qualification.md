@@ -23,7 +23,7 @@ is met.
 | Observed | GitHub issue #7 records a bounded 2026-08-04 observation: direct kind code 80 returned 13 rows for 2025-12-31 while initialization omitted it. |
 | Observed | The disposable Rust feasibility run below completed both operations with rustls and no browser impersonation. |
 | Inferred | The operations appear unauthenticated and read-only. This is not provider authorization or an availability commitment. |
-| Project decision | Requests use the exact origin and operations in the wire authority, one at a time, within its deadline and body/parser bounds, with redirects and transport retries disabled. |
+| Project decision | Requests use the exact origin and operations in the wire authority, one at a time, within shared retrieval and per-attempt deadlines and body/parser bounds, with redirects disabled and only the bounded recovery in SPEC.md. |
 | Project decision | Previous-date lookup may attempt the requested date plus at most 31 earlier calendar dates. It advances only after confirmed empty data. |
 | Project decision | Live evidence never persists raw response bodies, rows, yields, or request bodies. |
 
@@ -99,11 +99,16 @@ to reconcile this record.
 
 ## Operating policy
 
-- Ordinary product calls are sequential and do not retry transport failures.
+- Ordinary product calls remain sequential and use the
+  [bounded recovery policy](../SPEC.md#bounded-retrieval-recovery). It permits
+  limited replay of identified transient failures without changing data selection.
 - Matrix fallback performs initialization plus retrieval for the requested date
-  and at most 31 earlier dates: a worst case of 64 sequential HTTP calls, each
-  with its own deadline. That ceiling is a compatibility budget, not a pacing
-  entitlement. No background bulk retrieval is approved.
+  and at most 31 earlier dates: a worst case of 64 logical lookups. Bounded
+  retries can add physical attempts, all inside one finite retrieval budget.
+  These limits are engineering guards, not measured provider quotas or pacing
+  entitlements. No background bulk retrieval is approved. Issue #45's full
+  180-observation live acceptance and operational validation of the default
+  timeout remain pending in the [retrieval plan](../plans/resilient-history-retrieval.md).
 - Scheduled smoke uses one known scenario and stores only the metadata fields
   demonstrated above. Logs must not include bodies or normalized rows.
 - A source-format, protocol, transport, or availability drift alert blocks a

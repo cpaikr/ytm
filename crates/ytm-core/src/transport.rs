@@ -1,11 +1,22 @@
-use std::{sync::Arc, time::Duration};
+use std::{
+    error::Error,
+    io,
+    sync::Arc,
+    time::{Duration, SystemTime},
+};
 
 use async_trait::async_trait;
 use futures_util::StreamExt;
 use reqwest::{header, redirect::Policy, Client};
+use tokio::time::{sleep_until, Instant};
 use tokio_util::sync::CancellationToken;
 
-use crate::{YtmError, MAX_RESPONSE_BODY_BYTES, REQUEST_DEADLINE_SECONDS};
+use crate::{
+    RetrievalContext, RetrievalOptions, RetryDetails, RetryStopReason, YtmError,
+    MAX_RESPONSE_BODY_BYTES, REQUEST_DEADLINE_SECONDS,
+};
+
+pub(crate) const MAX_ATTEMPTS: u8 = 3;
 
 #[derive(Debug, Clone)]
 pub struct PreparedRequest {
@@ -22,11 +33,50 @@ pub trait Transport: Send + Sync {
         request: PreparedRequest,
         cancellation: CancellationToken,
     ) -> Result<Vec<u8>, YtmError>;
+
+    /// Preserve the invocation deadline through decorators. Existing custom
+    /// transports keep their own retry policy and need only implement `post`.
+    async fn post_with_context(
+        &self,
+        request: PreparedRequest,
+        context: RetrievalContext,
+    ) -> Result<Vec<u8>, YtmError> {
+        self.post(request, context.cancellation()).await
+    }
 }
 
 #[derive(Clone)]
 pub struct HttpTransport {
     client: Client,
+    jitter: fn(u64) -> u64,
+    #[cfg(any(test, feature = "judge-fixtures"))]
+    origin: Option<String>,
+}
+
+struct AttemptFailure {
+    error: YtmError,
+    transient: bool,
+    retry_after: Option<Duration>,
+}
+
+impl AttemptFailure {
+    fn terminal(error: YtmError) -> Self {
+        Self {
+            error,
+            transient: false,
+            retry_after: None,
+        }
+    }
+
+    fn dependency(error: reqwest::Error, reason: &str) -> Self {
+        // Classify typed dependency evidence before projecting a sanitized error.
+        let transient = transient_dependency_error(&error);
+        Self {
+            error: YtmError::transport(reason, None, Some(error_name(&error))),
+            transient,
+            retry_after: None,
+        }
+    }
 }
 
 impl HttpTransport {
@@ -45,11 +95,206 @@ impl HttpTransport {
                     Some(error_name(&error)),
                 )
             })?;
-        Ok(Self { client })
+        Ok(Self {
+            client,
+            jitter: |cap| fastrand::u64(0..=cap),
+            #[cfg(any(test, feature = "judge-fixtures"))]
+            origin: None,
+        })
+    }
+
+    #[cfg(feature = "judge-fixtures")]
+    pub(crate) fn with_loopback_origin(origin: &str) -> Result<Self, YtmError> {
+        let url = reqwest::Url::parse(origin)
+            .map_err(|_| YtmError::defect_with_reason("Judge HTTP origin is invalid."))?;
+        let loopback = url
+            .host_str()
+            .and_then(|host| {
+                host.trim_matches(['[', ']'])
+                    .parse::<std::net::IpAddr>()
+                    .ok()
+            })
+            .is_some_and(|address| address.is_loopback());
+        if url.scheme() != "http"
+            || !loopback
+            || url.path() != "/"
+            || url.query().is_some()
+            || url.fragment().is_some()
+            || !url.username().is_empty()
+            || url.password().is_some()
+        {
+            return Err(YtmError::defect_with_reason(
+                "Judge HTTP origin must be a plain numeric loopback HTTP origin.",
+            ));
+        }
+        let mut transport = Self::new()?;
+        transport.origin = Some(url.as_str().trim_end_matches('/').to_owned());
+        Ok(transport)
     }
 
     pub fn shared() -> Result<Arc<dyn Transport>, YtmError> {
         Ok(Arc::new(Self::new()?))
+    }
+
+    async fn retrieve(
+        &self,
+        request: PreparedRequest,
+        context: RetrievalContext,
+    ) -> Result<Vec<u8>, YtmError> {
+        let operation = request.operation;
+        context.clear_lookup()?;
+        context.check(operation)?;
+        let max_attempts = if replayable(&request) {
+            MAX_ATTEMPTS
+        } else {
+            1
+        };
+        // Test routing occurs after replay eligibility: an arbitrary caller URL
+        // never becomes a supported lookup merely by matching its operation name.
+        #[cfg(any(test, feature = "judge-fixtures"))]
+        let request = if let Some(origin) = &self.origin {
+            PreparedRequest {
+                url: format!("{origin}{}", request.path),
+                ..request
+            }
+        } else {
+            request
+        };
+        let cancellation = context.cancellation();
+        let mut last_failure = None;
+        for attempt in 1..=max_attempts {
+            if let Err(error) = context.check(operation) {
+                let stop = if error.details.cause.as_deref() == Some("AbortError") {
+                    RetryStopReason::Cancellation
+                } else {
+                    RetryStopReason::OperationDeadline
+                };
+                return Err(attach_retry(
+                    last_failure.unwrap_or(error),
+                    attempt - 1,
+                    max_attempts,
+                    operation,
+                    stop,
+                ));
+            }
+            context.record_attempt(operation, attempt, max_attempts)?;
+            let attempt_deadline = context
+                .deadline()
+                .min(Instant::now() + Duration::from_secs(REQUEST_DEADLINE_SECONDS));
+            let result = tokio::select! {
+                biased;
+                () = cancellation.cancelled() => return Err(attach_retry(YtmError::cancelled(operation), attempt, max_attempts, operation, RetryStopReason::Cancellation)),
+                () = sleep_until(attempt_deadline) => Err(AttemptFailure {
+                    error: YtmError::transport("KIS-NET request exceeded its attempt deadline.", None, Some("TimeoutError")),
+                    transient: true, retry_after: None,
+                }),
+                result = self.attempt(&request, attempt_deadline.saturating_duration_since(Instant::now())) => result,
+            };
+            let failure = match result {
+                Ok(body) => return context.finish(Ok(body), operation),
+                Err(failure) => failure,
+            };
+            if Instant::now() >= context.deadline() {
+                return Err(attach_retry(
+                    last_failure.unwrap_or(failure.error),
+                    attempt,
+                    max_attempts,
+                    operation,
+                    RetryStopReason::OperationDeadline,
+                ));
+            }
+            if !failure.transient || attempt == max_attempts {
+                return Err(attach_retry(
+                    failure.error,
+                    attempt,
+                    max_attempts,
+                    operation,
+                    if failure.transient && max_attempts > 1 {
+                        RetryStopReason::AttemptExhaustion
+                    } else {
+                        RetryStopReason::TerminalFailure
+                    },
+                ));
+            }
+            let wait = full_jitter(attempt, self.jitter)
+                .max(failure.retry_after.unwrap_or(Duration::ZERO));
+            let now = Instant::now();
+            let Some(wake) = retry_wake(now, wait, context.deadline()) else {
+                return Err(attach_retry(
+                    failure.error,
+                    attempt,
+                    max_attempts,
+                    operation,
+                    RetryStopReason::OperationDeadline,
+                ));
+            };
+            last_failure = Some(failure.error);
+            if let Err(stop) = wait_for_retry(&context, wake).await {
+                let error = if stop == RetryStopReason::Cancellation {
+                    YtmError::cancelled(operation)
+                } else {
+                    last_failure.expect("failed attempt precedes retry wait")
+                };
+                return Err(attach_retry(error, attempt, max_attempts, operation, stop));
+            }
+        }
+        unreachable!("positive attempt limit always returns from its final attempt")
+    }
+
+    async fn attempt(
+        &self,
+        request: &PreparedRequest,
+        timeout: Duration,
+    ) -> Result<Vec<u8>, AttemptFailure> {
+        let response = self
+            .client
+            .post(&request.url)
+            .header(header::CONTENT_TYPE, "text/xml; charset=UTF-8")
+            .header(header::ACCEPT, "text/xml, */*")
+            .body(request.body.clone())
+            .timeout(timeout)
+            .send()
+            .await
+            .map_err(|error| {
+                AttemptFailure::dependency(
+                    error,
+                    "KIS-NET request failed before a response was received.",
+                )
+            })?;
+        let status = response.status().as_u16();
+        if status != 200 {
+            let retry_after = response
+                .headers()
+                .get(header::RETRY_AFTER)
+                .and_then(|value| value.to_str().ok())
+                .and_then(|value| retry_after(value, SystemTime::now()));
+            return Err(AttemptFailure {
+                error: YtmError::transport(
+                    format!("KIS-NET returned HTTP {status}."),
+                    Some(status),
+                    None,
+                ),
+                transient: matches!(status, 408 | 429 | 500 | 502 | 503 | 504),
+                retry_after,
+            });
+        }
+        if let Some(content_type) = response.headers().get(header::CONTENT_TYPE) {
+            if !content_type.to_str().is_ok_and(is_nexacro_content_type) {
+                return Err(AttemptFailure::terminal(YtmError::format("KIS-NET HTTP 200 response Content-Type must use text/xml; charset=UTF-8 when present.")));
+            }
+        }
+        let mut stream = response.bytes_stream();
+        let mut body = Vec::new();
+        while let Some(chunk) = stream.next().await {
+            let chunk = chunk.map_err(|error| {
+                AttemptFailure::dependency(error, "KIS-NET response body could not be read.")
+            })?;
+            if body.len().saturating_add(chunk.len()) > MAX_RESPONSE_BODY_BYTES {
+                return Err(AttemptFailure::terminal(YtmError::format(format!("KIS-NET response exceeds the maximum body size of {MAX_RESPONSE_BODY_BYTES} bytes."))));
+            }
+            body.extend_from_slice(&chunk);
+        }
+        Ok(body)
     }
 }
 
@@ -60,59 +305,126 @@ impl Transport for HttpTransport {
         request: PreparedRequest,
         cancellation: CancellationToken,
     ) -> Result<Vec<u8>, YtmError> {
-        let operation = request.operation;
-        if cancellation.is_cancelled() {
-            return Err(YtmError::cancelled(operation));
-        }
-        let send = self
-            .client
-            .post(&request.url)
-            .header(header::CONTENT_TYPE, "text/xml; charset=UTF-8")
-            .header(header::ACCEPT, "text/xml, */*")
-            .body(request.body)
-            .send();
-        let response = tokio::select! {
-            () = cancellation.cancelled() => return Err(YtmError::cancelled(operation)),
-            result = send => result.map_err(|error| YtmError::transport("KIS-NET request failed before a response was received.", None, Some(error_name(&error))))?,
-        };
-        let status = response.status();
-        if status.as_u16() != 200 {
-            return Err(YtmError::transport(
-                format!("KIS-NET returned HTTP {}.", status.as_u16()),
-                Some(status.as_u16()),
-                None,
-            ));
-        }
-        if let Some(content_type) = response.headers().get(header::CONTENT_TYPE) {
-            let valid = content_type.to_str().is_ok_and(is_nexacro_content_type);
-            if !valid {
-                return Err(YtmError::format(
-                    "KIS-NET HTTP 200 response Content-Type must use text/xml; charset=UTF-8 when present.",
-                ));
-            }
-        }
-        let mut stream = response.bytes_stream();
-        let mut body = Vec::new();
-        loop {
-            let next = tokio::select! {
-                () = cancellation.cancelled() => return Err(YtmError::cancelled_with_reason(operation, "KIS-NET response body read was cancelled.")),
-                chunk = stream.next() => chunk,
-            };
-            let Some(chunk) = next else { break };
-            let chunk = chunk.map_err(|error| {
-                YtmError::transport(
-                    "KIS-NET response body could not be read.",
-                    None,
-                    Some(error_name(&error)),
-                )
-            })?;
-            if body.len().saturating_add(chunk.len()) > MAX_RESPONSE_BODY_BYTES {
-                return Err(YtmError::format(format!("KIS-NET response exceeds the maximum body size of {MAX_RESPONSE_BODY_BYTES} bytes.")));
-            }
-            body.extend_from_slice(&chunk);
-        }
-        Ok(body)
+        self.post_with_context(
+            request,
+            RetrievalContext::new(RetrievalOptions::default(), cancellation)?,
+        )
+        .await
     }
+
+    async fn post_with_context(
+        &self,
+        request: PreparedRequest,
+        context: RetrievalContext,
+    ) -> Result<Vec<u8>, YtmError> {
+        let operation = request.operation;
+        let result = self.retrieve(request, context.clone()).await;
+        context.finish(result, operation)
+    }
+}
+
+fn replayable(request: &PreparedRequest) -> bool {
+    use crate::request::{INIT_PATH, MATRIX_PATH, SOURCE_ORIGIN};
+    matches!(
+        (request.operation, request.path),
+        ("initializeYtmMatrix", INIT_PATH) | ("listYtmMatrix", MATRIX_PATH)
+    ) && request.url == format!("{SOURCE_ORIGIN}{}", request.path)
+}
+
+fn attach_retry(
+    mut error: YtmError,
+    attempt_count: u8,
+    max_attempts: u8,
+    operation: &str,
+    stop_reason: RetryStopReason,
+) -> YtmError {
+    error.details.operation_name = Some(operation.to_owned());
+    if attempt_count > 0 {
+        error.details.retry = Some(RetryDetails {
+            attempt_count,
+            max_attempts,
+            source_operation: operation.to_owned(),
+            stop_reason,
+        });
+    }
+    error
+}
+
+fn retry_wake(now: Instant, wait: Duration, deadline: Instant) -> Option<Instant> {
+    now.checked_add(wait).filter(|wake| *wake < deadline)
+}
+
+async fn wait_for_retry(context: &RetrievalContext, wake: Instant) -> Result<(), RetryStopReason> {
+    let cancellation = context.cancellation();
+    tokio::select! {
+        biased;
+        () = cancellation.cancelled() => Err(RetryStopReason::Cancellation),
+        () = sleep_until(context.deadline()) => Err(RetryStopReason::OperationDeadline),
+        () = sleep_until(wake) => Ok(()),
+    }
+}
+
+fn full_jitter(failed_attempt: u8, sample: fn(u64) -> u64) -> Duration {
+    Duration::from_millis(sample(jitter_cap_ms(failed_attempt)))
+}
+
+fn jitter_cap_ms(failed_attempt: u8) -> u64 {
+    match failed_attempt {
+        1 => 500,
+        _ => 1000,
+    }
+}
+
+fn retry_after(value: &str, now: SystemTime) -> Option<Duration> {
+    let value = value.trim();
+    if !value.is_empty() && value.bytes().all(|byte| byte.is_ascii_digit()) {
+        // Overflowing but syntactically valid guidance must never cause an early retry.
+        return Some(
+            value
+                .parse::<u64>()
+                .map(Duration::from_secs)
+                .unwrap_or(Duration::MAX),
+        );
+    }
+    httpdate::parse_http_date(value)
+        .ok()?
+        .duration_since(now)
+        .ok()
+}
+
+// Reqwest 0.13.4 wraps body-frame failures as Decode. Hyper 1.11.0 preserves
+// framing I/O beneath its typed error, whereas tower-http returns decompressor
+// I/O directly. Keep the pinned-source assumption covered by loopback tests.
+fn transient_dependency_error(error: &reqwest::Error) -> bool {
+    if error.is_timeout() {
+        return true;
+    }
+    let mut source = error.source();
+    let mut in_hyper = false;
+    while let Some(error) = source {
+        if let Some(error) = error.downcast_ref::<hyper::Error>() {
+            if error.is_incomplete_message() {
+                return true;
+            }
+            in_hyper = true;
+        }
+        if let Some(error) = error.downcast_ref::<io::Error>() {
+            match error.kind() {
+                io::ErrorKind::ConnectionReset
+                | io::ErrorKind::ConnectionRefused
+                | io::ErrorKind::ConnectionAborted
+                | io::ErrorKind::BrokenPipe
+                | io::ErrorKind::Interrupted
+                | io::ErrorKind::TimedOut => return true,
+                // A decompressor can also emit UnexpectedEof; only the HTTP
+                // transport's underlying I/O establishes a truncated response.
+                io::ErrorKind::UnexpectedEof if in_hyper => return true,
+                _ => {}
+            }
+        }
+        source = error.source();
+    }
+    false
 }
 
 fn is_nexacro_content_type(value: &str) -> bool {
@@ -315,7 +627,7 @@ mod tests {
         (url, request_received)
     }
 
-    async fn read_request(socket: &mut tokio::net::TcpStream) -> String {
+    pub(super) async fn read_request(socket: &mut tokio::net::TcpStream) -> String {
         let mut bytes = Vec::new();
         let mut buffer = [0; 1024];
         loop {
@@ -342,7 +654,7 @@ mod tests {
         }
     }
 
-    fn response(status: u16, headers: &[(&str, &str)], body: &[u8]) -> Vec<u8> {
+    pub(super) fn response(status: u16, headers: &[(&str, &str)], body: &[u8]) -> Vec<u8> {
         let reason = match status {
             200 => "OK",
             204 => "No Content",
@@ -362,3 +674,6 @@ mod tests {
         response
     }
 }
+
+#[cfg(test)]
+mod recovery_tests;

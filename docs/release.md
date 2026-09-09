@@ -40,6 +40,12 @@ without a second copy of the build and consumer jobs.
 
 ## Prepare a release
 
+For the next authorized release, account for the unpublished
+[retrieval compatibility changes](../SPEC.md#compatibility): the finite default
+and Rust `ErrorDetails` literal/destructuring migration. Do not classify the
+Rust field addition as a source-compatible patch. Offline acceptance does not
+establish the pending full live acceptance or authorize publication.
+
 From a clean `main` checkout tracking `origin/main`, install the frozen
 JavaScript dependencies and the [validation prerequisites](../README.md#repository-validation),
 cache both Cargo dependency graphs, then prepare the approved stable version

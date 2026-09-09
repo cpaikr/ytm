@@ -11,8 +11,8 @@ use std::{
 };
 use tokio::sync::Notify;
 use ytm_core::{
-    BaseDate, CancellationToken, KindSelector, KindsInput, LookbackDays, MatrixInput, YtmError,
-    YtmService,
+    BaseDate, CancellationToken, KindSelector, KindsInput, LookbackDays, MatrixInput,
+    RetrievalOptions, YtmError, YtmService,
 };
 
 #[derive(Default)]
@@ -116,11 +116,23 @@ impl NativeClient {
         }
     }
 
-    fn run_sync(&self, py: Python<'_>, operation: String, input: String) -> String {
+    #[pyo3(signature = (operation, input, timeout_json=None))]
+    fn run_sync(
+        &self,
+        py: Python<'_>,
+        operation: String,
+        input: String,
+        timeout_json: Option<String>,
+    ) -> String {
         let inner = self.inner.clone();
         py.detach(move || {
             match panic_boundary::catch(AssertUnwindSafe(|| {
-                pyo3_async_runtimes::tokio::get_runtime().block_on(run(inner, operation, input))
+                pyo3_async_runtimes::tokio::get_runtime().block_on(run(
+                    inner,
+                    operation,
+                    input,
+                    timeout_json,
+                ))
             })) {
                 Ok(value) => value,
                 Err(_) => defect(),
@@ -128,17 +140,21 @@ impl NativeClient {
         })
     }
 
+    #[pyo3(signature = (operation, input, timeout_json=None))]
     fn run_async<'py>(
         &self,
         py: Python<'py>,
         operation: String,
         input: String,
+        timeout_json: Option<String>,
     ) -> PyResult<Bound<'py, PyAny>> {
         let inner = self.inner.clone();
         panic_boundary::catch(AssertUnwindSafe(|| {
             pyo3_async_runtimes::tokio::future_into_py(py, async move {
                 Ok(
-                    match panic_boundary::catch_future(run(inner, operation, input)).await {
+                    match panic_boundary::catch_future(run(inner, operation, input, timeout_json))
+                        .await
+                    {
                         Ok(value) => value,
                         Err(_) => defect(),
                     },
@@ -292,10 +308,17 @@ fn parse(operation: &str, input: &str) -> Result<Operation, YtmError> {
     }
 }
 
-async fn run(inner: Arc<Inner>, operation: String, input: String) -> String {
+async fn run(
+    inner: Arc<Inner>,
+    operation: String,
+    input: String,
+    timeout_json: Option<String>,
+) -> String {
     let result = async {
         if inner.state().closed { return Err(local_error("client_closed", "Client is closed.")); }
-        let operation = parse(&operation, &input).map_err(|e| json!(e.details))?;
+        let parsed = parse(&operation, &input).map_err(|e| json!(e.details))?;
+        let options = retrieval_options(&operation, timeout_json.as_deref()).map_err(|e| json!(e.details))?;
+        let operation = parsed;
         let call = inner.begin()?;
         let _serial = tokio::select! {
             biased;
@@ -305,20 +328,47 @@ async fn run(inner: Arc<Inner>, operation: String, input: String) -> String {
         #[cfg(feature = "judge-fixtures")]
         if std::env::var_os("YTM_PYTHON_JUDGE_PANIC").is_some() { panic!("injected binding defect"); }
         let result = match operation {
-            Operation::History(input) => call.service.history_with_cancellation(input, call.cancellation.clone()).await
+            Operation::History(input) => call.service.history_with_options_and_cancellation(input, options, call.cancellation.clone()).await
                 .and_then(|v| serde_json::to_value(v).map_err(|_| YtmError::defect())),
-            Operation::Matrix(input) => call.service.matrix_with_cancellation(input, call.cancellation.clone()).await
+            Operation::Matrix(input) => call.service.matrix_with_options_and_cancellation(input, options, call.cancellation.clone()).await
                 .and_then(|v| serde_json::to_value(v).map_err(|_| YtmError::defect())),
-            Operation::Kinds(input) => call.service.kinds_with_cancellation(input, call.cancellation.clone()).await
+            Operation::Kinds(input) => call.service.kinds_with_options_and_cancellation(input, options, call.cancellation.clone()).await
                 .and_then(|v| serde_json::to_value(v).map_err(|_| YtmError::defect())),
         };
-        if call.cancellation.is_cancelled() { return Err(local_error("request_cancelled", "Request was cancelled.")); }
+        if call.cancellation.is_cancelled() {
+            let mut details = result.err().map(|error| json!(error.details))
+                .unwrap_or_else(|| local_error("request_cancelled", "Request was cancelled."));
+            details["code"] = json!("request_cancelled");
+            details["reason"] = json!("Request was cancelled.");
+            details["retryable"] = json!(false);
+            details["recoverable"] = json!(false);
+            if let Some(retry) = details.get_mut("retry") { retry["stopReason"] = json!("cancellation"); }
+            return Err(details);
+        }
         result.map_err(|e| json!(e.details))
     }.await;
     match result {
         Ok(value) => json!({"ok": true, "value": value}).to_string(),
         Err(error) => json!({"ok": false, "error": error}).to_string(),
     }
+}
+
+fn retrieval_options(operation: &str, encoded: Option<&str>) -> Result<RetrievalOptions, YtmError> {
+    let Some(encoded) = encoded else {
+        return Ok(RetrievalOptions::default());
+    };
+    let invalid = || {
+        invalid(
+            operation,
+            "operation_timeout_seconds",
+            "operation_timeout_seconds must be a positive integer representable by the core clock.",
+        )
+    };
+    let seconds = serde_json::from_str::<Value>(encoded)
+        .ok()
+        .and_then(|value| value.as_u64())
+        .ok_or_else(invalid)?;
+    RetrievalOptions::new(std::time::Duration::from_secs(seconds)).map_err(|_| invalid())
 }
 
 fn invalid(operation: &str, parameter: &str, reason: &str) -> YtmError {
@@ -363,6 +413,45 @@ mod tests {
                 .expect("matrix-only field rejected");
             assert_eq!(error.details.code, "invalid_parameter");
             assert_eq!(error.details.parameter.as_deref(), Some(parameter));
+        }
+    }
+}
+
+#[cfg(test)]
+mod retrieval_option_tests {
+    use super::*;
+    #[test]
+    fn defaults_and_integer_shapes_match_core() {
+        assert_eq!(
+            retrieval_options("history", None)
+                .unwrap()
+                .operation_timeout(),
+            RetrievalOptions::default().operation_timeout()
+        );
+        assert_eq!(
+            retrieval_options("history", Some("1"))
+                .unwrap()
+                .operation_timeout(),
+            std::time::Duration::from_secs(1)
+        );
+        for value in [
+            "0",
+            "-1",
+            "1.5",
+            "true",
+            "null",
+            "{}",
+            "[]",
+            "18446744073709551616",
+        ] {
+            assert_eq!(
+                retrieval_options("history", Some(value))
+                    .unwrap_err()
+                    .details
+                    .parameter
+                    .as_deref(),
+                Some("operation_timeout_seconds")
+            );
         }
     }
 }

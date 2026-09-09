@@ -46,7 +46,7 @@ export function describeNative() {
   return value;
 }
 
-export async function invokeNative(operation, input, signal) {
+export async function invokeNative(operation, input, signal, operationTimeoutMs) {
   const loaded = loadBinding();
   const call = loaded?.[operation];
   if (typeof call !== "function") {
@@ -62,7 +62,8 @@ export async function invokeNative(operation, input, signal) {
     const encoded = await call(
       JSON.stringify(input),
       bridge.signal,
-      bridge.signal?.aborted === true
+      bridge.signal?.aborted === true,
+      operationTimeoutMs
     );
     try {
       return JSON.parse(encoded);

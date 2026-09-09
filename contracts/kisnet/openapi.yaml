@@ -114,7 +114,16 @@ x-ytm-nexacro-profile:
     requestDeadlineMilliseconds: 20000
     deadlineScope: dns-tls-headers-and-decompressed-body
     redirects: forbidden
-    automaticRetries: 0
+    automaticRetries: 2
+    maxAttempts: 3
+    retryOperations: [initializeYtmMatrix, listYtmMatrix]
+    retryableStatuses: [408, 429, 500, 502, 503, 504]
+    retryBackoff:
+      kind: exponential-full-jitter
+      capsMilliseconds: [500, 1000]
+      retryAfter: delta-seconds-or-http-date-not-before
+    defaultRetrievalTimeoutMilliseconds: 1800000
+    retrievalDeadlineScope: invocation-source-calls-retry-waits-and-cooperative-normalization
     concurrency: sequential
 
 paths:

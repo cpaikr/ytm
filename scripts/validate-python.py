@@ -43,9 +43,10 @@ def main():
             clean = os.environ | {"PATH": str(consumer / scripts), "PYTHONPATH": ""}
             if fixture:
                 run(interpreter, "-I", PACKAGE / "tests/behavior.py", ROOT / "contracts/kisnet", cwd=work, env=clean)
+                run(interpreter, "-I", ROOT / "judge/retrieval-recovery.py", "--python", cwd=work, env=clean)
             else:
-                # Release code must ignore both injection variables.
-                clean |= {"YTM_JUDGE_FIXTURE": "invalid fixture configuration", "YTM_PYTHON_JUDGE_PANIC": "1"}
+                # Release code must ignore all fixture routing and panic injection variables.
+                clean |= {"YTM_JUDGE_FIXTURE": "invalid fixture configuration", "YTM_PYTHON_JUDGE_PANIC": "1", "YTM_JUDGE_HTTP_ORIGIN": "invalid origin"}
                 shutil.copyfile(PACKAGE / "tests/consumer.py", work / "consumer.py")
                 run(interpreter, "-I", work / "consumer.py", cwd=work, env=clean)
                 run(interpreter, "-m", "pip", "install", "mypy==2.3.1")

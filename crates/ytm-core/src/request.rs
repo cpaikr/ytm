@@ -124,7 +124,17 @@ mod tests {
         );
         assert_eq!(
             contract["x-ytm-nexacro-profile"]["transport"]["automaticRetries"].as_u64(),
-            Some(0)
+            Some(u64::from(crate::transport::MAX_ATTEMPTS - 1))
+        );
+
+        assert_eq!(
+            contract["x-ytm-nexacro-profile"]["transport"]["maxAttempts"].as_u64(),
+            Some(u64::from(crate::transport::MAX_ATTEMPTS))
+        );
+        assert_eq!(
+            contract["x-ytm-nexacro-profile"]["transport"]["defaultRetrievalTimeoutMilliseconds"]
+                .as_u64(),
+            Some(crate::DEFAULT_OPERATION_TIMEOUT_SECONDS * 1000)
         );
 
         assert_operation(

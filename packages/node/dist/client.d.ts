@@ -1,5 +1,7 @@
 export interface RequestOptions {
   readonly signal?: AbortSignal;
+  /** Positive safe integer milliseconds; defaults to 1,800,000 for the whole retrieval. */
+  readonly operationTimeoutMs?: number;
 }
 
 export interface MatrixInput {
@@ -37,6 +39,13 @@ export type ErrorCode =
   | "native_package_corrupt"
   | "internal_error";
 
+export interface RetryDetails {
+  readonly attemptCount: number;
+  readonly maxAttempts: number;
+  readonly sourceOperation: string;
+  readonly stopReason: "terminal_failure" | "attempt_exhaustion" | "operation_deadline" | "cancellation";
+}
+
 export interface SerializedError {
   readonly ok: false;
   readonly name: string;
@@ -53,6 +62,7 @@ export interface SerializedError {
   readonly attemptedDates?: readonly string[];
   readonly lookbackDays?: number;
   readonly cause?: string;
+  readonly retry?: RetryDetails;
   readonly recoveryHint?: string;
   readonly recoveryAction?: RecoveryAction;
   readonly recoverable?: boolean;

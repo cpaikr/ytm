@@ -2,12 +2,13 @@
 
 ## Current
 
-- [Windows installation visibility](plans/windows-installation-visibility.md):
-  implementation complete; independent Windows consumer validation remains open.
+- [Resilient historical retrieval](plans/resilient-history-retrieval.md):
+  bounded recovery implementation and offline acceptance in progress.
 
 ## Plans
 
-1. [Resilient historical retrieval](plans/resilient-history-retrieval.md)
+1. [Windows installation visibility](plans/windows-installation-visibility.md):
+   implementation complete; independent Windows consumer validation remains open.
 2. [CLI release migration](plans/release-delivery.md)
 
 ## Tasks

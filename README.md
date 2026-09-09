@@ -11,6 +11,11 @@ does not own or distribute the CLI.
 [`ROADMAP.md`](ROADMAP.md) records the remaining verification and decision
 boundaries.
 
+The current checkout includes bounded lookup retries and a 30-minute retrieval
+timeout, with a caller override; see the [policy and compatibility changes](SPEC.md#bounded-retrieval-recovery).
+This behavior is not yet published. [Delivery and pending live acceptance](plans/resilient-history-retrieval.md)
+are tracked separately from offline implementation.
+
 ## Installation
 
 Install the standalone `ytm` binary from

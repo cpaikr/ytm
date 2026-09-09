@@ -6,7 +6,8 @@ use std::{
     time::{Duration, Instant},
 };
 use ytm_core::{
-    CancellationToken, HttpTransport, PreparedRequest, Transport, YtmError, YtmService,
+    CancellationToken, HttpTransport, PreparedRequest, RetrievalContext, Transport, YtmError,
+    YtmService,
 };
 
 struct ProgressTransport {
@@ -43,6 +44,21 @@ impl Transport for ProgressTransport {
         request: PreparedRequest,
         cancellation: CancellationToken,
     ) -> Result<Vec<u8>, YtmError> {
+        self.record(&request)?;
+        self.inner.post(request, cancellation).await
+    }
+    async fn post_with_context(
+        &self,
+        request: PreparedRequest,
+        context: RetrievalContext,
+    ) -> Result<Vec<u8>, YtmError> {
+        self.record(&request)?;
+        self.inner.post_with_context(request, context).await
+    }
+}
+
+impl ProgressTransport {
+    fn record(&self, request: &PreparedRequest) -> Result<(), YtmError> {
         {
             let mut state = self.state.lock().map_err(|_| YtmError::defect())?;
             if request.operation == "initializeYtmMatrix" {
@@ -58,6 +74,6 @@ impl Transport for ProgressTransport {
                 state.last = Some(Instant::now());
             }
         }
-        self.inner.post(request, cancellation).await
+        Ok(())
     }
 }

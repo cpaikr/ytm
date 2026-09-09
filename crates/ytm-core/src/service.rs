@@ -14,7 +14,7 @@ use crate::{
     nexacro,
     request::{self, INIT_PATH, MATRIX_PATH, SOURCE_ORIGIN, SOURCE_PAGE_URL},
     transport::{HttpTransport, Transport},
-    CancellationToken,
+    CancellationToken, RetrievalContext, RetrievalOptions,
 };
 
 type MatrixObservation = (Kind, Vec<MatrixRow>, SourceMetadata);
@@ -50,6 +50,35 @@ impl YtmService {
         input: KindsInput,
         cancellation: CancellationToken,
     ) -> Result<KindsResult, YtmError> {
+        self.kinds_with_options_and_cancellation(input, RetrievalOptions::default(), cancellation)
+            .await
+    }
+
+    pub async fn kinds_with_options(
+        &self,
+        input: KindsInput,
+        options: RetrievalOptions,
+    ) -> Result<KindsResult, YtmError> {
+        self.kinds_with_options_and_cancellation(input, options, CancellationToken::new())
+            .await
+    }
+
+    pub async fn kinds_with_options_and_cancellation(
+        &self,
+        input: KindsInput,
+        options: RetrievalOptions,
+        cancellation: CancellationToken,
+    ) -> Result<KindsResult, YtmError> {
+        let context = RetrievalContext::new(options, cancellation)?;
+        let result = self.kinds_in_context(input, context.clone()).await;
+        context.finish(result, "kinds")
+    }
+
+    async fn kinds_in_context(
+        &self,
+        input: KindsInput,
+        cancellation: RetrievalContext,
+    ) -> Result<KindsResult, YtmError> {
         check_cancellation(&cancellation, "kinds")?;
         let Some(base_date) = input.base_date else {
             let result = KindsResult {
@@ -71,13 +100,6 @@ impl YtmService {
         let result = self
             .kinds_for_date(base_date, &compact, &cancellation)
             .await;
-        if cancellation.is_cancelled() {
-            return Err(YtmError::cancelled("kinds").with_source_context(
-                "kinds",
-                std::slice::from_ref(&base_date),
-                0,
-            ));
-        }
         result
     }
 
@@ -91,6 +113,35 @@ impl YtmService {
         input: MatrixInput,
         cancellation: CancellationToken,
     ) -> Result<MatrixResult, YtmError> {
+        self.matrix_with_options_and_cancellation(input, RetrievalOptions::default(), cancellation)
+            .await
+    }
+
+    pub async fn matrix_with_options(
+        &self,
+        input: MatrixInput,
+        options: RetrievalOptions,
+    ) -> Result<MatrixResult, YtmError> {
+        self.matrix_with_options_and_cancellation(input, options, CancellationToken::new())
+            .await
+    }
+
+    pub async fn matrix_with_options_and_cancellation(
+        &self,
+        input: MatrixInput,
+        options: RetrievalOptions,
+        cancellation: CancellationToken,
+    ) -> Result<MatrixResult, YtmError> {
+        let context = RetrievalContext::new(options, cancellation)?;
+        let result = self.matrix_in_context(input, context.clone()).await;
+        context.finish(result, "matrix")
+    }
+
+    async fn matrix_in_context(
+        &self,
+        input: MatrixInput,
+        cancellation: RetrievalContext,
+    ) -> Result<MatrixResult, YtmError> {
         check_cancellation(&cancellation, "matrix")?;
         let requested_date = input.base_date;
         let kind_input = input.kind.as_str().to_owned();
@@ -102,13 +153,6 @@ impl YtmService {
         };
         let mut attempted_dates = Vec::new();
         for offset in 0..=u64::from(lookback_days) {
-            if cancellation.is_cancelled() {
-                return Err(YtmError::cancelled("matrix").with_source_context(
-                    "matrix",
-                    &attempted_dates,
-                    lookback_days,
-                ));
-            }
             let date = requested_date.checked_sub_days(offset).ok_or_else(|| {
                 YtmError::invalid_parameter(
                     "matrix",
@@ -125,13 +169,6 @@ impl YtmService {
             let result = self
                 .matrix_for_date(date, &compact, &kind_input, cancellation.clone())
                 .await;
-            if cancellation.is_cancelled() {
-                return Err(YtmError::cancelled("matrix").with_source_context(
-                    "matrix",
-                    &attempted_dates,
-                    lookback_days,
-                ));
-            }
             match result {
                 Ok((kind, rows, source)) => {
                     let result = MatrixResult {
@@ -163,13 +200,6 @@ impl YtmService {
                         && fallback == FallbackMode::PreviousAvailable
                         && offset < u64::from(lookback_days) => {}
                 Err(error) if error.is_unavailable() => {
-                    if cancellation.is_cancelled() {
-                        return Err(YtmError::cancelled("matrix").with_source_context(
-                            "matrix",
-                            &attempted_dates,
-                            lookback_days,
-                        ));
-                    }
                     return Err(YtmError::unavailable(
                         "matrix",
                         &requested_date.to_string(),
@@ -187,13 +217,6 @@ impl YtmService {
                     ))
                 }
             }
-        }
-        if cancellation.is_cancelled() {
-            return Err(YtmError::cancelled("matrix").with_source_context(
-                "matrix",
-                &attempted_dates,
-                lookback_days,
-            ));
         }
         Err(YtmError::unavailable(
             "matrix",
@@ -215,6 +238,46 @@ impl YtmService {
         input: HistoryInput,
         cancellation: CancellationToken,
     ) -> Result<HistoryResult, YtmError> {
+        self.history_with_options_and_cancellation(input, RetrievalOptions::default(), cancellation)
+            .await
+    }
+
+    pub async fn history_with_options(
+        &self,
+        input: HistoryInput,
+        options: RetrievalOptions,
+    ) -> Result<HistoryResult, YtmError> {
+        self.history_with_options_and_cancellation(input, options, CancellationToken::new())
+            .await
+    }
+
+    pub async fn history_with_options_and_cancellation(
+        &self,
+        input: HistoryInput,
+        options: RetrievalOptions,
+        cancellation: CancellationToken,
+    ) -> Result<HistoryResult, YtmError> {
+        if matches!(input.selection, HistorySelection::Count(_))
+            && input.fallback != FallbackPolicy::Exact
+        {
+            return Err(YtmError::invalid_parameter(
+                "history",
+                "fallback",
+                "Count selection requires exact fallback.",
+                json!("previous-available"),
+            ));
+        }
+        let context = RetrievalContext::new(options, cancellation)?;
+        let result = self.history_in_context(input, context.clone()).await;
+        context.finish(result, "history")
+    }
+
+    async fn history_in_context(
+        &self,
+        input: HistoryInput,
+        cancellation: RetrievalContext,
+    ) -> Result<HistoryResult, YtmError> {
+        check_cancellation(&cancellation, "history")?;
         let (mode, lookback_days) = match input.fallback {
             FallbackPolicy::Exact => (FallbackMode::Exact, 0),
             FallbackPolicy::PreviousAvailable(days) => {
@@ -330,6 +393,7 @@ impl YtmService {
             days.reverse();
         }
         for day in days {
+            check_cancellation(&cancellation, "history")?;
             result.requested_dates.extend(day.requested_dates);
             result.discovery.extend(day.discovery);
             result.entries.extend(day.entries);
@@ -347,7 +411,7 @@ impl YtmService {
         lookback_days: u8,
         catalogs: &mut HashMap<BaseDate, Option<KindsResult>>,
         observations: &mut HashMap<(BaseDate, String), Option<MatrixObservation>>,
-        cancellation: &CancellationToken,
+        cancellation: &RetrievalContext,
     ) -> Result<HistoryResult, YtmError> {
         let mut result = HistoryResult {
             count_selection: None,
@@ -420,7 +484,7 @@ impl YtmService {
                             cancellation.clone(),
                         )
                         .await;
-                    check_cancellation(cancellation, "history").map_err(context)?;
+                    let observation = cancellation.finish(observation, "history");
                     let value = match observation {
                         Ok(value) => Some(value),
                         Err(e) if e.is_unavailable() => None,
@@ -486,7 +550,7 @@ impl YtmService {
         &self,
         date: BaseDate,
         cache: &mut HashMap<BaseDate, Option<KindsResult>>,
-        cancellation: &CancellationToken,
+        cancellation: &RetrievalContext,
     ) -> Result<Option<KindsResult>, YtmError> {
         check_cancellation(cancellation, "history")?;
         if let Some(value) = cache.get(&date) {
@@ -509,7 +573,7 @@ impl YtmService {
         &self,
         display: BaseDate,
         compact: &str,
-        cancellation: &CancellationToken,
+        cancellation: &RetrievalContext,
     ) -> Result<KindsResult, YtmError> {
         let attempted_dates = [display];
         let response = self
@@ -521,6 +585,7 @@ impl YtmService {
             .map_err(|error| error.with_source_context("kinds", &attempted_dates, 0))?;
         check_cancellation(cancellation, "kinds")?;
         if dataset.rows.is_empty() {
+            cancellation.clear_lookup()?;
             return Err(YtmError::unavailable(
                 "kinds",
                 &display.to_string(),
@@ -547,6 +612,7 @@ impl YtmService {
             source: source_metadata(INIT_PATH, "ds_tymSort=output1 ds_list=output2", compact, "10", "The mobile page posts ds_search to /rateInfo/ytmMatrixMobileInitList.do on initial YTM Matrix load."),
         };
         check_cancellation(cancellation, "kinds")?;
+        cancellation.clear_lookup()?;
         Ok(result)
     }
 
@@ -555,7 +621,7 @@ impl YtmService {
         display: BaseDate,
         compact: &str,
         kind_input: &str,
-        cancellation: CancellationToken,
+        cancellation: RetrievalContext,
     ) -> Result<(Kind, Vec<MatrixRow>, SourceMetadata), YtmError> {
         let attempted_dates = [display];
         let kinds = self
@@ -584,7 +650,7 @@ impl YtmService {
         display: BaseDate,
         compact: &str,
         kind: Kind,
-        cancellation: CancellationToken,
+        cancellation: RetrievalContext,
     ) -> Result<(Kind, Vec<MatrixRow>, SourceMetadata), YtmError> {
         let attempted_dates = [display];
         check_cancellation(&cancellation, "matrix")?;
@@ -601,6 +667,7 @@ impl YtmService {
             .map_err(|error| error.with_source_context("matrix", &attempted_dates, 0))?;
         check_cancellation(&cancellation, "matrix")?;
         if dataset.rows.is_empty() {
+            cancellation.clear_lookup()?;
             return Err(YtmError::unavailable(
                 "matrix",
                 &display.to_string(),
@@ -627,21 +694,28 @@ impl YtmService {
             "The mobile page posts ds_search to /rateInfo/ytmMatrixMobileList.do when 검색 is clicked.",
         );
         check_cancellation(&cancellation, "matrix")?;
+        cancellation.clear_lookup()?;
         Ok((kind, rows, source))
     }
 
     async fn post(
         &self,
         request: crate::PreparedRequest,
-        cancellation: &CancellationToken,
+        cancellation: &RetrievalContext,
         operation: &str,
     ) -> Result<Vec<u8>, YtmError> {
+        cancellation.clear_lookup()?;
         check_cancellation(cancellation, operation)?;
-        let response = self.transport.post(request, cancellation.clone()).await;
-        if cancellation.is_cancelled() {
-            return Err(YtmError::cancelled(operation));
-        }
-        response
+        let token = cancellation.cancellation();
+        // Poll the context-aware transport first so its own deadline result can
+        // retain the last HTTP failure and attempt metadata at the same instant.
+        let response = tokio::select! {
+            biased;
+            response = self.transport.post_with_context(request, cancellation.clone()) => response,
+            () = token.cancelled() => Err(YtmError::cancelled(operation)),
+            () = tokio::time::sleep_until(cancellation.deadline()) => Err(YtmError::operation_deadline(operation)),
+        };
+        cancellation.finish(response, operation)
     }
 }
 
@@ -661,11 +735,8 @@ fn history_error(
     error
 }
 
-fn check_cancellation(cancellation: &CancellationToken, operation: &str) -> Result<(), YtmError> {
-    if cancellation.is_cancelled() {
-        return Err(YtmError::cancelled(operation));
-    }
-    Ok(())
+fn check_cancellation(cancellation: &RetrievalContext, operation: &str) -> Result<(), YtmError> {
+    cancellation.check(operation)
 }
 
 fn kind_from_row(row: IndexMap<String, String>) -> Result<Kind, YtmError> {
@@ -690,12 +761,15 @@ fn kind_from_row(row: IndexMap<String, String>) -> Result<Kind, YtmError> {
 
 #[cfg(test)]
 fn merge_kinds(discovered: Vec<Kind>) -> Result<Vec<Kind>, YtmError> {
-    merge_kinds_with_cancellation(discovered, &CancellationToken::new())
+    merge_kinds_with_cancellation(
+        discovered,
+        &RetrievalContext::new(RetrievalOptions::default(), CancellationToken::new()).unwrap(),
+    )
 }
 
 fn merge_kinds_with_cancellation(
     discovered: Vec<Kind>,
-    cancellation: &CancellationToken,
+    cancellation: &RetrievalContext,
 ) -> Result<Vec<Kind>, YtmError> {
     let mut canonical = canonical_kinds();
     let canonical_labels_by_code = canonical
@@ -757,7 +831,7 @@ fn merge_kinds_with_cancellation(
 fn resolve_kind_with_cancellation(
     input: &str,
     kinds: &[Kind],
-    cancellation: &CancellationToken,
+    cancellation: &RetrievalContext,
 ) -> Result<Option<Kind>, YtmError> {
     let label_key = kind_label_key(input);
     for kind in kinds {
@@ -776,13 +850,17 @@ fn kind_label_key(value: &str) -> String {
 
 #[cfg(test)]
 fn normalize_row(row: IndexMap<String, String>, kind: &Kind) -> Result<MatrixRow, YtmError> {
-    normalize_row_with_cancellation(row, kind, &CancellationToken::new())
+    normalize_row_with_cancellation(
+        row,
+        kind,
+        &RetrievalContext::new(RetrievalOptions::default(), CancellationToken::new()).unwrap(),
+    )
 }
 
 fn normalize_row_with_cancellation(
     row: IndexMap<String, String>,
     kind: &Kind,
-    cancellation: &CancellationToken,
+    cancellation: &RetrievalContext,
 ) -> Result<MatrixRow, YtmError> {
     check_cancellation(cancellation, "matrix")?;
     for required in ["pricingGroupCode", "pricingGroupName"]

@@ -11,7 +11,8 @@ black-box boundaries and reviewed golden expectations.
 
 An environment-selected, feature-gated Rust fixture transport records prepared
 request metadata during judge runs. Release artifacts cannot compile that
-transport, and native clean-consumer tests exercise release builds separately.
+transport or the guarded numeric-loopback HTTP origin override used by recovery
+tests. Native clean-consumer tests exercise release builds separately.
 
 ```sh
 bun run build:judge
@@ -30,6 +31,10 @@ scenario definitions, assertions, filters, and fixture accounting;
 [`history-cli-lifecycle.py`](history-cli-lifecycle.py) verifies executable
 history export, POSIX interrupts (including first and repeated Ctrl-C with
 blocked output), and terminal progress as part of `bun run test`;
+[`retrieval-recovery.py`](retrieval-recovery.py) drives synthetic real-HTTP
+recovery, exhaustion, deadlines, and protected export through CLI/Node in
+`bun run test:surfaces` and installed Python sync/async clients in
+`bun run validate:python`;
 [`golden-results.json`](golden-results.json) owns the reviewed public-result
 oracle; and [`../contracts/kisnet/cases.json`](../contracts/kisnet/cases.json)
 owns the observed wire fixtures and evidence cases. There is deliberately no

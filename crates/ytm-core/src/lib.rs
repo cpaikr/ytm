@@ -4,6 +4,7 @@
 compile_error!("the judge-fixtures transport cannot be compiled into a release artifact");
 
 mod error;
+mod execution;
 mod model;
 mod nexacro;
 mod request;
@@ -13,7 +14,8 @@ mod transport;
 #[cfg(feature = "judge-fixtures")]
 pub mod judge;
 
-pub use error::{ErrorDetails, YtmError};
+pub use error::{ErrorDetails, RetryDetails, RetryStopReason, YtmError};
+pub use execution::{RetrievalContext, RetrievalOptions, DEFAULT_OPERATION_TIMEOUT_SECONDS};
 pub use model::{
     BaseDate, Capabilities, CountSelection, CountSelectionMetadata, DateResolution, DateSelection,
     FallbackMode, FallbackPolicy, HistoryDiscovery, HistoryEntry, HistoryInput, HistoryRequest,
