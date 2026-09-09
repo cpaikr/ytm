@@ -7,7 +7,8 @@
 
 ## Plans
 
-1. [CLI release migration](plans/release-delivery.md)
+1. [Resilient historical retrieval](plans/resilient-history-retrieval.md)
+2. [CLI release migration](plans/release-delivery.md)
 
 ## Tasks
 
