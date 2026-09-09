@@ -1,3 +1,4 @@
+import { testWindowsInstallationGuide } from "./test-windows-installation-guide.mjs";
 import { createHash } from "node:crypto";
 import { access, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
@@ -66,6 +67,7 @@ try {
   ]) {
     if (powershellInstaller.split(anchor).length !== 2) throw new Error(`PowerShell failure anchor must occur exactly once: ${anchor}`);
   }
+  await testWindowsInstallationGuide(powershellInstaller);
   const publishedChecksums = parseChecksumFile(await readFile(join(first, manifest.checksumFile), "utf8"));
   for (const target of manifest.targets) {
     const archive = cliArchiveName(manifest, target, version);

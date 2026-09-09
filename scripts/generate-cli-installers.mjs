@@ -424,7 +424,12 @@ try {
       try { Remove-Item -LiteralPath $Executable -Force } catch { throw "receipt publication failed and $Executable could not be removed; preserve it as an uncommitted install: $($_.Exception.Message)" }
       throw "$Receipt could not be published; installation removed the uncommitted executable"
     }
-    Write-Output "installed ytm v$Version to $Executable"
+    Write-Output "installed ytm v$Version to $Executable (installer filesystem view); receipt: $Receipt"
+    Write-Output 'External terminal visibility has not been verified. This installer does not register PATH.'
+    Write-Output 'From an independently opened PowerShell terminal, check the full executable path, then ytm --version and ytm --help.'
+    Write-Output 'If that terminal cannot see the full path, packaged-app filesystem redirection may be involved; changing PATH will not fix missing files.'
+    Write-Output 'Run the official installer from that terminal, or set YTM_INSTALL_DIR to a visible destination such as %USERPROFILE%\\.local\\bin and install there. Preserve ytm.exe.receipt.'
+    Write-Output 'PATH setup and recovery: https://github.com/cpaikr/ytm/blob/main/docs/windows-installation.md'
   }
 } finally {
   if ($FreshInstall -and $FreshExecutablePublished -and -not $FreshCommitted -and $FreshStagedPath -and -not (Test-Path -LiteralPath $FreshStagedPath) -and (Test-Path -LiteralPath $Executable) -and -not (Test-Path -LiteralPath $Receipt)) {

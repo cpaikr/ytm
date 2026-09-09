@@ -2,7 +2,8 @@
 
 ## Current
 
-_None._
+- [Windows installation visibility](plans/windows-installation-visibility.md):
+  implementation complete; independent Windows consumer validation remains open.
 
 ## Plans
 
