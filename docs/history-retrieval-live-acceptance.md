@@ -105,6 +105,7 @@ scenario within the deadline; it establishes no general latency or quota claim.
   local build directory as an additional duplicate-attempt guard.
 
 Independent final evidence review found no actionable issues and confirmed
-the candidate hash, ancestry and every recorded check. Issue reconciliation
-is the remaining delivery action. Local commits are retained for later
-reviewed aggregation under no-PR delivery.
+the candidate hash, ancestry and every recorded check. [Issue #45 evidence](https://github.com/cpaikr/ytm/issues/45#issuecomment-5610130717)
+records the remote outcome; the final acceptance criterion was checked and
+the issue closed as completed. Local commits are retained for later reviewed
+aggregation under no-PR delivery.

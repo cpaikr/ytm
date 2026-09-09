@@ -1,6 +1,6 @@
 # Goal: Bounded full live retrieval assessment
 
-Status: active
+Status: complete
 Planning scope: ROADMAP.md
 
 ## Original contract
@@ -30,11 +30,14 @@ _None._
 
 - The one authorized live run passed all checks: 180 selected, 261 scanned, exit 0, 60.783 seconds. Sanitized evidence is in docs/history-retrieval-live-acceptance.md.
 
+- Independent evidence review and affected-document harmonization passed. [Issue #45](https://github.com/cpaikr/ytm/issues/45#issuecomment-5610130717) has all criteria checked and is closed as completed.
+- No-PR delivery preserves goal initialization `554d236`, reviewed checker `1170721`, sanitized evidence `be2ee2c`, and this terminal metadata commit locally for later reviewed aggregation.
+
 ### Current in-scope result
-Review the successful single-run evidence and reconcile issue #45.
+None — all included results and no-PR delivery are complete.
 
 ### Next in-scope action
-Finish evidence review, close #45 only on confirmed full acceptance, and commit terminal planning/goal metadata. No further live invocation is authorized.
+None — goal complete
 
 ### Evidence and blockers
 - Candidate preparation, checker validation and one live assessment are included by the contract. Review, evidence reconciliation and no-PR commits are necessary delivery work.
@@ -42,3 +45,5 @@ Finish evidence review, close #45 only on confirmed full acceptance, and commit 
 
 - Release fixture guard passed with PYO3_PYTHON=/opt/homebrew/bin/python3.13 after the system Python 3.9 failed its minimum-version preflight.
 - Public discovery exposes no live-only catalog list. Category completeness relies on observed canonical coverage plus inspected core enumeration and existing deterministic full-count tests, not an additional provider discovery run.
+
+- All ten core history tests passed. Final whitespace, local-link, planning-index and immutable-contract checks passed. No goal blocker remains; release publication, repeat live runs and production enablement were not performed.

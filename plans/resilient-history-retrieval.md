@@ -29,13 +29,15 @@ Implementation `11d534f` and validation follow-up `51bfca4` are preserved.
 - The single authorized full live run passed: 180 selected observations,
   261 scanned dates, exit 0, 60.783 seconds on macOS ARM64. The
   [sanitized evidence](../docs/history-retrieval-live-acceptance.md) records the
-  candidate and every acceptance check. Final evidence review and conditional
-  issue #45 closure are pending. No repeat run or release publication occurred.
+  candidate and every acceptance check. Independent evidence review passed;
+  [issue #45](https://github.com/cpaikr/ytm/issues/45#issuecomment-5610130717) is closed as completed.
+  No repeat run or release publication occurred.
 
 ## Next action
 
-Finish evidence review and conditional issue #45 closure, then complete no-PR
-assessment delivery. Release publication requires separate authorization.
+None for retrieval acceptance — implementation and full live acceptance are
+complete. No-PR assessment commits are retained for later reviewed aggregation.
+Release publication requires separate authorization and remains in its own plan.
 
 ## Target behavior and decisions
 
@@ -179,7 +181,7 @@ it does not authorize repeat runs or production enablement.
   check's outcome, and sanitized terminal date/category/status/cause/retry
   context if present. Do not invent successful-retry counts that the public
   interface does not expose. Retain no live payloads or yield rows.
-- [ ] Review checker changes and evidence, run applicable offline checks, and
+- [x] Review checker changes and evidence, run applicable offline checks, and
   reconcile this plan and issue #45. On verified success, check the remaining
   issue criterion, link the durable evidence and candidate, and close the
   issue as completed. On provider, deadline, checker, or product failure, keep

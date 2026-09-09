@@ -2,8 +2,7 @@
 
 ## Current
 
-[Resilient historical retrieval](plans/resilient-history-retrieval.md):
-one authorized full live assessment in preparation.
+None.
 
 ## Plans
 
