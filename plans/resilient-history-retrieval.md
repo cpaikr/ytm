@@ -10,7 +10,8 @@ Rust, CLI, Node, and Python use the same core policy.
 
 Implementation through offline acceptance was delivered under the completed
 [goal contract](../goals/resilient-history-retrieval-offline.md). Full live
-acceptance and release publication remain separate, pending stages.
+acceptance passed in the single authorized assessment; release publication
+remains a separate, pending stage.
 
 ## Current state
 
@@ -25,16 +26,16 @@ Implementation `11d534f` and validation follow-up `51bfca4` are preserved.
   passed. Windows acceptance passed after correcting a platform-specific
   overflow assumption in the test harness. Independent reviews, Codex review,
   CodeRabbit feedback resolution and documentation reconciliation are complete.
-- Full 180-observation live acceptance is in preparation under the active
-  [assessment goal](../goals/retrieval-live-acceptance.md); no live attempt has started. Issue #45
-  stays open. No provider throughput or release publication claim is made.
+- The single authorized full live run passed: 180 selected observations,
+  261 scanned dates, exit 0, 60.783 seconds on macOS ARM64. The
+  [sanitized evidence](../docs/history-retrieval-live-acceptance.md) records the
+  candidate and every acceptance check. Final evidence review and conditional
+  issue #45 closure are pending. No repeat run or release publication occurred.
 
 ## Next action
 
-Prepare the identified candidate and offline-validated checker, then execute
-the one-off live assessment authorized by the owner on 2026-09-10. The live milestone
-is current; the prior offline goal stays complete. Release
-publication remains pending and requires separate authorization.
+Finish evidence review and conditional issue #45 closure, then complete no-PR
+assessment delivery. Release publication requires separate authorization.
 
 ## Target behavior and decisions
 
@@ -147,32 +148,32 @@ one-off test authorization under the [provider operating policy](../docs/provide
 it does not authorize repeat runs or production enablement.
 
 - [x] Record the owner's one-off run and conditional issue-closure authorization.
-- [ ] Confirm no provider-policy withdrawal condition applies before live I/O.
+- [x] Confirm no provider-policy withdrawal condition applies before live I/O.
   Stop and record the blocker if one applies; protocol success cannot override it.
-- [ ] Identify a release-mode candidate containing PR #46 and its validation
+- [x] Identify a release-mode candidate containing PR #46 and its validation
   fixes. Record source commit, reported version, executable SHA-256, platform
   and shell; version alone is insufficient. Build without judge features or
   routing overrides and invoke the exact binary path. Prefer Windows
   x64/PowerShell 7 to match the incident; explicitly identify any other host.
   No public release, tag, or installed-binary replacement is required.
-- [ ] Prepare an in-memory checker for the public CLI envelope. Validate it
+- [x] Prepare an in-memory checker for the public CLI envelope. Validate it
   offline with synthetic full-count success and rejection cases for shortened
   samples, duplicate/out-of-order dates, missing category processing, invalid
   numeric qualification, source drift, and malformed/error output. The checker
   must never print or persist raw stdout, rows, yields, or request/response
   bodies, including on exceptions.
-- [ ] Run the identified candidate once with
+- [x] Run the identified candidate once with
   `history --end-date 2023-06-30 --count 180 --format json --operation-timeout-seconds 1800`.
   Keep the implemented sequential retry policy and data-selection rules. Pipe
   stdout directly to the checker; collect only sanitized process/error metadata.
   Do not automatically repeat the run or increase the budget after failure.
-- [ ] Require exit 0, one successful JSON envelope, exactly 180 unique ascending
+- [x] Require exit 0, one successful JSON envelope, exactly 180 unique ascending
   selected dates no later than the requested end date, complete category
   processing under the existing catalog contract, unchanged source identity,
   and numeric-date qualification under SPEC.md. Ordinary unavailable pairs
   remain valid only under the existing result contract; they cannot excuse a
   missing category, shortened sample, or suppressed operational failure.
-- [ ] Record the result in `docs/history-retrieval-live-acceptance.md`: candidate
+- [x] Record the result in `docs/history-retrieval-live-acceptance.md`: candidate
   identity, authorization reference, platform/shell, UTC start/end and elapsed
   time, configured deadline, requested/selected/scanned counts, each acceptance
   check's outcome, and sanitized terminal date/category/status/cause/retry

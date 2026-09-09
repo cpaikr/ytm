@@ -106,9 +106,10 @@ to reconcile this record.
   and at most 31 earlier dates: a worst case of 64 logical lookups. Bounded
   retries can add physical attempts, all inside one finite retrieval budget.
   These limits are engineering guards, not measured provider quotas or pacing
-  entitlements. No background bulk retrieval is approved. Issue #45's full
-  180-observation live acceptance and operational validation of the default
-  timeout remain pending in the [retrieval plan](../plans/resilient-history-retrieval.md).
+  entitlements. No background bulk retrieval is approved. The owner's one-off issue #45
+  [full live assessment](history-retrieval-live-acceptance.md) passed within the
+  default timeout on the recorded candidate and host. This does not authorize
+  repeat bulk runs or establish provider quotas or production qualification.
 - Scheduled smoke uses one known scenario and stores only the metadata fields
   demonstrated above. Logs must not include bodies or normalized rows.
 - A source-format, protocol, transport, or availability drift alert blocks a

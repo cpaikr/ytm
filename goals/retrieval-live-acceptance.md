@@ -28,11 +28,13 @@ _None._
 - Checker validated with synthetic full success and all required rejection categories, including optimized Python. Independent bounded review is clean after canonical-name validation was added.
 - Provider preflight: no new withdrawal condition recorded in open issues or policy; recent scheduled smokes succeeded. Existing production-qualification unknowns remain unchanged under explicit one-off owner authority.
 
+- The one authorized live run passed all checks: 180 selected, 261 scanned, exit 0, 60.783 seconds. Sanitized evidence is in docs/history-retrieval-live-acceptance.md.
+
 ### Current in-scope result
-Execute the single authorized full live assessment.
+Review the successful single-run evidence and reconcile issue #45.
 
 ### Next in-scope action
-Invoke the exact release binary once through the checker. The exclusive target/retrieval-live-acceptance.json reservation consumes this attempt; never rerun after a reservation or uncertain outcome.
+Finish evidence review, close #45 only on confirmed full acceptance, and commit terminal planning/goal metadata. No further live invocation is authorized.
 
 ### Evidence and blockers
 - Candidate preparation, checker validation and one live assessment are included by the contract. Review, evidence reconciliation and no-PR commits are necessary delivery work.
