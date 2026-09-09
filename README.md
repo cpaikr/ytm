@@ -46,26 +46,39 @@ terminals.
 
 ### Windows
 
-Run in PowerShell:
+Run in an ordinary PowerShell terminal opened independently of a packaged desktop
+agent. The default is `%LOCALAPPDATA%\ytm\bin`; an existing `YTM_INSTALL_DIR`
+overrides it. For a custom destination, set that variable to an absolute path
+before this block and reuse the same absolute value in other terminals.
 
 ```powershell
 & {
+  $ErrorActionPreference = 'Stop'
+  $ytmBin = if ($env:YTM_INSTALL_DIR) { $env:YTM_INSTALL_DIR } else { Join-Path $env:LOCALAPPDATA 'ytm\bin' }
   $ytmInstaller = Join-Path $env:TEMP ("ytm-install-" + [guid]::NewGuid() + ".ps1")
   try {
-    Invoke-WebRequest -UseBasicParsing -ErrorAction Stop -Uri 'https://github.com/cpaikr/ytm/releases/latest/download/install.ps1' -OutFile $ytmInstaller
+    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/cpaikr/ytm/releases/latest/download/install.ps1' -OutFile $ytmInstaller
     powershell -NoProfile -ExecutionPolicy Bypass -File $ytmInstaller
     if ($LASTEXITCODE -ne 0) { throw "ytm installer failed with exit code $LASTEXITCODE" }
-    $env:Path = "$env:LOCALAPPDATA\ytm\bin;$env:Path"
-    ytm --version
-    ytm --help
+    $ytmExe = Join-Path $ytmBin 'ytm.exe'
+    if (-not (Test-Path -LiteralPath $ytmExe -PathType Leaf)) { throw "Executable is not visible at $ytmExe; see Windows recovery guidance" }
+    & $ytmExe --version
+    if ($LASTEXITCODE -ne 0) { throw 'ytm --version failed' }
+    & $ytmExe --help
+    if ($LASTEXITCODE -ne 0) { throw 'ytm --help failed' }
   } finally {
     Remove-Item -LiteralPath $ytmInstaller -ErrorAction SilentlyContinue
   }
 }
 ```
 
-The default install directory is `%LOCALAPPDATA%\ytm\bin`. Add it to your user
-`Path` through Windows Environment Variables for future terminals.
+Next follow [Windows PATH setup and consumer verification](docs/windows-installation.md#path-setup)
+for copyable persistent user PATH registration, a separate current-session step,
+and checks in current and newly opened terminals. Neither installer edits PATH
+or PowerShell profiles. If an independent terminal cannot see the full path,
+follow [visibility recovery](docs/windows-installation.md#visibility-recovery)
+before changing PATH. A child shell launched by the same packaged agent can
+share its private filesystem view and does not establish external visibility.
 
 Both installers select the platform archive and verify its pinned SHA-256
 before installing. Set `YTM_INSTALL_DIR` before running the installer to choose

@@ -3,7 +3,7 @@ import { spawn } from "node:child_process";
 import { createServer } from "node:http";
 import { access, chmod, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { basename, join, resolve } from "node:path";
+import { basename, delimiter, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { cliArchiveName, cliArchiveRoot, loadCliReleasePolicy } from "./cli-release-policy.mjs";
 import { parseChecksumFile } from "./cli-artifact-validation.mjs";
@@ -87,7 +87,44 @@ async function testFreshInstall(mode) {
   const executable = executablePath(installDir);
   assertSucceeded(await runProcess(executable, ["--version"]), "installed --version", `ytm ${version}`);
   assertSucceeded(await runProcess(executable, ["--help"]), "installed --help", "CLI usage:");
+  await testCommandDiscovery(installDir);
   await testExcelExport(executable);
+}
+
+// These shells share this runner's filesystem context. They verify discovery and
+// inheritance, not visibility outside a packaged application's private view.
+async function testCommandDiscovery(installDir) {
+  const environment = { ...process.env, YTM_TEST_EXECUTABLE: executablePath(installDir) };
+  const pathKey = Object.keys(environment).find((key) => key.toLowerCase() === "path") || "PATH";
+  environment[pathKey] = `${installDir}${delimiter}${environment[pathKey] || ""}`;
+  const checks = target.os === "win32" ? `
+$ErrorActionPreference = 'Stop'
+if (-not (Test-Path -LiteralPath $env:YTM_TEST_EXECUTABLE -PathType Leaf)) { throw 'consumer cannot see executable' }
+$resolved = (Get-Command ytm -CommandType Application -ErrorAction Stop).Source
+if ($resolved -ne $env:YTM_TEST_EXECUTABLE) { throw "wrong command: $resolved" }
+ytm --version
+if ($LASTEXITCODE -ne 0) { throw 'version failed' }
+ytm --help
+if ($LASTEXITCODE -ne 0) { throw 'help failed' }
+` : `
+set -eu
+[ -f "$YTM_TEST_EXECUTABLE" ]
+[ "$(command -v ytm)" = "$YTM_TEST_EXECUTABLE" ]
+ytm --version
+ytm --help
+`;
+  const shell = target.os === "win32" ? "powershell.exe" : "sh";
+  const args = target.os === "win32" ? ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command", checks] : ["-c", checks];
+  const scriptPath = join(temporaryRoot, target.os === "win32" ? "discovery.ps1" : "discovery.sh");
+  await writeFile(scriptPath, checks);
+  environment.YTM_TEST_DISCOVERY_SCRIPT = scriptPath;
+  const withChild = checks + (target.os === "win32"
+    ? '\n& powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $env:YTM_TEST_DISCOVERY_SCRIPT\nif ($LASTEXITCODE -ne 0) { throw "new consumer shell failed" }'
+    : '\nsh "$YTM_TEST_DISCOVERY_SCRIPT"');
+  args[args.length - 1] = withChild;
+  const result = await runProcess(shell, args, environment);
+  assertSucceeded(result, "current and newly launched consumer shells", `ytm ${version}`);
+  if (result.stdout.split("CLI usage:").length !== 3) throw new Error("Both consumer shells must return help.");
 }
 
 async function testExcelExport(executable) {

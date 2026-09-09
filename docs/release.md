@@ -155,6 +155,23 @@ bytes and check staging cleanup using an exclusively locked destination on
 Windows and an unwritable parent on non-root Unix consumers. These tests need
 no Excel installation and add no runtime dependency to the binary.
 
+Consumer checks also resolve the command name to the selected executable and
+run version/help in a shell and its newly launched child with inherited PATH.
+These checks establish usability in the runner's filesystem context, not outside
+a packaged application's private view. They do not mutate persistent user PATH.
+The release subset executes the documented Windows PATH transformations with
+isolated registry I/O when PowerShell is available (otherwise it reports a skip),
+and parses the generated installer and documentation examples.
+
+For redirected Windows installation contexts, retain separate evidence from an
+independent ordinary terminal using the [consumer verification procedure](windows-installation.md#consumer-verification).
+Record unavailable independent validation explicitly; launching another shell
+under the installer is insufficient. The checkout's fresh Windows installer
+reports this unverified boundary and points to recovery guidance without claiming
+to detect redirection or modifying the selected destination, PATH, or profiles.
+The immutable v0.4.0 installer predates this message; GitHub Releases own
+publication status for newer installers.
+
 The consumer also rejects failed downloads and corrupted archives without
 publishing state and exercises managed replacement with the unmodified
 candidate. Single-anchor temporary copies of that validated generated installer
