@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.4.0](https://github.com/cpaikr/ytm/compare/v0.3.0...v0.4.0) (2026-09-09)
+
+### Features
+
+* **history:** select the latest count of numeric observation dates ([0ee948c](https://github.com/cpaikr/ytm/commit/0ee948ca8f325fdc0a271e136881e127c61fffb0))
+
+### Bug Fixes
+
+* **history:** address recovery guidance and close-test review feedback ([368eb5b](https://github.com/cpaikr/ytm/commit/368eb5b8be85bff974c6a9e20f807058df06552f))
+
 ## [0.3.0](https://github.com/cpaikr/ytm/compare/v0.1.1...v0.3.0) (2026-09-08)
 
 ### Release delivery
