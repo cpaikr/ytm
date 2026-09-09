@@ -8,41 +8,31 @@ retrieval deadline, without changing requested dates, category identities,
 selected observations, yields, source identity, or all-or-error publication.
 Rust, CLI, Node, and Python use the same core policy.
 
-Implementation through offline acceptance is authorized by the active
+Implementation through offline acceptance was delivered under the completed
 [goal contract](../goals/resilient-history-retrieval-offline.md). Full live
 acceptance and release publication remain separate, pending stages.
 
 ## Current state
 
-The bounded recovery implementation and interface projections are implemented
-on `codex/bounded-retrieval-recovery`; independent review found no actionable
-issues and documentation reconciliation is complete. All repository gate steps pass; PR delivery remains pending. The existing selection/cache behavior is preserved.
+Offline implementation is complete and merged through
+[PR #46](https://github.com/cpaikr/ytm/pull/46), merge `f6056a4`.
+Implementation `11d534f` and validation follow-up `51bfca4` are preserved.
 
-- A real-HTTP two-day regression first failed at lookup 17, category `70`,
-  `2026-06-09`, HTTP 503, with no replay. Recovery, initialization and
-  interrupted-body cases now match the no-failure result and request sequence.
-- Targeted core tests cover allowlisted/terminal statuses, body interruption vs
-  decompression corruption, exact attempts, provider guidance, deadlines,
-  cancellation, selection bounds and custom-transport compatibility.
-- CLI and Node real-HTTP acceptance pass for recovery, exhaustion, timeout and
-  provider guidance. CLI failures preserve existing workbook bytes and leave
-  no staging residue. Python 3.13 fixture-wheel behavior and sync/async
-  real-HTTP acceptance also pass; clients remain reusable after timeout.
-- Wire profile and API/compatibility documentation have been updated. PR delivery remains pending.
-- Full 180-observation live acceptance is excluded from the active goal and
-  remains pending. Issue #45 stays open; no provider throughput or release
-  publication claim is made.
-
-- Complete offline gate: `PYO3_PYTHON=/opt/homebrew/bin/python3.13 bun run validate`
-  passed through dependency checks; stale timeout-help goldens and one incorrect
-  test assertion about validation stderr were corrected. The affected public
-  acceptance checks and remaining broken-product/package stages then passed.
-  Independent follow-up review of those corrections found no issues.
+- Real-HTTP recovery replays only the failed lookup and matches the baseline
+  result and request sequence. Core and public CLI/Node/Python checks cover
+  deadlines, cancellation, source errors, client reuse and protected exports.
+- Every local gate stage and [required platform CI](https://github.com/cpaikr/ytm/actions/runs/34345673007)
+  passed. Windows acceptance passed after correcting a platform-specific
+  overflow assumption in the test harness. Independent reviews, Codex review,
+  CodeRabbit feedback resolution and documentation reconciliation are complete.
+- Full 180-observation live acceptance remains pending and unstarted. Issue #45
+  stays open. No provider throughput or release publication claim is made.
 
 ## Next action
 
-Deliver one implementation PR through feedback resolution, required platform
-checks, and merge. Full live acceptance remains unstarted.
+Await separate authorization for the bounded live acceptance milestone below.
+It is queued project work, outside the completed offline goal. Release
+publication remains pending and requires separate authorization.
 
 ## Target behavior and decisions
 

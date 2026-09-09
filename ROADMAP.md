@@ -2,14 +2,15 @@
 
 ## Current
 
-- [Resilient historical retrieval](plans/resilient-history-retrieval.md):
-  bounded recovery implementation and offline acceptance in progress.
+None.
 
 ## Plans
 
-1. [Windows installation visibility](plans/windows-installation-visibility.md):
+1. [Resilient historical retrieval](plans/resilient-history-retrieval.md):
+   offline implementation merged; full live acceptance pending, unstarted.
+2. [Windows installation visibility](plans/windows-installation-visibility.md):
    implementation complete; independent Windows consumer validation remains open.
-2. [CLI release migration](plans/release-delivery.md)
+3. [CLI release migration](plans/release-delivery.md)
 
 ## Tasks
 

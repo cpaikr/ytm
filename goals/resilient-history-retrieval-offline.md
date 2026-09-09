@@ -1,6 +1,6 @@
 # Goal: Bounded retrieval recovery and offline acceptance
 
-Status: active
+Status: complete
 Planning scope: ROADMAP.md
 
 ## Original contract
@@ -24,19 +24,19 @@ _None._
 ## Execution status
 
 ### Completed included results
-- Core retry/deadline mechanism and interface options/error projections implemented; targeted core and real-HTTP CLI, Node, Python sync/async acceptance pass. Repository validation, bounded independent review and documentation reconciliation are complete; PR delivery remains.
+- Bounded retries and one retrieval deadline implemented across Rust, CLI, Node and Python, preserving selection and all-or-error publication.
+- Options, structured errors, compatibility documentation and deterministic offline acceptance completed. Independent review and documentation reconciliation passed.
+- [PR #46](https://github.com/cpaikr/ytm/pull/46) merged into `main` as `f6056a4`, preserving implementation `11d534f` and validation fixes `51bfca4`.
 
 ### Current in-scope result
-Align contracts and complete offline validation, then deliver the implementation PR.
+None — all included results and PR delivery are complete.
 
 ### Next in-scope action
-Deliver the one implementation PR through feedback resolution, required checks and merge. All repository gate steps pass, including affected reruns after timeout-help snapshot and validation-stderr test corrections; independent reviews found no actionable issues.
+None — goal complete
 
 ### Evidence and blockers
-- Integration branch: `codex/retrieval-recovery-integration`; branch creation and push preflight passed. Protected `main` is reserved for reviewed delivery.
-- Existing in-scope planning edits were committed externally as `afa54f3` during initialization and are preserved in this branch.
-- Candidate implementation, interface contracts, deterministic tests, documentation reconciliation, and PR review are included or necessary under the contract. Full live acceptance is excluded and remains pending; issue #45 must remain open.
-- Delivery decision: one connected implementation PR targeting protected `main`, including the initialized goal and preserved planning commit. After it merges, fast-forward the preflighted integration branch to that result and push only terminal planning/goal metadata there. This satisfies the goal lifecycle without a redundant second implementation PR; no release publication is authorized.
-- Real-HTTP regression first failed at lookup 17, date `2026-06-09`, category `70`, HTTP 503. Recovery, initialization and interrupted-body scenarios now produce identical complete histories and exactly one replay.
-- Bounded dependency choice: pinned Hyper supplies typed framing-error discrimination; existing fastrand supplies non-cryptographic jitter without an extra entropy/crypto stack; httpdate handles HTTP-date parsing. MSRVs/licenses were inspected and the generated license inventory updated. Context7 lacked relevant pinned error/date coverage, so cached official crate source supplied precise evidence.
-- Targeted validation: core regression/selection/deadline tests; CLI and Node real-HTTP recovery/exhaustion/timeout/export checks; Python 3.13 installed fixture wheel behavior plus sync/async real-HTTP acceptance. Complete gate steps passed, with affected reruns for reviewed harness/golden corrections. System Python 3.9 is below the supported minimum; use `PYO3_PYTHON=/opt/homebrew/bin/python3.13`.
+- Every local repository gate stage passed. [Required CI](https://github.com/cpaikr/ytm/actions/runs/34345673007) passed on `51bfca4`, including all CLI/Node platforms, Python 3.11–3.14 consumers, and the platform aggregate.
+- Codex completed its initial review with no findings. Both CodeRabbit findings were fixed, replied to and confirmed resolved; no review remained active at merge. Independent follow-up reviews found no issues.
+- Windows CI exposed an OS-specific overflow assumption in the harness. The corrected portable overflow case passed on Windows; production timeout semantics were unchanged.
+- Existing planning commit `afa54f3` and immutable goal initialization `dc43506` were preserved. The preflighted `codex/retrieval-recovery-integration` branch was fast-forwarded to the merge; this terminal commit contains only goal/project-planning metadata.
+- No blockers remain for this goal. Issue #45 remains open. Full 180-observation live acceptance and release publication remain pending and were not performed.
