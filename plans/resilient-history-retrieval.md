@@ -32,7 +32,7 @@ Implementation `11d534f` and validation follow-up `51bfca4` are preserved.
 
 Await separate authorization for the bounded live acceptance milestone below.
 It is queued project work, outside the completed offline goal. Release
-publication remains separately authorized.
+publication remains pending and requires separate authorization.
 
 ## Target behavior and decisions
 
