@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/cpaikr/ytm/compare/v0.4.0...v0.4.1) (2026-09-09)
+
+### Bug Fixes
+
+* **docs:** reject shadowed Windows commands during verification ([1bc3e4a](https://github.com/cpaikr/ytm/commit/1bc3e4ab896c1f642682f38c729b809462ce3d3a))
+* **install:** clarify Windows visibility and PATH recovery ([514b2a0](https://github.com/cpaikr/ytm/commit/514b2a0bc2981f3f32c825c042b1f47f2d5ea47f))
+
 ## [0.4.0](https://github.com/cpaikr/ytm/compare/v0.3.0...v0.4.0) (2026-09-09)
 
 ### Features
