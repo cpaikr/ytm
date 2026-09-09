@@ -2,11 +2,11 @@
 
 ## Current
 
-- [CLI release migration](plans/release-delivery.md) — implementation and local validation complete; hosted certification not run.
+_None._
 
 ## Plans
 
-None.
+1. [CLI release migration](plans/release-delivery.md)
 
 ## Tasks
 

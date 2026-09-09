@@ -52,7 +52,7 @@ try {
   const inspection = run(process.execPath, [
     "--input-type=module",
     "-e",
-    "const m=await import('@sjunepark/ytm');const client=new m.YtmClient();const v=m.validateMatrixInput({baseDate:'20260820',kind:'80'});const kinds=await client.kinds();console.log(JSON.stringify({exports:['YtmClient','YtmError','validateMatrixInput','validateKindsInput','serializeYtmError'].every(k=>typeof m[k]==='function'),methods:['matrix','kinds'].every(k=>typeof client[k]==='function'),valid:v.ok,baseDate:v.input?.baseDate,nativeKinds:kinds.kinds?.map(x=>x.code)}));"
+    "const m=await import('@sjunepark/ytm');const client=new m.YtmClient();const v=m.validateMatrixInput({baseDate:'20260820',kind:'80'});const kinds=await client.kinds();console.log(JSON.stringify({exports:['YtmClient','YtmError','validateHistoryInput','validateMatrixInput','validateKindsInput','serializeYtmError'].every(k=>typeof m[k]==='function'),methods:['history','matrix','kinds'].every(k=>typeof client[k]==='function'),valid:v.ok&&m.validateHistoryInput({count:180,endDate:'20260908'}).ok&&!m.validateHistoryInput({count:true,endDate:'20260908'}).ok,baseDate:v.input?.baseDate,nativeKinds:kinds.kinds?.map(x=>x.code)}));"
   ], temporary);
   const capability = parseJson(inspection, "installed client inspection");
   if (!capability.exports || !capability.methods || !capability.valid || capability.baseDate !== "2026-08-20" || capability.nativeKinds?.[0] !== "10" || !capability.nativeKinds.includes("80")) {

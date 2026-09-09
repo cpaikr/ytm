@@ -54,8 +54,8 @@ boundaries live in [`ARCHITECTURE.md`](ARCHITECTURE.md).
 
 ## Multi-date history
 
-`history` accepts exactly one selection: a nonempty `baseDates` list or both
-`startDate` and `endDate` for an inclusive calendar range. Dates use the matrix
+`history` accepts a fixed selection (a nonempty `baseDates` list or both
+`startDate` and `endDate` for an inclusive calendar range) or the count selection below. Fixed dates use the matrix
 formats, normalize, sort ascending, and deduplicate. The bound is 2,000 raw list
 entries before deduplication or 2,000 inclusive range days. Reversed, incomplete,
 mixed, oversized, or unknown inputs fail before source I/O. History accepts no
@@ -80,9 +80,55 @@ pricing groups. An entry tagged `availability: "available"` contains a complete
 `matrix` with requested, attempted, and actual dates and source provenance.
 An `unavailable` entry carries `requestedBaseDate`, `kind`, `attemptedDates`,
 `mode`, `lookbackDays`, `reason`, and final `stage` (`discovery` or `matrix`).
-Unavailable pairs, including an entirely unavailable selection, are a successful
+For fixed selections, unavailable pairs, including an entirely unavailable selection, are a successful
 result and CLI exit 0. Requested dates remain distinct even when they resolve
 to the same observation; output order is date, catalog kind, then source row.
+
+### Count selection
+
+`history({ count: 180, endDate: "2026-09-08" })` selects the latest 180 distinct
+dates containing at least one numeric normalized yield anywhere in the full
+history data. Rust uses `HistoryInput::new(CountSelection::new(count, end, start)?)`;
+Node uses camelCase inputs and Python sync/async use `count`, `end_date`, and
+optional `start_date`. CLI uses `--count 180 --end-date 2026-09-08` with optional
+`--start-date`. An explicit inclusive end is required; no today default exists.
+
+Count is an integer from 1 through 2,000. Count cannot be combined with
+`baseDates`, previous-available fallback, or any `lookbackDays`. Omitted or
+explicit `exact` fallback is accepted. Invalid types (including booleans,
+fractions, strings, and overflow), dates, reversed bounds, duplicate count
+flags, and explicit ranges over 2,000 inclusive calendar days fail before source
+I/O (CLI exit 2). Without a start date, inspect at most 2,000 calendar dates,
+stopping at year-zero's first day if reached sooner. A supplied start is a hard
+inclusive boundary.
+
+Inspect candidates backward, finishing discovery and every category before
+qualifying a date. Zero and negative yields count; empty discovery, empty
+matrices, and null-only rows do not. Preserve every outcome of a qualifying day,
+including unavailable categories, missing tenors, and source provenance. No
+calendar, filling, or fallback supplies missing values. Individual series need
+not have `count` numeric observations. Stop immediately after the Nth complete
+qualifying day and return whole days oldest first, retaining category and row
+order. Requested and actual dates coincide and `usedFallback` is false.
+
+Success guarantees `requestedDates.length === count`; `requestedDates`,
+`discovery`, and `entries` contain only selected dates. Pair and row counters
+retain their meanings. Count results add `countSelection`: `count`, normalized
+`endDate`, optional user-supplied `startDate`, `scannedStartDate`, and
+`scannedDateCount`. The contiguous inclusive scan and selected dates identify
+skipped dates. Fixed results omit this object.
+
+Exhaustion raises `insufficient_history`, including when no dates qualify. Its
+`expected` is `{ "count": N }`; `actual` contains `foundCount`,
+`scannedStartDate`, `scannedEndDate`, `scannedDateCount`, and `stopReason`
+(`start_boundary`, `search_limit`, or `date_floor`). Recovery guidance suggests
+adjusting the count or relevant boundary. Node raises `YtmError` named
+`InsufficientHistoryError`; Python raises `InsufficientHistoryError`. CLI exits
+1 and publishes no partial result or export, preserving an existing destination
+even with overwrite. Source and cancellation failures retain their identities;
+a later-category failure still aborts an otherwise qualifying final day.
+
+### Export and progress
 
 CLI CSV/TSV use the matrix identity and tenor columns followed by `availability`
 and `reason`. An unavailable pair produces one row with empty actual-date,
@@ -131,6 +177,7 @@ The standalone Rust CLI is:
 ```sh
 ytm --version
 ytm history (--base-date <date>... | --start-date <date> --end-date <date>) [--fallback previous-available] [--lookback-days <days>] [--format json|csv|tsv|xlsx] [--output <file.xlsx>] [--overwrite] [--pretty]
+ytm history --end-date <date> --count <1..2000> [--start-date <date>] [--format json|csv|tsv|xlsx] [--output <file.xlsx>] [--overwrite] [--pretty]
 ytm matrix --base-date <기준일> --kind <종류> [--fallback previous-available] [--lookback-days <days>] [--format json|csv|tsv|xlsx] [--output <file.xlsx>] [--overwrite] [--pretty]
 ytm kinds [--base-date <기준일>] [--format json|csv|tsv|xlsx] [--output <file.xlsx>] [--overwrite] [--pretty]
 ytm upgrade [--check]
@@ -278,9 +325,15 @@ per date/kind pair with `requestedBaseDate`, `kindCode`, `kindName`,
 `discoveryAvailable`. `Metadata` records normalized requested dates, discovery
 outcomes, mode, lookback, aggregate counts, each pair's attempted dates, and
 available observations' source provenance. History metadata values are literal
-text. A wholly unavailable history still publishes headers, availability, and
+text. A wholly unavailable fixed selection still publishes headers, availability, and
 metadata. Its receipt adds `availableCount`, `unavailableCount`, and
-`dataRowCount`; `rowCount` counts only `History` data rows.
+`dataRowCount`; `rowCount` counts only `History` data rows. Count workbooks cover
+only selected dates. Their Metadata adds `selectedDateCount` and each
+`countSelection.<field>` above; the JSON receipt adds `selectedDateCount` and
+`countSelection`. Ordinary receipts are unchanged. CSV/TSV columns are unchanged
+and retain unavailable-category rows within selected dates. Progress reports
+started discovery/fetch requests, not qualified dates; it remains on interactive
+stderr only.
 
 The CLI renders a complete buffer, writes and syncs a private staging file
 beside the destination, closes its handle, and publishes it. Without

@@ -290,6 +290,40 @@ impl YtmError {
         })
     }
 
+    pub(crate) fn insufficient_history(
+        count: usize,
+        found: usize,
+        start: BaseDate,
+        end: BaseDate,
+        scanned: usize,
+        reason: &str,
+    ) -> Self {
+        let mut error = Self::invalid_parameter(
+            "history",
+            "count",
+            "Not enough distinct dates containing numeric yields within the search boundary.",
+            serde_json::json!({
+                "foundCount": found, "scannedStartDate": start, "scannedEndDate": end,
+                "scannedDateCount": scanned, "stopReason": reason
+            }),
+        );
+        error.details.code = "insufficient_history";
+        error.details.expected = Some(serde_json::json!({"count": count}));
+        error.details.recovery_action = "adjust_history_selection";
+        let limit = crate::MAX_HISTORY_DATES;
+        error.details.recovery_hint = match reason {
+            "start_boundary" => format!(
+                "Lower count or move startDate earlier within the {limit}-day search limit."
+            ),
+            "search_limit" => format!(
+                "Lower count or choose an endDate whose prior {limit} days contain more data."
+            ),
+            _ => "Lower count or choose a later endDate; the calendar date floor was reached."
+                .to_owned(),
+        };
+        error
+    }
+
     pub fn defect() -> Self {
         Self::defect_with_reason("The native ytm core encountered an internal defect.")
     }

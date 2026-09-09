@@ -90,7 +90,10 @@ History is a core operation, not an adapter loop over `matrix`. The core
 normalizes the bounded date selection, discovers each requested date's catalog,
 and resolves every date/kind pair sequentially. Invocation-local caches share
 confirmed dated catalogs and date/kind observations across overlapping fallback
-windows and evict observations outside future windows. They never persist data
+windows and evict observations outside future windows. Count selection uses the
+same full-day retrieval with a backward exact scan, qualifies dates by numeric
+yields, and drops each candidate's cache before moving earlier. Only accepted
+days survive, then whole day groups are ordered ascending. They never persist data
 or convert operational failures into absence. Result entries preserve each
 requested pair even when observations are reused. The [history contract](SPEC.md#multi-date-history)
 owns selection limits, availability, ordering, and fallback semantics.

@@ -18,7 +18,12 @@ assert!(result.kinds.iter().any(|kind| kind.code == "80"));
 Use `DateSelection::dates(Vec<BaseDate>)` or `DateSelection::range(start, end)`
 to construct a validated selection, then call
 `client.history(HistoryInput::new(selection)).await`. The default is exact;
-set `HistoryInput.fallback` for bounded previous-available resolution. The
+set `HistoryInput.fallback` for bounded previous-available resolution of fixed dates.
+`HistoryInput::new(CountSelection::new(180, end, None)?)` requests the latest
+180 dates containing numeric yields. Count mode requires exact fallback,
+allows an optional inclusive start, and reports `insufficient_history` when
+its bounded search cannot meet the count. `DateSelection::as_dates()` remains
+available only for fixed dates; `HistorySelection` distinguishes the two forms. The
 [history contract](../../SPEC.md#multi-date-history) defines the 2,000-date
 bound, all-category coverage, and available/unavailable result entries.
 

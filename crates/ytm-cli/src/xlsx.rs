@@ -379,6 +379,29 @@ fn history_metadata(result: &ytm_core::HistoryResult) -> Table {
         entry("unavailableCount", result.unavailable_count.to_string()),
         entry("dataRowCount", result.data_row_count.to_string()),
     ];
+    if let Some(selection) = &result.count_selection {
+        rows[1] = entry("selection", "latest dates containing numeric yields");
+        rows.push(entry(
+            "selectedDateCount",
+            result.requested_dates.len().to_string(),
+        ));
+        rows.push(entry("countSelection.count", selection.count.to_string()));
+        rows.push(entry(
+            "countSelection.endDate",
+            selection.end_date.to_string(),
+        ));
+        if let Some(start) = selection.start_date {
+            rows.push(entry("countSelection.startDate", start.to_string()));
+        }
+        rows.push(entry(
+            "countSelection.scannedStartDate",
+            selection.scanned_start_date.to_string(),
+        ));
+        rows.push(entry(
+            "countSelection.scannedDateCount",
+            selection.scanned_date_count.to_string(),
+        ));
+    }
     for (index, discovery) in result.discovery.iter().enumerate() {
         rows.push(entry(
             &format!("requestedDates[{index}]"),
@@ -506,6 +529,7 @@ mod tests {
         let token = ytm_core::CancellationToken::new();
         token.cancel();
         let result = OperationResult::History(ytm_core::HistoryResult {
+            count_selection: None,
             requested_dates: vec![],
             discovery: vec![],
             entries: vec![],

@@ -12,10 +12,13 @@ from concurrent.futures import ThreadPoolExecutor
 
 def child(scenario, mode):
     from kisnet_ytm import (
-        AsyncClient, Client, ClientStateError, DefectError, InvalidParameterError,
+        AsyncClient, Client, ClientStateError, DefectError, InvalidParameterError, InsufficientHistoryError,
         RequestCancelledError, SourceDataUnavailableError, SourceFormatError,
         SourceProtocolError, SourceTransportError,
     )
+    count_lifecycle = scenario.startswith("count-")
+    if count_lifecycle:
+        scenario = "history-" + scenario.removeprefix("count-")
     history_lifecycle = scenario.startswith("history-")
     if history_lifecycle:
         scenario = scenario.removeprefix("history-")
@@ -37,7 +40,7 @@ def child(scenario, mode):
         async def call(operation=None, **kwargs):
             operation = operation or ("history" if history_lifecycle else "matrix")
             if operation == "history" and not kwargs:
-                kwargs = dict(base_dates=["20260608"])
+                kwargs = dict(count=1, end_date="20260608") if count_lifecycle else dict(base_dates=["20260608"])
             if operation == "matrix":
                 kwargs = dict(base_date="2026-06-08", kind=10) | kwargs
             value = getattr(client, operation)(**kwargs)
@@ -52,7 +55,45 @@ def child(scenario, mode):
             assert time.monotonic() - before < 2, "close did not promptly drain work"
 
         try:
-            if scenario in ("history", "history_empty", "history_fallback"):
+            if scenario == "count":
+                from dataclasses import FrozenInstanceError
+                result = await call("history", count=2, end_date="20260610")
+                assert result.requested_dates == ("2026-06-08", "2026-06-09")
+                assert result.available_count == 16 and len(requests()) == 19
+                assert result.count_selection.count == 2
+                assert result.count_selection.end_date == "2026-06-10"
+                assert result.count_selection.start_date is None
+                assert result.count_selection.scanned_start_date == "2026-06-08"
+                assert result.count_selection.scanned_date_count == 3
+                assert all(not entry.matrix.date_resolution.used_fallback for entry in result.entries)
+                try:
+                    result.count_selection.count = 3
+                    raise AssertionError("mutable count metadata")
+                except FrozenInstanceError:
+                    pass
+            elif scenario == "count_shortfall":
+                try:
+                    await call("history", count=2, end_date="20260609", start_date="20260608")
+                    raise AssertionError("short count succeeded")
+                except InsufficientHistoryError as error:
+                    assert error.code == "insufficient_history"
+                    assert error.details["actual"]["foundCount"] == 1
+                    assert error.details["actual"]["scannedDateCount"] == 2
+                    assert len(requests()) == 10
+            elif scenario == "count_invalid":
+                for kwargs in [dict(count=n,end_date="20260608") for n in (0,-1,2001,True,1.5,"1",10**5000)] + [
+                    dict(count=1), dict(count=1,end_date="20260608",base_dates=["20260608"]),
+                    dict(count=1,end_date="20260608",fallback="previous-available"),
+                    dict(count=1,end_date="20260608",lookback_days=1),
+                    dict(count=1,end_date="20260608",start_date="20260609"),
+                ]:
+                    try:
+                        await call("history", **kwargs)
+                        raise AssertionError("invalid count accepted")
+                    except InvalidParameterError:
+                        pass
+                assert not requests()
+            elif scenario in ("history", "history_empty", "history_fallback"):
                 from dataclasses import FrozenInstanceError
                 kwargs = dict(base_dates=["20260608", "2026.06.09", "2026-06-08"])
                 if scenario == "history_fallback":
@@ -152,7 +193,11 @@ def child(scenario, mode):
             elif scenario in ("cancel", "close_active", "cancel_close"):
                 if mode == "sync":
                     with ThreadPoolExecutor() as pool:
-                        active = pool.submit(client.matrix, base_date="2026-06-08", kind=10)
+                        if history_lifecycle:
+                            kwargs = dict(count=1, end_date="20260608") if count_lifecycle else dict(base_dates=["20260608"])
+                            active = pool.submit(client.history, **kwargs)
+                        else:
+                            active = pool.submit(client.matrix, base_date="2026-06-08", kind=10)
                         await started()  # also proves run_sync releases the GIL
                         before = time.monotonic()
                         client.close()
@@ -244,6 +289,12 @@ def main():
     init = {"fixture": "init-success.xml"}
     full = [init] + [{"fixture": "matrix-success.xml"}] * 8
     scenarios |= {
+        "count": [{"fixture":"matrix-unavailable.xml"}] + full * 2,
+        "count_shortfall": [{"fixture":"matrix-unavailable.xml"}] + full,
+        "count_invalid": [],
+        "count-cancel": [{"waitForCancellation": True}],
+        "count-close_active": [{"waitForCancellation": True}],
+        "count-cancel_close": [{"waitForCancellation": True}],
         "history_invalid": [],
         "history": full * 2,
         "history_empty": [{"fixture": "matrix-unavailable.xml"}] * 2,
@@ -256,7 +307,7 @@ def main():
     with tempfile.TemporaryDirectory(prefix="ytm-python-behavior-") as temporary:
         for mode in ("sync", "async"):
             for scenario, steps in scenarios.items():
-                if mode == "sync" and scenario in ("cancel", "cancel_close", "history-cancel", "history-cancel_close"):
+                if mode == "sync" and scenario in ("cancel", "cancel_close", "history-cancel", "history-cancel_close", "count-cancel", "count-cancel_close"):
                     continue
                 capture = Path(temporary) / f"{mode}-{scenario}.json"
                 env = os.environ | {

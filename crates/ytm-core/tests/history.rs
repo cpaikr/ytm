@@ -288,3 +288,135 @@ fn full_date_limit_is_constructible() {
     .unwrap();
     assert_eq!(dates.as_dates().len(), 2000);
 }
+
+fn count_input(count: usize, end: &str, start: Option<&str>) -> HistoryInput {
+    HistoryInput::new(
+        ytm_core::CountSelection::new(
+            count,
+            end.parse().unwrap(),
+            start.map(|d| d.parse().unwrap()),
+        )
+        .unwrap(),
+    )
+}
+
+#[tokio::test]
+async fn count_180_stops_at_target_and_orders_whole_dates() {
+    let transport = Synthetic::default();
+    let requests = transport.requests.clone();
+    let result = YtmClient::with_transport(transport)
+        .history(count_input(180, "2026-06-29", None))
+        .await
+        .unwrap();
+    assert_eq!(result.requested_dates.len(), 180);
+    assert_eq!(result.requested_dates[0].to_string(), "2026-01-01");
+    assert_eq!(result.requested_dates[179].to_string(), "2026-06-29");
+    assert!(result.requested_dates.windows(2).all(|d| d[0] < d[1]));
+    assert_eq!(requests.lock().unwrap().len(), 180 * 10);
+    assert_eq!(result.available_count, 180 * 9);
+    for day in result.entries.chunks(9) {
+        assert_eq!(
+            day.iter()
+                .map(|e| match e {
+                    HistoryEntry::Available { matrix } => {
+                        assert!(!matrix.date_resolution.used_fallback);
+                        assert_eq!(matrix.base_date, matrix.requested_base_date);
+                        matrix.kind.code.as_str()
+                    }
+                    _ => panic!("numeric fixture"),
+                })
+                .collect::<Vec<_>>(),
+            ["10", "20", "30", "40", "50", "60", "70", "80", "90"]
+        );
+    }
+    assert_eq!(result.count_selection.unwrap().scanned_date_count, 180);
+}
+
+#[tokio::test]
+async fn count_shortfalls_report_boundaries_and_preserve_fatal_errors() {
+    for (end, start, scanned, stop) in [
+        ("2024-03-01", Some("2024-02-28"), 3, "start_boundary"),
+        ("2026-06-08", None, 2000, "search_limit"),
+        ("0000-01-02", None, 2, "date_floor"),
+    ] {
+        let transport = Synthetic {
+            empty_discovery: true,
+            ..Default::default()
+        };
+        let requests = transport.requests.clone();
+        let error = YtmClient::with_transport(transport)
+            .history(count_input(1, end, start))
+            .await
+            .unwrap_err();
+        assert_eq!(error.details.code, "insufficient_history");
+        let actual = error.details.actual.unwrap();
+        assert_eq!(actual["foundCount"], 0);
+        assert_eq!(actual["scannedDateCount"], scanned);
+        assert_eq!(actual["stopReason"], stop);
+        assert_eq!(requests.lock().unwrap().len(), scanned as usize);
+    }
+    let error = YtmClient::with_transport(Synthetic {
+        fatal: true,
+        ..Default::default()
+    })
+    .history(count_input(1, "2026-06-08", None))
+    .await
+    .unwrap_err();
+    assert_eq!(error.details.code, "source_protocol_error");
+    assert_eq!(error.details.actual.unwrap()["kind"]["code"], "20");
+}
+
+#[test]
+fn count_validation_is_exact_and_bounded() {
+    for value in [
+        serde_json::json!({"count":1}),
+        serde_json::json!({"count":0,"endDate":"20260608"}),
+        serde_json::json!({"count":2001,"endDate":"20260608"}),
+        serde_json::json!({"count":1,"endDate":"20260608","baseDates":["20260608"]}),
+        serde_json::json!({"count":1,"endDate":"20260608","fallback":"previous-available"}),
+        serde_json::json!({"count":1,"endDate":"20260608","lookbackDays":1}),
+        serde_json::json!({"count":1,"endDate":"20260608","startDate":"20260609"}),
+        serde_json::json!({"count":1,"endDate":"20260608","startDate":"20200101"}),
+    ] {
+        assert!(
+            HistoryInput::try_from(serde_json::from_value::<HistoryRequest>(value).unwrap())
+                .is_err()
+        );
+    }
+    for count in [
+        serde_json::json!(true),
+        serde_json::json!(1.5),
+        serde_json::json!(-1),
+        serde_json::json!("1"),
+        serde_json::json!(1e40),
+    ] {
+        assert!(serde_json::from_value::<HistoryRequest>(
+            serde_json::json!({"count":count,"endDate":"20260608"})
+        )
+        .is_err());
+    }
+}
+
+#[tokio::test]
+async fn count_accepts_the_last_candidate_and_rejects_rust_fallback_before_io() {
+    let transport = Synthetic {
+        fallback: true,
+        ..Default::default()
+    };
+    let requests = transport.requests.clone();
+    let client = YtmClient::with_transport(transport);
+    let mut invalid = count_input(1, "2026-06-08", None);
+    invalid.fallback = FallbackPolicy::PreviousAvailable(LookbackDays::default());
+    assert_eq!(
+        client.history(invalid).await.unwrap_err().details.code,
+        "invalid_parameter"
+    );
+    assert!(requests.lock().unwrap().is_empty());
+    let result = client
+        .history(count_input(1, "2031-11-28", None))
+        .await
+        .unwrap();
+    assert_eq!(result.requested_dates, ["2026-06-08".parse().unwrap()]);
+    assert_eq!(result.count_selection.unwrap().scanned_date_count, 2000);
+    assert_eq!(requests.lock().unwrap().len(), 2000 * 10);
+}

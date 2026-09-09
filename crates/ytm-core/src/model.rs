@@ -226,6 +226,8 @@ pub struct Capabilities {
     pub default_lookback_days: u8,
     pub max_lookback_days: u8,
     pub max_history_dates: usize,
+    pub max_history_count: usize,
+    pub max_history_scan_days: usize,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -361,6 +363,8 @@ impl Capabilities {
             default_lookback_days: DEFAULT_LOOKBACK_DAYS,
             max_lookback_days: MAX_LOOKBACK_DAYS,
             max_history_dates: MAX_HISTORY_DATES,
+            max_history_count: MAX_HISTORY_DATES,
+            max_history_scan_days: MAX_HISTORY_DATES,
         }
     }
 }
@@ -446,17 +450,74 @@ impl DateSelection {
     }
 }
 
+/// Validated backward search for distinct dates containing numeric yields.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CountSelection {
+    count: usize,
+    end_date: BaseDate,
+    start_date: Option<BaseDate>,
+}
+
+impl CountSelection {
+    pub fn new(
+        count: usize,
+        end_date: BaseDate,
+        start_date: Option<BaseDate>,
+    ) -> Result<Self, InputError> {
+        if !(1..=MAX_HISTORY_DATES).contains(&count) {
+            return Err(InputError::InvalidDateSelection);
+        }
+        if let Some(start) = start_date {
+            let days = (end_date.0 - start.0).num_days();
+            if !(0..MAX_HISTORY_DATES as i64).contains(&days) {
+                return Err(InputError::InvalidDateSelection);
+            }
+        }
+        Ok(Self {
+            count,
+            end_date,
+            start_date,
+        })
+    }
+    pub fn count(&self) -> usize {
+        self.count
+    }
+    pub fn end_date(&self) -> BaseDate {
+        self.end_date
+    }
+    pub fn start_date(&self) -> Option<BaseDate> {
+        self.start_date
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum HistorySelection {
+    Dates(DateSelection),
+    Count(CountSelection),
+}
+
+impl From<DateSelection> for HistorySelection {
+    fn from(value: DateSelection) -> Self {
+        Self::Dates(value)
+    }
+}
+impl From<CountSelection> for HistorySelection {
+    fn from(value: CountSelection) -> Self {
+        Self::Count(value)
+    }
+}
+
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct HistoryInput {
-    pub selection: DateSelection,
+    pub selection: HistorySelection,
     pub fallback: FallbackPolicy,
 }
 
 impl HistoryInput {
-    pub fn new(selection: DateSelection) -> Self {
+    pub fn new(selection: impl Into<HistorySelection>) -> Self {
         Self {
-            selection,
+            selection: selection.into(),
             fallback: FallbackPolicy::Exact,
         }
     }
@@ -466,6 +527,7 @@ impl HistoryInput {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct HistoryRequest {
+    pub count: Option<usize>,
     pub base_dates: Option<Vec<String>>,
     pub start_date: Option<String>,
     pub end_date: Option<String>,
@@ -489,16 +551,35 @@ impl TryFrom<HistoryRequest> for HistoryInput {
                 .parse::<BaseDate>()
                 .map_err(|e| invalid("dates", e.to_string()))
         };
-        let selection = match (input.base_dates, input.start_date, input.end_date) {
-            (Some(values), None, None)
-                if !values.is_empty() && values.len() <= MAX_HISTORY_DATES =>
+        let selection = if let Some(count) = input.count {
+            if input.base_dates.is_some()
+                || input.end_date.is_none()
+                || input.lookback_days.is_some()
+                || !matches!(input.fallback.as_deref(), None | Some("exact"))
             {
-                DateSelection::dates(values.into_iter().map(parse).collect::<Result<_, _>>()?)
+                return Err(invalid("count", "Count requires endDate, optional startDate, exact fallback, and no baseDates or lookbackDays.".into()));
             }
-            (None, Some(start), Some(end)) => DateSelection::range(parse(start)?, parse(end)?),
-            _ => Err(InputError::InvalidDateSelection),
-        }
-        .map_err(|e| invalid("dates", e.to_string()))?;
+            HistorySelection::Count(
+                CountSelection::new(
+                    count,
+                    parse(input.end_date.unwrap())?,
+                    input.start_date.map(parse).transpose()?,
+                )
+                .map_err(|e| invalid("count", e.to_string()))?,
+            )
+        } else {
+            let dates = match (input.base_dates, input.start_date, input.end_date) {
+                (Some(values), None, None)
+                    if !values.is_empty() && values.len() <= MAX_HISTORY_DATES =>
+                {
+                    DateSelection::dates(values.into_iter().map(parse).collect::<Result<_, _>>()?)
+                }
+                (None, Some(start), Some(end)) => DateSelection::range(parse(start)?, parse(end)?),
+                _ => Err(InputError::InvalidDateSelection),
+            }
+            .map_err(|e| invalid("dates", e.to_string()))?;
+            HistorySelection::Dates(dates)
+        };
         let fallback = match (input.fallback.as_deref(), input.lookback_days) {
             (None | Some("exact"), None) => FallbackPolicy::Exact,
             (Some("previous-available"), days) => FallbackPolicy::PreviousAvailable(
@@ -562,6 +643,8 @@ pub enum UnavailableStage {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HistoryResult {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub count_selection: Option<CountSelectionMetadata>,
     pub requested_dates: Vec<BaseDate>,
     pub discovery: Vec<HistoryDiscovery>,
     pub entries: Vec<HistoryEntry>,
@@ -570,4 +653,15 @@ pub struct HistoryResult {
     pub data_row_count: usize,
     pub mode: FallbackMode,
     pub lookback_days: u8,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CountSelectionMetadata {
+    pub count: usize,
+    pub end_date: BaseDate,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub start_date: Option<BaseDate>,
+    pub scanned_start_date: BaseDate,
+    pub scanned_date_count: usize,
 }
