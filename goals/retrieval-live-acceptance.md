@@ -24,14 +24,19 @@ _None._
 ## Execution status
 
 ### Completed included results
-_None._
+- Release-mode macOS ARM64 candidate built without default/judge features; PR #46 and validation fixes are ancestors.
+- Checker validated with synthetic full success and all required rejection categories, including optimized Python. Independent bounded review is clean after canonical-name validation was added.
+- Provider preflight: no new withdrawal condition recorded in open issues or policy; recent scheduled smokes succeeded. Existing production-qualification unknowns remain unchanged under explicit one-off owner authority.
 
 ### Current in-scope result
-Identify the candidate and validate the sanitized acceptance checker offline.
+Execute the single authorized full live assessment.
 
 ### Next in-scope action
-Check provider withdrawal conditions, build the release candidate, and prepare the checker before the single live invocation.
+Invoke the exact release binary once through the checker. The exclusive target/retrieval-live-acceptance.json reservation consumes this attempt; never rerun after a reservation or uncertain outcome.
 
 ### Evidence and blockers
 - Candidate preparation, checker validation and one live assessment are included by the contract. Review, evidence reconciliation and no-PR commits are necessary delivery work.
 - Existing in-scope ROADMAP.md and plan edits are preserved. Working branch: main; no PR, release or production enablement is authorized.
+
+- Release fixture guard passed with PYO3_PYTHON=/opt/homebrew/bin/python3.13 after the system Python 3.9 failed its minimum-version preflight.
+- Public discovery exposes no live-only catalog list. Category completeness relies on observed canonical coverage plus inspected core enumeration and existing deterministic full-count tests, not an additional provider discovery run.

@@ -2,15 +2,14 @@
 
 ## Current
 
-None.
+[Resilient historical retrieval](plans/resilient-history-retrieval.md):
+one authorized full live assessment in preparation.
 
 ## Plans
 
-1. [Resilient historical retrieval](plans/resilient-history-retrieval.md):
-   offline implementation merged; full live acceptance pending, unstarted.
-2. [Windows installation visibility](plans/windows-installation-visibility.md):
+1. [Windows installation visibility](plans/windows-installation-visibility.md):
    implementation complete; independent Windows consumer validation remains open.
-3. [CLI release migration](plans/release-delivery.md)
+2. [CLI release migration](plans/release-delivery.md)
 
 ## Tasks
 

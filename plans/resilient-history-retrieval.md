@@ -25,13 +25,15 @@ Implementation `11d534f` and validation follow-up `51bfca4` are preserved.
   passed. Windows acceptance passed after correcting a platform-specific
   overflow assumption in the test harness. Independent reviews, Codex review,
   CodeRabbit feedback resolution and documentation reconciliation are complete.
-- Full 180-observation live acceptance remains pending and unstarted. Issue #45
+- Full 180-observation live acceptance is in preparation under the active
+  [assessment goal](../goals/retrieval-live-acceptance.md); no live attempt has started. Issue #45
   stays open. No provider throughput or release publication claim is made.
 
 ## Next action
 
-Await separate authorization for the bounded live acceptance milestone below.
-It is queued project work, outside the completed offline goal. Release
+Prepare the identified candidate and offline-validated checker, then execute
+the one-off live assessment authorized by the owner on 2026-09-10. The live milestone
+is current; the prior offline goal stays complete. Release
 publication remains pending and requires separate authorization.
 
 ## Target behavior and decisions
@@ -137,30 +139,59 @@ explicitly pending until its own evidence exists.
 
 ### Record bounded live acceptance separately
 
-- [ ] Confirm provider access is suitable under the existing operating boundary;
-  do not infer bulk/live authorization from this planning request or synthetic
-  success. Resolve any remaining owner condition before the long run.
-- [ ] Perform one bounded run of
-  `ytm history --end-date 2023-06-30 --count 180 --format json` using an identified
-  candidate binary and the documented deadline. Prefer Windows x64/PowerShell 7
-  to match the incident; distinguish another host's evidence explicitly.
-- [ ] Stream output into an in-memory acceptance checker. Check 180 unique
-  ascending selected dates, end-date bounds, complete category processing,
-  unchanged source identity, and numeric-date qualification. Do not write raw
-  responses, rows, yields, or all-category JSON into the evidence record.
-- [ ] Record commit, version, binary hash, platform, start/end/duration, selected
-  and scanned counts, configured limits, and sanitized failure/retry context
-  where available. Silent successful retries need no new public telemetry API;
-  deterministic tests establish replay correctness.
-- [ ] On provider failure, record the terminal context and leave full live
-  acceptance incomplete. Do not automatically repeat the long run, loosen data
-  rules, or substitute a short smoke as acceptance evidence.
+This is the remaining acceptance criterion for issue #45. On 2026-09-10 the
+owner explicitly authorized the next goal to perform one sequential
+180-observation live run with a 30-minute retrieval deadline, retain only
+sanitized evidence, and close #45 only if all acceptance checks pass. This is
+one-off test authorization under the [provider operating policy](../docs/provider-qualification.md);
+it does not authorize repeat runs or production enablement.
 
-Exit: record either full reproduction success or an explicit remaining live
-blocker. A downstream live-to-frozen comparison requires the downstream owner
-and remains distinct from this repository's retrieval acceptance. Installation,
-publication, and release tagging follow separate authorization and the existing
-[release runbook](../docs/release.md); this plan does not start them automatically.
+- [x] Record the owner's one-off run and conditional issue-closure authorization.
+- [ ] Confirm no provider-policy withdrawal condition applies before live I/O.
+  Stop and record the blocker if one applies; protocol success cannot override it.
+- [ ] Identify a release-mode candidate containing PR #46 and its validation
+  fixes. Record source commit, reported version, executable SHA-256, platform
+  and shell; version alone is insufficient. Build without judge features or
+  routing overrides and invoke the exact binary path. Prefer Windows
+  x64/PowerShell 7 to match the incident; explicitly identify any other host.
+  No public release, tag, or installed-binary replacement is required.
+- [ ] Prepare an in-memory checker for the public CLI envelope. Validate it
+  offline with synthetic full-count success and rejection cases for shortened
+  samples, duplicate/out-of-order dates, missing category processing, invalid
+  numeric qualification, source drift, and malformed/error output. The checker
+  must never print or persist raw stdout, rows, yields, or request/response
+  bodies, including on exceptions.
+- [ ] Run the identified candidate once with
+  `history --end-date 2023-06-30 --count 180 --format json --operation-timeout-seconds 1800`.
+  Keep the implemented sequential retry policy and data-selection rules. Pipe
+  stdout directly to the checker; collect only sanitized process/error metadata.
+  Do not automatically repeat the run or increase the budget after failure.
+- [ ] Require exit 0, one successful JSON envelope, exactly 180 unique ascending
+  selected dates no later than the requested end date, complete category
+  processing under the existing catalog contract, unchanged source identity,
+  and numeric-date qualification under SPEC.md. Ordinary unavailable pairs
+  remain valid only under the existing result contract; they cannot excuse a
+  missing category, shortened sample, or suppressed operational failure.
+- [ ] Record the result in `docs/history-retrieval-live-acceptance.md`: candidate
+  identity, authorization reference, platform/shell, UTC start/end and elapsed
+  time, configured deadline, requested/selected/scanned counts, each acceptance
+  check's outcome, and sanitized terminal date/category/status/cause/retry
+  context if present. Do not invent successful-retry counts that the public
+  interface does not expose. Retain no live payloads or yield rows.
+- [ ] Review checker changes and evidence, run applicable offline checks, and
+  reconcile this plan and issue #45. On verified success, check the remaining
+  issue criterion, link the durable evidence and candidate, and close the
+  issue as completed. On provider, deadline, checker, or product failure, keep
+  the criterion unchecked and issue open with the precise blocker and next
+  decision. Recording a failed run completes an investigation checkpoint, not
+  issue acceptance; remediation or another provider run needs its own scope
+  and authorization before execution.
+
+Exit: issue #45 closes only after a successful full run satisfies the checks
+above and its reviewed evidence is recorded. A short smoke, passing synthetic
+suite, published release, or a provider-caused failure cannot substitute.
+Downstream live-to-frozen comparison and release publication are separate
+milestones and are not prerequisites for closing this upstream issue.
 
 ## Validation matrix
 
@@ -178,7 +209,7 @@ publication, and release tagging follow separate authorization and the existing
 | Public surfaces | Existing Rust custom transport, constructor-based error usage, and old call forms compile; updated error literals demonstrate the documented source migration. Node/Python options validate before I/O; defaults match; timeout and cancellation map consistently. |
 | CLI integrity | One valid JSON envelope, expected failure exit, bounded terminal-only progress, no new sensitive diagnostic fields, unchanged destination/no staging residue after exhaustion or timeout. |
 | Scale without provider load | Synthetic count-180 success and 2,000-date exhaustion retain expected logical request/selection bounds; retries add only deliberately injected physical attempts. |
-| Full live acceptance | One identified candidate completes the issue's 180-observation command under the documented budget, or the plan explicitly records it as incomplete. |
+| Full live acceptance | One identified candidate completes the issue's 180-observation command and all live checks; failure remains explicitly incomplete and cannot close the issue. |
 
 Use focused core/CLI/adapter tests while editing. Relevant existing entry points:
 
