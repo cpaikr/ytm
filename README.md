@@ -11,6 +11,78 @@ does not own or distribute the CLI.
 [`ROADMAP.md`](ROADMAP.md) records the remaining verification and decision
 boundaries.
 
+## Installation
+
+Install the standalone `ytm` binary from
+[GitHub Releases](https://github.com/cpaikr/ytm/releases/latest). No Rust, Node.js,
+Bun, or Python runtime is required.
+
+| Platform | Archive target |
+| --- | --- |
+| macOS ARM64 (Apple silicon) | `darwin-arm64` |
+| Linux x64 (glibc 2.28+) | `linux-x64-gnu` |
+| Linux ARM64 (glibc 2.28+) | `linux-arm64-gnu` |
+| Windows x64 | `windows-x64-msvc` |
+
+### macOS and Linux
+
+Use a POSIX shell with `curl`, `tar`, and either `sha256sum` or `shasum`:
+
+```sh
+ytm_installer="$(mktemp)"
+curl --fail --location --silent --show-error https://github.com/cpaikr/ytm/releases/latest/download/install.sh -o "$ytm_installer" &&
+  sh "$ytm_installer"
+rm -f "$ytm_installer"
+export PATH="$HOME/.local/bin:$PATH"
+ytm --version
+ytm --help
+```
+
+The default install directory is `~/.local/bin`. Add the `export PATH` line to
+your shell startup file (for example, `~/.zshrc` or `~/.bashrc`) for future
+terminals.
+
+### Windows
+
+Run in PowerShell:
+
+```powershell
+$ytmInstaller = Join-Path $env:TEMP 'ytm-install.ps1'
+Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/cpaikr/ytm/releases/latest/download/install.ps1' -OutFile $ytmInstaller
+powershell -NoProfile -ExecutionPolicy Bypass -File $ytmInstaller
+Remove-Item -LiteralPath $ytmInstaller
+$env:Path = "$env:LOCALAPPDATA\ytm\bin;$env:Path"
+ytm --version
+ytm --help
+```
+
+The default install directory is `%LOCALAPPDATA%\ytm\bin`. Add it to your user
+`Path` through Windows Environment Variables for future terminals.
+
+Both installers select the platform archive and verify its pinned SHA-256
+before installing. Set `YTM_INSTALL_DIR` before running the installer to choose
+another directory, and put that directory on PATH instead. For a specific
+release, replace `latest/download` in the installer URL with `download/vX.Y.Z`.
+
+### Upgrade
+
+Keep the adjacent `ytm.receipt` (Windows: `ytm.exe.receipt`) with the executable
+so the CLI can verify and manage the installation:
+
+```sh
+ytm upgrade --check
+ytm upgrade
+ytm --version
+```
+
+`--check` only checks availability. On Windows, replacement finishes in a
+background helper after the command exits; follow the reported status-file
+path to confirm completion before checking the new version. Fresh installers
+refuse to overwrite an existing executable or receipt. Manually extracted or
+locally built binaries are unmanaged; use the installer in a new directory to
+enable managed upgrades. See the [release runbook](docs/release.md) for integrity
+and recovery details.
+
 ## Run from this checkout
 
 Run the documented Rust SDK example:

@@ -174,8 +174,9 @@ at most 120 seconds for the exact parent process to exit, fails closed when
 identity cannot be confirmed, and atomically writes adjacent no-BOM UTF-8
 status states. Interrupted upgrades
 either restore the verified pair or retain fixed marker/`.previous` evidence;
-when recovery is required, the command reports the paths to inspect. The
-installation path becomes available when a verified CLI release is public.
+when recovery is required, the command reports the paths to inspect. See the
+[README installation guide](../README.md#installation) for published CLI
+installers, PATH setup, and upgrade commands.
 
 ## Visibility and recovery
 
