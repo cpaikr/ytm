@@ -12,11 +12,14 @@ have a different API.
 - `history(*, base_dates: list[str] | tuple[str, ...] | None = None,
   start_date: str | None = None, end_date: str | None = None,
   fallback: Literal["exact", "previous-available"] = "exact",
-  lookback_days: int | None = None, count: int | None = None)` returns `HistoryResult`.
+  lookback_days: int | None = None, count: int | None = None,
+  operation_timeout_seconds: int | None = None)` returns `HistoryResult`.
 - `matrix(*, base_date: str, kind: str | int, fallback: Literal["exact",
-  "previous-available"] = "exact", lookback_days: int | None = None)` returns
+  "previous-available"] = "exact", lookback_days: int | None = None,
+  operation_timeout_seconds: int | None = None)` returns
   `MatrixResult`.
-- `kinds(*, base_date: str | None = None)` returns `KindsResult`. Omitting the
+- `kinds(*, base_date: str | None = None,
+  operation_timeout_seconds: int | None = None)` returns `KindsResult`. Omitting the
   date returns the Rust-owned canonical catalog without network access.
 
 Arguments are keyword-only. Python checks call shapes (including rejecting
@@ -46,6 +49,15 @@ Confirmed unavailable pairs remain successful entries within selected dates; ope
 and cancellation abort the call. The shared [history contract](../../SPEC.md#multi-date-history)
 owns all-category targeting, fallback, ordering, and provenance semantics.
 
+`operation_timeout_seconds` is a positive integer representable by the core
+clock; booleans, fractions, non-finite values and overflow fail before source
+I/O. `None` uses the core's finite 30-minute default. The deadline starts after
+the per-client queue and covers retrieval, including retries, across all dates
+and categories. Expiry raises `SourceTransportError` with timeout/stop metadata
+and leaves the caller token and client usable. It is distinct from close or
+asyncio cancellation. See the [shared recovery contract](../../SPEC.md#bounded-retrieval-recovery)
+for compatibility and attempt policy.
+
 ## Ownership and cancellation
 
 Clients lazily own one Rust service and serialize calls per instance. Independent
@@ -74,7 +86,8 @@ All expected failures use `YtmError` subclasses: `InvalidParameterError`,
 `SourceTransportError`, `SourceProtocolError`, `SourceFormatError`,
 `SourceDataUnavailableError`, `InsufficientHistoryError`, `RequestCancelledError`, `ClientStateError`, and
 `DefectError`. Each exposes `code` and immutable `details` with safe core error
-metadata, including attempted dates and recovery fields when supplied. Error
+metadata, including attempted dates, recovery fields and the optional nested
+`retry` mapping (`attemptCount`, `maxAttempts`, `sourceOperation`, `stopReason`). Error
 messages never expose binding exceptions, panic payloads, or dependency errors.
 
 Unwinding Rust panics are translated to `DefectError` under the release unwind

@@ -47,6 +47,15 @@ def _shape(base_date: str | None, kind: str | int | None = None,
         raise InvalidParameterError("invalid_parameter", "Integer input exceeds the serialization limit.") from None
 
 
+def _timeout_payload(value: int | None) -> str | None:
+    if value is None:
+        return None
+    if type(value) is not int or not 0 < value <= 2**64 - 1:
+        raise InvalidParameterError("invalid_parameter", "operation_timeout_seconds must be a positive integer representable by the core clock.",
+                                    {"parameter": "operation_timeout_seconds"})
+    return json.dumps(value)
+
+
 def _decode(encoded: str) -> dict[str, Any]:
     envelope = json.loads(encoded)
     if not envelope["ok"]:
@@ -127,23 +136,24 @@ class Client:
         self._native = _native.NativeClient()
 
     def matrix(self, *, base_date: str, kind: str | int, fallback: Fallback = "exact",
-               lookback_days: int | None = None) -> MatrixResult:
+               lookback_days: int | None = None, operation_timeout_seconds: int | None = None) -> MatrixResult:
         """Retrieve a matrix, with an optional bounded previous-date search."""
-        return _matrix(self._run("matrix", _shape(base_date, kind, fallback, lookback_days, matrix=True)))
+        return _matrix(self._run("matrix", _shape(base_date, kind, fallback, lookback_days, matrix=True), operation_timeout_seconds))
 
     def history(self, *, base_dates: list[str] | tuple[str, ...] | None = None,
                       start_date: str | None = None, end_date: str | None = None,
-                      fallback: Fallback = "exact", lookback_days: int | None = None, count: int | None = None) -> HistoryResult:
+                      fallback: Fallback = "exact", lookback_days: int | None = None, count: int | None = None,
+                      operation_timeout_seconds: int | None = None) -> HistoryResult:
         """Retrieve all categories for fixed dates or the latest count of numeric dates."""
-        return _history(self._run("history", _history_shape(base_dates, start_date, end_date, fallback, lookback_days, count)))
+        return _history(self._run("history", _history_shape(base_dates, start_date, end_date, fallback, lookback_days, count), operation_timeout_seconds))
 
-    def kinds(self, *, base_date: str | None = None) -> KindsResult:
+    def kinds(self, *, base_date: str | None = None, operation_timeout_seconds: int | None = None) -> KindsResult:
         """Return the canonical catalog, or merge source discovery for a date."""
-        return _kinds(self._run("kinds", _shape(base_date)))
+        return _kinds(self._run("kinds", _shape(base_date), operation_timeout_seconds))
 
-    def _run(self, operation: str, payload: str) -> dict[str, Any]:
+    def _run(self, operation: str, payload: str, operation_timeout_seconds: int | None = None) -> dict[str, Any]:
         try:
-            encoded = self._native.run_sync(operation, payload)
+            encoded = self._native.run_sync(operation, payload, _timeout_payload(operation_timeout_seconds))
         except RuntimeError:
             raise DefectError("implementation_defect", "Native operation failed.") from None
         return _decode(encoded)
@@ -177,24 +187,25 @@ class AsyncClient:
             raise ClientStateError("wrong_event_loop", "Client belongs to another event loop.")
 
     async def matrix(self, *, base_date: str, kind: str | int, fallback: Fallback = "exact",
-                     lookback_days: int | None = None) -> MatrixResult:
+                     lookback_days: int | None = None, operation_timeout_seconds: int | None = None) -> MatrixResult:
         """Retrieve a matrix without blocking the event loop."""
-        return _matrix(await self._run("matrix", _shape(base_date, kind, fallback, lookback_days, matrix=True)))
+        return _matrix(await self._run("matrix", _shape(base_date, kind, fallback, lookback_days, matrix=True), operation_timeout_seconds))
 
     async def history(self, *, base_dates: list[str] | tuple[str, ...] | None = None,
                       start_date: str | None = None, end_date: str | None = None,
-                      fallback: Fallback = "exact", lookback_days: int | None = None, count: int | None = None) -> HistoryResult:
+                      fallback: Fallback = "exact", lookback_days: int | None = None, count: int | None = None,
+                      operation_timeout_seconds: int | None = None) -> HistoryResult:
         """Retrieve all categories for fixed dates or the latest count of numeric dates."""
-        return _history(await self._run("history", _history_shape(base_dates, start_date, end_date, fallback, lookback_days, count)))
+        return _history(await self._run("history", _history_shape(base_dates, start_date, end_date, fallback, lookback_days, count), operation_timeout_seconds))
 
-    async def kinds(self, *, base_date: str | None = None) -> KindsResult:
+    async def kinds(self, *, base_date: str | None = None, operation_timeout_seconds: int | None = None) -> KindsResult:
         """Return the canonical catalog, or merge source discovery for a date."""
-        return _kinds(await self._run("kinds", _shape(base_date)))
+        return _kinds(await self._run("kinds", _shape(base_date), operation_timeout_seconds))
 
-    async def _run(self, operation: str, payload: str) -> dict[str, Any]:
+    async def _run(self, operation: str, payload: str, operation_timeout_seconds: int | None = None) -> dict[str, Any]:
         self._check_loop()
         try:
-            encoded = await self._native.run_async(operation, payload)
+            encoded = await self._native.run_async(operation, payload, _timeout_payload(operation_timeout_seconds))
         except RuntimeError:
             raise DefectError("implementation_defect", "Native operation failed.") from None
         return _decode(encoded)

@@ -12,7 +12,12 @@ The root package export provides `YtmClient` with typed `history()`, `matrix()`,
 methods. `validateHistoryInput()`, `validateMatrixInput()`, and `validateKindsInput()` return
 `{ ok: true, input }` or `{ ok: false, error }` without network I/O;
 validation and execution errors expose stable `name` and `message` fields,
-project `code`/`reason`, and a tagged `recoveryAction`.
+project `code`/`reason`, a tagged `recoveryAction`, and optional typed `retry`
+metadata. All three methods accept `RequestOptions` with `signal` and positive
+safe-integer `operationTimeoutMs`. Input validation precedes execution-option
+validation; invalid options fail before source I/O. Omission uses the shared
+30-minute retrieval default. The [recovery contract](https://github.com/cpaikr/ytm/blob/main/SPEC.md#bounded-retrieval-recovery)
+owns the policy and compatibility implications.
 
 The package is the Rust-backed Node SDK and has no `bin` entry or JavaScript
 CLI. It mirrors public fallback-input validation but does not own HTTP, XML,

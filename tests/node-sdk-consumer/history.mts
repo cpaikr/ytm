@@ -39,3 +39,11 @@ void countFallback; void countMissingEnd; void countList;
 
 const shortfallCode: import("../../packages/node/dist/client.js").ErrorCode = "insufficient_history";
 void shortfallCode;
+
+const bounded = new YtmClient().history({ baseDates: ["2026-06-08"] }, { operationTimeoutMs: 60_000 });
+void bounded;
+
+function retryMetadata(error: import('../../packages/node/dist/client.js').SerializedError): string | undefined {
+  return error.retry?.stopReason;
+}
+void retryMetadata;

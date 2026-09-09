@@ -39,8 +39,9 @@ boundaries live in [`ARCHITECTURE.md`](ARCHITECTURE.md).
 - Previous-available resolution tries the requested date first, then earlier
   calendar dates in order, within a caller-bounded window of 1 through 31 prior
   days. The default window is 10.
-- Only confirmed empty source data advances fallback. Transport, protocol,
-  source-format, validation, and kind-resolution failures stop immediately.
+- Only confirmed empty source data advances fallback. Transport failures that
+  remain after bounded recovery, protocol, source-format, validation, and
+  kind-resolution failures stop the retrieval.
 - A successful matrix contains at least one row and records requested,
   attempted, and resolved dates.
 - Empty or exact `-` yield cells become `null`. Numeric yield cells may contain
@@ -51,6 +52,92 @@ boundaries live in [`ARCHITECTURE.md`](ARCHITECTURE.md).
   columns.
 - Source kinds, pricing groups, and unknown row columns remain open for source
   compatibility. Output tenor labels and order remain deterministic.
+
+## Bounded retrieval recovery
+
+The default core HTTP transport may replay only the two supported read-only
+lookups, at their exact source origin and paths. One physical lookup owns its
+attempts: it reuses the prepared operation, URL, headers, date/category and XML
+body, discards failed partial bodies, and never restarts a completed date or
+traversal prefix. Selection, values, source identity, caching of confirmed
+outcomes, and all-or-error publication are unchanged. Custom transports own
+their retry policy; the service does not retry them.
+
+The wire profile declares three total attempts (two retries), a 20-second
+per-attempt ceiling through decompressed body consumption, and full-jitter
+retry caps of 500 ms then 1,000 ms. Reqwest's built-in retries remain disabled.
+Automatic eligibility is narrower than public `retryable` recovery advice:
+
+| Physical result | Automatic handling |
+| --- | --- |
+| Timeout, identified transient socket failure, interrupted HTTP body | Replay within the attempt and retrieval limits. |
+| HTTP 408, 429, 500, 502, 503, 504 | Replay within limits, honoring valid `Retry-After`. |
+| Other HTTP statuses, including 404 and redirects | Terminal transport error. |
+| TLS/configuration, invalid construction, unclassified dependency failure | Terminal; a broad connection/request label alone is insufficient. |
+| Invalid media type, decompression corruption, body overflow, XML/profile/protocol failure | Terminal; never replay invalid source data. |
+| Confirmed unavailable data | Existing availability/fallback behavior. |
+| Caller cancellation | Stop with cancellation identity and `retryable: false`. |
+
+`Retry-After` accepts delta-seconds and HTTP-date forms. Convert dates once from
+wall time, then wait monotonically for the greater of valid guidance and jitter.
+Malformed or past guidance uses normal backoff. Overflowing numeric guidance
+cannot cause an early retry. If the wait leaves no time for another attempt,
+stop immediately with `operation_deadline`, retaining the last source failure.
+There is no sleep after the final attempt and no ordinary-request pacing flag.
+
+One monotonic **retrieval timeout**, default **30 minutes**, starts after input
+validation at core invocation. It spans discovery, categories, dates, fallback
+and count traversal, all attempts and waits, body reads, and cooperative
+parsing/normalization checks. It never resets between lookups. Each physical
+attempt is clipped to the remaining budget. Python's client queue, CLI
+destination preflight, adapter serialization, and workbook rendering/publication
+are outside this timeout; existing cancellation continues to apply there.
+Asynchronous custom transport calls are bounded by the service; arbitrary
+blocking custom code cannot be preempted.
+
+| Interface | Override, independent of domain input |
+| --- | --- |
+| Rust | `RetrievalOptions::new(Duration)` with `*_with_options` or `*_with_options_and_cancellation`. Existing calls use defaults. |
+| Node | `RequestOptions.operationTimeoutMs` beside `signal`, a positive safe integer in milliseconds. |
+| Python sync/async | Keyword-only `operation_timeout_seconds`, a positive integer; booleans are rejected. |
+| CLI retrieval commands | `--operation-timeout-seconds`, positive integer seconds. |
+
+All values must be finite and representable by the core monotonic clock;
+invalid shapes, zero, negative values and overflow fail before source I/O.
+There is no unlimited setting. Expiry stops active HTTP work or retry waits
+and prevents further source requests. An invocation-local child token keeps
+expiry from cancelling the caller's reusable token or another call. Caller
+cancellation observed when finalizing a result wins over expiry.
+
+Failures with HTTP-attempt context add optional `retry`: `attemptCount`,
+`maxAttempts`, `sourceOperation`, and `stopReason` (`terminal_failure`,
+`attempt_exhaustion`, `operation_deadline`, or `cancellation`). Counts describe
+the failing physical lookup, never history observations or `attemptedDates`.
+Absent lookup context is omitted. A deadline after a source failure retains its
+cause/status; expiry without a prior source failure reports `TimeoutError`.
+Neither becomes unavailable data, insufficient history, or caller cancellation.
+History enrichment preserves retry details alongside requested date/category
+and nested source `actual`. No source bodies or dependency messages enter
+these diagnostics; successful schemas remain unchanged. Retries are silent,
+and CLI progress still counts logical lookups on terminal stderr only.
+
+### Compatibility
+
+The finite default intentionally changes previously unbounded overall calls:
+slow or large retrievals may now fail after 30 minutes. Choose a larger finite
+override when appropriate; this default is an engineering guard, not a measured
+provider throughput guarantee. Full issue #45 live acceptance remains pending
+in the [retrieval plan](plans/resilient-history-retrieval.md).
+
+JSON error metadata is additive. The new optional field in the exhaustive Rust
+`ErrorDetails` struct is a **Rust source compatibility break**: external literals
+must add `retry: None`, and exhaustive destructuring must bind `retry` or use
+`..`. Constructor-based error usage, `PreparedRequest`, the required
+`Transport::post` signature, and existing default/cancellation call forms remain
+available. `Transport::post_with_context` has a default implementation; decorators
+must forward it to preserve the inner HTTP deadline. The next authorized release
+must account for this source-breaking change and its migration; it must not be
+represented as a source-compatible Rust patch. This work publishes no release.
 
 ## Multi-date history
 
@@ -176,10 +263,10 @@ The standalone Rust CLI is:
 
 ```sh
 ytm --version
-ytm history (--base-date <date>... | --start-date <date> --end-date <date>) [--fallback previous-available] [--lookback-days <days>] [--format json|csv|tsv|xlsx] [--output <file.xlsx>] [--overwrite] [--pretty]
-ytm history --end-date <date> --count <1..2000> [--start-date <date>] [--format json|csv|tsv|xlsx] [--output <file.xlsx>] [--overwrite] [--pretty]
-ytm matrix --base-date <기준일> --kind <종류> [--fallback previous-available] [--lookback-days <days>] [--format json|csv|tsv|xlsx] [--output <file.xlsx>] [--overwrite] [--pretty]
-ytm kinds [--base-date <기준일>] [--format json|csv|tsv|xlsx] [--output <file.xlsx>] [--overwrite] [--pretty]
+ytm history (--base-date <date>... | --start-date <date> --end-date <date>) [--fallback previous-available] [--lookback-days <days>] [--operation-timeout-seconds <seconds>] [--format json|csv|tsv|xlsx] [--output <file.xlsx>] [--overwrite] [--pretty]
+ytm history --end-date <date> --count <1..2000> [--start-date <date>] [--operation-timeout-seconds <seconds>] [--format json|csv|tsv|xlsx] [--output <file.xlsx>] [--overwrite] [--pretty]
+ytm matrix --base-date <기준일> --kind <종류> [--fallback previous-available] [--lookback-days <days>] [--operation-timeout-seconds <seconds>] [--format json|csv|tsv|xlsx] [--output <file.xlsx>] [--overwrite] [--pretty]
+ytm kinds [--base-date <기준일>] [--operation-timeout-seconds <seconds>] [--format json|csv|tsv|xlsx] [--output <file.xlsx>] [--overwrite] [--pretty]
 ytm upgrade [--check]
 ```
 

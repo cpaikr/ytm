@@ -6,6 +6,26 @@ use crate::model::{BaseDate, DEFAULT_LOOKBACK_DAYS, MAX_LOOKBACK_DAYS};
 
 const SOURCE_DATA_UNAVAILABLE_CODE: &str = "source_data_unavailable";
 
+/// Why the last physical HTTP lookup stopped.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RetryStopReason {
+    TerminalFailure,
+    AttemptExhaustion,
+    OperationDeadline,
+    Cancellation,
+}
+
+/// Attempts of one failing lookup, independent of history's attempted dates.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RetryDetails {
+    pub attempt_count: u8,
+    pub max_attempts: u8,
+    pub source_operation: String,
+    pub stop_reason: RetryStopReason,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ErrorDetails {
@@ -36,6 +56,8 @@ pub struct ErrorDetails {
     pub lookback_days: Option<u8>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cause: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub retry: Option<RetryDetails>,
 }
 
 #[derive(Debug, Clone)]
@@ -52,6 +74,25 @@ impl fmt::Display for YtmError {
 impl std::error::Error for YtmError {}
 
 impl YtmError {
+    pub(crate) fn with_retry_stop(mut self, reason: RetryStopReason) -> Self {
+        if let Some(retry) = &mut self.details.retry {
+            retry.stop_reason = reason;
+        }
+        self
+    }
+
+    pub(crate) fn operation_deadline(operation: &str) -> Self {
+        let mut error = Self::transport(
+            "The overall retrieval deadline was reached.",
+            None,
+            Some("TimeoutError"),
+        );
+        error.details.operation_name = Some(operation.to_owned());
+        error.details.recovery_hint =
+            "Retry later or select a larger finite retrieval timeout.".into();
+        error
+    }
+
     pub(crate) fn is_unavailable(&self) -> bool {
         self.details.code == SOURCE_DATA_UNAVAILABLE_CODE
     }
@@ -116,6 +157,7 @@ impl YtmError {
             attempted_dates: None,
             lookback_days: None,
             cause: None,
+            retry: None,
         })
     }
 
@@ -140,6 +182,7 @@ impl YtmError {
             attempted_dates: None,
             lookback_days: None,
             cause: None,
+            retry: None,
         })
     }
 
@@ -165,6 +208,7 @@ impl YtmError {
             attempted_dates: None,
             lookback_days: None,
             cause: cause.map(str::to_owned),
+            retry: None,
         })
     }
 
@@ -191,6 +235,7 @@ impl YtmError {
             attempted_dates: None,
             lookback_days: None,
             cause: None,
+            retry: None,
         })
     }
 
@@ -217,6 +262,7 @@ impl YtmError {
             attempted_dates: None,
             lookback_days: None,
             cause: None,
+            retry: None,
         })
     }
 
@@ -287,6 +333,7 @@ impl YtmError {
             attempted_dates: Some(attempted_dates),
             lookback_days: Some(lookback_days),
             cause: None,
+            retry: None,
         })
     }
 
@@ -349,6 +396,7 @@ impl YtmError {
             attempted_dates: None,
             lookback_days: None,
             cause: None,
+            retry: None,
         })
     }
 

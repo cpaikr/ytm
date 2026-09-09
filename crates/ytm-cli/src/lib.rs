@@ -5,8 +5,8 @@ use serde::Serialize;
 use serde_json::{json, Map, Number, Value};
 use ytm_core::{
     BaseDate, HistoryInput, HistoryRequest, HistoryResult, KindSelector, KindsInput, KindsResult,
-    LookbackDays, MatrixInput, MatrixResult, YtmError, YtmService, DEFAULT_LOOKBACK_DAYS,
-    MAX_LOOKBACK_DAYS,
+    LookbackDays, MatrixInput, MatrixResult, RetrievalOptions, YtmError, YtmService,
+    DEFAULT_LOOKBACK_DAYS, DEFAULT_OPERATION_TIMEOUT_SECONDS, MAX_LOOKBACK_DAYS,
 };
 
 #[cfg(test)]
@@ -87,6 +87,7 @@ struct ParsedInvocation {
     input: Map<String, Value>,
     output: OutputSelection,
     pretty: bool,
+    operation_timeout_seconds: Option<String>,
 }
 
 #[derive(Debug)]
@@ -187,12 +188,25 @@ pub async fn run_with_cancellation(
         }
     };
 
+    let options = match retrieval_options(
+        invocation.operation,
+        invocation.operation_timeout_seconds.as_deref(),
+    ) {
+        Ok(options) => options,
+        Err(error) => {
+            return invalid_output(InvocationError {
+                operation: invocation.operation,
+                error,
+            })
+        }
+    };
+
     if let OutputSelection::Xlsx { path, overwrite } = &invocation.output {
         if let Err(error) = xlsx::preflight(path, *overwrite) {
             return error.output(invocation.operation);
         }
     }
-    let result = match execute(input, cancellation.clone()).await {
+    let result = match execute(input, options, cancellation.clone()).await {
         Ok(result) => result,
         Err(error) => {
             return ProcessOutput {
@@ -347,6 +361,10 @@ fn operation_command(name: &'static str) -> Command {
         .arg(value_arg("kind", "kind"))
         .arg(value_arg("fallback", "fallback"))
         .arg(value_arg("lookback_days", "lookback-days"))
+        .arg(value_arg(
+            "operation_timeout_seconds",
+            "operation-timeout-seconds",
+        ))
 }
 
 fn value_arg(id: &'static str, long: &'static str) -> Arg {
@@ -406,7 +424,29 @@ fn invocation_from_matches(
         input: input_from_matches(matches, operation),
         output,
         pretty: matches.get_count("pretty") > 0,
+        operation_timeout_seconds: matches
+            .get_one::<String>("operation_timeout_seconds")
+            .cloned(),
     })
+}
+
+fn retrieval_options(
+    operation: Operation,
+    value: Option<&str>,
+) -> Result<RetrievalOptions, Box<CliError>> {
+    let Some(value) = value else {
+        return Ok(RetrievalOptions::default());
+    };
+    let invalid = || {
+        Box::new(cli_error(operation, "invalid_parameter", "operationTimeoutSeconds",
+        "--operation-timeout-seconds must be a positive integer representable by the monotonic clock.",
+        json!("positive integer seconds"), Some(json!(value))))
+    };
+    if value.is_empty() || !value.bytes().all(|byte| byte.is_ascii_digit()) {
+        return Err(invalid());
+    }
+    let seconds = value.parse::<u64>().map_err(|_| invalid())?;
+    RetrievalOptions::new(std::time::Duration::from_secs(seconds)).map_err(|_| invalid())
 }
 
 fn parse_output(
@@ -557,6 +597,12 @@ fn validate_operation_help(args: &[OsString], operation: Operation) -> Result<()
         .subcommand()
         .expect("known operation parsed as a Clap subcommand");
     parse_output(operation, subcommand, true)?;
+    retrieval_options(
+        operation,
+        subcommand
+            .get_one::<String>("operation_timeout_seconds")
+            .map(String::as_str),
+    )?;
     let mut input = input_from_matches(subcommand, operation);
     if operation == Operation::Matrix {
         input
@@ -886,6 +932,7 @@ fn safe_actual(value: &Value) -> Value {
 
 async fn execute(
     input: ValidatedInput,
+    options: RetrievalOptions,
     cancellation: ytm_core::CancellationToken,
 ) -> Result<OperationResult, YtmError> {
     let service = if matches!(input, ValidatedInput::History(_))
@@ -897,15 +944,15 @@ async fn execute(
     };
     match input {
         ValidatedInput::History(input) => service
-            .history_with_cancellation(input, cancellation)
+            .history_with_options_and_cancellation(input, options, cancellation)
             .await
             .map(OperationResult::History),
         ValidatedInput::Matrix(input) => service
-            .matrix_with_cancellation(input, cancellation)
+            .matrix_with_options_and_cancellation(input, options, cancellation)
             .await
             .map(OperationResult::Matrix),
         ValidatedInput::Kinds(input) => service
-            .kinds_with_cancellation(input, cancellation)
+            .kinds_with_options_and_cancellation(input, options, cancellation)
             .await
             .map(OperationResult::Kinds),
     }
@@ -1115,7 +1162,7 @@ fn command_help(operation: Operation) -> String {
         Operation::Matrix => "ytm matrix --base-date 2026-06-08 --kind 국채 --format json",
         Operation::Kinds => "ytm kinds --base-date 2026-06-08 --format json",
     };
-    format!("{body}\n\nCLI example:\n  {example}\n")
+    format!("{body}\n  Retrieval: --operation-timeout-seconds <positive integer> (default {DEFAULT_OPERATION_TIMEOUT_SECONDS}).\n  One deadline covers source calls and retry waits; destination preflight and export time are excluded.\n\nCLI example:\n  {example}\n")
 }
 
 fn formatted_kinds(prefix: &str) -> String {

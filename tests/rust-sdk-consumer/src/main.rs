@@ -69,3 +69,24 @@ async fn history_consumer(client: &YtmClient) -> Result<ytm_core::HistoryResult,
     }
     Ok(result)
 }
+
+// ErrorDetails is exhaustive: callers using literals must initialize the new
+// optional retry field, while constructor-based code remains unchanged.
+#[allow(dead_code)]
+fn error_literal_migration() -> ytm_core::ErrorDetails {
+    let old_constructor = YtmError::cancelled("history");
+    assert!(old_constructor.details.retry.is_none());
+    ytm_core::ErrorDetails {
+        ok: false, code: "custom_error", operation_name: None, parameter: None,
+        reason: "consumer-defined failure".into(), expected: None, actual: None,
+        example_input: None, recovery_hint: "inspect consumer".into(), recovery_action: "inspect_tool_help",
+        recoverable: false, retryable: false, source_error_code: None, source_error_message: None,
+        attempted_dates: None, lookback_days: None, cause: None, retry: None,
+    }
+}
+
+#[allow(dead_code)]
+async fn bounded_consumer(client: &YtmClient) -> Result<KindsResult, YtmError> {
+    let options = ytm_core::RetrievalOptions::new(std::time::Duration::from_secs(60))?;
+    client.kinds_with_options(KindsInput::default(), options).await
+}

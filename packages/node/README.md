@@ -42,7 +42,12 @@ Missing cells can remain. Count mode is exact-only and fails with
 categories and pricing groups. Selections normalize, sort, and deduplicate
 within the 2,000-entry/day limit. Optional `fallback: "previous-available"`
 resolves each pair independently; unavailable pairs remain result entries.
-Methods accept `{ signal }` as the second argument for cancellation. See the
+Methods accept `{ signal, operationTimeoutMs }` as the second argument.
+`operationTimeoutMs` must be a positive safe integer; omission uses the core's
+30-minute retrieval timeout. For example, `{ operationTimeoutMs: 3_600_000 }`
+permits an hour. Optional typed `error.details.retry` retains physical attempt
+count and stop reason. See [bounded recovery and compatibility](https://github.com/cpaikr/ytm/blob/main/SPEC.md#bounded-retrieval-recovery)
+for retry eligibility and the shared timeout boundary. See the
 [history contract](https://github.com/cpaikr/ytm/blob/main/SPEC.md#multi-date-history)
 for complete results and error semantics.
 

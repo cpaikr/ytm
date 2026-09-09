@@ -146,19 +146,28 @@ only diagnostics within those boundaries.
   cross it.
 - The public Node SDK accepts `AbortSignal` cancellation and has no JavaScript
   transport-injection seam.
-- Judge builds may enable a compile-time-only Rust fixture transport. Release
-  builds cannot enable or select it, and clean-consumer tests exercise release
+- Judge builds may enable a compile-time-only replacement fixture transport or
+  route the real HTTP client to a validated numeric loopback origin. Release
+  builds cannot enable or select either seam; clean consumers exercise release
   artifacts separately.
 - Discovery may add kinds but cannot remove or redefine canonical values;
   conflicts fail explicitly.
-- `ytm-core` invokes transports sequentially. Its default `HttpTransport` is
-  deadline-bounded, redirect-free, proxy-free, and has no automatic retry;
-  custom `Transport` implementations own equivalent transport policy. Date
-  fallback advances only after confirmed empty data.
-- Matrix lookup performs initialization followed by retrieval for each date.
-  The maximum fallback window permits 32 dates and 64 sequential transport
-  invocations. With the default `HttpTransport`, each call has its own 20-second
-  deadline and cancellation is the overall stop.
+- `ytm-core` invokes transports sequentially. `YtmService` owns one invocation
+  `RetrievalContext`, its deadline and child cancellation token, and date/category
+  enrichment. `HttpTransport` owns physical attempt eligibility, replay and waits
+  under the [bounded recovery contract](SPEC.md#bounded-retrieval-recovery).
+  Redirects and proxies remain disabled; date fallback advances only on
+  confirmed empty data.
+- The public `Transport::post` and `PreparedRequest` shapes remain stable. A
+  default `post_with_context` hook delegates to existing custom implementations;
+  the service bounds their asynchronous future without retrying it. Decorators,
+  including CLI progress, forward the context-aware hook. HTTP attempt identity
+  remains invocation-local until that lookup's parsing/normalization completes,
+  preserving error metadata without changing the transport response type.
+- Matrix fallback permits 32 dates and 64 logical lookups. Bounded retries may
+  add physical attempts; one shared retrieval budget spans the entire traversal.
+  Python begins this budget after its client queue, and CLI export stays outside
+  it. Expiry cancels only the invocation child; caller cancellation takes priority.
 - Stable project error categories and recovery metadata cross adapters;
   dependency messages do not.
 - Native manifests, the loader, optional dependencies, and built JavaScript

@@ -16,6 +16,9 @@ judge-fixtures = []
 async-trait.workspace = true
 chrono.workspace = true
 futures-util.workspace = true
+httpdate.workspace = true
+hyper.workspace = true
+fastrand.workspace = true
 indexmap.workspace = true
 quick-xml.workspace = true
 reqwest.workspace = true
@@ -27,4 +30,4 @@ tokio-util.workspace = true
 [dev-dependencies]
 flate2.workspace = true
 serde_yaml_ng.workspace = true
-tokio = { workspace = true, features = ["io-util", "net"] }
+tokio = { workspace = true, features = ["io-util", "net", "test-util"] }

@@ -133,6 +133,20 @@ export function serializeYtmError(error) {
 async function executeOperation(operationName, input, options) {
   const validation = validateInput(operationName, input);
   if (!validation.ok) throw new YtmError(validation.error);
+  if (!options || typeof options !== "object" || Array.isArray(options)) {
+    throw new YtmError(validationError({ operationName, code: "invalid_parameter", parameter: "options",
+      reason: "Request options must be an object.", actual: safeActual(options),
+      recoveryHint: "Pass request options containing signal and/or operationTimeoutMs.",
+      recoveryAction: { kind: "review_client_usage" } }));
+  }
+  if (options.operationTimeoutMs !== undefined &&
+      (!Number.isSafeInteger(options.operationTimeoutMs) || options.operationTimeoutMs <= 0)) {
+    throw new YtmError(validationError({ operationName, code: "invalid_parameter", parameter: "operationTimeoutMs",
+      reason: "operationTimeoutMs must be a positive safe integer in milliseconds.", actual: safeActual(options.operationTimeoutMs),
+      recoveryHint: "Select a positive finite retrieval timeout in milliseconds.",
+      recoveryAction: { kind: "review_client_usage" } }));
+  }
+
 
   // A pre-aborted request is a caller cancellation, not a transient source
   // failure. Keep the historical source_transport_error code while making
@@ -158,7 +172,8 @@ async function executeOperation(operationName, input, options) {
     envelope = await invokeNative(
       operationName,
       validation.input,
-      options.signal
+      options.signal,
+      options.operationTimeoutMs
     );
   } catch (cause) {
     throw cause instanceof YtmError ? cause : new YtmError(serializeError(cause));

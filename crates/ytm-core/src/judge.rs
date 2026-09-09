@@ -71,6 +71,16 @@ pub struct FixtureTransport {
 
 impl FixtureTransport {
     pub fn from_env() -> Result<Option<Arc<dyn Transport>>, YtmError> {
+        if let Ok(origin) = env::var("YTM_JUDGE_HTTP_ORIGIN") {
+            if env::var_os("YTM_JUDGE_FIXTURE").is_some() {
+                return Err(YtmError::defect_with_reason(
+                    "Judge HTTP and replacement fixtures are mutually exclusive.",
+                ));
+            }
+            return Ok(Some(Arc::new(crate::HttpTransport::with_loopback_origin(
+                &origin,
+            )?)));
+        }
         let Ok(encoded) = env::var("YTM_JUDGE_FIXTURE") else {
             return Ok(None);
         };
