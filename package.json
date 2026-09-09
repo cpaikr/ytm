@@ -44,7 +44,7 @@
     "release-it": "19.2.4",
     "@release-it/conventional-changelog": "10.0.5"
   },
-  "version": "0.4.0",
+  "version": "0.4.1",
   "release-it": {
     "$schema": "https://unpkg.com/release-it/schema/release-it.json",
     "hooks": {

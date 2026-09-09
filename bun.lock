@@ -14,28 +14,28 @@
     },
     "packages/native/darwin-arm64": {
       "name": "@sjunepark/ytm-darwin-arm64",
-      "version": "0.4.0",
+      "version": "0.4.1",
     },
     "packages/native/linux-arm64-gnu": {
       "name": "@sjunepark/ytm-linux-arm64-gnu",
-      "version": "0.4.0",
+      "version": "0.4.1",
     },
     "packages/native/linux-x64-gnu": {
       "name": "@sjunepark/ytm-linux-x64-gnu",
-      "version": "0.4.0",
+      "version": "0.4.1",
     },
     "packages/native/win32-x64-msvc": {
       "name": "@sjunepark/ytm-win32-x64-msvc",
-      "version": "0.4.0",
+      "version": "0.4.1",
     },
     "packages/node": {
       "name": "@sjunepark/ytm",
-      "version": "0.4.0",
+      "version": "0.4.1",
       "optionalDependencies": {
-        "@sjunepark/ytm-darwin-arm64": "0.4.0",
-        "@sjunepark/ytm-linux-arm64-gnu": "0.4.0",
-        "@sjunepark/ytm-linux-x64-gnu": "0.4.0",
-        "@sjunepark/ytm-win32-x64-msvc": "0.4.0",
+        "@sjunepark/ytm-darwin-arm64": "0.4.1",
+        "@sjunepark/ytm-linux-arm64-gnu": "0.4.1",
+        "@sjunepark/ytm-linux-x64-gnu": "0.4.1",
+        "@sjunepark/ytm-win32-x64-msvc": "0.4.1",
       },
     },
   },

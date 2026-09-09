@@ -27,7 +27,7 @@ serde_json.workspace = true
 sha2.workspace = true
 tokio = { workspace = true, features = ["signal"] }
 async-trait.workspace = true
-ytm-core = { path = "../ytm-core", version = "=0.4.0" }
+ytm-core = { path = "../ytm-core", version = "=0.4.1" }
 
 [build-dependencies]
 serde_json.workspace = true
