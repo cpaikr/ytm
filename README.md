@@ -29,12 +29,14 @@ Bun, or Python runtime is required.
 Use a POSIX shell with `curl`, `tar`, and either `sha256sum` or `shasum`:
 
 ```sh
-ytm_installer="$(mktemp)"
-curl --fail --location --silent --show-error https://github.com/cpaikr/ytm/releases/latest/download/install.sh -o "$ytm_installer" &&
-  sh "$ytm_installer"
-rm -f "$ytm_installer"
-export PATH="$HOME/.local/bin:$PATH"
-ytm --version
+(
+  ytm_installer="$(mktemp)" || exit
+  trap 'rm -f "$ytm_installer"' EXIT
+  curl --fail --location --silent --show-error https://github.com/cpaikr/ytm/releases/latest/download/install.sh -o "$ytm_installer" || exit
+  sh "$ytm_installer" || exit
+) &&
+export PATH="$HOME/.local/bin:$PATH" &&
+ytm --version &&
 ytm --help
 ```
 
@@ -47,13 +49,19 @@ terminals.
 Run in PowerShell:
 
 ```powershell
-$ytmInstaller = Join-Path $env:TEMP 'ytm-install.ps1'
-Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/cpaikr/ytm/releases/latest/download/install.ps1' -OutFile $ytmInstaller
-powershell -NoProfile -ExecutionPolicy Bypass -File $ytmInstaller
-Remove-Item -LiteralPath $ytmInstaller
-$env:Path = "$env:LOCALAPPDATA\ytm\bin;$env:Path"
-ytm --version
-ytm --help
+& {
+  $ytmInstaller = Join-Path $env:TEMP ("ytm-install-" + [guid]::NewGuid() + ".ps1")
+  try {
+    Invoke-WebRequest -UseBasicParsing -ErrorAction Stop -Uri 'https://github.com/cpaikr/ytm/releases/latest/download/install.ps1' -OutFile $ytmInstaller
+    powershell -NoProfile -ExecutionPolicy Bypass -File $ytmInstaller
+    if ($LASTEXITCODE -ne 0) { throw "ytm installer failed with exit code $LASTEXITCODE" }
+    $env:Path = "$env:LOCALAPPDATA\ytm\bin;$env:Path"
+    ytm --version
+    ytm --help
+  } finally {
+    Remove-Item -LiteralPath $ytmInstaller -ErrorAction SilentlyContinue
+  }
+}
 ```
 
 The default install directory is `%LOCALAPPDATA%\ytm\bin`. Add it to your user
@@ -72,13 +80,13 @@ so the CLI can verify and manage the installation:
 ```sh
 ytm upgrade --check
 ytm upgrade
-ytm --version
 ```
 
-`--check` only checks availability. On Windows, replacement finishes in a
-background helper after the command exits; follow the reported status-file
-path to confirm completion before checking the new version. Fresh installers
-refuse to overwrite an existing executable or receipt. Manually extracted or
+`--check` only checks availability. On macOS and Linux, run `ytm --version`
+after a successful upgrade. On Windows, replacement finishes in a background
+helper after the command exits; wait for the JSON file at the reported
+`statusPath` to report `status: "upgraded"` before running `ytm --version`.
+Fresh installers refuse to overwrite an existing executable or receipt. Manually extracted or
 locally built binaries are unmanaged; use the installer in a new directory to
 enable managed upgrades. See the [release runbook](docs/release.md) for integrity
 and recovery details.
