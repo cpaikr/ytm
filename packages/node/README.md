@@ -56,7 +56,7 @@ const history = await pending;
 console.log(history.statistics);
 ```
 
-`progress.snapshot()` returns `null` before retrieval starts, then an
+`progress.snapshot()` returns `null` before retrieval starts, then a
 detached latest snapshot. Use a fresh handle for each call. Updates coalesce
 and no callback executes inside retrieval. Every successful call returns final
 `statistics`; retrieval errors retain them in `details.statistics`.

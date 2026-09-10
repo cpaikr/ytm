@@ -81,6 +81,7 @@ function normalizeStatistics(value, label) {
       // CLI stdout is a serialized envelope. Preserve compact versus pretty form.
       let parsed;
       try { parsed = JSON.parse(child); } catch { continue; }
+      if (!containsStatistics(parsed)) continue;
       value[key] = JSON.stringify(normalizeStatistics(parsed, label), null, child.startsWith("{\n") ? 2 : undefined) + (child.endsWith("\n") ? "\n" : "");
     } else if (key === "statistics" && child && typeof child === "object") {
       check(Number.isSafeInteger(child.elapsedMs) && child.elapsedMs >= 0, `${label}: statistics elapsedMs must be a nonnegative safe integer`);
@@ -93,6 +94,17 @@ function normalizeStatistics(value, label) {
     }
   }
   return value;
+}
+
+function containsStatistics(value) {
+  return value !== null && typeof value === "object" && Object.entries(value).some(([key, child]) =>
+    (key === "statistics" && child !== null && typeof child === "object") || containsStatistics(child));
+}
+
+// Envelopes without timing metadata must retain exact CLI bytes in the oracle.
+for (const stdout of ['{  "ok": false }\n', '{"message": "statistics"}\n', '{ "statistics": null }\n']) {
+  check(normalizeStatistics({ stdout }, "normalization").stdout === stdout,
+    "normalization: stdout without statistics must remain byte-for-byte unchanged");
 }
 
 function publicNodeResult(result) {

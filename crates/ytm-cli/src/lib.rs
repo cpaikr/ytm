@@ -524,7 +524,11 @@ fn request_policy(
                     operation,
                     "invalid_parameter",
                     names[index],
-                    "Retry settings must be nonnegative integers; max retries cannot exceed 10.",
+                    if index == 0 {
+                        "Max retries must be a nonnegative integer and cannot exceed 10."
+                    } else {
+                        "Duration settings must be nonnegative integers in milliseconds."
+                    },
                     json!("bounded integer"),
                     Some(json!(value)),
                 ))
@@ -1698,6 +1702,45 @@ mod tests {
             assert_structured_failure(&output, Some("matrix"));
             let output_with_help = run(with_help).await;
             assert_structured_failure(&output_with_help, Some("matrix"));
+        }
+    }
+
+    #[tokio::test]
+    async fn invalid_request_policy_diagnostics_identify_the_rejected_option() {
+        for (flag, parameter, value, reason) in [
+            ("--max-retries", "maxRetries", "11", "Max retries"),
+            (
+                "--base-backoff-ms",
+                "baseBackoffMs",
+                "nope",
+                "Duration settings",
+            ),
+            (
+                "--max-backoff-ms",
+                "maxBackoffMs",
+                "nope",
+                "Duration settings",
+            ),
+            (
+                "--min-request-interval-ms",
+                "minRequestIntervalMs",
+                "nope",
+                "Duration settings",
+            ),
+        ] {
+            let output = run(["ytm", "kinds", flag, value, "--format", "json"]
+                .into_iter()
+                .map(OsString::from)
+                .collect())
+            .await;
+            assert_structured_failure(&output, Some("kinds"));
+            let envelope: Value = serde_json::from_str(&output.stdout).unwrap();
+            assert_eq!(envelope["error"]["parameter"], parameter);
+            assert_eq!(envelope["error"]["actual"], value);
+            assert!(envelope["error"]["reason"]
+                .as_str()
+                .unwrap()
+                .starts_with(reason));
         }
     }
 
