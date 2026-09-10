@@ -280,12 +280,13 @@ class AsyncClient:
                 # Cancel the invocation, then drain it before exposing its final snapshot.
                 # Shielding prevents the Python/Rust bridge from dropping work early.
                 monitor._native.cancel()
-                while not future.done():
+                # Cancellation wins even if the bridge fails while draining.
+                drain = asyncio.gather(future, return_exceptions=True)
+                while not drain.done():
                     try:
-                        await asyncio.shield(future)
+                        await asyncio.shield(drain)
                     except asyncio.CancelledError:
                         continue
-                future.result()
                 setattr(cancelled, "statistics", monitor.snapshot())
                 raise
         except RuntimeError:

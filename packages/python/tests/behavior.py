@@ -10,6 +10,66 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 
 
+async def cancelled_bridge_failure(timing):
+    from kisnet_ytm import AsyncClient, DefectError, RetrievalProgress
+
+    class FailingBridge:
+        """Inject only bridge completion failure after real offline retrieval."""
+        def __init__(self, native):
+            self.native = native
+            self.ready = asyncio.Event()
+            self.release = asyncio.Event()
+            self.owner = None
+            self.future = None
+
+        def run_async(self, *args):
+            async def complete():
+                await self.native.run_async(*args)
+                self.ready.set()
+                if timing == "completed":
+                    self.owner.cancel("original cancellation")
+                elif timing == "during-drain":
+                    await self.release.wait()
+                raise RuntimeError("injected bridge failure")
+            self.future = asyncio.create_task(complete())
+            return self.future
+
+        def close_async(self):
+            return self.native.close_async()
+
+    client = AsyncClient()
+    bridge = FailingBridge(client._native)
+    client._native = bridge
+    progress = RetrievalProgress()
+    task = asyncio.create_task(client.kinds(progress=progress))
+    bridge.owner = task
+    if timing == "during-drain":
+        await bridge.ready.wait()
+        task.cancel("original cancellation")
+        await asyncio.sleep(0)
+        assert not task.done() and not bridge.future.done(), "cancellation must drain native work"
+        task.cancel("repeated cancellation")
+        await asyncio.sleep(0)
+        assert not task.done() and not bridge.future.done()
+        bridge.release.set()
+    try:
+        await task
+        raise AssertionError("injected bridge failure was ignored")
+    except asyncio.CancelledError as error:
+        assert timing != "uncancelled"
+        assert error.args == ("original cancellation",)
+        assert task.cancelled()
+        assert error.statistics == progress.snapshot()
+        assert error.statistics.finished and error.statistics.physical_attempt_count == 0
+    except DefectError:
+        assert timing == "uncancelled", "native failure replaced caller cancellation"
+        assert not task.cancelled()
+    finally:
+        await client.aclose()
+    assert bridge.future.done()
+    assert not bridge.future._log_traceback, "native exception was not consumed"
+
+
 def child(scenario, mode):
     from kisnet_ytm import (
         AsyncClient, Client, ClientStateError, DefectError, InvalidParameterError, InsufficientHistoryError,
@@ -55,7 +115,10 @@ def child(scenario, mode):
             assert time.monotonic() - before < 2, "close did not promptly drain work"
 
         try:
-            if scenario == "count":
+            if scenario.startswith("bridge-"):
+                await cancelled_bridge_failure(scenario.removeprefix("bridge-"))
+                assert requests() == []
+            elif scenario == "count":
                 from dataclasses import FrozenInstanceError
                 result = await call("history", count=2, end_date="20260610")
                 assert result.requested_dates == ("2026-06-08", "2026-06-09")
@@ -271,6 +334,7 @@ def main():
         return
     fixtures = Path(sys.argv[1]).resolve()
     scenarios = {
+        "bridge-completed": [], "bridge-during-drain": [], "bridge-uncancelled": [],
         "catalog": [], "invalid": [], "discovery": [{"fixture": "init-success.xml"}],
         "success": [{"fixture": "matrix-success.xml"}],
         "missing": [{"fixture": "matrix-missing-values.xml"}],
@@ -307,6 +371,8 @@ def main():
     with tempfile.TemporaryDirectory(prefix="ytm-python-behavior-") as temporary:
         for mode in ("sync", "async"):
             for scenario, steps in scenarios.items():
+                if mode == "sync" and scenario.startswith("bridge-"):
+                    continue
                 if mode == "sync" and scenario in ("cancel", "cancel_close", "history-cancel", "history-cancel_close", "count-cancel", "count-cancel_close"):
                     continue
                 capture = Path(temporary) / f"{mode}-{scenario}.json"
