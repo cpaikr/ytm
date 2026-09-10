@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "id": "5c83b5c2fe113445abf70b053bf5372e",
+  "createdAt": "2026-09-10T07:15:25.699022Z",
+  "status": "committed",
+  "entries": [
+    {
+      "action": "update",
+      "skill": "address-issues",
+      "target": ".claude",
+      "originalPlacement": ".claude/skills/address-issues",
+      "quarantinedPlacement": "entries/.claude/address-issues",
+      "oldSourceIdentity": "",
+      "newSourceIdentity": "github:sjunepark/agent-scripts",
+      "treeHashAlgorithm": "tree-sha256-v2",
+      "oldTreeHash": "0a281203eb682500be3844b72d548d587f8393a76d1868f1ecbf6843c0631ee7",
+      "newTreeHash": "9f1c1d0730dcb2d2fd1304c667089eb8e6541ebc607450168f1936fc8b62c49c",
+      "status": "replaced"
+    }
+  ]
+}
