@@ -46,7 +46,18 @@ export function describeNative() {
   return value;
 }
 
-export async function invokeNative(operation, input, signal, operationTimeoutMs) {
+export function createProgressNative() {
+  const loaded = loadBinding();
+  if (typeof loaded?.NativeProgress !== "function") {
+    throw nativeLoaderFailure("native_package_corrupt",
+      "The installed native ytm package does not expose retrieval progress.",
+      new TypeError("NativeProgress is not a constructor"));
+  }
+  try { return new loaded.NativeProgress(); }
+  catch (cause) { throw classifyNativeFailure(cause); }
+}
+
+export async function invokeNative(operation, input, signal, operationTimeoutMs, policy, progress) {
   const loaded = loadBinding();
   const call = loaded?.[operation];
   if (typeof call !== "function") {
@@ -63,7 +74,9 @@ export async function invokeNative(operation, input, signal, operationTimeoutMs)
       JSON.stringify(input),
       bridge.signal,
       bridge.signal?.aborted === true,
-      operationTimeoutMs
+      operationTimeoutMs,
+      JSON.stringify(policy),
+      progress
     );
     try {
       return JSON.parse(encoded);

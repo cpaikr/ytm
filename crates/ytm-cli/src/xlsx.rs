@@ -34,26 +34,31 @@ impl ExportError {
         }
     }
 
-    pub fn output(self, operation: Operation) -> ProcessOutput {
+    pub fn output(
+        self,
+        operation: Operation,
+        statistics: Option<&ytm_core::RetrievalStatistics>,
+    ) -> ProcessOutput {
+        let mut envelope = json!({ "ok": false, "error": {
+            "ok": false, "code": self.code, "operationName": operation.name(),
+            "parameter": "output", "actual": self.path, "reason": self.reason,
+            "recoveryHint": if self.code == "output_exists" {
+                "Choose a new output path or use --overwrite to replace an existing regular file."
+            } else if self.code == "export_error" {
+                "Request smaller date ranges and check Excel worksheet and cell limits."
+            } else if self.code == "request_cancelled" {
+                "Start a new request when ready; the destination was not replaced."
+            } else {
+                "Check the parent directory, permissions, available space, and whether another application has locked the file."
+            },
+            "recoveryAction": if self.code == "request_cancelled" { "start_new_request" } else { "inspect_output" }, "recoverable": true, "retryable": false
+        }});
+        if let Some(statistics) = statistics {
+            envelope["error"]["statistics"] = json!(statistics);
+        }
         ProcessOutput {
             code: 1,
-            stdout: encode_json(
-                &json!({ "ok": false, "error": {
-                    "ok": false, "code": self.code, "operationName": operation.name(),
-                    "parameter": "output", "actual": self.path, "reason": self.reason,
-                    "recoveryHint": if self.code == "output_exists" {
-                        "Choose a new output path or use --overwrite to replace an existing regular file."
-                    } else if self.code == "export_error" {
-                        "Request smaller date ranges and check Excel worksheet and cell limits."
-                    } else if self.code == "request_cancelled" {
-                        "Start a new request when ready; the destination was not replaced."
-                    } else {
-                        "Check the parent directory, permissions, available space, and whether another application has locked the file."
-                    },
-                    "recoveryAction": if self.code == "request_cancelled" { "start_new_request" } else { "inspect_output" }, "recoverable": true, "retryable": false
-                }}),
-                false,
-            ),
+            stdout: encode_json(&envelope, false),
             stderr: String::new(),
         }
     }
@@ -517,6 +522,15 @@ mod tests {
         )
         .unwrap_err();
         assert_eq!(error.code, "request_cancelled");
+        let statistics = ytm_core::RetrievalStatistics {
+            matrix_lookup_count: 8,
+            finished: true,
+            ..Default::default()
+        };
+        let output = error.output(Operation::History, Some(&statistics));
+        let envelope: serde_json::Value = serde_json::from_str(&output.stdout).unwrap();
+        assert_eq!(envelope["error"]["statistics"]["matrixLookupCount"], 8);
+        assert_eq!(envelope["error"]["statistics"]["finished"], true);
         assert_eq!(fs::read(path).unwrap(), b"existing workbook");
         assert_eq!(fs::read_dir(directory.path()).unwrap().count(), 1);
     }
@@ -529,6 +543,7 @@ mod tests {
         let token = ytm_core::CancellationToken::new();
         token.cancel();
         let result = OperationResult::History(ytm_core::HistoryResult {
+            statistics: None,
             count_selection: None,
             requested_dates: vec![],
             discovery: vec![],

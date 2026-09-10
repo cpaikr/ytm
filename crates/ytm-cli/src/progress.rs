@@ -1,79 +1,39 @@
-//! Interactive-only transport decoration; no source payload is logged.
-use async_trait::async_trait;
-use std::{
-    io::Write,
-    sync::{Arc, Mutex},
-    time::{Duration, Instant},
-};
-use ytm_core::{
-    CancellationToken, HttpTransport, PreparedRequest, RetrievalContext, Transport, YtmError,
-    YtmService,
-};
+//! Pull the core's bounded metadata snapshot on the retrieval task itself.
+use std::{future::Future, io::Write, time::Duration};
+use ytm_core::{RetrievalProgress, RetrievalStatistics};
 
-struct ProgressTransport {
-    inner: Arc<dyn Transport>,
-    state: Mutex<State>,
-}
-struct State {
-    last: Option<Instant>,
-    dates: usize,
-    pairs: usize,
-}
-
-pub(super) fn service() -> Result<YtmService, YtmError> {
-    #[cfg(feature = "judge-fixtures")]
-    let inner = match ytm_core::judge::FixtureTransport::from_env()? {
-        Some(inner) => inner,
-        None => HttpTransport::shared()?,
-    };
-    #[cfg(not(feature = "judge-fixtures"))]
-    let inner = HttpTransport::shared()?;
-    Ok(YtmService::with_transport(ProgressTransport {
-        inner,
-        state: Mutex::new(State {
-            last: None,
-            dates: 0,
-            pairs: 0,
-        }),
-    }))
-}
-#[async_trait]
-impl Transport for ProgressTransport {
-    async fn post(
-        &self,
-        request: PreparedRequest,
-        cancellation: CancellationToken,
-    ) -> Result<Vec<u8>, YtmError> {
-        self.record(&request)?;
-        self.inner.post(request, cancellation).await
-    }
-    async fn post_with_context(
-        &self,
-        request: PreparedRequest,
-        context: RetrievalContext,
-    ) -> Result<Vec<u8>, YtmError> {
-        self.record(&request)?;
-        self.inner.post_with_context(request, context).await
-    }
-}
-
-impl ProgressTransport {
-    fn record(&self, request: &PreparedRequest) -> Result<(), YtmError> {
-        {
-            let mut state = self.state.lock().map_err(|_| YtmError::defect())?;
-            if request.operation == "initializeYtmMatrix" {
-                state.dates += 1;
-            } else {
-                state.pairs += 1;
+pub(super) async fn observe<T>(
+    future: impl Future<Output = T>,
+    progress: RetrievalProgress,
+    detailed: bool,
+) -> T {
+    tokio::pin!(future);
+    let mut interval = tokio::time::interval(Duration::from_secs(2));
+    interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+    loop {
+        tokio::select! {
+            biased;
+            result = &mut future => {
+                if detailed {
+                    if let Some(statistics) = progress.snapshot() { emit(&statistics, true); }
+                }
+                return result;
             }
-            if state
-                .last
-                .is_none_or(|last| last.elapsed() >= Duration::from_secs(2))
-            {
-                let _ = writeln!(std::io::stderr(), "YTM history: {} dated discoveries, {} date/category fetches started (including fallback).", state.dates, state.pairs);
-                state.last = Some(Instant::now());
+            _ = interval.tick() => {
+                if let Some(statistics) = progress.snapshot() { emit(&statistics, detailed); }
             }
         }
-        Ok(())
+    }
+}
+
+fn emit(statistics: &RetrievalStatistics, detailed: bool) {
+    // Diagnostic output is best-effort, like the existing terminal display.
+    // It never changes the structured stdout result or runs caller callbacks.
+    if detailed {
+        if let Ok(encoded) = serde_json::to_string(statistics) {
+            let _ = writeln!(std::io::stderr(), "YTM retrieval: {encoded}");
+        }
+    } else {
+        let _ = writeln!(std::io::stderr(), "YTM history: {} dated discoveries, {} date/category fetches started (including fallback).", statistics.discovery_count, statistics.matrix_lookup_count);
     }
 }

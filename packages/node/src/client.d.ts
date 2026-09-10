@@ -2,6 +2,33 @@ export interface RequestOptions {
   readonly signal?: AbortSignal;
   /** Positive safe integer milliseconds; defaults to 1,800,000 for the whole retrieval. */
   readonly operationTimeoutMs?: number;
+  /** Integer 0..10, defaults to 2. */
+  readonly maxRetries?: number;
+  /** Nonnegative safe integer milliseconds, defaults to 500. */
+  readonly baseBackoffMs?: number;
+  /** At least baseBackoffMs; defaults to 1000. */
+  readonly maxBackoffMs?: number;
+  /** Invocation-local physical attempt spacing; defaults to 0 (disabled). */
+  readonly minRequestIntervalMs?: number;
+  readonly progress?: RetrievalProgress;
+}
+
+export interface RetrievalStatistics {
+  readonly scannedDateCount: number;
+  readonly completedQualifyingDateCount: number;
+  readonly discoveryCount: number;
+  readonly matrixLookupCount: number;
+  readonly physicalAttemptCount: number | null;
+  readonly retryCount: number | null;
+  readonly elapsedMs: number;
+  readonly waitingMs: number;
+  readonly finished: boolean;
+}
+
+/** Single-use latest snapshot; intermediate updates may coalesce. No callbacks. */
+export class RetrievalProgress {
+  constructor();
+  snapshot(): RetrievalStatistics | null;
 }
 
 export interface MatrixInput {
@@ -63,6 +90,7 @@ export interface SerializedError {
   readonly lookbackDays?: number;
   readonly cause?: string;
   readonly retry?: RetryDetails;
+  readonly statistics?: RetrievalStatistics;
   readonly recoveryHint?: string;
   readonly recoveryAction?: RecoveryAction;
   readonly recoverable?: boolean;
@@ -108,6 +136,8 @@ export interface DateResolution {
 }
 
 export interface LookupYtmMatrixResult {
+  /** Present on top-level retrieval results; omitted from nested history matrices. */
+  readonly statistics?: RetrievalStatistics;
   readonly baseDate: string;
   readonly requestedBaseDate: string;
   readonly dateResolution: DateResolution;
@@ -118,21 +148,23 @@ export interface LookupYtmMatrixResult {
 }
 
 export interface ListYtmKindsResult {
+  /** Present on top-level retrieval results; omitted from nested history matrices. */
+  readonly statistics?: RetrievalStatistics;
   readonly baseDate: string | null;
   readonly kinds: readonly YtmKind[];
   readonly source: Record<string, unknown>;
 }
 
 export class YtmClient {
-  history(input: HistoryInput, options?: RequestOptions): Promise<HistoryResult>;
+  history(input: HistoryInput, options?: RequestOptions): Promise<HistoryResult & { readonly statistics: RetrievalStatistics }>;
   matrix(
     input: MatrixInput,
     options?: RequestOptions
-  ): Promise<LookupYtmMatrixResult>;
+  ): Promise<LookupYtmMatrixResult & { readonly statistics: RetrievalStatistics }>;
   kinds(
     input?: KindsInput,
     options?: RequestOptions
-  ): Promise<ListYtmKindsResult>;
+  ): Promise<ListYtmKindsResult & { readonly statistics: RetrievalStatistics }>;
 }
 
 export class YtmError extends Error {
@@ -165,6 +197,8 @@ export interface CountSelectionMetadata {
   readonly scannedDateCount: number;
 }
 export interface HistoryResult {
+  /** Present on top-level retrieval results; omitted from nested history matrices. */
+  readonly statistics?: RetrievalStatistics;
   readonly countSelection?: CountSelectionMetadata;
   readonly requestedDates: readonly string[];
   readonly discovery: readonly { readonly requestedBaseDate: string; readonly available: boolean }[];

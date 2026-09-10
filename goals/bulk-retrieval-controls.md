@@ -26,31 +26,49 @@ _None._
 
 ### Completed included results
 
-_None._
+- Bounded configurable retries and optional invocation-local request pacing.
+- Metadata-only pull progress and final retrieval statistics across Rust, CLI,
+  Node, Python sync and async, with preserved selection and default policy.
+- Deterministic 180-date acceptance, public-interface validation, and reconciled
+  contracts, API references and operational-history wording.
 
 ### Current in-scope result
 
-Bounded retry configuration and optional request pacing, with the shared
-statistics contract required by the public adapters.
+PR delivery of the single connected implementation slice.
 
 ### Next in-scope action
 
-Inspect the shared execution/transport and public adapter contracts, then
-implement the connected enhancement slice on a work branch.
+Create the PR, await CI and initial CodeRabbit review, resolve feedback, and merge
+into `codex/bulk-controls-integration`. Then persist terminal planning metadata.
 
 ### Evidence and blockers
 
-- Native goal created in task `01a08b2a-0b94-7063-854d-5041fce8e61c`.
-- Clean startup checkout was exactly preparation commit
-  `ff9bad63bcda132bf1132af377bf9a506d48b806`; preparation ancestry and unchanged
-  plan/roadmap verified after selecting `codex/bulk-controls-integration`.
-- Integration branch pushed successfully; repository permissions allow push
-  and the repository reports no rulesets. Terminal metadata will use this branch.
-- Repository skills are retained under `.claude/skills`, replacing the
-  handoff's stale `.agents/skills` location; global progress skill is available.
-- Candidate: integration setup and contract initialization. Classification:
-  necessary. Contract basis: Delivery and Resume. Action: proceed.
-- Candidate: connected core, CLI, Node, Python and acceptance implementation.
-  Classification: included. Contract basis: all three named results. Action:
-  proceed after durable initialization.
-- No release publication or additional live bulk run is authorized.
+- Native goal belongs to task `01a08b2a-0b94-7063-854d-5041fce8e61c`.
+- Startup checkout was exactly preparation commit
+  `ff9bad63bcda132bf1132af377bf9a506d48b806`. Goal initialization was committed
+  and pushed to the preflighted integration branch as `7b3343d`; direct terminal
+  metadata commit/push is authorized there. Repository reports no rulesets.
+- Work branch: `codex/bulk-retrieval-controls`; base:
+  `codex/bulk-controls-integration`. All included results form one review slice.
+- Repository skills are under `.claude/skills`, replacing the handoff's stale
+  `.agents/skills` location; global progress skill owns this contract lifecycle.
+- Progress uses a single-use pull handle with a constant-memory latest snapshot.
+  Intermediate updates coalesce; no user callback runs inside retrieval. Python
+  async cancellation drains native work before re-raising the original
+  `CancelledError` with final statistics. Pre-start failures omit statistics.
+- Core synthetic acceptance: 250 scanned dates, 180 complete qualifying dates,
+  1,704 HTTP attempts including 14 retries. Values and ordered requests match an
+  unpaced 1,690-attempt baseline. This is synthetic evidence, not a live run.
+- Full `bun run validate` passed with CPython 3.12 on macOS ARM64. Public CLI,
+  Node, Python sync/async controls and recovery checks passed. The gate includes
+  fixture/release wheels, Rust consumers, dependency policy and package checks.
+  PowerShell-only Windows guide execution remains outside this host's coverage.
+- Independent bounded code review completed. Its one Python close/completion
+  statistics-loss finding is fixed and regression-tested; CLI post-retrieval
+  cancellation/export errors also retain counters. Affected CLI/Python tests
+  and clippy passed. Scoped documentation harmonization and local links passed.
+- Candidate: one implementation PR and feedback resolution through merge.
+  Classification: necessary. Contract basis: Delivery and Complete when.
+  Action: proceed against the preflighted integration branch.
+- No release publication, default-branch promotion, or additional live bulk run
+  is authorized. No current blocker.

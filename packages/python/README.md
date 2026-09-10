@@ -65,6 +65,17 @@ slower calls. This budget starts after the client's queue and leaves the client
 reusable on expiry. See [the API contract](SPEC.md) for
 results, errors, cancellation, and lifecycle behavior.
 
+For bounded retries and optional invocation-local pacing, both clients accept
+`max_retries`, `base_backoff_ms`, `max_backoff_ms`, and
+`min_request_interval_ms`. Pass a fresh `RetrievalProgress()` as `progress` and
+poll `snapshot()` for coalesced, immutable metadata. Every top-level result
+exposes `statistics`; retrieval errors retain them in `details["statistics"]`.
+Async task cancellation drains native work before re-raising the original
+`CancelledError` with final `statistics`. See the
+[Python API](SPEC.md) for signatures and the
+[shared controls contract](../../SPEC.md#controls-and-observation) for bounds
+and counter semantics.
+
 `history(count=180, end_date="2026-09-08")` returns the latest 180 distinct
 dates containing numeric yields, with optional inclusive `start_date`.
 Count mode is exact-only; missing cells can remain. A bounded-search shortfall

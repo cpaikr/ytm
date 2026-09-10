@@ -1,4 +1,4 @@
-import { invokeNative } from "./native.js";
+import { invokeNative, createProgressNative } from "./native.js";
 
 const FALLBACK_PREVIOUS_AVAILABLE = "previous-available";
 const DEFAULT_LOOKBACK_DAYS = 10;
@@ -100,6 +100,15 @@ export class YtmError extends Error {
   }
 }
 
+const progressHandles = new WeakMap();
+const claimedProgress = new WeakSet();
+
+/** Single-use, bounded latest-snapshot observation. No callbacks are invoked. */
+export class RetrievalProgress {
+  constructor() { progressHandles.set(this, createProgressNative()); }
+  snapshot() { return JSON.parse(progressHandles.get(this).snapshot()); }
+}
+
 export class YtmClient {
   history(input, options = {}) {
     return executeOperation("history", input, options);
@@ -148,24 +157,37 @@ async function executeOperation(operationName, input, options) {
   }
 
 
-  // A pre-aborted request is a caller cancellation, not a transient source
-  // failure. Keep the historical source_transport_error code while making
-  // the retry policy explicit and non-retryable.
-  if (options.signal?.aborted) {
-    throw new YtmError({
-      ok: false,
-      name: "AbortError",
-      code: "source_transport_error",
-      operationName,
-      reason: "The KIS-NET request was cancelled before it started.",
-      expected: "A non-aborted request signal",
-      recoveryHint: "Create a new request with a non-aborted AbortSignal.",
-      recoveryAction: { kind: "start_new_request" },
-      recoverable: false,
-      retryable: false,
-      cause: "AbortError"
-    });
+  const policy = [options.maxRetries ?? 2, options.baseBackoffMs ?? 500,
+    options.maxBackoffMs ?? 1000, options.minRequestIntervalMs ?? 0];
+  const policyNames = ["maxRetries", "baseBackoffMs", "maxBackoffMs", "minRequestIntervalMs"];
+  for (let i = 0; i < policy.length; i++) {
+    const supplied = options[policyNames[i]];
+    if ((supplied !== undefined && !Number.isSafeInteger(supplied)) || policy[i] < 0 || (i === 0 && policy[i] > 10)) {
+      throw new YtmError(validationError({ operationName, code: "invalid_parameter", parameter: policyNames[i],
+        reason: "Retry settings must be nonnegative safe integers; maxRetries cannot exceed 10.",
+        actual: safeActual(supplied), recoveryHint: "Use bounded integer retry and millisecond settings.",
+        recoveryAction: { kind: "review_client_usage" } }));
+    }
   }
+  if (policy[2] < policy[1]) {
+    throw new YtmError(validationError({ operationName, code: "invalid_parameter", parameter: "maxBackoffMs",
+      reason: "maxBackoffMs must be at least baseBackoffMs.", actual: policy[2],
+      recoveryHint: "Increase maxBackoffMs or lower baseBackoffMs.", recoveryAction: { kind: "review_client_usage" } }));
+  }
+  if (options.progress !== undefined && !progressHandles.has(options.progress)) {
+    throw new YtmError(validationError({ operationName, code: "invalid_parameter", parameter: "progress",
+      reason: "progress must be a fresh RetrievalProgress handle.", actual: safeActual(options.progress),
+      recoveryHint: "Create a RetrievalProgress for this invocation.", recoveryAction: { kind: "review_client_usage" } }));
+  }
+  let progress;
+  try { progress = options.progress ?? new RetrievalProgress(); }
+  catch (cause) { throw cause instanceof YtmError ? cause : new YtmError(serializeError(cause)); }
+  if (claimedProgress.has(progress)) {
+    throw new YtmError(validationError({ operationName, code: "invalid_parameter", parameter: "progress",
+      reason: "A progress handle can be attached to only one invocation.", actual: null,
+      recoveryHint: "Create a fresh RetrievalProgress handle.", recoveryAction: { kind: "review_client_usage" } }));
+  }
+  claimedProgress.add(progress);
 
   let envelope;
   try {
@@ -173,7 +195,9 @@ async function executeOperation(operationName, input, options) {
       operationName,
       validation.input,
       options.signal,
-      options.operationTimeoutMs
+      options.operationTimeoutMs,
+      policy,
+      progressHandles.get(progress)
     );
   } catch (cause) {
     throw cause instanceof YtmError ? cause : new YtmError(serializeError(cause));
@@ -629,11 +653,23 @@ function normalizeRecoveryAction(action, operationName) {
   return fallback;
 }
 
-function isOperationResult(operationName, value) {
+function isRetrievalStatistics(value) {
+  if (!isRecord(value) || value.finished !== true) return false;
+  for (const name of ["scannedDateCount", "completedQualifyingDateCount", "discoveryCount", "matrixLookupCount", "elapsedMs", "waitingMs"]) {
+    if (!Number.isSafeInteger(value[name]) || value[name] < 0) return false;
+  }
+  if (value.waitingMs > value.elapsedMs) return false;
+  if (value.physicalAttemptCount === null) return value.retryCount === null;
+  return Number.isSafeInteger(value.physicalAttemptCount) && value.physicalAttemptCount >= 0 &&
+    Number.isSafeInteger(value.retryCount) && value.retryCount >= 0 && value.retryCount <= value.physicalAttemptCount;
+}
+
+function isOperationResult(operationName, value, topLevel = true) {
+  if (!isRecord(value) || (topLevel && !isRetrievalStatistics(value.statistics))) return false;
   if (operationName === "history") {
     return isRecord(value) && Array.isArray(value.requestedDates) && Array.isArray(value.discovery) &&
       Array.isArray(value.entries) && value.entries.every(entry => isRecord(entry) &&
-        (entry.availability === "available" ? isOperationResult("matrix", entry.matrix) :
+        (entry.availability === "available" ? isOperationResult("matrix", entry.matrix, false) :
           entry.availability === "unavailable" && typeof entry.requestedBaseDate === "string" &&
           isRecord(entry.kind) && Array.isArray(entry.attemptedDates) && typeof entry.reason === "string")) &&
       (value.countSelection === undefined || (isRecord(value.countSelection) &&

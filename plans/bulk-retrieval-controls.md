@@ -5,24 +5,27 @@
 CLI, Rust, Node, and Python callers can observe long retrievals, tune bounded
 retries, and optionally pace HTTP requests without changing selected data or
 today's default request behavior. This is the accepted target requested on
-2026-09-10; product implementation is pending.
+2026-09-10; implementation, offline validation and review are complete.
+PR delivery is pending; no release has been published.
 
 ## Current state
 
-- The shared Rust transport implements two retries, full-jitter caps of 500 ms
-  then 1,000 ms, valid `Retry-After` guidance, a 20-second attempt ceiling, and
-  a configurable 30-minute retrieval budget. Retry count and backoff are fixed;
-  successful retry statistics and SDK progress are not exposed; ordinary
-  requests have no pacing. CLI history already has automatic, throttled logical
-  lookup progress on terminal stderr. [Current contract](../SPEC.md#bounded-retrieval-recovery).
-- History scans dates and categories sequentially. Count means qualifying
-  dates, not a guaranteed numeric count for each series. A terminal error aborts
-  the result; no durable resumption exists.
+- Core, CLI, Node, and Python sync/async expose bounded retry/pacing controls,
+  metadata-only pull progress, and final retrieval statistics. Shared semantics
+  and Rust source migration are documented in [SPEC](../SPEC.md#bounded-retrieval-recovery).
+- Synthetic HTTP acceptance passed: 250 scanned dates, 180 complete qualifying
+  dates, 1,704 attempts including 14 retries. Selected values and ordered requests
+  match the unpaced 1,690-attempt baseline. No live throughput claim is implied.
+- Complete `bun run validate` passed with CPython 3.12 on macOS ARM64, including
+  installed fixture/release wheels, public CLI/Node/Python acceptance, Rust
+  consumers, dependency policy, and packaging. Windows guide execution was
+  skipped because PowerShell is unavailable; its separate consumer task remains.
+- Independent bounded review found one Python close/completion statistics race;
+  it is fixed with a regression test. Final counters also survive CLI cancellation
+  and export errors. Affected tests and lint checks passed. Documentation and
+  local links are reconciled. PR review, CI and merge remain.
 - [Recorded live acceptance](../docs/history-retrieval-live-acceptance.md)
-  selected 180 dates after scanning 261 in 60.783 seconds, with historical end
-  date 2023-06-30. This is evidence of feasibility, not current latency or quota.
-- Before preparation, the ten history tests and eleven transport recovery
-  tests passed. New behavior still needs its own acceptance evidence.
+  remains separate historical evidence; this goal includes no additional live run.
 
 ## Target behavior
 
@@ -132,5 +135,6 @@ quota discovery, or new live bulk runs to implement this outcome.
 
 ## Next action
 
-Initialize the native goal in the spawned task from the preparation commit,
-then implement the core policy and public contracts with deterministic tests.
+Create the single connected implementation PR against
+`codex/bulk-controls-integration`, request the initial CodeRabbit review, resolve
+feedback, and merge through the goal's delivery lifecycle.

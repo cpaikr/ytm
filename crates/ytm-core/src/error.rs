@@ -58,6 +58,8 @@ pub struct ErrorDetails {
     pub cause: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub retry: Option<RetryDetails>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub statistics: Option<crate::RetrievalStatistics>,
 }
 
 #[derive(Debug, Clone)]
@@ -158,6 +160,7 @@ impl YtmError {
             lookback_days: None,
             cause: None,
             retry: None,
+            statistics: None,
         })
     }
 
@@ -183,6 +186,7 @@ impl YtmError {
             lookback_days: None,
             cause: None,
             retry: None,
+            statistics: None,
         })
     }
 
@@ -209,6 +213,7 @@ impl YtmError {
             lookback_days: None,
             cause: cause.map(str::to_owned),
             retry: None,
+            statistics: None,
         })
     }
 
@@ -236,6 +241,7 @@ impl YtmError {
             lookback_days: None,
             cause: None,
             retry: None,
+            statistics: None,
         })
     }
 
@@ -263,6 +269,7 @@ impl YtmError {
             lookback_days: None,
             cause: None,
             retry: None,
+            statistics: None,
         })
     }
 
@@ -334,6 +341,7 @@ impl YtmError {
             lookback_days: Some(lookback_days),
             cause: None,
             retry: None,
+            statistics: None,
         })
     }
 
@@ -397,6 +405,7 @@ impl YtmError {
             lookback_days: None,
             cause: None,
             retry: None,
+            statistics: None,
         })
     }
 

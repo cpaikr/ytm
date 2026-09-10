@@ -5,6 +5,18 @@ from typing import Literal, Mapping
 Fallback = Literal["exact", "previous-available"]
 
 @dataclass(frozen=True)
+class RetrievalStatistics:
+    scanned_date_count: int
+    completed_qualifying_date_count: int
+    discovery_count: int
+    matrix_lookup_count: int
+    physical_attempt_count: int | None
+    retry_count: int | None
+    elapsed_ms: int
+    waiting_ms: int
+    finished: bool
+
+@dataclass(frozen=True)
 class Kind:
     code: str
     name: str
@@ -53,6 +65,7 @@ class KindsResult:
     base_date: str | None
     kinds: tuple[Kind, ...]
     source: SourceMetadata
+    statistics: RetrievalStatistics | None = None
 
 @dataclass(frozen=True)
 class MatrixResult:
@@ -63,6 +76,7 @@ class MatrixResult:
     source: SourceMetadata
     requested_base_date: str
     date_resolution: DateResolution
+    statistics: RetrievalStatistics | None = None
 
 
 @dataclass(frozen=True)
@@ -108,3 +122,4 @@ class HistoryResult:
     mode: Fallback
     lookback_days: int
     count_selection: CountSelectionMetadata | None = None
+    statistics: RetrievalStatistics | None = None

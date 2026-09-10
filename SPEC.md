@@ -63,9 +63,13 @@ traversal prefix. Selection, values, source identity, caching of confirmed
 outcomes, and all-or-error publication are unchanged. Custom transports own
 their retry policy; the service does not retry them.
 
-The wire profile declares three total attempts (two retries), a 20-second
+The wire profile defaults to three total attempts (two retries), a 20-second
 per-attempt ceiling through decompressed body consumption, and full-jitter
-retry caps of 500 ms then 1,000 ms. Reqwest's built-in retries remain disabled.
+retry caps of 500 ms then 1,000 ms. Callers may configure 0–10 retries, base
+backoff (default 500 ms), maximum backoff (default 1,000 ms), and minimum
+request interval (default 0, disabled). Backoffs and intervals are nonnegative,
+representable durations; maximum backoff must be at least base backoff.
+Retry caps grow exponentially with overflow-safe saturation. Reqwest's built-in retries remain disabled.
 Automatic eligibility is narrower than public `retryable` recovery advice:
 
 | Physical result | Automatic handling |
@@ -83,7 +87,11 @@ wall time, then wait monotonically for the greater of valid guidance and jitter.
 Malformed or past guidance uses normal backoff. Overflowing numeric guidance
 cannot cause an early retry. If the wait leaves no time for another attempt,
 stop immediately with `operation_deadline`, retaining the last source failure.
-There is no sleep after the final attempt and no ordinary-request pacing flag.
+There is no sleep after the final attempt. Optional pacing spaces physical
+attempt starts across every lookup and retry in an invocation. The first
+attempt has no artificial wait. Each wait ends at the latest of pacing,
+jitter, and provider guidance, including guidance above the configured cap.
+Pacing is invocation-local; concurrent calls do not share a rate limiter.
 
 One monotonic **retrieval timeout**, default **30 minutes**, starts after input
 validation at core invocation. It spans discovery, categories, dates, fallback
@@ -118,26 +126,65 @@ cause/status; expiry without a prior source failure reports `TimeoutError`.
 Neither becomes unavailable data, insufficient history, or caller cancellation.
 History enrichment preserves retry details alongside requested date/category
 and nested source `actual`. No source bodies or dependency messages enter
-these diagnostics; successful schemas remain unchanged. Retries are silent,
-and CLI progress still counts logical lookups on terminal stderr only.
+these diagnostics. Final statistics are additive result and error metadata;
+selected datasets and nested matrix values remain unchanged.
+
+### Controls and observation
+
+| Interface | Retry/pacing and progress |
+| --- | --- |
+| Rust | `RetrievalOptions::with_request_policy(max_retries, base_backoff, max_backoff, min_request_interval)` takes `Duration`s; `with_progress(RetrievalProgress)` attaches a handle. |
+| Node | `maxRetries`, `baseBackoffMs`, `maxBackoffMs`, `minRequestIntervalMs`, and `progress` in `RequestOptions`; numeric values are nonnegative safe integers. |
+| Python sync/async | Keyword-only `max_retries`, `base_backoff_ms`, `max_backoff_ms`, `min_request_interval_ms`, and `progress`; integers only, excluding booleans. |
+| CLI retrieval commands | `--max-retries`, `--base-backoff-ms`, `--max-backoff-ms`, `--min-request-interval-ms`, and `--progress`. |
+
+All settings validate before source I/O. Progress is a single-use pull handle:
+`snapshot()` returns no value before retrieval starts and the latest metadata
+snapshot thereafter. Intermediate updates coalesce in constant memory. No user
+callback executes within retrieval, so observer exceptions cannot cause replay
+or alter retrieval. Use a fresh handle per invocation; reuse fails validation.
+Snapshots remain readable and freeze after completion, failure, cancellation,
+or dropping a Rust retrieval future. Python asyncio cancellation cancels and
+drains native work before re-raising the original `CancelledError` with its
+final `statistics` attribute.
+
+Every top-level successful retrieval has `statistics`; failures after retrieval
+starts carry final `details.statistics`. Nested history
+matrices omit invocation statistics. Metadata contains no response bodies or
+yields. Fields use camelCase in JSON/Node and snake_case in Rust/Python:
+
+| Field | Meaning |
+| --- | --- |
+| `scannedDateCount` | Calendar dates whose processing began. |
+| `completedQualifyingDateCount` | Count-history dates containing numeric yields, after all categories finish. Zero outside count history. |
+| `discoveryCount`, `matrixLookupCount` | Logical lookups begun, including confirmed unavailable outcomes. |
+| `physicalAttemptCount`, `retryCount` | HTTP attempts started and attempts beyond each lookup's first. Null for custom transports whose attempt policy is unknown. |
+| `elapsedMs` | Retrieval-scope elapsed monotonic time, excluding client queue, serialization and export. |
+| `waitingMs` | Actual time in combined pacing/retry waits, counted once, including interrupted waits. |
+| `finished` | Whether the snapshot is final. |
+
+Validation and lifecycle failures before retrieval starts omit statistics. Completion retains counters without publishing partial
+data. Static catalog retrieval makes zero HTTP attempts. The CLI preserves
+one machine result on stdout; JSON results and XLSX receipts include statistics. Text and spreadsheet
+data retain their existing layout. `--progress` writes detailed metadata and a
+final summary to stderr, including redirected stderr. Without it, existing
+terminal-only automatic history progress and nonterminal silence remain.
 
 ### Compatibility
 
-The finite default intentionally changes previously unbounded overall calls:
-slow or large retrievals may now fail after 30 minutes. Choose a larger finite
-override when appropriate; this default is an engineering guard, not a measured
-provider throughput guarantee. Full issue #45 live acceptance remains pending
-in the [retrieval plan](plans/resilient-history-retrieval.md).
+The finite 30-minute default is an engineering guard, not a measured provider
+throughput guarantee. Choose a larger finite timeout when appropriate. Recorded
+live evidence remains in the [retrieval plan](plans/resilient-history-retrieval.md).
 
-JSON error metadata is additive. The new optional field in the exhaustive Rust
-`ErrorDetails` struct is a **Rust source compatibility break**: external literals
-must add `retry: None`, and exhaustive destructuring must bind `retry` or use
-`..`. Constructor-based error usage, `PreparedRequest`, the required
-`Transport::post` signature, and existing default/cancellation call forms remain
-available. `Transport::post_with_context` has a default implementation; decorators
-must forward it to preserve the inner HTTP deadline. The next authorized release
-must account for this source-breaking change and its migration; it must not be
-represented as a source-compatible Rust patch. This work publishes no release.
+Rust result and `ErrorDetails` struct literals must include the new optional
+`statistics` field; nested values use `None`. Exhaustive patterns must bind the
+field or use `..`. `RetrievalOptions` is now `Clone`, not `Copy`; clone options
+when reusing their policy, with a fresh progress handle per invocation. Existing
+timeout constructors and default/cancellation methods remain available. These
+are Rust source compatibility changes requiring release planning. The required
+`Transport::post` signature and `PreparedRequest` remain stable. Decorators must
+forward `post_with_context` to preserve the inner HTTP policy and accounting.
+Custom transports retain their own attempt policy. This work publishes no release.
 
 ## Multi-date history
 
@@ -224,7 +271,8 @@ The first Ctrl-C during an operation requests graceful cancellation; history
 exports check cancellation before publication. A repeated Ctrl-C, or any Ctrl-C
 after the operation returns, exits with status 130 even when stdout or stderr
 is blocked. Interactive stderr may show throttled discovery and
-retrieval counts, including fallback; redirected stderr remains quiet and all
+retrieval counts, including fallback; redirected stderr remains quiet unless
+`--progress` is supplied, and all
 machine-readable results remain on stdout.
 
 The [capacity evidence](docs/history-capacity.md) records measured synthetic
@@ -269,6 +317,9 @@ ytm matrix --base-date <기준일> --kind <종류> [--fallback previous-availabl
 ytm kinds [--base-date <기준일>] [--operation-timeout-seconds <seconds>] [--format json|csv|tsv|xlsx] [--output <file.xlsx>] [--overwrite] [--pretty]
 ytm upgrade [--check]
 ```
+
+All three retrieval commands also accept the [retry, pacing, and progress
+controls](#controls-and-observation).
 
 For `history`, `matrix`, and `kinds`, `--help` or `-h` prints command help without network
 I/O while validating supplied options. Value options accept `--option value`
@@ -353,8 +404,9 @@ validates supplied options without requiring execution inputs or a destination.
 The parent directory must exist. Preflight rejects an existing destination
 without `--overwrite`, and rejects directories, symlinks, and special files
 with either policy, before source requests. A successful export publishes a
-complete workbook and then returns exit 0 and one JSON receipt (interactive
-history progress may appear on stderr):
+complete workbook and then returns exit 0 and one JSON receipt. Statistics
+are included in the receipt; progress may appear on stderr as described above.
+The following example omits the statistics object for brevity:
 
 ```json
 {"ok":true,"operation":"matrix","result":{"format":"xlsx","path":"yields.xlsx","rowCount":1}}
@@ -417,10 +469,10 @@ metadata. Its receipt adds `availableCount`, `unavailableCount`, and
 `dataRowCount`; `rowCount` counts only `History` data rows. Count workbooks cover
 only selected dates. Their Metadata adds `selectedDateCount` and each
 `countSelection.<field>` above; the JSON receipt adds `selectedDateCount` and
-`countSelection`. Ordinary receipts are unchanged. CSV/TSV columns are unchanged
-and retain unavailable-category rows within selected dates. Progress reports
-started discovery/fetch requests, not qualified dates; it remains on interactive
-stderr only.
+`countSelection`. All receipts include final retrieval statistics. CSV/TSV
+columns are unchanged and retain unavailable-category rows within selected dates.
+Default terminal progress reports started discovery/fetch requests; opt-in
+`--progress` adds detailed counters under the [observation contract](#controls-and-observation).
 
 The CLI renders a complete buffer, writes and syncs a private staging file
 beside the destination, closes its handle, and publishes it. Without
@@ -433,8 +485,8 @@ mask the primary failure. The final path never exposes a partial workbook.
 Power-loss durability and recovery from uncatchable termination are not
 promised; termination can leave private staging files.
 
-Export runtime failures exit 1 with the existing error envelope; only
-interactive history progress may have been written to stderr. CLI-owned codes are `output_exists`, `output_write_error`,
+Export runtime failures exit 1 with the existing error envelope and completed
+retrieval statistics. Progress may have been written to stderr. CLI-owned codes are `output_exists`, `output_write_error`,
 `export_error`, and `request_cancelled` (export cancelled before publication);
 each identifies the operation and `output`, with a reason and
 recovery information. Worksheet limits and oversized cells fail explicitly

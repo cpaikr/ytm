@@ -13,13 +13,19 @@ have a different API.
   start_date: str | None = None, end_date: str | None = None,
   fallback: Literal["exact", "previous-available"] = "exact",
   lookback_days: int | None = None, count: int | None = None,
-  operation_timeout_seconds: int | None = None)` returns `HistoryResult`.
+  operation_timeout_seconds: int | None = None,
+  max_retries: int = 2, base_backoff_ms: int = 500, max_backoff_ms: int = 1000,
+  min_request_interval_ms: int = 0, progress: RetrievalProgress | None = None)` returns `HistoryResult`.
 - `matrix(*, base_date: str, kind: str | int, fallback: Literal["exact",
   "previous-available"] = "exact", lookback_days: int | None = None,
-  operation_timeout_seconds: int | None = None)` returns
+  operation_timeout_seconds: int | None = None,
+  max_retries: int = 2, base_backoff_ms: int = 500, max_backoff_ms: int = 1000,
+  min_request_interval_ms: int = 0, progress: RetrievalProgress | None = None)` returns
   `MatrixResult`.
 - `kinds(*, base_date: str | None = None,
-  operation_timeout_seconds: int | None = None)` returns `KindsResult`. Omitting the
+  operation_timeout_seconds: int | None = None,
+  max_retries: int = 2, base_backoff_ms: int = 500, max_backoff_ms: int = 1000,
+  min_request_interval_ms: int = 0, progress: RetrievalProgress | None = None)` returns `KindsResult`. Omitting the
   date returns the Rust-owned canonical catalog without network access.
 
 Arguments are keyword-only. Python checks call shapes (including rejecting
@@ -28,7 +34,8 @@ fallback, transport, and parsing. Unsupported keywords raise normal `TypeError`.
 Dates are canonical strings, preserving the Rust domain including year zero.
 Results are frozen dataclasses with tuples and read-only mappings: `Kind`,
 `MatrixRow`, `DateResolution`, `SourceMetadata`, `SourceRequest`, and
-`SourceParameters`. Yields are floats or `None`; original yield text and raw
+`SourceParameters`, and `RetrievalStatistics`. Every top-level result has final
+`statistics`; nested history matrices use `None`. Yields are floats or `None`; original yield text and raw
 columns are preserved. Field names are snake_case and retain all core information.
 
 History accepts a nonempty list/tuple or complete inclusive range,
@@ -58,6 +65,14 @@ and leaves the caller token and client usable. It is distinct from close or
 asyncio cancellation. See the [shared recovery contract](../../SPEC.md#bounded-retrieval-recovery)
 for compatibility and attempt policy.
 
+Retry/pacing settings validate before source I/O under the
+[shared controls contract](../../SPEC.md#controls-and-observation).
+`RetrievalProgress.snapshot()` returns `None` before retrieval starts and a frozen
+latest `RetrievalStatistics` thereafter. Intermediate updates coalesce; no
+callback runs inside retrieval. Use a fresh handle for each call. A separate
+thread may poll during sync retrieval; async callers may poll from their event
+loop. Final snapshots remain available after success, failure or cancellation.
+
 ## Ownership and cancellation
 
 Clients lazily own one Rust service and serialize calls per instance. Independent
@@ -75,8 +90,8 @@ Dropping a client cancels remaining work, but deterministic cleanup requires a
 context manager or explicit close. Forked-process reuse is unsupported; construct
 clients after process creation using the spawn start method.
 
-Cancelling an asyncio task cancels that call's Rust token and retains
-`asyncio.CancelledError`. Client close causes active calls to finish with
+Cancelling an asyncio task cancels that call's Rust token, drains native work,
+and re-raises the original `asyncio.CancelledError` with final `statistics`. Client close causes active calls to finish with
 `RequestCancelledError`. Cancellation of `aclose()` still leaves the client
 closed and cancellation requested; calling it again drains outstanding work.
 
@@ -86,7 +101,8 @@ All expected failures use `YtmError` subclasses: `InvalidParameterError`,
 `SourceTransportError`, `SourceProtocolError`, `SourceFormatError`,
 `SourceDataUnavailableError`, `InsufficientHistoryError`, `RequestCancelledError`, `ClientStateError`, and
 `DefectError`. Each exposes `code` and immutable `details` with safe core error
-metadata, including attempted dates, recovery fields and the optional nested
+metadata, including final `statistics` when retrieval started,
+attempted dates, recovery fields and the optional nested
 `retry` mapping (`attemptCount`, `maxAttempts`, `sourceOperation`, `stopReason`). Error
 messages never expose binding exceptions, panic payloads, or dependency errors.
 

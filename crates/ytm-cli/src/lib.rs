@@ -88,6 +88,8 @@ struct ParsedInvocation {
     output: OutputSelection,
     pretty: bool,
     operation_timeout_seconds: Option<String>,
+    request_policy: [Option<String>; 4],
+    detailed_progress: bool,
 }
 
 #[derive(Debug)]
@@ -110,6 +112,14 @@ impl OperationResult {
             Self::History(_) => Operation::History,
             Self::Matrix(_) => Operation::Matrix,
             Self::Kinds(_) => Operation::Kinds,
+        }
+    }
+
+    fn statistics(&self) -> Option<&ytm_core::RetrievalStatistics> {
+        match self {
+            Self::History(result) => result.statistics.as_ref(),
+            Self::Matrix(result) => result.statistics.as_ref(),
+            Self::Kinds(result) => result.statistics.as_ref(),
         }
     }
 
@@ -191,7 +201,9 @@ pub async fn run_with_cancellation(
     let options = match retrieval_options(
         invocation.operation,
         invocation.operation_timeout_seconds.as_deref(),
-    ) {
+    )
+    .and_then(|options| request_policy(invocation.operation, options, &invocation.request_policy))
+    {
         Ok(options) => options,
         Err(error) => {
             return invalid_output(InvocationError {
@@ -203,10 +215,17 @@ pub async fn run_with_cancellation(
 
     if let OutputSelection::Xlsx { path, overwrite } = &invocation.output {
         if let Err(error) = xlsx::preflight(path, *overwrite) {
-            return error.output(invocation.operation);
+            return error.output(invocation.operation, None);
         }
     }
-    let result = match execute(input, options, cancellation.clone()).await {
+    let result = match execute(
+        input,
+        options,
+        cancellation.clone(),
+        invocation.detailed_progress,
+    )
+    .await
+    {
         Ok(result) => result,
         Err(error) => {
             return ProcessOutput {
@@ -217,7 +236,8 @@ pub async fn run_with_cancellation(
         }
     };
     if let OutputSelection::Xlsx { path, overwrite } = &invocation.output {
-        let mut receipt = json!({ "format": "xlsx", "path": path });
+        let mut receipt =
+            json!({ "format": "xlsx", "path": path, "statistics": result.statistics() });
         if let OperationResult::History(history) = &result {
             receipt["availableCount"] = json!(history.available_count);
             receipt["unavailableCount"] = json!(history.unavailable_count);
@@ -238,19 +258,25 @@ pub async fn run_with_cancellation(
                     invocation.pretty,
                 ),
             ),
-            Err(error) => error.output(invocation.operation),
+            Err(error) => error.output(invocation.operation, result.statistics()),
         };
     }
     let OutputSelection::Text(format) = invocation.output else {
         unreachable!()
     };
-    let output = success_output(result, format, invocation.pretty).and_then(|output| {
-        if cancellation.is_cancelled() {
-            Err(YtmError::cancelled(invocation.operation.name()))
-        } else {
-            Ok(output)
-        }
-    });
+    let statistics = result.statistics().cloned();
+    let output = success_output(result, format, invocation.pretty)
+        .and_then(|output| {
+            if cancellation.is_cancelled() {
+                Err(YtmError::cancelled(invocation.operation.name()))
+            } else {
+                Ok(output)
+            }
+        })
+        .map_err(|mut error| {
+            error.details.statistics = statistics;
+            error
+        });
     match output {
         Ok(output) => output,
         Err(error) => ProcessOutput {
@@ -361,6 +387,18 @@ fn operation_command(name: &'static str) -> Command {
         .arg(value_arg("kind", "kind"))
         .arg(value_arg("fallback", "fallback"))
         .arg(value_arg("lookback_days", "lookback-days"))
+        .arg(value_arg("max_retries", "max-retries"))
+        .arg(value_arg("base_backoff_ms", "base-backoff-ms"))
+        .arg(value_arg("max_backoff_ms", "max-backoff-ms"))
+        .arg(value_arg(
+            "min_request_interval_ms",
+            "min-request-interval-ms",
+        ))
+        .arg(
+            Arg::new("progress")
+                .long("progress")
+                .action(ArgAction::SetTrue),
+        )
         .arg(value_arg(
             "operation_timeout_seconds",
             "operation-timeout-seconds",
@@ -424,6 +462,8 @@ fn invocation_from_matches(
         input: input_from_matches(matches, operation),
         output,
         pretty: matches.get_count("pretty") > 0,
+        request_policy: policy_values(matches),
+        detailed_progress: matches.get_flag("progress"),
         operation_timeout_seconds: matches
             .get_one::<String>("operation_timeout_seconds")
             .cloned(),
@@ -447,6 +487,68 @@ fn retrieval_options(
     }
     let seconds = value.parse::<u64>().map_err(|_| invalid())?;
     RetrievalOptions::new(std::time::Duration::from_secs(seconds)).map_err(|_| invalid())
+}
+
+fn policy_values(matches: &ArgMatches) -> [Option<String>; 4] {
+    [
+        "max_retries",
+        "base_backoff_ms",
+        "max_backoff_ms",
+        "min_request_interval_ms",
+    ]
+    .map(|name| matches.get_one::<String>(name).cloned())
+}
+
+fn request_policy(
+    operation: Operation,
+    options: RetrievalOptions,
+    values: &[Option<String>; 4],
+) -> Result<RetrievalOptions, Box<CliError>> {
+    let mut parsed = [2u64, 500, 1000, 0];
+    let names = [
+        "maxRetries",
+        "baseBackoffMs",
+        "maxBackoffMs",
+        "minRequestIntervalMs",
+    ];
+    for (index, value) in values.iter().enumerate() {
+        if let Some(value) = value {
+            let invalid = || {
+                Box::new(cli_error(
+                    operation,
+                    "invalid_parameter",
+                    names[index],
+                    "Retry settings must be nonnegative integers; max retries cannot exceed 10.",
+                    json!("bounded integer"),
+                    Some(json!(value)),
+                ))
+            };
+            if value.is_empty() || !value.bytes().all(|byte| byte.is_ascii_digit()) {
+                return Err(invalid());
+            }
+            parsed[index] = value.parse().map_err(|_| invalid())?;
+            if index == 0 && parsed[index] > 10 {
+                return Err(invalid());
+            }
+        }
+    }
+    options
+        .with_request_policy(
+            parsed[0] as u8,
+            std::time::Duration::from_millis(parsed[1]),
+            std::time::Duration::from_millis(parsed[2]),
+            std::time::Duration::from_millis(parsed[3]),
+        )
+        .map_err(|error| {
+            Box::new(cli_error(
+                operation,
+                "invalid_parameter",
+                "requestPolicy",
+                &error.details.reason,
+                json!("representable durations and max backoff >= base backoff"),
+                None,
+            ))
+        })
 }
 
 fn parse_output(
@@ -597,12 +699,13 @@ fn validate_operation_help(args: &[OsString], operation: Operation) -> Result<()
         .subcommand()
         .expect("known operation parsed as a Clap subcommand");
     parse_output(operation, subcommand, true)?;
-    retrieval_options(
+    let options = retrieval_options(
         operation,
         subcommand
             .get_one::<String>("operation_timeout_seconds")
             .map(String::as_str),
     )?;
+    request_policy(operation, options, &policy_values(subcommand))?;
     let mut input = input_from_matches(subcommand, operation);
     if operation == Operation::Matrix {
         input
@@ -934,27 +1037,38 @@ async fn execute(
     input: ValidatedInput,
     options: RetrievalOptions,
     cancellation: ytm_core::CancellationToken,
+    detailed_progress: bool,
 ) -> Result<OperationResult, YtmError> {
-    let service = if matches!(input, ValidatedInput::History(_))
-        && std::io::IsTerminal::is_terminal(&std::io::stderr())
-    {
-        progress::service()?
+    let service = service()?;
+    let observe = detailed_progress
+        || (matches!(input, ValidatedInput::History(_))
+            && std::io::IsTerminal::is_terminal(&std::io::stderr()));
+    let monitor = ytm_core::RetrievalProgress::new();
+    let options = if observe {
+        options.with_progress(monitor.clone())
     } else {
-        service()?
+        options
     };
-    match input {
-        ValidatedInput::History(input) => service
-            .history_with_options_and_cancellation(input, options, cancellation)
-            .await
-            .map(OperationResult::History),
-        ValidatedInput::Matrix(input) => service
-            .matrix_with_options_and_cancellation(input, options, cancellation)
-            .await
-            .map(OperationResult::Matrix),
-        ValidatedInput::Kinds(input) => service
-            .kinds_with_options_and_cancellation(input, options, cancellation)
-            .await
-            .map(OperationResult::Kinds),
+    let retrieval = async {
+        match input {
+            ValidatedInput::History(input) => service
+                .history_with_options_and_cancellation(input, options, cancellation)
+                .await
+                .map(OperationResult::History),
+            ValidatedInput::Matrix(input) => service
+                .matrix_with_options_and_cancellation(input, options, cancellation)
+                .await
+                .map(OperationResult::Matrix),
+            ValidatedInput::Kinds(input) => service
+                .kinds_with_options_and_cancellation(input, options, cancellation)
+                .await
+                .map(OperationResult::Kinds),
+        }
+    };
+    if observe {
+        progress::observe(retrieval, monitor, detailed_progress).await
+    } else {
+        retrieval.await
     }
 }
 
@@ -1162,7 +1276,7 @@ fn command_help(operation: Operation) -> String {
         Operation::Matrix => "ytm matrix --base-date 2026-06-08 --kind 국채 --format json",
         Operation::Kinds => "ytm kinds --base-date 2026-06-08 --format json",
     };
-    format!("{body}\n  Retrieval: --operation-timeout-seconds <positive integer> (default {DEFAULT_OPERATION_TIMEOUT_SECONDS}).\n  One deadline covers source calls and retry waits; destination preflight and export time are excluded.\n\nCLI example:\n  {example}\n")
+    format!("{body}\n  Retrieval: --operation-timeout-seconds <positive integer> (default {DEFAULT_OPERATION_TIMEOUT_SECONDS}).\n  Retry: --max-retries <0..10> (default 2), --base-backoff-ms <integer> (500), --max-backoff-ms <integer> (1000).\n  Pacing: --min-request-interval-ms <integer> (default 0, disabled); invocation-local.\n  --progress prints detailed metadata snapshots and final statistics on stderr.\n  JSON results and XLSX receipts include statistics; CSV/TSV rows and workbook data stay tabular.\n  One deadline covers source calls and combined retry/pacing waits; destination preflight and export time are excluded.\n\nCLI example:\n  {example}\n")
 }
 
 fn formatted_kinds(prefix: &str) -> String {

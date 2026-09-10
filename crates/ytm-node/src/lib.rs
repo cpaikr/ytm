@@ -18,9 +18,36 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 use ytm_core::{
     BaseDate, CancellationToken, HistoryInput, HistoryRequest, HttpTransport, KindSelector,
-    KindsInput, LookbackDays, MatrixInput, RetrievalOptions, Transport, YtmError, YtmService,
-    DEFAULT_LOOKBACK_DAYS, MAX_LOOKBACK_DAYS,
+    KindsInput, LookbackDays, MatrixInput, RetrievalOptions, RetrievalProgress, Transport,
+    YtmError, YtmService, DEFAULT_LOOKBACK_DAYS, MAX_LOOKBACK_DAYS,
 };
+
+/// Native storage for a bounded metadata snapshot; no JavaScript references cross runtimes.
+#[napi]
+pub struct NativeProgress {
+    inner: RetrievalProgress,
+}
+
+#[napi]
+impl NativeProgress {
+    #[napi(constructor)]
+    pub fn new() -> Self {
+        Self {
+            inner: RetrievalProgress::new(),
+        }
+    }
+    #[napi]
+    pub fn snapshot(&self) -> napi::Result<String> {
+        serde_json::to_string(&self.inner.snapshot())
+            .map_err(|_| napi::Error::from_reason("progress serialization failed"))
+    }
+}
+
+impl Default for NativeProgress {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -50,6 +77,8 @@ fn history(
     signal: Option<AbortSignal>,
     pre_aborted: Option<bool>,
     operation_timeout_ms: Option<f64>,
+    request_policy_json: Option<String>,
+    progress: Option<&NativeProgress>,
 ) -> napi::Result<AsyncBlock<String>> {
     let input = serde_json::from_str(&input_json)
         .map_err(|e| napi::Error::from_reason(format!("invalid history input JSON: {e}")))?;
@@ -59,6 +88,8 @@ fn history(
         signal,
         pre_aborted.unwrap_or(false),
         operation_timeout_ms,
+        request_policy_json,
+        progress.map(|progress| progress.inner.clone()),
     )
 }
 
@@ -69,6 +100,8 @@ fn matrix(
     signal: Option<AbortSignal>,
     pre_aborted: Option<bool>,
     operation_timeout_ms: Option<f64>,
+    request_policy_json: Option<String>,
+    progress: Option<&NativeProgress>,
 ) -> napi::Result<AsyncBlock<String>> {
     let input: MatrixInputDto = serde_json::from_str(&input_json)
         .map_err(|error| napi::Error::from_reason(format!("invalid matrix input JSON: {error}")))?;
@@ -78,6 +111,8 @@ fn matrix(
         signal,
         pre_aborted.unwrap_or(false),
         operation_timeout_ms,
+        request_policy_json,
+        progress.map(|progress| progress.inner.clone()),
     )
 }
 
@@ -88,6 +123,8 @@ fn kinds(
     signal: Option<AbortSignal>,
     pre_aborted: Option<bool>,
     operation_timeout_ms: Option<f64>,
+    request_policy_json: Option<String>,
+    progress: Option<&NativeProgress>,
 ) -> napi::Result<AsyncBlock<String>> {
     let input: KindsInputDto = serde_json::from_str(&input_json)
         .map_err(|error| napi::Error::from_reason(format!("invalid kinds input JSON: {error}")))?;
@@ -97,6 +134,8 @@ fn kinds(
         signal,
         pre_aborted.unwrap_or(false),
         operation_timeout_ms,
+        request_policy_json,
+        progress.map(|progress| progress.inner.clone()),
     )
 }
 
@@ -122,6 +161,8 @@ fn task(
     signal: Option<AbortSignal>,
     pre_aborted: bool,
     operation_timeout_ms: Option<f64>,
+    request_policy_json: Option<String>,
+    progress: Option<RetrievalProgress>,
 ) -> napi::Result<AsyncBlock<String>> {
     let cancellation = CancellationToken::new();
     if pre_aborted {
@@ -133,9 +174,15 @@ fn task(
     }
 
     let future = async move {
-        let result = AssertUnwindSafe(execute(operation, cancellation, operation_timeout_ms))
-            .catch_unwind()
-            .await;
+        let result = AssertUnwindSafe(execute(
+            operation,
+            cancellation,
+            operation_timeout_ms,
+            request_policy_json,
+            progress,
+        ))
+        .catch_unwind()
+        .await;
         let envelope = match result {
             Ok(Ok(value)) => json!({ "ok": true, "value": value }),
             Ok(Err(error)) => error_envelope(error),
@@ -151,32 +198,47 @@ async fn execute(
     operation: Operation,
     cancellation: CancellationToken,
     operation_timeout_ms: Option<f64>,
+    request_policy_json: Option<String>,
+    progress: Option<RetrievalProgress>,
 ) -> Result<Value, YtmError> {
+    let mut options = retrieval_options("retrieval", operation_timeout_ms)?;
+    if let Some(encoded) = request_policy_json {
+        let (retries, base, maximum, interval): (u8, u64, u64, u64) =
+            serde_json::from_str(&encoded).map_err(|_| {
+                YtmError::invalid_parameter(
+                    "retrieval",
+                    "requestPolicy",
+                    "Expected bounded integer retry and millisecond settings.",
+                    Value::Null,
+                )
+            })?;
+        options = options.with_request_policy(
+            retries,
+            std::time::Duration::from_millis(base),
+            std::time::Duration::from_millis(maximum),
+            std::time::Duration::from_millis(interval),
+        )?;
+    }
+    if let Some(progress) = progress {
+        options = options.with_progress(progress);
+    }
     let transport = transport()?;
     let service = YtmService::with_shared_transport(transport);
     match operation {
         Operation::History(input) => service
             .history_with_options_and_cancellation(
                 HistoryInput::try_from(input)?,
-                retrieval_options("history", operation_timeout_ms)?,
+                options,
                 cancellation,
             )
             .await
             .and_then(|v| serde_json::to_value(v).map_err(|_| YtmError::defect())),
         Operation::Matrix(input) => service
-            .matrix_with_options_and_cancellation(
-                matrix_input(*input)?,
-                retrieval_options("matrix", operation_timeout_ms)?,
-                cancellation,
-            )
+            .matrix_with_options_and_cancellation(matrix_input(*input)?, options, cancellation)
             .await
             .map(|value| serde_json::to_value(value).expect("matrix result serializes")),
         Operation::Kinds(input) => service
-            .kinds_with_options_and_cancellation(
-                kinds_input(input)?,
-                retrieval_options("kinds", operation_timeout_ms)?,
-                cancellation,
-            )
+            .kinds_with_options_and_cancellation(kinds_input(input)?, options, cancellation)
             .await
             .map(|value| serde_json::to_value(value).expect("kinds result serializes")),
     }

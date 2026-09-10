@@ -80,8 +80,8 @@ loop and the passing synthetic `count_180_stops_at_target_and_orders_whole_dates
 test, which verifies canonical plus discovered categories and exact request
 counts. No extra provider lookup was made to duplicate discovery.
 
-No terminal error occurred. Successful retry counts are not exposed by the
-public interface and were not inferred. This run validates this candidate and
+No terminal error occurred. The assessed candidate did not expose successful
+retry counts, and they were not inferred. This run validates this candidate and
 scenario within the deadline; it establishes no general latency or quota claim.
 
 ## Validation and retention
