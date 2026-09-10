@@ -1,5 +1,9 @@
 # Changelog
 
+This is the historical npm release record. The Rust-backed development SDK is
+described in [README.md](README.md); current product changes are recorded in the
+[repository changelog](https://github.com/cpaikr/ytm/blob/main/CHANGELOG.md). Historical entries remain unchanged.
+
 ## [0.2.0](https://github.com/cpaikr/ytm/compare/v0.1.1...node-v0.2.0) (2026-07-17)
 
 

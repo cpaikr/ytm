@@ -1,5 +1,11 @@
 # Changelog
 
+This is the product changelog for the Rust core, standalone CLI, and Node and
+Python SDK source. Entries before the unified `vX.Y.Z` lifecycle retain their
+historical tag links. [GitHub Releases](https://github.com/cpaikr/ytm/releases)
+owns publication status; the [release runbook](docs/release.md) defines which
+artifacts are distributed.
+
 ## [0.5.0](https://github.com/cpaikr/ytm/compare/v0.4.1...v0.5.0) (2026-09-10)
 
 ### Features
@@ -100,9 +106,6 @@ that was superseded before this release.
 * **rewrite:** harden the native candidate after review ([64a7ebf](https://github.com/cpaikr/ytm/commit/64a7ebf64437a844d0d5540b099d02efaab56ca3))
 * **runtime:** harden cancellation and XML boundaries ([4228f7b](https://github.com/cpaikr/ytm/commit/4228f7b060055fde7b930e284915019c63a1ad0b))
 * **sdk:** harden public contracts after review ([a962603](https://github.com/cpaikr/ytm/commit/a962603302f3755cdc33fe0c324e1e7a2eab2752))
-
-This is the product changelog for the Rust core, standalone CLI, and Node SDK.
-Entries before the unified `vX.Y.Z` lifecycle retain their historical tag links.
 
 ## [0.2.0](https://github.com/cpaikr/ytm/compare/v0.1.1...node-v0.2.0) (2026-07-17)
 

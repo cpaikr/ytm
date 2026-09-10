@@ -7,8 +7,9 @@ publication have been removed. SDK source, local packaging, and development
 CI remain supported.
 
 The [delivery plan](../plans/release-delivery.md) records the original migration
-evidence. GitHub Releases and Actions own current publication status.
-Historical releases and registry packages remain unchanged.
+evidence. [v0.5.0](https://github.com/cpaikr/ytm/releases/tag/v0.5.0) was published
+on 2026-09-10 at 17:21:50 UTC; GitHub Releases and Actions own subsequent
+publication status. Historical releases and registry packages remain unchanged.
 
 ## CI platform policy
 
@@ -39,12 +40,9 @@ and publishes it. Tag pushes alone schedule no release jobs.
 
 ## Prepare a release
 
-Version `0.5.0` includes the [retrieval compatibility changes](../SPEC.md#compatibility):
-the finite retrieval deadline, request controls and statistics, additional Rust
-result/error fields, and `RetrievalOptions` cloning. Rust consumers upgrading
-from earlier versions must apply that migration. Release certification remains
-separate from the provider's live qualification; GitHub Releases owns publication
-status.
+Rust consumers upgrading from before `0.5.0` must apply the
+[retrieval compatibility changes](../SPEC.md#compatibility). Release certification
+remains separate from the provider's live qualification.
 
 From a clean `main` checkout tracking `origin/main`, install the frozen
 JavaScript dependencies and the [validation prerequisites](../README.md#repository-validation),
@@ -62,9 +60,8 @@ The upstream hook fetches `origin/main` and requires the local commit to match
 it before preparation. Release-it validates, commits, and creates the local
 tag. `--no-git.push` leaves the commit and tag unpublished.
 
-Use the pull-request path for protected `main`; direct promotion was rejected
-even after checks on the exact commit passed. Push the prepared commit to a candidate branch without
-pushing its tag, then open a PR to `main`:
+Use the pull-request path for protected `main`. Push the prepared commit to a
+candidate branch without pushing its tag, then open a PR to `main`:
 
 ```sh
 git push origin HEAD:refs/heads/codex/release-X.Y.Z
@@ -136,8 +133,8 @@ CI artifacts.
 
 ## Standalone CLI candidate assets
 
-[`cli-targets.json`](../cli-targets.json) owns four targets independently of the
-Node-API package matrix: GNU/Linux x64 and ARM64 at glibc 2.28, macOS ARM64, and
+[`cli-targets.json`](../cli-targets.json) owns the supported targets independently
+of the Node-API package matrix: GNU/Linux x64 and ARM64 at glibc 2.28, macOS ARM64, and
 Windows x64. Full-platform CI derives its matrix from that file, builds on native
 runners, executes the exact binary's `--version` and `--help`, enforces the Linux
 symbol floor, and packages only the executable plus the canonical license
@@ -178,8 +175,9 @@ Record unavailable independent validation explicitly; launching another shell
 under the installer is insufficient. The checkout's fresh Windows installer
 reports this unverified boundary and points to recovery guidance without claiming
 to detect redirection or modifying the selected destination, PATH, or profiles.
-The immutable v0.4.0 installer predates this message; GitHub Releases own
-publication status for newer installers.
+The published v0.5.0 installer includes this message. It does not close the
+independent Windows consumer validation gap; the immutable v0.4.0 installer
+predates the message.
 
 The consumer also rejects failed downloads and corrupted archives without
 publishing state and exercises managed replacement with the unmodified
@@ -189,20 +187,10 @@ status-publication faults while asserting either the restored pair or the fixed
 recovery evidence, retained helper diagnostic, and Windows status; no test
 failpoint is shipped in the candidate.
 
-`ytm upgrade --check` is read-only and checks only the latest public stable
-GitHub Release after validating the managed pair. `ytm upgrade` additionally
-verifies release assets, the checksum manifest, the platform installer, and its
-pinned archive digest before invoking that installer in managed mode. Unix
-replacement preserves and rolls back the prior executable/receipt pair;
-Windows schedules an out-of-process helper, exclusively claims an adjacent
-in-progress marker, replaces any stale result with a `scheduled` status, waits
-at most 120 seconds for the exact parent process to exit, fails closed when
-identity cannot be confirmed, and atomically writes adjacent no-BOM UTF-8
-status states. Interrupted upgrades
-either restore the verified pair or retain fixed marker/`.previous` evidence;
-when recovery is required, the command reports the paths to inspect. See the
-[README installation guide](../README.md#installation) for published CLI
-installers, PATH setup, and upgrade commands.
+Managed upgrade selection, verification, replacement, and recovery semantics
+are defined in the [CLI contract](../SPEC.md#public-sdk-and-cli-surfaces).
+See the [README installation guide](../README.md#installation) for installer,
+PATH, and upgrade commands.
 
 ## Visibility and recovery
 

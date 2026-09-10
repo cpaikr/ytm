@@ -30,7 +30,7 @@ contracts/kisnet/openapi.yaml
  Node SDK  Rust CLI  Python SDK
 ```
 
-Dependencies point downward toward `ytm-core`. The Node SDK, Python SDK, and Rust CLI are
+Dependencies point inward toward `ytm-core`. The Node SDK, Python SDK, and Rust CLI are
 sibling consumers; neither depends on the other. The npm package has no
 executable entry, and the repository supports only the Rust `ytm` CLI.
 
@@ -178,78 +178,52 @@ only diagnostics within those boundaries.
 
 ## Runtime and distribution boundaries
 
-The current Node SDK requires Node.js 22; CI also validates Node 24 and 26.
-Supported Node native targets are Linux GNU x64/ARM64, macOS ARM64, and Windows
-x64. Linux artifacts are cross-linked against an explicit glibc 2.28 floor;
-their versioned ELF requirements are checked before packaging. Each target is
-built on a native runner during full-platform validation and clean-installed
-under all three Node majors. The root npm package contains JavaScript only and
-selects an exact-version optional native package at runtime.
+The SDKs and CLI have separate distribution boundaries over the same core:
 
-[`cli-targets.json`](cli-targets.json) independently owns the standalone CLI
-support matrix: GNU/Linux x64 and ARM64 at the shared glibc 2.28 floor, macOS
-ARM64, and Windows x64. The Node and CLI matrices may evolve independently;
-overlapping runner, architecture, and Linux toolchain facts are mechanically
-reconciled. Full-platform CI builds the exact target binary on a native
-runner, executes its version and help identity, creates a normalized archive,
-and aggregates all four archives with generated shell and PowerShell installers
-plus sorted SHA-256 metadata. Repository-owned packers normalize archive order,
-timestamps, ownership, modes, and ZIP metadata; exact-content validation
-rejects undeclared or private files. A downstream native matrix downloads that
-single aggregate without rebuilding it, installs through the generated shell or
-PowerShell entrypoint, and verifies exact executable, receipt, command identity,
-integrity rejection, and managed replacement on every claimed target. Bounded
-single-anchor copies of the already-validated installer inject transaction and
-Windows status-publication faults and verify rollback or retained recovery
-evidence without adding a test-only runtime seam to published artifacts.
+| Surface | Canonical support matrix | Distribution |
+| --- | --- | --- |
+| Node SDK | [`native-targets.json`](native-targets.json) | JavaScript facade with exact-version optional Node-API packages; private development packages. |
+| Python SDK | [`python-targets.json`](python-targets.json) | Typed facade and PyO3 extension in portable `cp311-abi3` mixed wheels; development artifacts. |
+| Standalone CLI | [`cli-targets.json`](cli-targets.json) | Native executable archives, generated installers, and checksums on GitHub Releases. |
 
-The generated installers now write a strict adjacent executable receipt and own
-fresh-install and managed-replacement transactions. The CLI's isolated release
-management module derives its platform identity from `cli-targets.json` at
-build time, validates the installed pair, and checks GitHub Releases only for
-an explicit `upgrade` command. It verifies release metadata, checksums, and the
-generated installer before delegating archive download and replacement. Unix
-uses an installer transaction with fixed recovery links; Windows uses an
-out-of-process PowerShell helper so the running mapped executable can exit
-before replacement. History, matrix, kinds, help, and version execution do not depend on
-release infrastructure. Exact installed candidates also exercise network-free
-XLSX export, overwrite policy, and native publication failures; the judge owns
-full workbook semantics through an independent test-only ZIP/XML inspector.
+The matrices own runtime versions, native targets, and platform floors.
+Overlapping runner, architecture, and Linux toolchain facts are mechanically
+reconciled while the support matrices may evolve independently. SDK consumers
+load native code in process; they do not invoke the CLI. Historical registry
+packages expose earlier APIs and remain unchanged.
 
-The manually dispatched release workflow rebuilds these outputs from an immutable release
-tag and publishes only after exact native-consumer validation. The tagged
-release commit must be reachable from `origin/main`.
+Candidate builders normalize package contents and metadata. Full-platform CI
+installs the exact aggregated artifacts on their declared native targets without
+rebuilding them. Python wheel evidence additionally binds reproducible bytes,
+native identity, typing, and legal notices to the source commit. Fixture builds
+exercise injected source behavior separately from clean release consumers.
+The [release runbook](docs/release.md) owns build procedures and certification.
 
-The Python facade uses PyO3's `abi3-py311` boundary and the maintained Tokio
-bridge. `python-targets.json` drives the development CI workflow for native
-builds, complete aggregation, and exact consumers. Fresh builds must produce
-identical wheel bytes; integrity validation binds those bytes, native identity,
-typing, and legal notices to the source commit. Consumers install outside the
-checkout without a Rust toolchain. Separate fixture builds own injected source,
-cancellation, and panic evidence; release wheels cannot select those facilities.
+## Installation and release isolation
 
-## Release boundary
+Generated installers own fresh-install and managed-replacement transactions.
+They publish an executable and adjacent receipt as a verified pair. The CLI's
+[`release_management.rs`](crates/ytm-cli/src/release_management.rs) derives its
+platform identity from the CLI matrix at build time and contacts GitHub Releases
+only for an explicit `upgrade` command. It verifies local identity, release
+metadata, checksums, and installer bytes before delegating replacement.
 
-[`docs/release.md`](docs/release.md) is the canonical release-state, CI platform
-coverage, and publication runbook.
+Unix replacement uses a transaction with fixed recovery files. Windows uses an
+out-of-process PowerShell helper so the running executable can exit before
+replacement. Interrupted transactions retain evidence and fail closed; the
+[public upgrade contract](SPEC.md#public-sdk-and-cli-surfaces) owns receipt,
+status, and recovery semantics. History, matrix, kinds, help, and version do not
+depend on release infrastructure.
 
-`bun run validate` owns the complete uncredentialed repository gate. Local
-development, ordinary CI, and immutable tagged-source validation delegate to
-that same command; credentialed live source checks remain a separate
-operational boundary.
-
-Local `release-it` owns version and changelog preparation. Its hook synchronizes
-all local Rust, Node, and Python version copies and runs the complete gate
-before staging, committing, and tagging from synchronized `main`. Preparation
-disables push so the release commit can pass protected-main PR checks and merge
-without rewriting it. The original tag is pushed after that commit reaches
-`main`. Manual dispatch on that stable version tag certifies and publishes the
-CLI release; branch dispatch certifies without publication. Automatic CI uses
-Linux x64 only; other native targets run only through manual workflows. Only the publisher has write access.
-It downloads the exact verified CLI candidate, reconciles changelog metadata
-and existing draft bytes, and confirms the complete set before public visibility.
+Local `release-it` synchronizes the product version and prepares the changelog
+and tag. The manually dispatched release workflow certifies an immutable tag
+reachable from `main`, then gives only the publisher write access to publish the
+exact verified CLI candidate. Branch dispatch certifies without publishing.
 Draft recovery is additive and byte-identical; public assets are immutable.
+Node and Python artifacts are outside this publication pipeline.
 
-Node and native packages are private; Python wheels remain development
-artifacts. The release pipeline has no npm/PyPI projection or registry identity.
-Historical registry packages and component releases remain unchanged.
+`bun run validate` is the shared uncredentialed gate for local development,
+automatic CI, and tagged-source verification. Credentialed live source checks
+are a separate operational boundary. The [release runbook](docs/release.md)
+owns CI coverage, publication procedures, and recovery; the
+[roadmap](ROADMAP.md) routes remaining verification and decisions.

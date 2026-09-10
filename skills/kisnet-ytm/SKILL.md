@@ -5,24 +5,35 @@ description: Use when retrieving Korean KIS-NET YTM Matrix rows or listing suppo
 
 # KIS-NET YTM
 
-Publication is not yet authorized. In the repository checkout, replace `ytm`
-below with `bun run cli --`; this invokes the standalone Rust/Clap binary. The
-Node package is SDK-only. For an in-process Node integration, import
+Use the standalone CLI installed from a GitHub Release. In the repository
+checkout, replace `ytm` below with `bun run cli --`; this invokes the Rust/Clap
+binary. The Node package is a private development SDK; the release pipeline
+publishes only the CLI. For an in-process Node integration, import
 `YtmClient` and the operation-specific validation helpers from `@sjunepark/ytm`.
 
 ```sh
 ytm kinds --format json
+ytm history --count 180 --end-date 2026-09-08 --format json
 ytm matrix --base-date 2026-06-08 --kind 국채 --format json --pretty
 ytm matrix --base-date 2026-06-07 --kind 80 --fallback previous-available --lookback-days 10 --format json
 ```
 
+- For the latest N observation dates, use `history --count N --end-date YYYY-MM-DD`,
+  with optional inclusive `--start-date`. Count is 1–2000; the exact backward
+  scan stops within 2000 calendar days. Do not combine count with a date list
+  or previous-available fallback. A shortfall raises `insufficient_history`.
+- A numeric yield anywhere qualifies a date; missing cells may remain. Report
+  `requestedDates.length` as the selected date count and preserve `countSelection`.
+  `availableCount` counts date/category pairs, not dates.
 - Dates accept `YYYY-MM-DD`, `YYYY.MM.DD`, or `YYYYMMDD`.
 - Kind accepts a source code or Korean label. The canonical catalog includes
   `80` 회사채(사모), distinct from `70` 회사채(무보증).
 - Exact-date lookup is the default. Use `previous-available` only when the
   caller authorizes walking backward through calendar dates.
-- Retry fallback only after confirmed unavailable data. Transport, protocol,
-  and source-format failures stop immediately.
+- Date fallback runs only after confirmed unavailable data. Eligible transient
+  transport failures retry within bounded attempt and retrieval budgets;
+  exhausted transport failures, protocol failures, and source-format failures
+  abort retrieval rather than selecting an earlier date.
 - JSON is the default agent-readable output. Execution and invalid-invocation
   failures are structured JSON; inspect their recovery metadata before
   retrying. `ytm help <unknown>` instead prints a plain-text help error and

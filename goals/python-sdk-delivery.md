@@ -3,6 +3,13 @@
 Status: complete
 Planning scope: ROADMAP.md
 
+This is a completed delivery record. The original contract and execution
+evidence below are historical; [ROADMAP](../ROADMAP.md) owns remaining work
+and links to current behavior and release operations. Exclusions and pending
+items below describe this goal at completion, not later project status.
+The [release migration](../plans/release-delivery.md) subsequently replaced
+its registry-publication design.
+
 ## Original contract
 
 Goal contract

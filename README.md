@@ -11,17 +11,15 @@ does not own or distribute the CLI.
 [`ROADMAP.md`](ROADMAP.md) records the remaining verification and decision
 boundaries.
 
-The current checkout includes bounded lookup retries and a 30-minute retrieval
-timeout, with a caller override. Current source also exposes bounded retry
-controls, optional invocation-local pacing, pull progress, and final statistics
-across CLI/Rust/Node/Python; these additions are not yet released. CLI retrieval
-commands accept `--max-retries`, `--base-backoff-ms`, `--max-backoff-ms`,
-`--min-request-interval-ms`, and `--progress`. JSON carries final statistics;
-opt-in detailed progress and the final summary go to stderr. Text and workbook
-data layouts are unchanged. For shared semantics, see the [policy and compatibility changes](SPEC.md#bounded-retrieval-recovery).
-[Bulk-control delivery](plans/bulk-retrieval-controls.md) and
-[recorded live acceptance](docs/history-retrieval-live-acceptance.md) are tracked
-separately from release publication.
+Retrieval uses bounded lookup retries and a 30-minute timeout, with caller
+controls for retry policy, invocation-local pacing, and timeout. Pull progress
+and final statistics are available across CLI/Rust/Node/Python. These CLI
+features shipped in [v0.5.0](https://github.com/cpaikr/ytm/releases/tag/v0.5.0);
+the SDK APIs remain available through source and local development packages.
+See the [retrieval contract](SPEC.md#bounded-retrieval-recovery) for shared
+semantics and [live acceptance](docs/history-retrieval-live-acceptance.md) for
+observed source behavior. Publication and live acceptance do not establish
+[production provider suitability](docs/provider-qualification.md).
 
 ## Installation
 
@@ -187,26 +185,9 @@ The standalone binary also exposes an exact, network-free identity:
 bun run cli -- --version
 ```
 
-[Manual full-platform CI](docs/release.md#ci-platform-policy) builds deterministic
-standalone CLI candidates for GNU/Linux x64 and ARM64
-(glibc 2.28 or newer), macOS ARM64, and Windows x64. Each candidate contains
-one versioned archive per target, `install.sh`, `install.ps1`, and sorted
-`SHA256SUMS`; [`cli-targets.json`](cli-targets.json) owns that support surface.
-The generated installers verify their selected archive, publish a strict
-adjacent executable receipt, and support explicit, recoverable managed upgrades
-through `ytm upgrade` and the read-only `ytm upgrade --check`. Locally built or
-modified executables are deliberately unmanaged. Native clean-consumer jobs
-install the exact aggregated candidate on every claimed target and verify its
-identity, receipt, integrity failures, managed replacement, and network-free
-Excel export with overwrite and platform-specific publication failures. Transaction
-faults are injected into bounded temporary installer copies to verify rollback
-and recoverable failure evidence without shipping a test failpoint.
-
-Manual branch dispatch of the release workflow certifies candidates without
-publishing. Manual version-tag dispatch certifies and publishes only these CLI
-assets to GitHub Releases. Local `release-it` prepares the synchronized version
-and changelog before committing, tagging, and pushing. See the
-[release runbook](docs/release.md) for the publishing command and recovery policy.
+For candidate builds, platform certification, release preparation, and manual
+publication, follow the [release runbook](docs/release.md).
+[`cli-targets.json`](cli-targets.json) owns the standalone support matrix.
 
 The [Python package](packages/python/README.md) provides `Client` and
 `AsyncClient` over the same core. Build its local mixed wheel with Python 3.11+
@@ -235,6 +216,6 @@ gate builds isolated fixture and release wheels and checks the installed public
 API and typing. Credentialed live source checks remain separate.
 
 Live KIS-NET smoke checks are scheduled and manually dispatchable rather than
-pull-request gates. The [release migration plan](plans/release-delivery.md)
-records validation and delivery evidence. The [release runbook](docs/release.md)
-explains Linux-only automatic CI, protected-main preparation, and manual tag publication.
+pull-request gates. The [release runbook](docs/release.md) explains Linux-only
+automatic CI, full-platform manual certification, and publication.
+[`ROADMAP.md`](ROADMAP.md) routes remaining work and completed delivery evidence.
