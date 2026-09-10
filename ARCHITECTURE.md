@@ -153,16 +153,19 @@ only diagnostics within those boundaries.
 - Discovery may add kinds but cannot remove or redefine canonical values;
   conflicts fail explicitly.
 - `ytm-core` invokes transports sequentially. `YtmService` owns one invocation
-  `RetrievalContext`, its deadline and child cancellation token, and date/category
-  enrichment. `HttpTransport` owns physical attempt eligibility, replay and waits
+  `RetrievalContext`, its deadline, child cancellation token, shared statistics
+  and date/category enrichment. A single-use pull progress handle exposes coalesced snapshots
+  without callbacks or an event queue. `HttpTransport` owns physical attempt
+  eligibility, configured replay and combined pacing/retry waits
   under the [bounded recovery contract](SPEC.md#bounded-retrieval-recovery).
   Redirects and proxies remain disabled; date fallback advances only on
   confirmed empty data.
 - The public `Transport::post` and `PreparedRequest` shapes remain stable. A
   default `post_with_context` hook delegates to existing custom implementations;
   the service bounds their asynchronous future without retrying it. Decorators,
-  including CLI progress, forward the context-aware hook. HTTP attempt identity
-  remains invocation-local until that lookup's parsing/normalization completes,
+  including CLI progress, forward the context-aware hook. SDKs and CLI read the
+  same core counters; Python task cancellation drains native work before exposing
+  final statistics. HTTP attempt identity remains invocation-local until that lookup's parsing/normalization completes,
   preserving error metadata without changing the transport response type.
 - Matrix fallback permits 32 dates and 64 logical lookups. Bounded retries may
   add physical attempts; one shared retrieval budget spans the entire traversal.

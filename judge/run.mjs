@@ -61,7 +61,7 @@ function assertGolden(name, surface, actual) {
     failures.push(`${name}: ${surface} attempted to reuse approved golden key ${key}`);
     return;
   }
-  const normalized = JSON.parse(JSON.stringify(actual));
+  const normalized = normalizeStatistics(JSON.parse(JSON.stringify(actual)), key);
   observedGoldenKeys.add(key);
   if (options.updateGolden) {
     goldenResults[key] = normalized;
@@ -71,6 +71,40 @@ function assertGolden(name, surface, actual) {
   if (Object.hasOwn(goldenResults, key)) {
     check(isDeepStrictEqual(normalized, goldenResults[key]), `${name}: ${surface} public result differs from the approved golden result`);
   }
+}
+
+function normalizeStatistics(value, label) {
+  if (Array.isArray(value)) return value.map(child => normalizeStatistics(child, label));
+  if (!value || typeof value !== "object") return value;
+  for (const [key, child] of Object.entries(value)) {
+    if (key === "stdout" && typeof child === "string" && child.trim().startsWith("{")) {
+      // CLI stdout is a serialized envelope. Preserve compact versus pretty form.
+      let parsed;
+      try { parsed = JSON.parse(child); } catch { continue; }
+      if (!containsStatistics(parsed)) continue;
+      value[key] = JSON.stringify(normalizeStatistics(parsed, label), null, child.startsWith("{\n") ? 2 : undefined) + (child.endsWith("\n") ? "\n" : "");
+    } else if (key === "statistics" && child && typeof child === "object") {
+      check(Number.isSafeInteger(child.elapsedMs) && child.elapsedMs >= 0, `${label}: statistics elapsedMs must be a nonnegative safe integer`);
+      check(Number.isSafeInteger(child.waitingMs) && child.waitingMs >= 0 && child.waitingMs <= child.elapsedMs, `${label}: statistics waitingMs must be actual non-overlapping time`);
+      // Keep every deterministic counter and the finished marker in the goldens.
+      child.elapsedMs = 0;
+      child.waitingMs = 0;
+    } else {
+      value[key] = normalizeStatistics(child, label);
+    }
+  }
+  return value;
+}
+
+function containsStatistics(value) {
+  return value !== null && typeof value === "object" && Object.entries(value).some(([key, child]) =>
+    (key === "statistics" && child !== null && typeof child === "object") || containsStatistics(child));
+}
+
+// Envelopes without timing metadata must retain exact CLI bytes in the oracle.
+for (const stdout of ['{  "ok": false }\n', '{"message": "statistics"}\n', '{ "statistics": null }\n']) {
+  check(normalizeStatistics({ stdout }, "normalization").stdout === stdout,
+    "normalization: stdout without statistics must remain byte-for-byte unchanged");
 }
 
 function publicNodeResult(result) {
@@ -122,7 +156,7 @@ historyScenarios({ runNode, runCli, check, fixture, initPath, matrixPath, invoke
 
 runNode("client-surface", { action: "inspect" }, undefined, (result, label) => {
   check(result.ok, `${label} must inspect successfully`);
-  check(result.value?.exports?.join(",") === "YtmClient,YtmError,serializeYtmError,validateHistoryInput,validateKindsInput,validateMatrixInput", `${label} must expose only the complete root SDK interface`);
+  check(result.value?.exports?.join(",") === "RetrievalProgress,YtmClient,YtmError,serializeYtmError,validateHistoryInput,validateKindsInput,validateMatrixInput", `${label} must expose only the complete root SDK interface`);
   check(result.value?.methods?.join(",") === "history,matrix,kinds", `${label} must expose only typed domain methods on the client`);
 });
 
@@ -680,7 +714,7 @@ function xlsxScenario(name, dataArgs, fixtureConfig, input, options = {}) {
     check(reference.status === 0, `${label} reference JSON must succeed`);
     const expected = JSON.parse(reference.stdout).result;
     const expectedPath = options.absolute ? resolve(cwd, output) : output;
-    check(isDeepStrictEqual(receipt, { ok: true, operation: dataArgs[0], result: { format: "xlsx", path: expectedPath, rowCount: (expected.rows || expected.kinds).length } }), `${label} receipt must identify the published table`);
+    check(isDeepStrictEqual(normalizeStatistics(receipt, label), normalizeStatistics({ ok: true, operation: dataArgs[0], result: { format: "xlsx", path: expectedPath, statistics: expected.statistics, rowCount: (expected.rows || expected.kinds).length } }, label)), `${label} receipt must identify the published table`);
     const inspected = spawnSync(process.env.PYO3_PYTHON || "python3", [resolve(root, "judge/inspect-xlsx.py"), resolve(cwd, output)], { encoding: "utf8", timeout: childTimeoutMilliseconds, maxBuffer: 4 * 1024 * 1024 });
     check(inspected.status === 0, `${label} independent workbook inspection failed: ${inspected.stderr}`);
     if (inspected.status !== 0) return;
@@ -972,6 +1006,7 @@ function runWithoutNative() {
     }
 
     writeFileSync(resolve(isolatedRoot, "src/native.js"), `
+export function createProgressNative() { return {snapshot: () => "null"}; }
 export async function invokeNative(operation, input) {
   if (input.baseDate === "2026-08-20") return { ok: true };
   if (input.baseDate === "2026-08-21") return { ok: true, value: null };

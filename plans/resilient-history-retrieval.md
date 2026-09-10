@@ -48,7 +48,7 @@ service/transport boundary and custom-transport hook. Interface references own
 their option syntax. The validation matrix below retains the acceptance
 obligations without a second copy of the policy.
 
-The three-attempt limit, jitter caps, and 30-minute default are engineering
+The default three-attempt limit, jitter caps, and 30-minute default are engineering
 choices, not measured provider limits. Live acceptance must record elapsed time
 before treating the default as operationally validated. Typed pinned dependency
 errors distinguish interrupted HTTP bodies from corrupt decompression; unknown
@@ -63,7 +63,9 @@ their required method; the narrow Rust ErrorDetails source migration and finite
 default timeout are explicit [compatibility changes](../SPEC.md#compatibility)
 that the next authorized release must account for.
 
-No ordinary-request pacing is added without measured timing/status evidence.
+This completed work did not add ordinary-request pacing. The accepted
+[bulk retrieval controls plan](bulk-retrieval-controls.md) now owns optional
+pacing and configurable recovery while preserving these defaults.
 No alternate provider, category filtering, persistent checkpoint/cache,
 parallel retrieval, synthetic replacement data, downstream estimator changes,
 or redistribution work is included. The existing
@@ -179,8 +181,8 @@ it does not authorize repeat runs or production enablement.
   identity, authorization reference, platform/shell, UTC start/end and elapsed
   time, configured deadline, requested/selected/scanned counts, each acceptance
   check's outcome, and sanitized terminal date/category/status/cause/retry
-  context if present. Do not invent successful-retry counts that the public
-  interface does not expose. Retain no live payloads or yield rows.
+  context if present. Do not infer successful-retry counts that the assessed
+  candidate did not expose. Retain no live payloads or yield rows.
 - [x] Review checker changes and evidence, run applicable offline checks, and
   reconcile this plan and issue #45. On verified success, check the remaining
   issue criterion, link the durable evidence and candidate, and close the
@@ -203,7 +205,7 @@ milestones and are not prerequisites for closing this upstream issue.
 | Exact recovery and completed-prefix reuse | Real HTTP history sequence: late failure then success; compare dates, kinds, source identity, row/yield values and ordering against the no-failure fixture; assert exact physical request sequence. |
 | Discovery and body recovery | Initialization failure and interrupted response body both replay only their own lookup; no partial body bytes leak into the successful parse. |
 | Eligibility | Cover each allowlisted HTTP status, 404 and representative terminal statuses, timeout, recognized I/O faults, unclassified errors, invalid media/body/XML/protocol, cancellation, and unavailable data. |
-| Attempts and backoff | Exhaustion yields exactly three attempts and no trailing sleep; fixed random samples prove both jitter bounds and schedule progression without real long sleeps. |
+| Attempts and backoff | Exhaustion yields exactly three attempts under the default policy and no trailing sleep; fixed random samples prove both jitter bounds and schedule progression without real long sleeps. |
 | Provider guidance | Delta/date forms, past/malformed/overflow values, guidance exceeding the deadline, and precedence over jitter. No retry occurs earlier than valid guidance. |
 | Overall budget | Shared across successful calls, categories, dates, fallback and retries; a sequence of individually timely responses can still exhaust it. Check expiration during send, body, wait, traversal and before another lookup. |
 | Cancellation and lifecycle | Pre-cancelled call makes no request; cancellation during send/body/wait and deadline interaction; no detached retry; Python close drains and subsequent allowed calls remain usable. |

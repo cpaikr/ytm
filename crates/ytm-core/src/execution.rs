@@ -5,14 +5,23 @@ use std::{
 
 use tokio::time::Instant;
 
-use crate::{CancellationToken, RetryDetails, RetryStopReason, YtmError};
+use crate::statistics::CompletionGuard;
+use crate::{
+    CancellationToken, RetrievalProgress, RetrievalStatistics, RetryDetails, RetryStopReason,
+    YtmError,
+};
 
 pub const DEFAULT_OPERATION_TIMEOUT_SECONDS: u64 = 30 * 60;
 
 /// Execution policy independent of domain date/category selection.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct RetrievalOptions {
     operation_timeout: Duration,
+    max_retries: u8,
+    base_backoff: Duration,
+    max_backoff: Duration,
+    min_request_interval: Duration,
+    progress: Option<RetrievalProgress>,
 }
 
 impl RetrievalOptions {
@@ -26,11 +35,69 @@ impl RetrievalOptions {
                 serde_json::json!(operation_timeout.as_secs_f64()),
             ));
         }
-        Ok(Self { operation_timeout })
+        Ok(Self {
+            operation_timeout,
+            ..Self::default()
+        })
     }
 
-    pub fn operation_timeout(self) -> Duration {
+    pub fn operation_timeout(&self) -> Duration {
         self.operation_timeout
+    }
+    /// Configure bounded retry and invocation-local pacing. Zero waits are valid.
+    pub fn with_request_policy(
+        mut self,
+        max_retries: u8,
+        base_backoff: Duration,
+        max_backoff: Duration,
+        min_request_interval: Duration,
+    ) -> Result<Self, YtmError> {
+        if max_retries > 10
+            || max_backoff < base_backoff
+            || [base_backoff, max_backoff, min_request_interval]
+                .iter()
+                .any(|duration| {
+                    duration.as_millis() > u128::from(u64::MAX)
+                        || Instant::now().checked_add(*duration).is_none()
+                })
+        {
+            // Seconds plus nanoseconds preserve even rejected durations without
+            // overflowing JSON's integer representation for millisecond totals.
+            let duration = |value: Duration| serde_json::json!({"seconds": value.as_secs(), "nanoseconds": value.subsec_nanos()});
+            return Err(YtmError::invalid_parameter(
+                "retrieval",
+                "requestPolicy",
+                "Retries must be at most 10; durations must be representable and maximum backoff must be at least base backoff.",
+                serde_json::json!({
+                    "maxRetries": max_retries,
+                    "baseBackoff": duration(base_backoff),
+                    "maxBackoff": duration(max_backoff),
+                    "minRequestInterval": duration(min_request_interval),
+                }),
+            ));
+        }
+        self.max_retries = max_retries;
+        self.base_backoff = base_backoff;
+        self.max_backoff = max_backoff;
+        self.min_request_interval = min_request_interval;
+        Ok(self)
+    }
+
+    pub fn with_progress(mut self, progress: RetrievalProgress) -> Self {
+        self.progress = Some(progress);
+        self
+    }
+    pub fn max_retries(&self) -> u8 {
+        self.max_retries
+    }
+    pub fn base_backoff(&self) -> Duration {
+        self.base_backoff
+    }
+    pub fn max_backoff(&self) -> Duration {
+        self.max_backoff
+    }
+    pub fn min_request_interval(&self) -> Duration {
+        self.min_request_interval
     }
 }
 
@@ -38,6 +105,11 @@ impl Default for RetrievalOptions {
     fn default() -> Self {
         Self {
             operation_timeout: Duration::from_secs(DEFAULT_OPERATION_TIMEOUT_SECONDS),
+            max_retries: 2,
+            base_backoff: Duration::from_millis(500),
+            max_backoff: Duration::from_millis(1000),
+            min_request_interval: Duration::ZERO,
+            progress: None,
         }
     }
 }
@@ -49,6 +121,9 @@ impl Default for RetrievalOptions {
 #[derive(Debug, Clone)]
 pub struct RetrievalContext {
     deadline: Instant,
+    options: RetrievalOptions,
+    completion: Arc<CompletionGuard>,
+    last_start: Arc<Mutex<Option<Instant>>>,
     cancellation: CancellationToken,
     caller_cancellation: CancellationToken,
     // Retain attempt identity until parsing/normalization of that lookup ends.
@@ -71,11 +146,49 @@ impl RetrievalContext {
                     serde_json::json!(options.operation_timeout.as_secs_f64()),
                 )
             })?;
+        let progress = options.progress.clone().unwrap_or_default();
+        progress.start()?;
         Ok(Self {
             deadline,
+            options,
+            completion: Arc::new(CompletionGuard(progress)),
+            last_start: Arc::new(Mutex::new(None)),
             cancellation: cancellation.child_token(),
             caller_cancellation: cancellation,
             lookup: Arc::new(Mutex::new(None)),
+        })
+    }
+
+    pub fn statistics(&self) -> RetrievalStatistics {
+        self.completion
+            .0
+            .snapshot()
+            .expect("context starts its progress handle")
+    }
+
+    pub(crate) fn progress(&self) -> &RetrievalProgress {
+        &self.completion.0
+    }
+    pub(crate) fn options(&self) -> &RetrievalOptions {
+        &self.options
+    }
+    pub(crate) fn pacing_wake(&self) -> Result<Option<Instant>, YtmError> {
+        Ok(self
+            .last_start
+            .lock()
+            .map_err(|_| YtmError::defect())?
+            .and_then(|start| start.checked_add(self.options.min_request_interval)))
+    }
+    pub(crate) fn complete<T>(
+        &self,
+        result: Result<T, YtmError>,
+        operation: &str,
+    ) -> Result<T, YtmError> {
+        let result = self.finish(result, operation);
+        self.progress().finish();
+        result.map_err(|mut error| {
+            error.details.statistics = Some(self.statistics());
+            error
         })
     }
 
@@ -116,6 +229,17 @@ impl RetrievalContext {
         attempt_count: u8,
         max_attempts: u8,
     ) -> Result<(), YtmError> {
+        *self.last_start.lock().map_err(|_| YtmError::defect())? = Some(Instant::now());
+        self.progress().update(|stats| {
+            if let Some(count) = &mut stats.physical_attempt_count {
+                *count += 1;
+            }
+            if attempt_count > 1 {
+                if let Some(count) = &mut stats.retry_count {
+                    *count += 1;
+                }
+            }
+        })?;
         *self.lookup.lock().map_err(|_| YtmError::defect())? = Some(RetryDetails {
             source_operation: operation.to_owned(),
             attempt_count,
@@ -193,6 +317,63 @@ mod tests {
             Duration::from_secs(1800)
         );
     }
+    #[test]
+    fn invalid_request_policy_reports_exact_supplied_values_without_overflow() {
+        let error = RetrievalOptions::default()
+            .with_request_policy(
+                11,
+                Duration::MAX,
+                Duration::from_nanos(7),
+                Duration::from_millis(2),
+            )
+            .unwrap_err();
+        assert_eq!(error.details.parameter.as_deref(), Some("requestPolicy"));
+        assert_eq!(
+            error.details.actual,
+            Some(serde_json::json!({
+                "maxRetries": 11,
+                "baseBackoff": {"seconds": u64::MAX, "nanoseconds": 999_999_999},
+                "maxBackoff": {"seconds": 0, "nanoseconds": 7},
+                "minRequestInterval": {"seconds": 0, "nanoseconds": 2_000_000},
+            }))
+        );
+        assert!(error.details.statistics.is_none());
+    }
+
+    #[test]
+    fn request_policy_rejects_invalid_bounds_and_preserves_zero_waits() {
+        let options = RetrievalOptions::default();
+        assert!(options
+            .clone()
+            .with_request_policy(11, Duration::ZERO, Duration::ZERO, Duration::ZERO)
+            .is_err());
+        assert!(options
+            .clone()
+            .with_request_policy(
+                2,
+                Duration::from_millis(2),
+                Duration::from_millis(1),
+                Duration::ZERO
+            )
+            .is_err());
+        for (base, maximum, interval) in [
+            (Duration::MAX, Duration::MAX, Duration::ZERO),
+            (Duration::ZERO, Duration::ZERO, Duration::MAX),
+        ] {
+            assert!(options
+                .clone()
+                .with_request_policy(2, base, maximum, interval)
+                .is_err());
+        }
+        let zero = options
+            .with_request_policy(0, Duration::ZERO, Duration::ZERO, Duration::ZERO)
+            .unwrap();
+        assert_eq!(zero.max_retries(), 0);
+        assert_eq!(zero.base_backoff(), Duration::ZERO);
+        assert_eq!(zero.max_backoff(), Duration::ZERO);
+        assert_eq!(zero.min_request_interval(), Duration::ZERO);
+    }
+
     #[tokio::test(start_paused = true)]
     async fn cooperative_expiry_never_becomes_missingness_or_caller_cancellation() {
         let caller = CancellationToken::new();

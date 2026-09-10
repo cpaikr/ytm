@@ -30,6 +30,15 @@
     },
     {
       "scope": "project",
+      "skill": "cleanup-branches",
+      "target": ".agents",
+      "sourceIdentity": "github:sjunepark/agent-scripts",
+      "treeHashAlgorithm": "tree-sha256-v2",
+      "treeHash": "1050646a48344965f938f07727b7b5ab667b6cd567d8243d5f1871b11b99ddee",
+      "recordedAt": "2026-09-10T07:15:25.699079Z"
+    },
+    {
+      "scope": "project",
       "skill": "clear-rust",
       "target": ".agents",
       "sourceIdentity": "github:sjunepark/agent-scripts",
@@ -161,7 +170,7 @@
       "sourceIdentity": "github:sjunepark/agent-scripts",
       "treeHashAlgorithm": "tree-sha256-v2",
       "treeHash": "9f1c1d0730dcb2d2fd1304c667089eb8e6541ebc607450168f1936fc8b62c49c",
-      "recordedAt": "2026-09-10T02:22:04.938247Z"
+      "recordedAt": "2026-09-10T07:15:25.699079Z"
     },
     {
       "scope": "project",
@@ -180,6 +189,15 @@
       "treeHashAlgorithm": "tree-sha256-v2",
       "treeHash": "e8b93274788f17f262495a0438917c479abbde1041fe7f4b4428981a5241d508",
       "recordedAt": "2026-09-06T10:27:12.841045Z"
+    },
+    {
+      "scope": "project",
+      "skill": "cleanup-branches",
+      "target": ".claude",
+      "sourceIdentity": "github:sjunepark/agent-scripts",
+      "treeHashAlgorithm": "tree-sha256-v2",
+      "treeHash": "1050646a48344965f938f07727b7b5ab667b6cd567d8243d5f1871b11b99ddee",
+      "recordedAt": "2026-09-10T07:15:25.699079Z"
     },
     {
       "scope": "project",

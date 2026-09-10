@@ -245,6 +245,13 @@ def acceptance(surface, executable):
             captures = source.requests
             if scenario in ('baseline', 'recovery', 'initialization', 'body'):
                 assert envelope['ok'], envelope
+                stats = envelope['result'].pop('statistics')
+                key = (lambda name: {'physicalAttemptCount': 'physical_attempt_count', 'retryCount': 'retry_count', 'scannedDateCount': 'scanned_date_count', 'waitingMs': 'waiting_ms', 'elapsedMs': 'elapsed_ms'}.get(name, name)) if surface.startswith('python') else (lambda name: name)
+                assert stats['finished'] is True, stats
+                assert stats[key('physicalAttemptCount')] == (18 if scenario == 'baseline' else 19), stats
+                assert stats[key('retryCount')] == (0 if scenario == 'baseline' else 1), stats
+                assert stats[key('scannedDateCount')] == 2, stats
+                assert 0 <= stats[key('waitingMs')] <= stats[key('elapsedMs')], stats
                 if scenario == 'baseline':
                     assert len(captures) == 18, len(captures)
                     baseline = envelope['result']
@@ -271,6 +278,10 @@ def acceptance(surface, executable):
                     assert error['cause'] == 'TimeoutError', error
                 else:
                     assert error['actual']['sourceActual'] == 503, error
+                statistics = error['statistics']
+                assert statistics['finished'] is True, statistics
+                assert statistics['physicalAttemptCount'] == (19 if scenario == 'exhaustion' else 17), statistics
+                assert statistics['retryCount'] == (2 if scenario == 'exhaustion' else 0), statistics
                 physical = 19 if scenario == 'exhaustion' else 17
                 if surface != 'cli':
                     assert envelope['reuseKinds'] == 8

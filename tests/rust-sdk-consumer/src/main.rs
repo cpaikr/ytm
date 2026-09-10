@@ -8,6 +8,17 @@ struct ConsumerTransport;
 
 #[async_trait]
 impl Transport for ConsumerTransport {
+    async fn post_with_context(
+        &self,
+        request: PreparedRequest,
+        context: ytm_core::RetrievalContext,
+    ) -> Result<Vec<u8>, YtmError> {
+        // Context-aware custom transports must not fabricate zero physical work.
+        assert_eq!(context.statistics().physical_attempt_count, None);
+        assert_eq!(context.statistics().retry_count, None);
+        self.post(request, context.cancellation()).await
+    }
+
     async fn post(
         &self,
         _request: PreparedRequest,
@@ -60,7 +71,15 @@ fn construct_injected_client() -> YtmClient {
 #[allow(dead_code)]
 async fn history_consumer(client: &YtmClient) -> Result<ytm_core::HistoryResult, YtmError> {
     let dates = ytm_core::DateSelection::range("2024-02-28".parse().unwrap(), "2024-03-01".parse().unwrap()).unwrap();
-    let result = client.history_with_cancellation(ytm_core::HistoryInput::new(dates), CancellationToken::new()).await?;
+    let progress = ytm_core::RetrievalProgress::new();
+    let options = ytm_core::RetrievalOptions::default().with_request_policy(4, std::time::Duration::ZERO, std::time::Duration::ZERO, std::time::Duration::from_millis(1))?.with_progress(progress.clone());
+    let result = client.history_with_options_and_cancellation(ytm_core::HistoryInput::new(dates), options, CancellationToken::new()).await?;
+    let statistics = result.statistics.as_ref().expect("successful calls expose final statistics");
+    assert_eq!(statistics.scanned_date_count, 3);
+    assert_eq!(statistics.physical_attempt_count, None);
+    assert_eq!(statistics.retry_count, None);
+    assert!(statistics.finished);
+    assert_eq!(progress.snapshot().as_ref(), Some(statistics));
     for entry in &result.entries {
         match entry {
             ytm_core::HistoryEntry::Available { matrix } => { let _: &MatrixResult = matrix; }
@@ -71,7 +90,7 @@ async fn history_consumer(client: &YtmClient) -> Result<ytm_core::HistoryResult,
 }
 
 // ErrorDetails is exhaustive: callers using literals must initialize the new
-// optional retry field, while constructor-based code remains unchanged.
+// optional retry and statistics fields, while constructor-based code remains unchanged.
 #[allow(dead_code)]
 fn error_literal_migration() -> ytm_core::ErrorDetails {
     let old_constructor = YtmError::cancelled("history");
@@ -81,7 +100,7 @@ fn error_literal_migration() -> ytm_core::ErrorDetails {
         reason: "consumer-defined failure".into(), expected: None, actual: None,
         example_input: None, recovery_hint: "inspect consumer".into(), recovery_action: "inspect_tool_help",
         recoverable: false, retryable: false, source_error_code: None, source_error_message: None,
-        attempted_dates: None, lookback_days: None, cause: None, retry: None,
+        attempted_dates: None, lookback_days: None, cause: None, retry: None, statistics: None,
     }
 }
 

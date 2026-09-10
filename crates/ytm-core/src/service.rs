@@ -71,7 +71,10 @@ impl YtmService {
     ) -> Result<KindsResult, YtmError> {
         let context = RetrievalContext::new(options, cancellation)?;
         let result = self.kinds_in_context(input, context.clone()).await;
-        context.finish(result, "kinds")
+        context.complete(result, "kinds").map(|mut result| {
+            result.statistics = Some(context.statistics());
+            result
+        })
     }
 
     async fn kinds_in_context(
@@ -82,6 +85,7 @@ impl YtmService {
         check_cancellation(&cancellation, "kinds")?;
         let Some(base_date) = input.base_date else {
             let result = KindsResult {
+                statistics: None,
                 base_date: None,
                 kinds: canonical_kinds(),
                 source: SourceMetadata {
@@ -134,7 +138,10 @@ impl YtmService {
     ) -> Result<MatrixResult, YtmError> {
         let context = RetrievalContext::new(options, cancellation)?;
         let result = self.matrix_in_context(input, context.clone()).await;
-        context.finish(result, "matrix")
+        context.complete(result, "matrix").map(|mut result| {
+            result.statistics = Some(context.statistics());
+            result
+        })
     }
 
     async fn matrix_in_context(
@@ -172,6 +179,7 @@ impl YtmService {
             match result {
                 Ok((kind, rows, source)) => {
                     let result = MatrixResult {
+                        statistics: None,
                         base_date: date,
                         requested_base_date: requested_date,
                         date_resolution: DateResolution {
@@ -269,7 +277,10 @@ impl YtmService {
         }
         let context = RetrievalContext::new(options, cancellation)?;
         let result = self.history_in_context(input, context.clone()).await;
-        context.finish(result, "history")
+        context.complete(result, "history").map(|mut result| {
+            result.statistics = Some(context.statistics());
+            result
+        })
     }
 
     async fn history_in_context(
@@ -306,6 +317,7 @@ impl YtmService {
                 .collect(),
         };
         let mut result = HistoryResult {
+            statistics: None,
             count_selection: None,
             requested_dates: Vec::new(),
             discovery: Vec::new(),
@@ -342,6 +354,11 @@ impl YtmService {
                     .any(|row| row.yields.values().any(Option::is_some)),
                 HistoryEntry::Unavailable { .. } => false,
             });
+            if count_selection.is_some() && qualifies {
+                cancellation
+                    .progress()
+                    .update(|stats| stats.completed_qualifying_date_count += 1)?;
+            }
             if count_selection.is_none() || qualifies {
                 day.requested_dates.push(requested);
                 days.push(day);
@@ -414,6 +431,7 @@ impl YtmService {
         cancellation: &RetrievalContext,
     ) -> Result<HistoryResult, YtmError> {
         let mut result = HistoryResult {
+            statistics: None,
             count_selection: None,
             requested_dates: Vec::new(),
             discovery: Vec::new(),
@@ -494,6 +512,7 @@ impl YtmService {
                 }
                 if let Some((observed_kind, rows, source)) = &observations[&key] {
                     available = Some(MatrixResult {
+                        statistics: None,
                         base_date: date,
                         requested_base_date: requested,
                         kind: observed_kind.clone(),
@@ -576,6 +595,9 @@ impl YtmService {
         cancellation: &RetrievalContext,
     ) -> Result<KindsResult, YtmError> {
         let attempted_dates = [display];
+        cancellation
+            .progress()
+            .update(|stats| stats.scanned_date_count += 1)?;
         let response = self
             .post(request::init(compact), cancellation, "kinds")
             .await
@@ -607,6 +629,7 @@ impl YtmService {
             .map_err(|error| error.with_source_context("kinds", &attempted_dates, 0))?;
         check_cancellation(cancellation, "kinds")?;
         let result = KindsResult {
+                statistics: None,
             base_date: Some(display),
             kinds,
             source: source_metadata(INIT_PATH, "ds_tymSort=output1 ds_list=output2", compact, "10", "The mobile page posts ds_search to /rateInfo/ytmMatrixMobileInitList.do on initial YTM Matrix load."),
@@ -706,6 +729,7 @@ impl YtmService {
     ) -> Result<Vec<u8>, YtmError> {
         cancellation.clear_lookup()?;
         check_cancellation(cancellation, operation)?;
+        cancellation.progress().begin_lookup(request.operation)?;
         let token = cancellation.cancellation();
         // Poll the context-aware transport first so its own deadline result can
         // retain the last HTTP failure and attempt metadata at the same instant.

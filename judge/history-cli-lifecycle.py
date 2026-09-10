@@ -133,7 +133,7 @@ def cancel(binary, terminal, count=False):
             assert error['actual']['kind']['code'] == '10', envelope
             assert 'AbortError' in stdout, envelope
             if terminal:
-                assert 'YTM history: 1 dated discoveries, 0 date/category fetches started' in stderr, stderr
+                assert 'YTM history: 1 dated discoveries, 1 date/category fetches started' in stderr, stderr
                 assert len(stderr.splitlines()) == 1, stderr
             else:
                 assert stderr == '', stderr

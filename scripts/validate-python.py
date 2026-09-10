@@ -44,6 +44,7 @@ def main():
             if fixture:
                 run(interpreter, "-I", PACKAGE / "tests/behavior.py", ROOT / "contracts/kisnet", cwd=work, env=clean)
                 run(interpreter, "-I", ROOT / "judge/retrieval-recovery.py", "--python", cwd=work, env=clean)
+                run(interpreter, "-I", ROOT / "judge/bulk-retrieval-controls.py", "--python", cwd=work, env=clean)
             else:
                 # Release code must ignore all fixture routing and panic injection variables.
                 clean |= {"YTM_JUDGE_FIXTURE": "invalid fixture configuration", "YTM_PYTHON_JUDGE_PANIC": "1", "YTM_JUDGE_HTTP_ORIGIN": "invalid origin"}

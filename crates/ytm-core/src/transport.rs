@@ -16,8 +16,6 @@ use crate::{
     MAX_RESPONSE_BODY_BYTES, REQUEST_DEADLINE_SECONDS,
 };
 
-pub(crate) const MAX_ATTEMPTS: u8 = 3;
-
 #[derive(Debug, Clone)]
 pub struct PreparedRequest {
     pub operation: &'static str,
@@ -144,8 +142,9 @@ impl HttpTransport {
         let operation = request.operation;
         context.clear_lookup()?;
         context.check(operation)?;
-        let max_attempts = if replayable(&request) {
-            MAX_ATTEMPTS
+        let can_retry = replayable(&request);
+        let max_attempts = if can_retry {
+            context.options().max_retries() + 1
         } else {
             1
         };
@@ -162,6 +161,7 @@ impl HttpTransport {
         };
         let cancellation = context.cancellation();
         let mut last_failure = None;
+        let mut retry_ready = None;
         for attempt in 1..=max_attempts {
             if let Err(error) = context.check(operation) {
                 let stop = if error.details.cause.as_deref() == Some("AbortError") {
@@ -177,6 +177,25 @@ impl HttpTransport {
                     stop,
                 ));
             }
+            let wake = context.pacing_wake()?.into_iter().chain(retry_ready).max();
+            if let Some(wake) = wake.filter(|wake| *wake > Instant::now()) {
+                let _waiting = context.progress().wait();
+                if let Err(stop) = wait_for_retry(&context, wake).await {
+                    let error = if stop == RetryStopReason::Cancellation {
+                        YtmError::cancelled(operation)
+                    } else {
+                        last_failure.unwrap_or_else(|| YtmError::operation_deadline(operation))
+                    };
+                    return Err(attach_retry(
+                        error,
+                        attempt - 1,
+                        max_attempts,
+                        operation,
+                        stop,
+                    ));
+                }
+            }
+            context.check(operation)?;
             context.record_attempt(operation, attempt, max_attempts)?;
             let attempt_deadline = context
                 .deadline()
@@ -209,14 +228,14 @@ impl HttpTransport {
                     attempt,
                     max_attempts,
                     operation,
-                    if failure.transient && max_attempts > 1 {
+                    if failure.transient && can_retry {
                         RetryStopReason::AttemptExhaustion
                     } else {
                         RetryStopReason::TerminalFailure
                     },
                 ));
             }
-            let wait = full_jitter(attempt, self.jitter)
+            let wait = full_jitter(context.options(), attempt, self.jitter)
                 .max(failure.retry_after.unwrap_or(Duration::ZERO));
             let now = Instant::now();
             let Some(wake) = retry_wake(now, wait, context.deadline()) else {
@@ -229,14 +248,7 @@ impl HttpTransport {
                 ));
             };
             last_failure = Some(failure.error);
-            if let Err(stop) = wait_for_retry(&context, wake).await {
-                let error = if stop == RetryStopReason::Cancellation {
-                    YtmError::cancelled(operation)
-                } else {
-                    last_failure.expect("failed attempt precedes retry wait")
-                };
-                return Err(attach_retry(error, attempt, max_attempts, operation, stop));
-            }
+            retry_ready = Some(wake);
         }
         unreachable!("positive attempt limit always returns from its final attempt")
     }
@@ -317,6 +329,8 @@ impl Transport for HttpTransport {
         request: PreparedRequest,
         context: RetrievalContext,
     ) -> Result<Vec<u8>, YtmError> {
+        // Claim accounting before cancellation or waits, including zero attempts.
+        context.progress().account_http_lookup()?;
         let operation = request.operation;
         let result = self.retrieve(request, context.clone()).await;
         context.finish(result, operation)
@@ -364,15 +378,22 @@ async fn wait_for_retry(context: &RetrievalContext, wake: Instant) -> Result<(),
     }
 }
 
-fn full_jitter(failed_attempt: u8, sample: fn(u64) -> u64) -> Duration {
-    Duration::from_millis(sample(jitter_cap_ms(failed_attempt)))
+fn full_jitter(options: &RetrievalOptions, failed_attempt: u8, sample: fn(u64) -> u64) -> Duration {
+    Duration::from_millis(sample(jitter_cap_ms(options, failed_attempt)))
 }
 
-fn jitter_cap_ms(failed_attempt: u8) -> u64 {
-    match failed_attempt {
-        1 => 500,
-        _ => 1000,
-    }
+fn jitter_cap_ms(options: &RetrievalOptions, failed_attempt: u8) -> u64 {
+    // Accepted policies fit u64 milliseconds; calculate before narrowing so even
+    // the largest accepted duration cannot overflow during exponential growth.
+    options
+        .base_backoff()
+        .as_millis()
+        .saturating_mul(
+            1u128
+                .checked_shl(u32::from(failed_attempt.saturating_sub(1)))
+                .unwrap_or(u128::MAX),
+        )
+        .min(options.max_backoff().as_millis()) as u64
 }
 
 fn retry_after(value: &str, now: SystemTime) -> Option<Duration> {

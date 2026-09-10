@@ -12,9 +12,16 @@ does not own or distribute the CLI.
 boundaries.
 
 The current checkout includes bounded lookup retries and a 30-minute retrieval
-timeout, with a caller override; see the [policy and compatibility changes](SPEC.md#bounded-retrieval-recovery).
-This behavior is not yet published. [Delivery and recorded live acceptance](plans/resilient-history-retrieval.md)
-are tracked separately from offline implementation.
+timeout, with a caller override. Current source also exposes bounded retry
+controls, optional invocation-local pacing, pull progress, and final statistics
+across CLI/Rust/Node/Python; these additions are not yet released. CLI retrieval
+commands accept `--max-retries`, `--base-backoff-ms`, `--max-backoff-ms`,
+`--min-request-interval-ms`, and `--progress`. JSON carries final statistics;
+opt-in detailed progress and the final summary go to stderr. Text and workbook
+data layouts are unchanged. For shared semantics, see the [policy and compatibility changes](SPEC.md#bounded-retrieval-recovery).
+[Bulk-control delivery](plans/bulk-retrieval-controls.md) and
+[recorded live acceptance](docs/history-retrieval-live-acceptance.md) are tracked
+separately from release publication.
 
 ## Installation
 

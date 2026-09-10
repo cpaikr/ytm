@@ -42,7 +42,25 @@ Missing cells can remain. Count mode is exact-only and fails with
 categories and pricing groups. Selections normalize, sort, and deduplicate
 within the 2,000-entry/day limit. Optional `fallback: "previous-available"`
 resolves each pair independently; unavailable pairs remain result entries.
-Methods accept `{ signal, operationTimeoutMs }` as the second argument.
+Methods accept execution options as the second argument:
+
+```js
+import { RetrievalProgress } from "@sjunepark/ytm";
+const progress = new RetrievalProgress();
+const pending = ytm.history({ count: 180, endDate: "2026-09-08" }, {
+  maxRetries: 4, baseBackoffMs: 500, maxBackoffMs: 2_000,
+  minRequestIntervalMs: 100, progress
+});
+// Read progress.snapshot() from your application's timer while pending.
+const history = await pending;
+console.log(history.statistics);
+```
+
+`progress.snapshot()` returns `null` before retrieval starts, then a
+detached latest snapshot. Use a fresh handle for each call. Updates coalesce
+and no callback executes inside retrieval. Every successful call returns final
+`statistics`; retrieval errors retain them in `details.statistics`.
+Options also accept `signal` and `operationTimeoutMs`.
 `operationTimeoutMs` must be a positive safe integer; omission uses the core's
 30-minute retrieval timeout. For example, `{ operationTimeoutMs: 3_600_000 }`
 permits an hour. Optional typed `error.details.retry` retains physical attempt

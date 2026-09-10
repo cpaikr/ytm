@@ -42,8 +42,20 @@ retry behavior. The service enforces the outer asynchronous deadline. Decorators
 must forward the defaulted `post_with_context` hook so the inner HTTP client
 receives the same budget. Source identity and body/parser bounds still apply.
 
-`ErrorDetails` now has optional `retry` metadata. This breaks external exhaustive
-struct literals/destructuring: add `retry: None`, bind the field or use `..`.
+Configure retries and pacing with `options.with_request_policy(max_retries,
+base_backoff, max_backoff, min_request_interval)?` using `Duration`s. Attach
+`RetrievalProgress::new()` with `with_progress` and poll `snapshot()` from a
+separate task. Handles are single-use and updates coalesce without callbacks.
+Top-level results contain final `statistics`; errors use `details.statistics`.
+Custom transport physical counts are unknown (`None`), including overrides of
+`post_with_context`. Forwarding decorators retain the inner HTTP accounting.
+While a lookup has not established that accounting, its progress counts are
+`None`; an unaccounted lookup keeps final invocation counts unknown.
+
+`ErrorDetails` has optional `retry` and `statistics` metadata. Result structs
+also add optional `statistics`. External exhaustive literals must add these
+fields; patterns must bind them or use `..`. `RetrievalOptions` is `Clone`, not
+`Copy`; reusing policy requires cloning and a fresh progress handle.
 Existing constructors continue to work. This requires source-breaking version
 and migration handling in the next authorized release, not a compatible patch.
 
