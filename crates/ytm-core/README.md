@@ -56,8 +56,8 @@ While a lookup has not established that accounting, its progress counts are
 also add optional `statistics`. External exhaustive literals must add these
 fields; patterns must bind them or use `..`. `RetrievalOptions` is `Clone`, not
 `Copy`; reusing policy requires cloning and a fresh progress handle.
-Existing constructors continue to work. This requires source-breaking version
-and migration handling in the next authorized release, not a compatible patch.
+Existing constructors continue to work. These source compatibility changes apply
+when migrating from versions before `0.5.0`.
 
 The crate is not published by this repository workflow; consumers currently
 use a Git or path dependency.

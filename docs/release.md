@@ -6,8 +6,8 @@ dispatch on a stable `vX.Y.Z` tag starts certification and publication. npm and 
 publication have been removed. SDK source, local packaging, and development
 CI remain supported.
 
-The [delivery plan](../plans/release-delivery.md) records migration evidence and
-the selected release. GitHub Releases and Actions own publication status.
+The [delivery plan](../plans/release-delivery.md) records the original migration
+evidence. GitHub Releases and Actions own current publication status.
 Historical releases and registry packages remain unchanged.
 
 ## CI platform policy
@@ -39,11 +39,12 @@ and publishes it. Tag pushes alone schedule no release jobs.
 
 ## Prepare a release
 
-For the next authorized release, account for the unpublished
-[retrieval compatibility changes](../SPEC.md#compatibility): the finite default
-and Rust `ErrorDetails` literal/destructuring migration. Do not classify the
-Rust field addition as a source-compatible patch. Offline acceptance does not
-establish the pending full live acceptance or authorize publication.
+Version `0.5.0` includes the [retrieval compatibility changes](../SPEC.md#compatibility):
+the finite retrieval deadline, request controls and statistics, additional Rust
+result/error fields, and `RetrievalOptions` cloning. Rust consumers upgrading
+from earlier versions must apply that migration. Release certification remains
+separate from the provider's live qualification; GitHub Releases owns publication
+status.
 
 From a clean `main` checkout tracking `origin/main`, install the frozen
 JavaScript dependencies and the [validation prerequisites](../README.md#repository-validation),
