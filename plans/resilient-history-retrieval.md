@@ -63,7 +63,10 @@ their required method; the narrow Rust ErrorDetails source migration and finite
 default timeout are explicit [compatibility changes](../SPEC.md#compatibility)
 that the next authorized release must account for.
 
-No ordinary-request pacing is added without measured timing/status evidence.
+This completed work did not add ordinary-request pacing. The accepted
+[bulk retrieval controls plan](bulk-retrieval-controls.md) now owns optional
+pacing and configurable recovery; current defaults remain unchanged until
+that plan is implemented.
 No alternate provider, category filtering, persistent checkpoint/cache,
 parallel retrieval, synthetic replacement data, downstream estimator changes,
 or redistribution work is included. The existing

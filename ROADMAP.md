@@ -2,7 +2,8 @@
 
 ## Current
 
-None.
+[Bulk retrieval controls and visibility](plans/bulk-retrieval-controls.md):
+accepted target; implementation pending in the spawned goal task.
 
 ## Plans
 
