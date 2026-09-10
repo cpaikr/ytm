@@ -186,10 +186,10 @@ Rust result and `ErrorDetails` struct literals must include the new optional
 field or use `..`. `RetrievalOptions` is now `Clone`, not `Copy`; clone options
 when reusing their policy, with a fresh progress handle per invocation. Existing
 timeout constructors and default/cancellation methods remain available. These
-are Rust source compatibility changes requiring release planning. The required
-`Transport::post` signature and `PreparedRequest` remain stable. Decorators must
-forward `post_with_context` to preserve the inner HTTP policy and accounting.
-Custom transports retain their own attempt policy. This work publishes no release.
+are Rust source compatibility changes when upgrading from versions before
+`0.5.0`. The required `Transport::post` signature and `PreparedRequest` remain
+stable. Decorators must forward `post_with_context` to preserve the inner HTTP
+policy and accounting. Custom transports retain their own attempt policy.
 
 ## Multi-date history
 
