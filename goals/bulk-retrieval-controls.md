@@ -38,8 +38,9 @@ PR delivery of the single connected implementation slice.
 
 ### Next in-scope action
 
-Create the PR, await CI and initial CodeRabbit review, resolve feedback, and merge
-into `codex/bulk-controls-integration`. Then persist terminal planning metadata.
+Finish feedback resolution on PR #50, await current-head CI and any automatic
+reviews, and merge into `codex/bulk-controls-integration`. Then persist terminal
+planning metadata.
 
 ### Evidence and blockers
 
@@ -67,6 +68,14 @@ into `codex/bulk-controls-integration`. Then persist terminal planning metadata.
   statistics-loss finding is fixed and regression-tested; CLI post-retrieval
   cancellation/export errors also retain counters. Affected CLI/Python tests
   and clippy passed. Scoped documentation harmonization and local links passed.
+- PR [#50](https://github.com/cpaikr/ytm/pull/50) passed initial CI and Codex
+  review. Initial CodeRabbit feedback is addressed: inherited CLI defaults,
+  bounded synthetic server completion, diagnostic scenario labels, mapping-order
+  independent contract checks, and preserved Python cancellation identity when
+  the native bridge fails during draining. Both bridge races were reproduced
+  before the fix; installed-wheel regressions and uncancelled failure coverage
+  now pass. Follow-up Rust tests/clippy, full Python validation, contract checks
+  and all 222 public-interface judge scenarios passed.
 - Candidate: one implementation PR and feedback resolution through merge.
   Classification: necessary. Contract basis: Delivery and Complete when.
   Action: proceed against the preflighted integration branch.

@@ -832,6 +832,9 @@ async fn real_http_pacing_can_be_cancelled_between_successful_lookups() {
     assert_eq!(scenario.count(), 1);
 }
 
+const BULK_BASELINE_ATTEMPTS: u64 = 250 + 180 * 8;
+const BULK_INJECTED_RETRIES: u64 = 14;
+
 async fn synthetic_bulk(
     inject_failures: bool,
 ) -> (
@@ -853,11 +856,16 @@ async fn synthetic_bulk(
     let observed = progress.clone();
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let origin = format!("http://{}", listener.local_addr().unwrap());
-    let server = tokio::spawn(async move {
+    let mut server = tokio::spawn(async move {
         let mut requests = Vec::new();
         let mut snapshots = Vec::new();
         let mut failed = HashSet::new();
-        let total = if inject_failures { 1704 } else { 1690 };
+        let total = BULK_BASELINE_ATTEMPTS
+            + if inject_failures {
+                BULK_INJECTED_RETRIES
+            } else {
+                0
+            };
         for _ in 0..total {
             let (mut socket, _) = listener.accept().await.unwrap();
             let request = super::tests::read_request(&mut socket).await;
@@ -939,7 +947,13 @@ async fn synthetic_bulk(
         .history_with_options(HistoryInput::new(selection), options)
         .await
         .unwrap();
-    let (requests, mut snapshots) = server.await.unwrap();
+    let joined = tokio::time::timeout(Duration::from_secs(5), &mut server).await;
+    if joined.is_err() {
+        server.abort();
+        let _ = server.await;
+        panic!("synthetic server did not observe the expected request count");
+    }
+    let (requests, mut snapshots) = joined.unwrap().unwrap();
     let final_stats = progress.snapshot().unwrap();
     assert_eq!(result.statistics.as_ref(), Some(&final_stats));
     snapshots.push(final_stats);
@@ -956,8 +970,11 @@ async fn deterministic_180_date_http_acceptance_preserves_selection_and_day_boun
     assert_eq!(statistics.completed_qualifying_date_count, 180);
     assert_eq!(statistics.discovery_count, 250);
     assert_eq!(statistics.matrix_lookup_count, 1440);
-    assert_eq!(statistics.physical_attempt_count, Some(1704));
-    assert_eq!(statistics.retry_count, Some(14));
+    assert_eq!(
+        statistics.physical_attempt_count,
+        Some(BULK_BASELINE_ATTEMPTS + BULK_INJECTED_RETRIES)
+    );
+    assert_eq!(statistics.retry_count, Some(BULK_INJECTED_RETRIES));
     // Slow loopback I/O may itself satisfy the configured interval.
     assert!(statistics.waiting_ms <= statistics.elapsed_ms);
     assert!(
@@ -965,7 +982,10 @@ async fn deterministic_180_date_http_acceptance_preserves_selection_and_day_boun
         "the accepted workload fits its retrieval deadline"
     );
     assert!(statistics.finished);
-    assert_eq!(baseline_stats.physical_attempt_count, Some(1690));
+    assert_eq!(
+        baseline_stats.physical_attempt_count,
+        Some(BULK_BASELINE_ATTEMPTS)
+    );
     assert_eq!(baseline_stats.retry_count, Some(0));
     assert_eq!(baseline_stats.waiting_ms, 0);
     assert_eq!(actual.requested_dates.len(), 180);

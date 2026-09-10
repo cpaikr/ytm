@@ -23,7 +23,13 @@ PR delivery is pending; no release has been published.
 - Independent bounded review found one Python close/completion statistics race;
   it is fixed with a regression test. Final counters also survive CLI cancellation
   and export errors. Affected tests and lint checks passed. Documentation and
-  local links are reconciled. PR review, CI and merge remain.
+  local links are reconciled. PR #50 passed initial CI and Codex review.
+- Initial CodeRabbit feedback is addressed, including preserving the original
+  Python cancellation when the bridge fails before or during native draining.
+  Installed-wheel regressions reproduce both original failures and pass with
+  the fix. Follow-up Rust tests/clippy, full Python validation, contract checks
+  and all 222 public-interface judge scenarios pass. Current-head CI, feedback
+  replies and merge remain.
 - [Recorded live acceptance](../docs/history-retrieval-live-acceptance.md)
   remains separate historical evidence; this goal includes no additional live run.
 
@@ -135,6 +141,6 @@ quota discovery, or new live bulk runs to implement this outcome.
 
 ## Next action
 
-Create the single connected implementation PR against
-`codex/bulk-controls-integration`, request the initial CodeRabbit review, resolve
-feedback, and merge through the goal's delivery lifecycle.
+Finish feedback resolution on [PR #50](https://github.com/cpaikr/ytm/pull/50),
+await current-head CI and any automatic reviews, and merge into
+`codex/bulk-controls-integration` through the goal's delivery lifecycle.

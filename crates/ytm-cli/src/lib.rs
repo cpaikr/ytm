@@ -504,7 +504,13 @@ fn request_policy(
     options: RetrievalOptions,
     values: &[Option<String>; 4],
 ) -> Result<RetrievalOptions, Box<CliError>> {
-    let mut parsed = [2u64, 500, 1000, 0];
+    // RetrievalOptions validates millisecond values fit u64.
+    let mut parsed = [
+        u64::from(options.max_retries()),
+        options.base_backoff().as_millis() as u64,
+        options.max_backoff().as_millis() as u64,
+        options.min_request_interval().as_millis() as u64,
+    ];
     let names = [
         "maxRetries",
         "baseBackoffMs",
@@ -1276,7 +1282,13 @@ fn command_help(operation: Operation) -> String {
         Operation::Matrix => "ytm matrix --base-date 2026-06-08 --kind 국채 --format json",
         Operation::Kinds => "ytm kinds --base-date 2026-06-08 --format json",
     };
-    format!("{body}\n  Retrieval: --operation-timeout-seconds <positive integer> (default {DEFAULT_OPERATION_TIMEOUT_SECONDS}).\n  Retry: --max-retries <0..10> (default 2), --base-backoff-ms <integer> (500), --max-backoff-ms <integer> (1000).\n  Pacing: --min-request-interval-ms <integer> (default 0, disabled); invocation-local.\n  --progress prints detailed metadata snapshots and final statistics on stderr.\n  JSON results and XLSX receipts include statistics; CSV/TSV rows and workbook data stay tabular.\n  One deadline covers source calls and combined retry/pacing waits; destination preflight and export time are excluded.\n\nCLI example:\n  {example}\n")
+    let defaults = RetrievalOptions::default();
+    format!("{body}\n  Retrieval: --operation-timeout-seconds <positive integer> (default {DEFAULT_OPERATION_TIMEOUT_SECONDS}).\n  Retry: --max-retries <0..10> (default {max_retries}), --base-backoff-ms <integer> ({base_backoff}), --max-backoff-ms <integer> ({max_backoff}).\n  Pacing: --min-request-interval-ms <integer> (default {interval}, disabled); invocation-local.\n  --progress prints detailed metadata snapshots and final statistics on stderr.\n  JSON results and XLSX receipts include statistics; CSV/TSV rows and workbook data stay tabular.\n  One deadline covers source calls and combined retry/pacing waits; destination preflight and export time are excluded.\n\nCLI example:\n  {example}\n",
+        max_retries = defaults.max_retries(),
+        base_backoff = defaults.base_backoff().as_millis(),
+        max_backoff = defaults.max_backoff().as_millis(),
+        interval = defaults.min_request_interval().as_millis(),
+    )
 }
 
 fn formatted_kinds(prefix: &str) -> String {

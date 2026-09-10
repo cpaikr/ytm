@@ -115,24 +115,24 @@ check(isDeepStrictEqual(profile?.transport?.retryBackoff, {kind: "exponential-fu
 check(profile?.transport?.defaultRetrievalTimeoutMilliseconds === 1_800_000, "default retrieval deadline must remain finite at 30 minutes");
 check(profile?.transport?.retrievalDeadlineScope === "invocation-source-calls-combined-retry-pacing-waits-and-cooperative-normalization", "retrieval budget must span the invocation");
 
-equal(profile?.transport?.pacing, {defaultMinimumIntervalMilliseconds: 0, scope: "invocation-physical-attempt-starts", firstAttempt: "immediate", combinedWait: "latest-of-pacing-jitter-and-provider-guidance", afterFinalAttempt: "no-wait", customTransports: "own-attempt-policy"}, "pacing must preserve first/final attempt and custom-transport semantics");
+check(isDeepStrictEqual(profile?.transport?.pacing, {defaultMinimumIntervalMilliseconds: 0, scope: "invocation-physical-attempt-starts", firstAttempt: "immediate", combinedWait: "latest-of-pacing-jitter-and-provider-guidance", afterFinalAttempt: "no-wait", customTransports: "own-attempt-policy"}), "pacing must preserve first/final attempt and custom-transport semantics");
 check(profile?.transport?.requestPolicySchema === "#/components/schemas/RetrievalRequestPolicy", "request controls must reference their local schema");
 check(profile?.transport?.statisticsSchema === "#/components/schemas/RetrievalStatistics", "statistics must reference their metadata-only schema");
 const requestPolicy = contract?.components?.schemas?.RetrievalRequestPolicy;
-equal(requestPolicy?.properties, {
+check(isDeepStrictEqual(requestPolicy?.properties, {
   maxRetries: {type: "integer", minimum: 0, maximum: 10, default: 2},
   baseBackoffMs: {type: "integer", minimum: 0, default: 500},
   maxBackoffMs: {type: "integer", minimum: 0, default: 1000},
   minRequestIntervalMs: {type: "integer", minimum: 0, default: 0}
-}, "request option schema must distinguish defaults and configurable bounds");
+}), "request option schema must distinguish defaults and configurable bounds");
 check(requestPolicy?.additionalProperties === false, "policy schema stays closed");
 const statistics = contract?.components?.schemas?.RetrievalStatistics;
 const counters = ["scannedDateCount", "completedQualifyingDateCount", "discoveryCount", "matrixLookupCount", "physicalAttemptCount", "retryCount", "elapsedMs", "waitingMs", "finished"];
 equal(statistics?.required, counters, "metadata schema must include every counter and completion marker");
-equal(Object.keys(statistics?.properties || {}), counters, "statistics must not acquire payload fields");
+check(isDeepStrictEqual(new Set(Object.keys(statistics?.properties || {})), new Set(counters)), "statistics must not acquire payload fields");
 check(statistics?.additionalProperties === false, "statistics must stay metadata-only");
 for (const name of counters) {
-  equal(statistics?.properties?.[name], name === "finished" ? {type: "boolean"} : {type: ["physicalAttemptCount", "retryCount"].includes(name) ? ["integer", "null"] : "integer", minimum: 0}, `statistics ${name} schema must preserve integer/unknown semantics`);
+  check(isDeepStrictEqual(statistics?.properties?.[name], name === "finished" ? {type: "boolean"} : {type: ["physicalAttemptCount", "retryCount"].includes(name) ? ["integer", "null"] : "integer", minimum: 0}), `statistics ${name} schema must preserve integer/unknown semantics`);
 }
 
 const responseContentTypePattern = contract?.components?.responses?.NexacroResponse?.headers?.["Content-Type"]?.schema?.pattern;
