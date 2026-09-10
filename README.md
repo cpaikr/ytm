@@ -180,7 +180,7 @@ The standalone binary also exposes an exact, network-free identity:
 bun run cli -- --version
 ```
 
-[Full-platform CI](docs/release.md#ci-platform-policy) builds deterministic
+[Manual full-platform CI](docs/release.md#ci-platform-policy) builds deterministic
 standalone CLI candidates for GNU/Linux x64 and ARM64
 (glibc 2.28 or newer), macOS ARM64, and Windows x64. Each candidate contains
 one versioned archive per target, `install.sh`, `install.ps1`, and sorted
@@ -195,7 +195,8 @@ Excel export with overwrite and platform-specific publication failures. Transact
 faults are injected into bounded temporary installer copies to verify rollback
 and recoverable failure evidence without shipping a test failpoint.
 
-The tag-triggered release workflow certifies and publishes only these CLI
+Manual branch dispatch of the release workflow certifies candidates without
+publishing. Manual version-tag dispatch certifies and publishes only these CLI
 assets to GitHub Releases. Local `release-it` prepares the synchronized version
 and changelog before committing, tagging, and pushing. See the
 [release runbook](docs/release.md) for the publishing command and recovery policy.
@@ -229,4 +230,4 @@ API and typing. Credentialed live source checks remain separate.
 Live KIS-NET smoke checks are scheduled and manually dispatchable rather than
 pull-request gates. The [release migration plan](plans/release-delivery.md)
 records validation and delivery evidence. The [release runbook](docs/release.md)
-explains protected-main preparation and tag publication.
+explains Linux-only automatic CI, protected-main preparation, and manual tag publication.

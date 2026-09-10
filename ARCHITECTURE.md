@@ -213,7 +213,7 @@ release infrastructure. Exact installed candidates also exercise network-free
 XLSX export, overwrite policy, and native publication failures; the judge owns
 full workbook semantics through an independent test-only ZIP/XML inspector.
 
-The tag-triggered workflow rebuilds these outputs from an immutable release
+The manually dispatched release workflow rebuilds these outputs from an immutable release
 tag and publishes only after exact native-consumer validation. The tagged
 release commit must be reachable from `origin/main`.
 
@@ -240,8 +240,9 @@ all local Rust, Node, and Python version copies and runs the complete gate
 before staging, committing, and tagging from synchronized `main`. Preparation
 disables push so the release commit can pass protected-main PR checks and merge
 without rewriting it. The original tag is pushed after that commit reaches
-`main`. Pushed stable version tags trigger the CLI release workflow; manual dispatch
-certifies candidates without publication. Only the publisher has write access.
+`main`. Manual dispatch on that stable version tag certifies and publishes the
+CLI release; branch dispatch certifies without publication. Automatic CI uses
+Linux x64 only; other native targets run only through manual workflows. Only the publisher has write access.
 It downloads the exact verified CLI candidate, reconciles changelog metadata
 and existing draft bytes, and confirms the complete set before public visibility.
 Draft recovery is additive and byte-identical; public assets are immutable.

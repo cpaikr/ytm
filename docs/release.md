@@ -1,8 +1,8 @@
 # Release
 
 The release pipeline distributes the standalone CLI through GitHub Releases.
-Local `release-it` prepares the version, changelog, commit, and tag; pushing a
-stable `vX.Y.Z` tag starts CI certification and publication. npm and PyPI
+Local `release-it` prepares the version, changelog, commit, and tag. Manual
+dispatch on a stable `vX.Y.Z` tag starts certification and publication. npm and PyPI
 publication have been removed. SDK source, local packaging, and development
 CI remain supported.
 
@@ -12,31 +12,30 @@ Historical releases and registry packages remain unchanged.
 
 ## CI platform policy
 
-[`ci.yml`](../.github/workflows/ci.yml) follows the owner's
-[cost-aware platform guidance](https://github.com/sjunepark/mytech/blob/main/practices/cost-aware-ci-platform-coverage.md).
-PRs to `main`, merge-queue candidates, and manual CI dispatches build and
-consume every declared CLI, Node, and Python target. PRs to `dev` normally
-run Linux x64; native code, bindings, installers, build configuration, and
-consumer/test-harness changes select the full matrix conservatively.
-[`ci-platform-policy.mjs`](../scripts/ci-platform-policy.mjs) owns that path
-selection and derives matrices from the target manifests. Pushes to `main`
-and `dev` run Linux validation without repeating the full pre-merge matrix.
+Automatic pushes, pull requests (including `main` and `dev`), merge-queue runs,
+and scheduled smoke checks use only Linux x64 on
+`blacksmith-2vcpu-ubuntu-2404`. Changed paths never enable other platforms.
+[`ci-platform-policy.mjs`](../scripts/ci-platform-policy.mjs) selects Linux x64
+from the CLI and Node manifests unless the initiating event is manual dispatch.
 
-Linux x64 CLI/Node CI and orchestration use the available 2-vCPU Blacksmith
-runner. Other architectures and operating systems retain their native runners.
-The reusable Python candidate retains its GitHub-hosted build/consumer runners;
-CLI release orchestration uses Blacksmith and target jobs use their declared runners.
-These are intentional runner-provider exceptions pending equivalent validation.
+`Platform compatibility` remains the required aggregate check. Automatic CI
+runs the complete repository gate (including Python wheel consumers), inspects
+and executes the Linux CLI archive, and tests exact Node tarballs on the
+declared Node versions. Only the complete CLI set, installer consumers, and
+cross-platform Python candidate are skipped in this mode.
 
-`Platform compatibility` is the required aggregate check: all selected jobs
-must succeed, and only the unselected complete CLI and Python candidates may
-be skipped. The full CLI set and installer consumers run together; reduced CI
-still inspects and executes the Linux archive and tests exact Node tarballs.
-The complete repository gate includes Linux Python wheel consumers on every run.
-Manual dispatch of `ci.yml` provides a full candidate without publication.
-The dedicated [`cross-platform-candidate.yml`](../.github/workflows/cross-platform-candidate.yml)
-entry point calls that same workflow, retaining the manual candidate path
-without a second copy of the build and consumer jobs.
+Cross-platform builds are a manual-only cost exception for release certification.
+Manual dispatch of [`ci.yml`](../.github/workflows/ci.yml) or
+[`cross-platform-candidate.yml`](../.github/workflows/cross-platform-candidate.yml)
+builds and consumes every declared CLI, Node, and Python target without
+publication. The latter calls the same reusable CI workflow; automatic callers
+retain Linux-only coverage. The reusable Python candidate is reached only in
+manual full-platform mode. These runs retain native macOS, Windows, and ARM
+runners and the Python candidate's GitHub-hosted runners.
+
+[`release.yml`](../.github/workflows/release.yml) is also manual-only. Dispatch
+on a branch certifies the full CLI candidate; dispatch on a version tag certifies
+and publishes it. Tag pushes alone schedule no release jobs.
 
 ## Prepare a release
 
@@ -84,13 +83,15 @@ git merge-base --is-ancestor 'refs/tags/vX.Y.Z^{commit}' origin/main
 ```
 
 Compare the printed SHA with the prepared commit certified in the PR. Only
-after the PR has landed and these checks pass, push the original tag:
+after the PR has landed and these checks pass, push the original tag and
+explicitly dispatch the release:
 
 ```sh
 git push origin refs/tags/vX.Y.Z
+gh workflow run release.yml --ref vX.Y.Z
 ```
 
-The tag push starts CLI certification and publication. Keep the tag on the
+The manual dispatch starts CLI certification and publication. Keep the tag on the
 prepared release commit; do not move it to the PR merge commit or bypass branch
 protection. If integration requires changes to the prepared commit, reconcile
 and certify the release candidate before publishing its tag.
@@ -116,13 +117,14 @@ archives and installers on every target. It requires the tagged commit to be
 reachable from `origin/main` and the tag to equal `v` plus the product version.
 The publishing job downloads that same candidate after all consumers pass.
 
-Manual dispatch of `release.yml` performs certification only, even when run
-from a tag ref. It never publishes. A pushed tag is the publication trigger;
-there are no release-enablement variables or protected environments in this
-workflow. Its default token is read-only, and only the publisher receives
-`contents: write`. The prepared release commit reaches `main` through its
-protected PR path before the authorized maintainer pushes the tag. Release
-tags must remain protected against replacement or deletion.
+Manual dispatch from a branch performs certification only. Dispatch from a
+version tag publishes after certification; tag identity and main ancestry are
+validated before building. There are no automatic tag triggers, release-enablement
+variables, or protected environments. The default token is read-only, and only
+the publisher receives `contents: write`. Release tags must remain protected
+against replacement or deletion. Older tags retain their original workflow
+configuration; use this procedure for release commits containing the manual-only
+workflow.
 
 The publisher creates a changelog-derived draft, uploads only missing assets,
 and downloads the complete set to verify its bytes before making it public.
@@ -206,13 +208,12 @@ installers, PATH setup, and upgrade commands.
 | State | Recovery |
 | --- | --- |
 | Local preparation fails before commit | Inspect the version/changelog edits and fix the failed gate before continuing. |
-| Tag pushed; build or consumer fails | Inspect the failed run. Retry the original tag-triggered run only if the unchanged source can pass; code corrections require a new version. |
-| Draft has some assets | Rerun the original tag-triggered run. Existing assets must match the verified candidate byte for byte; only missing assets may be added. |
+| Manual release build or consumer fails | Inspect the failed run. Retry the original manual tag run only if the unchanged source can pass; code corrections require a new version. |
+| Draft has some assets | Rerun the original manual tag run. Existing assets must match the verified candidate byte for byte; only missing assets may be added. |
 | Release is public | A rerun verifies the complete unchanged set and metadata. It cannot repair or replace public assets. |
 | Tag, metadata, inventory, or bytes conflict | Stop and investigate; corrections require a new version. |
 
-Rerun the original pushed-tag workflow for publication recovery. A new manual
-dispatch is always certification-only. Never move an existing tag, replace
+Rerun the original manual tag workflow for publication recovery. Never move an existing tag, replace
 published bytes, or delete a draft to hide recovery evidence. Unknown GitHub
 responses fail closed and must be resolved before retrying. No registry
 credentials, trusted publishers, or npm/PyPI environments are used by this
@@ -232,7 +233,7 @@ glibc 2.28, macOS ARM64 at 11.0, and Windows x64. Alternative interpreters,
 free-threaded builds, and future stable versions need evidence before joining
 that matrix. One `cp311-abi3` mixed wheel serves each target.
 
-Full-platform development CI uses `python-candidate.yml`. Pinned maturin
+Manual full-platform development CI uses `python-candidate.yml`. Pinned maturin
 builds twice from fresh native output directories and requires identical wheel bytes. Build
 inputs use the source commit timestamp, normalized source paths, LF package
 files on every host, and the macOS deployment floor. Source attribution rejects
