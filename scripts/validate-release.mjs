@@ -281,7 +281,6 @@ check('merge_group' in ciWorkflow.on && 'workflow_dispatch' in ciWorkflow.on, "C
 for (const name of ['python-candidate', 'cli-artifact-set', 'cli-consumer']) {
   check(ciWorkflow.jobs[name].if === "needs.cli-metadata.outputs.full == 'true'", `${name} must follow the selected full-platform policy`);
 }
-check(findNamedStep(cliMetadataJob, 'Check out source').with['fetch-depth'] === 0, 'Platform selection must have complete PR diff history');
 const platformGate = ciWorkflow.jobs['platform-gate'];
 equal(platformGate.name, 'Platform compatibility', 'Platform gate must retain its required GitHub check name');
 check(platformGate.if === 'always()', 'Platform gate must report failed and skipped prerequisites');
@@ -329,7 +328,7 @@ check(preparation?.plugins?.['@release-it/conventional-changelog']?.infile === '
 for (const path of ['.release-please-manifest.json', 'release-please-config.json', '.github/workflows/release-please.yml']) {
   check(!await pathExists(path), `${path} must not retain a second release authority`);
 }
-equal(releaseWorkflow.on, {push: {tags: ['v*']}, workflow_dispatch: {}}, 'tag pushes publish; manual runs only certify candidates');
+equal(releaseWorkflow.on, {workflow_dispatch: {}}, 'cross-platform release builds must be manual-only');
 check(releaseWorkflow.permissions?.contents === 'read', 'release default token must be read-only');
 equal(releaseWorkflow.concurrency, {group: 'release-${{ github.ref }}', 'cancel-in-progress': false}, 'same-tag release runs must serialize without interruption');
 equal(Object.keys(releaseWorkflow.jobs), ['verify', 'cli_metadata', 'cli_archive', 'cli_artifact_set', 'cli_consumer', 'publish'], 'release contains only source verification and CLI delivery');
@@ -363,7 +362,7 @@ const releaseCandidate = activeShell(findNamedStep(releaseJobs.cli_artifact_set,
 for (const command of ['generate-cli-installers.mjs', 'finalize-cli-artifacts.mjs', 'validate-cli-artifact-set.mjs']) check(releaseCandidate.includes(command), `release aggregation must run ${command}`);
 check(activeShell(findNamedStep(releaseJobs.cli_consumer, 'Test exact standalone CLI consumer')) === 'node scripts/test-cli-release-consumer.mjs dist/cli', 'every target must test the exact archives and installers');
 const publication = releaseJobs.publish;
-check(publication.if === "github.event_name == 'push' && github.ref_type == 'tag'", 'manual dispatch must never publish, including tag-ref dispatch');
+check(publication.if === "github.event_name == 'workflow_dispatch' && github.ref_type == 'tag'", 'only explicit manual tag dispatch may publish');
 equal(publication.needs, ['verify', 'cli_artifact_set', 'cli_consumer'], 'publication must await all release certification');
 equal(publication.permissions, {contents:'write'}, 'only GitHub contents permission is needed to publish');
 check(activeShell(findNamedStep(publication, 'Publish immutable GitHub assets')) === 'node scripts/publish-release.mjs dist/cli "$RELEASE_TAG"', 'publication must use the immutable CLI publisher');

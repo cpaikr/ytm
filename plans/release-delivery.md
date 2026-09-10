@@ -1,8 +1,9 @@
 # CLI release migration
 
-Status: implementation, local validation, and full hosted CI certified
+Status: original migration certified; subsequent CI cost policy is documented in
+[the release runbook](../docs/release.md#ci-platform-policy).
 
-## Selected outcome
+## Original migration outcome
 
 Use local `release-it` preparation and pushed-tag publication, following
 `krx-cli`, while retaining certification on every supported CLI target.
@@ -10,7 +11,7 @@ GitHub Releases distribute only CLI archives, installers, and checksums.
 Remove Release Please and npm/PyPI publication; keep SDK source, local
 packaging, and development CI. Historical published artifacts remain intact.
 
-## Delivered implementation
+## Original delivered implementation
 
 - Local version/changelog preparation synchronizes all language version copies
   and runs the complete repository gate before commit, tag, and push.
@@ -52,4 +53,5 @@ packaging, and development CI. Historical published artifacts remain intact.
 
 The [runbook](../docs/release.md#prepare-a-release) defines the release
 sequence: prepare without push, merge the certified release commit through a
-PR, and push its original tag after confirming ancestry on `origin/main`.
+PR, push its original tag after confirming ancestry on `origin/main`, and
+manually dispatch certification and publication on that tag.

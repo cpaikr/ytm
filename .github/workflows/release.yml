@@ -1,8 +1,5 @@
 name: CLI release
 on:
-  push:
-    tags:
-      - v*
   workflow_dispatch: {}
 permissions:
   contents: read
@@ -45,7 +42,7 @@ jobs:
       - name: Verify version and tag identity
         id: version
         env:
-          RELEASE_TAG: ${{ github.event_name == 'push' && github.ref_type == 'tag' && github.ref_name || '' }}
+          RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && github.ref_type == 'tag' && github.ref_name || '' }}
         run: |-
           node scripts/release-version.mjs check "$RELEASE_TAG"
           echo "version=$(cat VERSION)" >> "$GITHUB_OUTPUT"
@@ -196,7 +193,7 @@ jobs:
         run: node scripts/test-cli-release-consumer.mjs dist/cli
   publish:
     name: Publish verified CLI release
-    if: github.event_name == 'push' && github.ref_type == 'tag'
+    if: github.event_name == 'workflow_dispatch' && github.ref_type == 'tag'
     needs:
       - verify
       - cli_artifact_set
