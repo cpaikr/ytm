@@ -61,7 +61,20 @@ impl RetrievalOptions {
                         || Instant::now().checked_add(*duration).is_none()
                 })
         {
-            return Err(YtmError::invalid_parameter("retrieval", "requestPolicy", "Retries must be at most 10; durations must be representable and maximum backoff must be at least base backoff.", serde_json::Value::Null));
+            // Seconds plus nanoseconds preserve even rejected durations without
+            // overflowing JSON's integer representation for millisecond totals.
+            let duration = |value: Duration| serde_json::json!({"seconds": value.as_secs(), "nanoseconds": value.subsec_nanos()});
+            return Err(YtmError::invalid_parameter(
+                "retrieval",
+                "requestPolicy",
+                "Retries must be at most 10; durations must be representable and maximum backoff must be at least base backoff.",
+                serde_json::json!({
+                    "maxRetries": max_retries,
+                    "baseBackoff": duration(base_backoff),
+                    "maxBackoff": duration(max_backoff),
+                    "minRequestInterval": duration(min_request_interval),
+                }),
+            ));
         }
         self.max_retries = max_retries;
         self.base_backoff = base_backoff;
@@ -165,12 +178,6 @@ impl RetrievalContext {
             .lock()
             .map_err(|_| YtmError::defect())?
             .and_then(|start| start.checked_add(self.options.min_request_interval)))
-    }
-    pub(crate) fn unknown_attempts(&self) -> Result<(), YtmError> {
-        self.progress().update(|stats| {
-            stats.physical_attempt_count = None;
-            stats.retry_count = None;
-        })
     }
     pub(crate) fn complete<T>(
         &self,
@@ -310,6 +317,29 @@ mod tests {
             Duration::from_secs(1800)
         );
     }
+    #[test]
+    fn invalid_request_policy_reports_exact_supplied_values_without_overflow() {
+        let error = RetrievalOptions::default()
+            .with_request_policy(
+                11,
+                Duration::MAX,
+                Duration::from_nanos(7),
+                Duration::from_millis(2),
+            )
+            .unwrap_err();
+        assert_eq!(error.details.parameter.as_deref(), Some("requestPolicy"));
+        assert_eq!(
+            error.details.actual,
+            Some(serde_json::json!({
+                "maxRetries": 11,
+                "baseBackoff": {"seconds": u64::MAX, "nanoseconds": 999_999_999},
+                "maxBackoff": {"seconds": 0, "nanoseconds": 7},
+                "minRequestInterval": {"seconds": 0, "nanoseconds": 2_000_000},
+            }))
+        );
+        assert!(error.details.statistics.is_none());
+    }
+
     #[test]
     fn request_policy_rejects_invalid_bounds_and_preserves_zero_waits() {
         let options = RetrievalOptions::default();

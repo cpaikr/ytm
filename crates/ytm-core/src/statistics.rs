@@ -29,6 +29,8 @@ struct State {
     statistics: RetrievalStatistics,
     waiting: Duration,
     wait_started: Option<Instant>,
+    // Numeric totals remain private until the current lookup establishes accounting.
+    lookup_pending: bool,
 }
 
 /// Single-use progress handle. Snapshots coalesce intermediate updates, use
@@ -50,6 +52,10 @@ impl RetrievalProgress {
             .unwrap_or_else(|poisoned| poisoned.into_inner());
         let started = state.started?;
         let mut statistics = state.statistics.clone();
+        if state.lookup_pending {
+            statistics.physical_attempt_count = None;
+            statistics.retry_count = None;
+        }
         if !statistics.finished {
             statistics.elapsed_ms = millis(started.elapsed());
             statistics.waiting_ms = millis(
@@ -75,6 +81,29 @@ impl RetrievalProgress {
         state.started = Some(Instant::now());
         state.statistics.physical_attempt_count = Some(0);
         state.statistics.retry_count = Some(0);
+        Ok(())
+    }
+
+    pub(crate) fn begin_lookup(&self, operation: &str) -> Result<(), YtmError> {
+        let mut state = self.0.lock().map_err(|_| YtmError::defect())?;
+        if state.lookup_pending {
+            // A previous custom lookup never established observable accounting.
+            // Later HTTP lookups must not make the invocation totals known again.
+            state.statistics.physical_attempt_count = None;
+            state.statistics.retry_count = None;
+        }
+        state.lookup_pending = true;
+        if operation == "initializeYtmMatrix" {
+            state.statistics.discovery_count += 1;
+        } else {
+            state.statistics.matrix_lookup_count += 1;
+        }
+        Ok(())
+    }
+
+    pub(crate) fn account_http_lookup(&self) -> Result<(), YtmError> {
+        let mut state = self.0.lock().map_err(|_| YtmError::defect())?;
+        state.lookup_pending = false;
         Ok(())
     }
 
@@ -106,6 +135,10 @@ impl RetrievalProgress {
         let mut state = self.0.lock().unwrap_or_else(|p| p.into_inner());
         if state.statistics.finished {
             return;
+        }
+        if state.lookup_pending {
+            state.statistics.physical_attempt_count = None;
+            state.statistics.retry_count = None;
         }
         if let Some(start) = state.wait_started.take() {
             state.waiting += start.elapsed();
@@ -176,6 +209,80 @@ mod tests {
             .unwrap();
         assert_eq!(next.physical_attempt_count, Some(0));
         assert!(next.finished);
+    }
+
+    struct PendingContextTransport(Arc<tokio::sync::Notify>);
+    #[async_trait::async_trait]
+    impl Transport for PendingContextTransport {
+        async fn post(
+            &self,
+            _: PreparedRequest,
+            _: CancellationToken,
+        ) -> Result<Vec<u8>, YtmError> {
+            panic!("the context override must be dispatched");
+        }
+        async fn post_with_context(
+            &self,
+            _: PreparedRequest,
+            context: crate::RetrievalContext,
+        ) -> Result<Vec<u8>, YtmError> {
+            assert_eq!(context.statistics().physical_attempt_count, None);
+            assert_eq!(context.statistics().retry_count, None);
+            self.0.notify_one();
+            std::future::pending().await
+        }
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn pending_context_overrides_keep_unknown_counts_on_every_termination() {
+        for termination in ["cancel", "deadline", "drop"] {
+            let entered = Arc::new(tokio::sync::Notify::new());
+            let service = YtmService::with_transport(PendingContextTransport(entered.clone()));
+            let progress = RetrievalProgress::new();
+            let options = RetrievalOptions::new(Duration::from_secs(1))
+                .unwrap()
+                .with_progress(progress.clone());
+            let cancellation = CancellationToken::new();
+            let caller = cancellation.clone();
+            let task = tokio::spawn(async move {
+                service
+                    .kinds_with_options_and_cancellation(
+                        KindsInput::for_date("2026-06-09".parse().unwrap()),
+                        options,
+                        caller,
+                    )
+                    .await
+            });
+            entered.notified().await;
+            assert_eq!(progress.snapshot().unwrap().physical_attempt_count, None);
+            match termination {
+                "cancel" => cancellation.cancel(),
+                "deadline" => tokio::time::advance(Duration::from_secs(1)).await,
+                "drop" => task.abort(),
+                _ => unreachable!(),
+            }
+            let result = task.await;
+            if termination == "drop" {
+                assert!(result.unwrap_err().is_cancelled());
+            } else {
+                let error = result.unwrap().unwrap_err();
+                assert_eq!(error.details.code, "source_transport_error");
+                assert_eq!(
+                    error.details.cause.as_deref(),
+                    Some(if termination == "cancel" {
+                        "AbortError"
+                    } else {
+                        "TimeoutError"
+                    })
+                );
+                assert_eq!(error.details.statistics, progress.snapshot());
+            }
+            let stats = progress.snapshot().unwrap();
+            assert!(stats.finished);
+            assert_eq!(stats.discovery_count, 1);
+            assert_eq!(stats.physical_attempt_count, None);
+            assert_eq!(stats.retry_count, None);
+        }
     }
 
     struct CustomTransport;

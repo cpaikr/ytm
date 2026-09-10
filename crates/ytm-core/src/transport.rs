@@ -39,7 +39,6 @@ pub trait Transport: Send + Sync {
         request: PreparedRequest,
         context: RetrievalContext,
     ) -> Result<Vec<u8>, YtmError> {
-        context.unknown_attempts()?;
         self.post(request, context.cancellation()).await
     }
 }
@@ -330,6 +329,8 @@ impl Transport for HttpTransport {
         request: PreparedRequest,
         context: RetrievalContext,
     ) -> Result<Vec<u8>, YtmError> {
+        // Claim accounting before cancellation or waits, including zero attempts.
+        context.progress().account_http_lookup()?;
         let operation = request.operation;
         let result = self.retrieve(request, context.clone()).await;
         context.finish(result, operation)

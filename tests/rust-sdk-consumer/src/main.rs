@@ -8,6 +8,17 @@ struct ConsumerTransport;
 
 #[async_trait]
 impl Transport for ConsumerTransport {
+    async fn post_with_context(
+        &self,
+        request: PreparedRequest,
+        context: ytm_core::RetrievalContext,
+    ) -> Result<Vec<u8>, YtmError> {
+        // Context-aware custom transports must not fabricate zero physical work.
+        assert_eq!(context.statistics().physical_attempt_count, None);
+        assert_eq!(context.statistics().retry_count, None);
+        self.post(request, context.cancellation()).await
+    }
+
     async fn post(
         &self,
         _request: PreparedRequest,

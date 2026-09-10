@@ -163,6 +163,11 @@ yields. Fields use camelCase in JSON/Node and snake_case in Rust/Python:
 | `waitingMs` | Actual time in combined pacing/retry waits, counted once, including interrupted waits. |
 | `finished` | Whether the snapshot is final. |
 
+During transport dispatch, physical counts remain null until the active lookup
+establishes built-in HTTP accounting. A custom lookup that does not forward to
+the HTTP transport makes those invocation totals permanently unknown, including
+on cancellation or failure; later HTTP lookups cannot restore known totals.
+
 Validation and lifecycle failures before retrieval starts omit statistics. Completion retains counters without publishing partial
 data. Static catalog retrieval makes zero HTTP attempts. The CLI preserves
 one machine result on stdout; JSON results and XLSX receipts include statistics. Text and spreadsheet

@@ -47,7 +47,10 @@ base_backoff, max_backoff, min_request_interval)?` using `Duration`s. Attach
 `RetrievalProgress::new()` with `with_progress` and poll `snapshot()` from a
 separate task. Handles are single-use and updates coalesce without callbacks.
 Top-level results contain final `statistics`; errors use `details.statistics`.
-Custom transport physical counts are unknown (`None`).
+Custom transport physical counts are unknown (`None`), including overrides of
+`post_with_context`. Forwarding decorators retain the inner HTTP accounting.
+While a lookup has not established that accounting, its progress counts are
+`None`; an unaccounted lookup keeps final invocation counts unknown.
 
 `ErrorDetails` has optional `retry` and `statistics` metadata. Result structs
 also add optional `statistics`. External exhaustive literals must add these

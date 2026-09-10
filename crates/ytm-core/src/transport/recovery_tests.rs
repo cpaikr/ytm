@@ -1141,3 +1141,63 @@ async fn settle(condition: impl Fn() -> bool) {
         tokio::task::yield_now().await;
     }
 }
+
+struct MixedContextTransport {
+    http: HttpTransport,
+    custom_index: Option<usize>,
+    calls: std::sync::atomic::AtomicUsize,
+}
+
+#[async_trait]
+impl Transport for MixedContextTransport {
+    async fn post(&self, _: PreparedRequest, _: CancellationToken) -> Result<Vec<u8>, YtmError> {
+        panic!("the context override must be dispatched");
+    }
+    async fn post_with_context(
+        &self,
+        request: PreparedRequest,
+        context: RetrievalContext,
+    ) -> Result<Vec<u8>, YtmError> {
+        let index = self
+            .calls
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        if self.custom_index == Some(index) {
+            assert_eq!(context.statistics().physical_attempt_count, None);
+            Ok(xml(""))
+        } else {
+            self.http.post_with_context(request, context).await
+        }
+    }
+}
+
+#[tokio::test]
+async fn context_decorators_preserve_http_counts_and_unknown_mixed_invocations() {
+    for custom_index in [None, Some(0), Some(1)] {
+        let scenario = Scenario::new(vec![http(200, &xml(""))]).await;
+        let service = YtmService::with_transport(MixedContextTransport {
+            http: scenario.transport.clone(),
+            custom_index,
+            calls: std::sync::atomic::AtomicUsize::new(0),
+        });
+        let offline = service.kinds(crate::KindsInput::default()).await.unwrap();
+        assert_eq!(offline.statistics.unwrap().physical_attempt_count, Some(0));
+        assert_eq!(scenario.count(), 0);
+        let selection =
+            DateSelection::range("2026-06-08".parse().unwrap(), "2026-06-09".parse().unwrap())
+                .unwrap();
+        let statistics = service
+            .history(HistoryInput::new(selection))
+            .await
+            .unwrap()
+            .statistics
+            .unwrap();
+        assert_eq!(statistics.discovery_count, 2);
+        assert_eq!(scenario.count(), if custom_index.is_some() { 1 } else { 2 });
+        assert_eq!(
+            statistics.physical_attempt_count,
+            custom_index.is_none().then_some(2)
+        );
+        assert_eq!(statistics.retry_count, custom_index.is_none().then_some(0));
+        assert!(statistics.finished);
+    }
+}

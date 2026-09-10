@@ -729,13 +729,7 @@ impl YtmService {
     ) -> Result<Vec<u8>, YtmError> {
         cancellation.clear_lookup()?;
         check_cancellation(cancellation, operation)?;
-        cancellation.progress().update(|stats| {
-            if request.operation == "initializeYtmMatrix" {
-                stats.discovery_count += 1;
-            } else {
-                stats.matrix_lookup_count += 1;
-            }
-        })?;
+        cancellation.progress().begin_lookup(request.operation)?;
         let token = cancellation.cancellation();
         // Poll the context-aware transport first so its own deadline result can
         // retain the last HTTP failure and attempt metadata at the same instant.
