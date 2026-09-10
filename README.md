@@ -195,7 +195,8 @@ Excel export with overwrite and platform-specific publication failures. Transact
 faults are injected into bounded temporary installer copies to verify rollback
 and recoverable failure evidence without shipping a test failpoint.
 
-The manually dispatched release workflow certifies and publishes only these CLI
+Manual branch dispatch of the release workflow certifies candidates without
+publishing. Manual version-tag dispatch certifies and publishes only these CLI
 assets to GitHub Releases. Local `release-it` prepares the synchronized version
 and changelog before committing, tagging, and pushing. See the
 [release runbook](docs/release.md) for the publishing command and recovery policy.
