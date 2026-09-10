@@ -16,7 +16,7 @@ authorizes integration work.
 
 ## Audit Concerns
 
-- History integrity: missing merge parents, missing or mismatched `MERGE_HEAD`, source tips not reachable after an intended whole-branch merge, or squash/cherry-pick/copied-patch results when a real merge was intended.
+- History integrity: before a merge commit, verify that `MERGE_HEAD` is present and identifies the expected source. For a completed merge, omit `MERGE_HEAD` checks and validate the merge commit's parents and source-tip reachability instead. Also check for squash/cherry-pick/copied-patch results when a real merge was intended.
 - Lost or partially integrated work: commits whose intent is absent, tests/docs/config/migrations/assets omitted, deletions ignored, stale references after renames, or tests removed/weakened without evidence.
 - Unsafe assumptions: product behavior, API shape, naming, data model, permissions, defaults, feature flags, user flows, or compatibility policy chosen without clear evidence.
 - Append-only integration: duplicate helpers, types, config fields, routes, commands, validation paths, competing sources of truth, or parallel abstractions that should be unified.

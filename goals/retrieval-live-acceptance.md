@@ -8,9 +8,9 @@ Planning scope: ROADMAP.md
 Goal contract
 
 - Outcome: Assess issue #45’s full live acceptance through one authorized bounded run, closing the issue only if every acceptance check passes.
-- Goal state: /Users/sejunpark/IT/ytm/goals/retrieval-live-acceptance.md
+- Goal state: `goals/retrieval-live-acceptance.md`
 - Included results and sources (semantic results define scope; paths supply detail):
-  - Identified candidate, offline-validated checker, one sequential 180-observation live run with a 30-minute retrieval deadline, sanitized evidence, and conditional issue closure — /Users/sejunpark/IT/ytm/plans/resilient-history-retrieval.md, “Record bounded live acceptance separately.”
+  - Identified candidate, offline-validated checker, one sequential 180-observation live run with a 30-minute retrieval deadline, sanitized evidence, and conditional issue closure — `plans/resilient-history-retrieval.md`, “Record bounded live acceptance separately.”
 - Complete when: The single-run assessment has a reviewed, recorded outcome; applicable validation passes; planning and issue status are truthful; Delivery finishes. Close #45 only on verified success. A failed run completes the assessment with a documented blocker, leaving issue acceptance incomplete and the issue open.
 - Excluded: Release publication, repeat live runs, and production enablement.
 - Authority: Execute only included results and necessary supporting work; record anything else and ask before scope expansion or external actions not covered by this contract and Delivery.

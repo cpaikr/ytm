@@ -101,7 +101,7 @@ no actionable blockers or majors. No source edits were made by the reviewer.
 
 Checks:
 
-- `bunx skills add ./skills/address-issues --list`: discovered exactly the skill.
+- From the `.claude` working directory, `bunx skills add ./skills/address-issues --list`: discovered exactly the skill.
 - Standalone skill-creator validator: passed with ephemeral PyYAML through `uv`.
   Its older schema rejects the portable compatibility field, so prerequisites
   were moved to the body before freezing; they remain explicit.

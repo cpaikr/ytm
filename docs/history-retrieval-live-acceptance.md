@@ -27,7 +27,11 @@ These records support the bounded test decision; they do not resolve the
 | Executable SHA-256 | `024792f22666c0be4ac4cc45f75ade7ffa02af12785d54de2e6f158f1ecc7f02` |
 | Platform | `macOS-26.5.2-arm64-arm-64bit` |
 | Shell | `/bin/zsh 5.9` |
-| Exact executable | `/Users/sejunpark/IT/ytm/target/release/ytm` |
+| Exact executable | `ytm` |
+
+The current checker requires an independently generated provenance sidecar
+binding `sourceCommit`, `binarySha256`, and `version` to the supplied candidate;
+it verifies the binary digest before invoking the candidate.
 
 Built with `cargo build --release --locked -p ytm-cli --no-default-features`.
 The source contains PR #46 merge `f6056a4` and validation fixes `51bfca4`.
@@ -83,7 +87,7 @@ scenario within the deadline; it establishes no general latency or quota claim.
 ## Validation and retention
 
 - [Checker](../scripts/check-history-live-acceptance.py) and
-  [synthetic tests](../scripts/test-history-live-acceptance.py): five test methods
+  [synthetic tests](../scripts/test-history-live-acceptance.py): nine test methods
   with full-count success, ordinary unavailable pairs, and rejection cases for
   shortened/duplicate/unordered/future dates, scan/discovery gaps, missing or
   relabeled categories, source drift, fallback, counters, invalid numerics,
@@ -98,7 +102,7 @@ scenario within the deadline; it establishes no general latency or quota claim.
 - Independent bounded checker review is clean after canonical category-name
   validation was added. Acceptance checks use explicit conditions, unaffected
   by Python optimization; nested terminal HTTP status uses `sourceActual`.
-- Raw CLI stdout was piped directly to the checker and held in memory; stderr
+- Raw CLI stdout was piped directly to the checker and held in bounded memory; stderr
   was discarded. Only candidate identity, timing, counts and fixed check
   outcomes were retained. No provider bodies, rows, yields or request bodies
   were printed or persisted. The exclusive run reservation remains in the
