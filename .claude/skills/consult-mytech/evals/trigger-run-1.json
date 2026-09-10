@@ -1,0 +1,90 @@
+{
+  "repetition": 1,
+  "kind": "trigger_selection_simulation",
+  "results": [
+    {
+      "id": "explicit-review",
+      "prompt": "Use $consult-mytech to check this API design.",
+      "raw_answer": "activate: true — The prompt explicitly invokes `$consult-mytech` to assess an API design.",
+      "actual_label": true,
+      "expected_label": true,
+      "task_id": "/root/triggers_1/trial_1",
+      "elapsed_wall_time_seconds": null
+    },
+    {
+      "id": "explicit-implement",
+      "prompt": "$consult-mytech — apply relevant preferences while implementing the requested CLI fix.",
+      "raw_answer": "activate: true — The prompt explicitly invokes `$consult-mytech` to apply preferences during a coding task.",
+      "actual_label": true,
+      "expected_label": true,
+      "task_id": "/root/triggers_1/trial_2",
+      "elapsed_wall_time_seconds": null
+    },
+    {
+      "id": "explicit-unknown",
+      "prompt": "Invoke consult-mytech for this project; locate my preferences and identify gaps.",
+      "raw_answer": "activate: true — The prompt explicitly invokes consult-mytech to locate preferences and assess project gaps.",
+      "actual_label": true,
+      "expected_label": true,
+      "task_id": "/root/triggers_1/trial_3",
+      "elapsed_wall_time_seconds": null
+    },
+    {
+      "id": "uninvoked-relevant",
+      "prompt": "Check this project against mytech preferences.",
+      "raw_answer": "activate: false — The prompt matches the skill’s purpose but does not explicitly invoke `consult-mytech`; implicit invocation is disabled.",
+      "actual_label": false,
+      "expected_label": false,
+      "task_id": "/root/triggers_1/trial_4",
+      "elapsed_wall_time_seconds": null
+    },
+    {
+      "id": "uninvoked-design",
+      "prompt": "Use my preferred stack to design this service.",
+      "raw_answer": "activate: false — The prompt does not explicitly invoke consult-mytech, and implicit invocation is disabled.",
+      "actual_label": false,
+      "expected_label": false,
+      "task_id": "/root/triggers_1/trial_5",
+      "elapsed_wall_time_seconds": null
+    },
+    {
+      "id": "adjacent-edit",
+      "prompt": "Update the accepted HTTP preferences in the mytech repository.",
+      "raw_answer": "activate: false — The prompt requests updating repository preferences, not explicitly invoking consult-mytech.",
+      "actual_label": false,
+      "expected_label": false,
+      "task_id": "/root/triggers_1/trial_6",
+      "elapsed_wall_time_seconds": null
+    },
+    {
+      "id": "unrelated",
+      "prompt": "Fix the off-by-one error in this loop.",
+      "raw_answer": "activate: false — The prompt does not explicitly invoke consult-mytech.",
+      "actual_label": false,
+      "expected_label": false,
+      "task_id": "/root/triggers_1/trial_7",
+      "elapsed_wall_time_seconds": null
+    },
+    {
+      "id": "ambiguous",
+      "prompt": "Mytech might have something relevant here; what do you think?",
+      "raw_answer": "activate: false — The prompt suggests possible relevance but does not explicitly request consulting mytech preferences.",
+      "actual_label": false,
+      "expected_label": false,
+      "task_id": "/root/triggers_1/trial_8",
+      "elapsed_wall_time_seconds": null
+    }
+  ],
+  "limitations": "Fresh subagent catalog/prompt simulation only; real installed-host catalog/invocation is unverified.",
+  "summary": {
+    "total": 8,
+    "correct": 8,
+    "false_positives": 0,
+    "false_negatives": 0
+  },
+  "catalog": {
+    "name": "consult-mytech",
+    "description": "Consult mytech technical preferences to guide a coding task or assess a project's alignment. Explicit invocation only.",
+    "allow_implicit_invocation": false
+  }
+}

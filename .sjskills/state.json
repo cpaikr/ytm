@@ -3,6 +3,15 @@
   "records": [
     {
       "scope": "project",
+      "skill": "address-issues",
+      "target": ".agents",
+      "sourceIdentity": "github:sjunepark/agent-scripts",
+      "treeHashAlgorithm": "tree-sha256-v2",
+      "treeHash": "9f1c1d0730dcb2d2fd1304c667089eb8e6541ebc607450168f1936fc8b62c49c",
+      "recordedAt": "2026-09-10T02:22:04.938247Z"
+    },
+    {
+      "scope": "project",
       "skill": "address-pr-feedback",
       "target": ".agents",
       "sourceIdentity": "github:sjunepark/agent-scripts",
@@ -39,6 +48,15 @@
     },
     {
       "scope": "project",
+      "skill": "consult-mytech",
+      "target": ".agents",
+      "sourceIdentity": "github:sjunepark/mytech",
+      "treeHashAlgorithm": "tree-sha256-v2",
+      "treeHash": "89fb6212a5c1b819eddd7b87761b788a1a65b0af4fc0a1fc05226f0f1b6ed8e0",
+      "recordedAt": "2026-09-09T13:43:05.771856Z"
+    },
+    {
+      "scope": "project",
       "skill": "context7-cli",
       "target": ".agents",
       "sourceIdentity": "github:upstash/context7",
@@ -52,8 +70,8 @@
       "target": ".agents",
       "sourceIdentity": "github:sjunepark/agent-scripts",
       "treeHashAlgorithm": "tree-sha256-v2",
-      "treeHash": "2787cedf28b618792f9f72d3e8fa57b4bd1f7f8662fb7854aac9a83d432251ea",
-      "recordedAt": "2026-09-06T10:27:12.841045Z"
+      "treeHash": "c64a565b0717e883719472170b2594ac17201bdcc5c4c98b166ed1939ac90ae5",
+      "recordedAt": "2026-09-09T13:43:05.771856Z"
     },
     {
       "scope": "project",
@@ -79,8 +97,8 @@
       "target": ".agents",
       "sourceIdentity": "github:sjunepark/agent-scripts",
       "treeHashAlgorithm": "tree-sha256-v2",
-      "treeHash": "8fff424e4bfa96cd41442825bdf400ebb1069a579df997c5e9cdc588d97092ef",
-      "recordedAt": "2026-09-06T10:27:12.841045Z"
+      "treeHash": "4c91e6b6389b341433a2b3b133f2b611062370244da57bdbd5709ad760df80b2",
+      "recordedAt": "2026-09-09T13:43:05.771856Z"
     },
     {
       "scope": "project",
@@ -106,8 +124,8 @@
       "target": ".agents",
       "sourceIdentity": "github:sjunepark/agent-scripts",
       "treeHashAlgorithm": "tree-sha256-v2",
-      "treeHash": "1304085d924516d2656ef0459b263ac4a15518fe99acb27ca49a4d43dbcc4662",
-      "recordedAt": "2026-09-06T10:27:12.841045Z"
+      "treeHash": "5a15c218f9bb0230371820caf59084535fb1bc771cbf12430368619dc8bd0f9e",
+      "recordedAt": "2026-09-09T13:43:05.771856Z"
     },
     {
       "scope": "project",
@@ -133,8 +151,17 @@
       "target": ".agents",
       "sourceIdentity": "github:sjunepark/agent-scripts",
       "treeHashAlgorithm": "tree-sha256-v2",
-      "treeHash": "09ce913f4034a06d565fad3984b4c64940c6475c305f0f5622e31880fa5be0d8",
-      "recordedAt": "2026-09-06T10:27:12.841045Z"
+      "treeHash": "2e5db1296f31354e75c3b98462d4f891421099183762a3ea56ac953a0b31a4c7",
+      "recordedAt": "2026-09-09T13:43:05.771856Z"
+    },
+    {
+      "scope": "project",
+      "skill": "address-issues",
+      "target": ".claude",
+      "sourceIdentity": "github:sjunepark/agent-scripts",
+      "treeHashAlgorithm": "tree-sha256-v2",
+      "treeHash": "9f1c1d0730dcb2d2fd1304c667089eb8e6541ebc607450168f1936fc8b62c49c",
+      "recordedAt": "2026-09-10T02:22:04.938247Z"
     },
     {
       "scope": "project",
@@ -174,6 +201,15 @@
     },
     {
       "scope": "project",
+      "skill": "consult-mytech",
+      "target": ".claude",
+      "sourceIdentity": "github:sjunepark/mytech",
+      "treeHashAlgorithm": "tree-sha256-v2",
+      "treeHash": "89fb6212a5c1b819eddd7b87761b788a1a65b0af4fc0a1fc05226f0f1b6ed8e0",
+      "recordedAt": "2026-09-09T13:43:05.771856Z"
+    },
+    {
+      "scope": "project",
       "skill": "context7-cli",
       "target": ".claude",
       "sourceIdentity": "github:upstash/context7",
@@ -187,8 +223,17 @@
       "target": ".claude",
       "sourceIdentity": "github:sjunepark/agent-scripts",
       "treeHashAlgorithm": "tree-sha256-v2",
-      "treeHash": "2787cedf28b618792f9f72d3e8fa57b4bd1f7f8662fb7854aac9a83d432251ea",
-      "recordedAt": "2026-09-06T10:27:12.841045Z"
+      "treeHash": "c64a565b0717e883719472170b2594ac17201bdcc5c4c98b166ed1939ac90ae5",
+      "recordedAt": "2026-09-09T13:43:05.771856Z"
+    },
+    {
+      "scope": "project",
+      "skill": "delegate",
+      "target": ".claude",
+      "sourceIdentity": "github:sjunepark/agent-scripts",
+      "treeHashAlgorithm": "tree-sha256-v2",
+      "treeHash": "a93c2861835cb1364940a933a392f9bab913300c87489123e126f815286c9c88",
+      "recordedAt": "2026-09-09T13:43:05.771856Z"
     },
     {
       "scope": "project",
@@ -196,8 +241,8 @@
       "target": ".claude",
       "sourceIdentity": "github:sjunepark/agent-scripts",
       "treeHashAlgorithm": "tree-sha256-v2",
-      "treeHash": "8fff424e4bfa96cd41442825bdf400ebb1069a579df997c5e9cdc588d97092ef",
-      "recordedAt": "2026-09-06T10:27:12.841045Z"
+      "treeHash": "4c91e6b6389b341433a2b3b133f2b611062370244da57bdbd5709ad760df80b2",
+      "recordedAt": "2026-09-09T13:43:05.771856Z"
     },
     {
       "scope": "project",
@@ -223,8 +268,8 @@
       "target": ".claude",
       "sourceIdentity": "github:sjunepark/agent-scripts",
       "treeHashAlgorithm": "tree-sha256-v2",
-      "treeHash": "1304085d924516d2656ef0459b263ac4a15518fe99acb27ca49a4d43dbcc4662",
-      "recordedAt": "2026-09-06T10:27:12.841045Z"
+      "treeHash": "5a15c218f9bb0230371820caf59084535fb1bc771cbf12430368619dc8bd0f9e",
+      "recordedAt": "2026-09-09T13:43:05.771856Z"
     },
     {
       "scope": "project",
@@ -250,8 +295,8 @@
       "target": ".claude",
       "sourceIdentity": "github:sjunepark/agent-scripts",
       "treeHashAlgorithm": "tree-sha256-v2",
-      "treeHash": "09ce913f4034a06d565fad3984b4c64940c6475c305f0f5622e31880fa5be0d8",
-      "recordedAt": "2026-09-06T10:27:12.841045Z"
+      "treeHash": "2e5db1296f31354e75c3b98462d4f891421099183762a3ea56ac953a0b31a4c7",
+      "recordedAt": "2026-09-09T13:43:05.771856Z"
     }
   ]
 }

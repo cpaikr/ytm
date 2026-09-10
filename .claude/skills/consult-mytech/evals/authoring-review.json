@@ -1,0 +1,251 @@
+{
+  "scope": "Authoring rubric and portability contract; main agent integrates bounded independent review and evaluation. Trigger references resolved on completion.",
+  "criteria": [
+    {
+      "criterion": "- [ ] **Pass/Fail \u2014 Blocker:** Does the skill solve one coherent class of tasks rather than combining unrelated capabilities?",
+      "result": "Pass",
+      "evidence": "SKILL.md workflow and bounded independent review: coherent external-source consultation, selective reading, project precedence, preserved authority, explicit completion. See scores.json for behavior and trigger-run-*.json for selection simulation."
+    },
+    {
+      "criterion": "- [ ] **Pass/Fail \u2014 Major:** Is the durable, reusable behavior clear from the title, description, and opening section?",
+      "result": "Pass",
+      "evidence": "SKILL.md workflow and bounded independent review: coherent external-source consultation, selective reading, project precedence, preserved authority, explicit completion. See scores.json for behavior and trigger-run-*.json for selection simulation."
+    },
+    {
+      "criterion": "- [ ] **Pass/Fail \u2014 Major:** Would a one-off answer, ordinary reasoning, or an existing skill be insufficient for the stated need?",
+      "result": "Pass",
+      "evidence": "SKILL.md workflow and bounded independent review: coherent external-source consultation, selective reading, project precedence, preserved authority, explicit completion. See scores.json for behavior and trigger-run-*.json for selection simulation."
+    },
+    {
+      "criterion": "- [ ] **Pass/Fail \u2014 Major:** Are explicit boundaries or non-goals present where adjacent tasks could be confused with this skill?",
+      "result": "Pass",
+      "evidence": "SKILL.md workflow and bounded independent review: coherent external-source consultation, selective reading, project precedence, preserved authority, explicit completion. See scores.json for behavior and trigger-run-*.json for selection simulation."
+    },
+    {
+      "criterion": "- [ ] **Pass/Fail \u2014 Blocker:** Does the frontmatter description state both what the skill does and the concrete situations in which it should be used?",
+      "result": "Pass",
+      "evidence": "SKILL.md workflow and bounded independent review: coherent external-source consultation, selective reading, project precedence, preserved authority, explicit completion. See scores.json for behavior and trigger-run-*.json for selection simulation."
+    },
+    {
+      "criterion": "- [ ] **Pass/Fail \u2014 Major:** Is existing activation intent preserved unless a policy change was requested, with new skills defaulting to explicit invocation and implicit opt-ins supported by recurrence, matching, and usefulness evidence?",
+      "result": "Pass",
+      "evidence": "SKILL.md workflow and bounded independent review: coherent external-source consultation, selective reading, project precedence, preserved authority, explicit completion. See scores.json for behavior and trigger-run-*.json for selection simulation."
+    },
+    {
+      "criterion": "- [ ] **Pass/Fail \u2014 Major:** Is installation reach decided separately from activation policy, and does client adapter metadata enforce the selected policy when that capability exists?",
+      "result": "Pass",
+      "evidence": "SKILL.md workflow and bounded independent review: coherent external-source consultation, selective reading, project precedence, preserved authority, explicit completion. See scores.json for behavior and trigger-run-*.json for selection simulation."
+    },
+    {
+      "criterion": "- [ ] **Pass/Fail \u2014 Major:** Do the stated triggers match representative positive cases without claiming unrelated near-miss cases?",
+      "result": "Pass",
+      "evidence": "SKILL.md workflow and bounded independent review: coherent external-source consultation, selective reading, project precedence, preserved authority, explicit completion. See scores.json for behavior and trigger-run-*.json for selection simulation."
+    },
+    {
+      "criterion": "- [ ] **Pass/Fail \u2014 Major:** Does the description use observable task language rather than vague claims such as \"helpful\" or \"powerful\"?",
+      "result": "Pass",
+      "evidence": "SKILL.md workflow and bounded independent review: coherent external-source consultation, selective reading, project precedence, preserved authority, explicit completion. See scores.json for behavior and trigger-run-*.json for selection simulation."
+    },
+    {
+      "criterion": "- [ ] **Pass/Fail \u2014 Minor:** Has wording been tested against positive and near-miss prompts instead of optimized by intuition alone?",
+      "result": "Pass",
+      "evidence": "SKILL.md workflow and bounded independent review: coherent external-source consultation, selective reading, project precedence, preserved authority, explicit completion. See scores.json for behavior and trigger-run-*.json for selection simulation."
+    },
+    {
+      "criterion": "- [ ] **Pass/Fail \u2014 Blocker:** Is the entry file valid, self-contained enough to start the task, and free of required knowledge that is only implied?",
+      "result": "Pass",
+      "evidence": "SKILL.md workflow and bounded independent review: coherent external-source consultation, selective reading, project precedence, preserved authority, explicit completion. See scores.json for behavior and trigger-run-*.json for selection simulation."
+    },
+    {
+      "criterion": "- [ ] **Pass/Fail \u2014 Major:** Does the opening orient the reader to the outcome and the first decision or action within a short scan?",
+      "result": "Pass",
+      "evidence": "SKILL.md workflow and bounded independent review: coherent external-source consultation, selective reading, project precedence, preserved authority, explicit completion. See scores.json for behavior and trigger-run-*.json for selection simulation."
+    },
+    {
+      "criterion": "- [ ] **Pass/Fail \u2014 Major:** Are universal rules and required steps in the entry file rather than hidden in optional resources?",
+      "result": "Pass",
+      "evidence": "SKILL.md workflow and bounded independent review: coherent external-source consultation, selective reading, project precedence, preserved authority, explicit completion. See scores.json for behavior and trigger-run-*.json for selection simulation."
+    },
+    {
+      "criterion": "- [ ] **Pass/Fail \u2014 Minor:** Are examples concrete and representative without prescribing one user's answer as the only acceptable output?",
+      "result": "Pass",
+      "evidence": "SKILL.md workflow and bounded independent review: coherent external-source consultation, selective reading, project precedence, preserved authority, explicit completion. See scores.json for behavior and trigger-run-*.json for selection simulation."
+    },
+    {
+      "criterion": "- [ ] **Pass/Fail \u2014 Major:** Is the entry file concise enough to load routinely, with conditional or detailed material moved to focused resources?",
+      "result": "Pass",
+      "evidence": "SKILL.md workflow and bounded independent review: coherent external-source consultation, selective reading, project precedence, preserved authority, explicit completion. See scores.json for behavior and trigger-run-*.json for selection simulation."
+    },
+    {
+      "criterion": "- [ ] **Pass/Fail \u2014 Blocker:** Is every required resource named by an exact, valid relative path and accompanied by when-to-read guidance?",
+      "result": "Pass",
+      "evidence": "SKILL.md workflow and bounded independent review: coherent external-source consultation, selective reading, project precedence, preserved authority, explicit completion. See scores.json for behavior and trigger-run-*.json for selection simulation."
+    },
+    {
+      "criterion": "- [ ] **Pass/Fail \u2014 Major:** Can each resource be reached directly from the entry file without following a chain of resource-to-resource pointers?",
+      "result": "Pass",
+      "evidence": "SKILL.md workflow and bounded independent review: coherent external-source consultation, selective reading, project precedence, preserved authority, explicit completion. See scores.json for behavior and trigger-run-*.json for selection simulation."
+    },
+    {
+      "criterion": "- [ ] **Pass/Fail \u2014 Minor:** Are long resources navigable? Use a contents list or split only when observed lookup friction justifies it; no line-count threshold is universally correct.",
+      "result": "N/A",
+      "evidence": "No corresponding runtime scripts, bundled resources, long resources, irreversible operation, or distinctive stylistic device introduced."
+    },
+    {
+      "criterion": "- [ ] **Pass/Fail \u2014 Major:** Are fragile, safety-critical, or exact operations expressed as precise constraints, commands, schemas, or validation steps?",
+      "result": "Pass",
+      "evidence": "SKILL.md workflow and bounded independent review: coherent external-source consultation, selective reading, project precedence, preserved authority, explicit completion. See scores.json for behavior and trigger-run-*.json for selection simulation."
+    },
+    {
+      "criterion": "- [ ] **Pass/Fail \u2014 Major:** Do judgment-heavy tasks preserve room for adapting to evidence instead of forcing brittle, unearned rules?",
+      "result": "Pass",
+      "evidence": "SKILL.md workflow and bounded independent review: coherent external-source consultation, selective reading, project precedence, preserved authority, explicit completion. See scores.json for behavior and trigger-run-*.json for selection simulation."
+    },
+    {
+      "criterion": "- [ ] **Pass/Fail \u2014 Minor:** Are defaults stated where they reduce indecision, with alternatives introduced only for meaningful tradeoffs?",
+      "result": "Pass",
+      "evidence": "SKILL.md workflow and bounded independent review: coherent external-source consultation, selective reading, project precedence, preserved authority, explicit completion. See scores.json for behavior and trigger-run-*.json for selection simulation."
+    },
+    {
+      "criterion": "- [ ] **Pass/Fail \u2014 Minor:** Are important prohibitions paired with the desired behavior when that improves compliance? Positive phrasing is a testable heuristic, not a universal requirement.",
+      "result": "Pass",
+      "evidence": "SKILL.md workflow and bounded independent review: coherent external-source consultation, selective reading, project precedence, preserved authority, explicit completion. See scores.json for behavior and trigger-run-*.json for selection simulation."
+    },
+    {
+      "criterion": "- [ ] **Pass/Fail \u2014 Major:** Do permission gates account for prior authorization and block only dependent actions, while preserving deliberate hard boundaries?",
+      "result": "Pass",
+      "evidence": "SKILL.md workflow and bounded independent review: coherent external-source consultation, selective reading, project precedence, preserved authority, explicit completion. See scores.json for behavior and trigger-run-*.json for selection simulation."
+    },
+    {
+      "criterion": "- [ ] **Pass/Fail \u2014 Major:** Are questions limited to unresolved consequential decisions, with the responsible instruction identifiable when work pauses?",
+      "result": "Pass",
+      "evidence": "SKILL.md workflow and bounded independent review: coherent external-source consultation, selective reading, project precedence, preserved authority, explicit completion. See scores.json for behavior and trigger-run-*.json for selection simulation."
+    },
+    {
+      "criterion": "- [ ] **Pass/Fail \u2014 Major:** Does the workflow identify inputs, key decisions, actions, validation, and the completion condition?",
+      "result": "Pass",
+      "evidence": "SKILL.md workflow and bounded independent review: coherent external-source consultation, selective reading, project precedence, preserved authority, explicit completion. See scores.json for behavior and trigger-run-*.json for selection simulation."
+    },
+    {
+      "criterion": "- [ ] **Pass/Fail \u2014 Blocker:** Can a reader determine when the task is genuinely complete rather than merely drafted or attempted?",
+      "result": "Pass",
+      "evidence": "SKILL.md workflow and bounded independent review: coherent external-source consultation, selective reading, project precedence, preserved authority, explicit completion. See scores.json for behavior and trigger-run-*.json for selection simulation."
+    },
+    {
+      "criterion": "- [ ] **Pass/Fail \u2014 Major:** Are irreversible or high-impact actions preceded by the necessary checks and explicit scope resolution?",
+      "result": "N/A",
+      "evidence": "No corresponding runtime scripts, bundled resources, long resources, irreversible operation, or distinctive stylistic device introduced."
+    },
+    {
+      "criterion": "- [ ] **Pass/Fail \u2014 Minor:** Is the workflow represented in the lightest form that works? Prefer a checklist unless evaluation shows that enforced sequencing is needed to prevent skipped or premature steps.",
+      "result": "Pass",
+      "evidence": "SKILL.md workflow and bounded independent review: coherent external-source consultation, selective reading, project precedence, preserved authority, explicit completion. See scores.json for behavior and trigger-run-*.json for selection simulation."
+    },
+    {
+      "criterion": "- [ ] **Pass/Fail \u2014 Major:** Are delegation, validation, and output requirements proportional to the task, with a clear stopping condition for repeated work?",
+      "result": "Pass",
+      "evidence": "SKILL.md workflow and bounded independent review: coherent external-source consultation, selective reading, project precedence, preserved authority, explicit completion. See scores.json for behavior and trigger-run-*.json for selection simulation."
+    },
+    {
+      "criterion": "- [ ] **Pass/Fail \u2014 Major:** Are known failure modes handled at the decision point where they occur, with a recovery or escalation path?",
+      "result": "Pass",
+      "evidence": "SKILL.md workflow and bounded independent review: coherent external-source consultation, selective reading, project precedence, preserved authority, explicit completion. See scores.json for behavior and trigger-run-*.json for selection simulation."
+    },
+    {
+      "criterion": "- [ ] **Pass/Fail \u2014 Major:** Are assumptions, prerequisites, and unsupported cases explicit enough to prevent silent misuse?",
+      "result": "Pass",
+      "evidence": "SKILL.md workflow and bounded independent review: coherent external-source consultation, selective reading, project precedence, preserved authority, explicit completion. See scores.json for behavior and trigger-run-*.json for selection simulation."
+    },
+    {
+      "criterion": "- [ ] **Pass/Fail \u2014 Major:** Does the skill preserve user data and unrelated work, especially around destructive or state-changing operations?",
+      "result": "Pass",
+      "evidence": "SKILL.md workflow and bounded independent review: coherent external-source consultation, selective reading, project precedence, preserved authority, explicit completion. See scores.json for behavior and trigger-run-*.json for selection simulation."
+    },
+    {
+      "criterion": "- [ ] **Pass/Fail \u2014 Minor:** Are edge cases included because evidence or domain risk warrants them, rather than as speculative completeness?",
+      "result": "Pass",
+      "evidence": "SKILL.md workflow and bounded independent review: coherent external-source consultation, selective reading, project precedence, preserved authority, explicit completion. See scores.json for behavior and trigger-run-*.json for selection simulation."
+    },
+    {
+      "criterion": "- [ ] **Pass/Fail \u2014 Blocker:** Do all bundled runtime files stay within the skill directory and avoid machine-specific absolute paths?",
+      "result": "Pass",
+      "evidence": "SKILL.md workflow and bounded independent review: coherent external-source consultation, selective reading, project precedence, preserved authority, explicit completion. See scores.json for behavior and trigger-run-*.json for selection simulation."
+    },
+    {
+      "criterion": "- [ ] **Pass/Fail \u2014 Blocker:** Does general guidance avoid hidden model or host dependencies, while declaring any named tool or platform intrinsic to the job?",
+      "result": "Pass",
+      "evidence": "SKILL.md workflow and bounded independent review: coherent external-source consultation, selective reading, project precedence, preserved authority, explicit completion. See scores.json for behavior and trigger-run-*.json for selection simulation."
+    },
+    {
+      "criterion": "- [ ] **Pass/Fail \u2014 Major:** Does each script, reference, template, or asset have a clear runtime purpose and an exact pointer from the entry file when needed?",
+      "result": "N/A",
+      "evidence": "No corresponding runtime scripts, bundled resources, long resources, irreversible operation, or distinctive stylistic device introduced."
+    },
+    {
+      "criterion": "- [ ] **Pass/Fail \u2014 Major:** Are scripts deterministic where practical, explicit about inputs and outputs, and safe to rerun?",
+      "result": "N/A",
+      "evidence": "No corresponding runtime scripts, bundled resources, long resources, irreversible operation, or distinctive stylistic device introduced."
+    },
+    {
+      "criterion": "- [ ] **Pass/Fail \u2014 Minor:** Are optional resources omitted when the entry file can express the same behavior more clearly and cheaply?",
+      "result": "Pass",
+      "evidence": "SKILL.md workflow and bounded independent review: coherent external-source consultation, selective reading, project precedence, preserved authority, explicit completion. See scores.json for behavior and trigger-run-*.json for selection simulation."
+    },
+    {
+      "criterion": "- [ ] **Pass/Fail \u2014 Major:** Have changed runtime decisions been exercised in fresh, isolated contexts with validation scope set from the change's risk?",
+      "result": "Pass",
+      "evidence": "SKILL.md workflow and bounded independent review: coherent external-source consultation, selective reading, project precedence, preserved authority, explicit completion. See scores.json for behavior and trigger-run-*.json for selection simulation."
+    },
+    {
+      "criterion": "- [ ] **Pass/Fail \u2014 Major:** Do assertions test observable outcomes rather than only stylistic resemblance to an expected response?",
+      "result": "Pass",
+      "evidence": "SKILL.md workflow and bounded independent review: coherent external-source consultation, selective reading, project precedence, preserved authority, explicit completion. See scores.json for behavior and trigger-run-*.json for selection simulation."
+    },
+    {
+      "criterion": "- [ ] **Pass/Fail \u2014 Major:** Where revising or merging, is there baseline evidence showing that the candidate preserves or improves important behavior?",
+      "result": "Pass",
+      "evidence": "New capability compared against no-skill baseline: core design and authority decisions preserved across all three scored cases; source provenance and recovery input improved."
+    },
+    {
+      "criterion": "- [ ] **Pass/Fail \u2014 Major:** When discovery changes, are trigger tests separate from behavior tests with positive, negative, and ambiguous cases? For unchanged discovery, is the consistency check and lack of new trigger evidence explicit?",
+      "result": "Pass",
+      "evidence": "SKILL.md workflow and bounded independent review: coherent external-source consultation, selective reading, project precedence, preserved authority, explicit completion. See scores.json for behavior and trigger-run-*.json for selection simulation."
+    },
+    {
+      "criterion": "- [ ] **Pass/Fail \u2014 Minor:** Have variable outcomes been repeated enough to reveal instability, and has human review covered qualities automation cannot judge?",
+      "result": "Pass",
+      "evidence": "One trial per behavior condition; two independent selection trials per prompt. Small synthetic sample, no taste-dependent artifact. No instability observed in completed behavior trials."
+    },
+    {
+      "criterion": "- [ ] **Pass/Fail \u2014 Minor:** Are numeric thresholds justified by risk, baseline performance, sample size, and measurement resolution rather than arbitrary precision?",
+      "result": "Pass",
+      "evidence": "SKILL.md workflow and bounded independent review: coherent external-source consultation, selective reading, project precedence, preserved authority, explicit completion. See scores.json for behavior and trigger-run-*.json for selection simulation."
+    },
+    {
+      "criterion": "- [ ] **Pass/Fail \u2014 Major:** Does every instruction change a decision or action, supply necessary knowledge, or define an observable completion condition?",
+      "result": "Pass",
+      "evidence": "SKILL.md workflow and bounded independent review: coherent external-source consultation, selective reading, project precedence, preserved authority, explicit completion. See scores.json for behavior and trigger-run-*.json for selection simulation."
+    },
+    {
+      "criterion": "- [ ] **Pass/Fail \u2014 Major:** Have duplicated guidance, background exposition, generic advice, and material already supplied by the task been removed?",
+      "result": "Pass",
+      "evidence": "SKILL.md workflow and bounded independent review: coherent external-source consultation, selective reading, project precedence, preserved authority, explicit completion. See scores.json for behavior and trigger-run-*.json for selection simulation."
+    },
+    {
+      "criterion": "- [ ] **Pass/Fail \u2014 Minor:** Are specialized terms introduced only when they make recurring reasoning shorter or more precise?",
+      "result": "Pass",
+      "evidence": "SKILL.md workflow and bounded independent review: coherent external-source consultation, selective reading, project precedence, preserved authority, explicit completion. See scores.json for behavior and trigger-run-*.json for selection simulation."
+    },
+    {
+      "criterion": "- [ ] **Pass/Fail \u2014 Minor:** If distinctive leading words or labels are used, did evaluation show that they improve triggering or execution? Treat them as an optional tested technique, not a requirement.",
+      "result": "N/A",
+      "evidence": "No corresponding runtime scripts, bundled resources, long resources, irreversible operation, or distinctive stylistic device introduced."
+    },
+    {
+      "criterion": "- [ ] **Pass/Fail \u2014 Minor:** Did a final read remove contradictions, stale paths, orphaned resources, and instructions unsupported by evaluation evidence?",
+      "result": "Pass",
+      "evidence": "SKILL.md workflow and bounded independent review: coherent external-source consultation, selective reading, project precedence, preserved authority, explicit completion. See scores.json for behavior and trigger-run-*.json for selection simulation."
+    }
+  ],
+  "portability": "Pass: external mytech checkout is declared task input, not a bundled runtime resource; no machine-specific paths in runtime package. Optional Codex policy matches explicit-only description. No third-party copied material or migrations."
+}

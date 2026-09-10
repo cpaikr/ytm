@@ -13,7 +13,7 @@ boundaries.
 
 The current checkout includes bounded lookup retries and a 30-minute retrieval
 timeout, with a caller override; see the [policy and compatibility changes](SPEC.md#bounded-retrieval-recovery).
-This behavior is not yet published. [Delivery and pending live acceptance](plans/resilient-history-retrieval.md)
+This behavior is not yet published. [Delivery and recorded live acceptance](plans/resilient-history-retrieval.md)
 are tracked separately from offline implementation.
 
 ## Installation

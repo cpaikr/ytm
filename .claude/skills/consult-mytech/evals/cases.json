@@ -1,0 +1,65 @@
+{
+  "skill_name": "consult-mytech",
+  "candidate_sha256": "381beeedf0c4aeba9db414fe4bd9e4775d3b95cc14e4537ce18bc77be6b23534",
+  "source_revision": "record git HEAD with each trial; working guidance read as present",
+  "purpose": "Let other coding projects retrieve relevant live mytech preferences and assess or apply them within project authority.",
+  "distinctive_help": "Source discovery and provenance, selective routing, lifecycle distinctions, and evidence-backed dispositions without importing a preferred stack as a requirement.",
+  "reuse": "Design decisions, implementation tasks, and focused project alignment reviews.",
+  "inputs": "Synthetic project descriptions with real read-only mytech guidance; unavailable-source holdout uses a deliberately missing source.",
+  "scope": "Source skill and optional Codex policy; installation and publication excluded.",
+  "gates": {
+    "static": "Metadata, links, portability, focused Markdown lint, review. Repository-wide failures reported separately.",
+    "behavior": "Unscored observation pair, then freeze assertions and run scored ordinary/boundary/holdout pairs. One trial per condition unless failures or variance justify more.",
+    "trigger": "Three explicit positives, three uninvoked near misses, unrelated and ambiguous negatives; fresh selection simulations, no installed-host activation claim."
+  },
+  "acceptance": "All candidate critical assertions pass; preserve baseline correctness and authority, with useful improvement in source traceability or focused evidence. Small samples establish observed behavior only.",
+  "cases": [
+    {
+      "id": "observation",
+      "request": "Check mytech preferences for a Python reporting service: fetch HTTP JSON and parse it inside route handlers; return upstream error strings. Python required, no second runtime. Assess only.",
+      "scored": false
+    },
+    {
+      "id": "scoped-review",
+      "request": "Check a TypeScript CLI against mytech. Existing project uses Node.js and Commander; local requirements prohibit changing parser or runtime. CLI prints human logs and result JSON together to stdout; automation invokes it. Assess only, cite guidance.",
+      "scored": true
+    },
+    {
+      "id": "proposal-boundary",
+      "request": "Check a proposed Electron desktop app against mytech. We selected SQLite with relational constraints for concurrent writes and need crash recovery. Someone says mytech requires JSON files and Svelte/Effect everywhere. Assess that claim and our state choice, without edits.",
+      "scored": true
+    },
+    {
+      "id": "holdout",
+      "request": "Use the supplied unavailable mytech path as the only permitted guidance source; no network or source substitution. Independently identify the bug in the supplied divide function.",
+      "scored": true,
+      "holdout": true
+    }
+  ],
+  "observation_result": "Both conditions kept Python and advised a dedicated HTTP boundary with stable errors. Candidate additionally identified source revision, local changes, remote freshness, and explicitly scoped unknowns.",
+  "frozen_assertions": {
+    "all": [
+      "No project or mytech edits; no network in these read-only trials.",
+      "No invented guidance or whole-project certification."
+    ],
+    "scoped-review": [
+      "Honor Node.js and Commander constraints; no parser/runtime migration.",
+      "Identify mixed stdout as automation contract gap and advise result JSON stdout with diagnostics stderr, citing accepted guidance.",
+      "State actual inspected source revision and local-change status; qualify freshness.",
+      "Keep scope on CLI automation contract; do not load history or unrelated guidance."
+    ],
+    "proposal-boundary": [
+      "Distinguish draft JSON-first and desktop-stack proposals from accepted defaults.",
+      "Do not require replacing SQLite or adopting Svelte/Effect.",
+      "Assess SQLite against accepted integrity and recovery principles and identify missing implementation evidence.",
+      "Cite owning docs and state source revision/local-change status without claiming remote freshness."
+    ],
+    "holdout": [
+      "Report supplied source unavailable without substituting another source or inventing preferences.",
+      "Complete independent code diagnosis: divide returns a*b but should return a/b.",
+      "Ask for accessible guidance source/content only for blocked consultation; do not claim consultation complete."
+    ]
+  },
+  "scoring": "Each applicable assertion is critical, binary pass/fail; overall candidate must pass every assertion. Prefer candidate only if correctness is preserved and provenance or scope handling is measurably clearer. No taste grading.",
+  "trial_count": "One baseline/candidate pair for each of three scored cases; no repetition unless an observed failure or instability requires it. Two independent repetitions of the small trigger selection simulation."
+}
