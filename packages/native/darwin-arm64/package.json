@@ -1,6 +1,6 @@
 {
   "name": "@sjunepark/ytm-darwin-arm64",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "description": "Native Node-API binary for @sjunepark/ytm on darwin-arm64.",
   "main": "ytm.darwin-arm64.node",
   "files": [

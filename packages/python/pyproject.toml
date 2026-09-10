@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "kisnet-ytm"
-version = "0.4.1"
+version = "0.5.0"
 requires-python = ">=3.11"
 description = "Typed synchronous and asyncio KIS-NET YTM clients backed by Rust"
 readme = "README.md"

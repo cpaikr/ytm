@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.5.0](https://github.com/cpaikr/ytm/compare/v0.4.1...v0.5.0) (2026-09-10)
+
+### Features
+
+* bound retrieval retries and deadlines across all interfaces ([11d534f](https://github.com/cpaikr/ytm/commit/11d534fe8955bf4d6438f2370a1137a3b8852598)), closes [#45](https://github.com/cpaikr/ytm/issues/45)
+* expose bounded bulk retrieval controls and statistics ([297188f](https://github.com/cpaikr/ytm/commit/297188f7aad3d42c1736a88f6d3959069d410dbe))
+
+### Bug Fixes
+
+* **acceptance:** bind and bound candidate execution ([2e34c0d](https://github.com/cpaikr/ytm/commit/2e34c0dfbf656f5147efe967c740d81654ec3f47))
+* address bulk retrieval review diagnostics and policy defaults ([55f16f6](https://github.com/cpaikr/ytm/commit/55f16f6b7f0b5e8265bf9b25ba90f458b75e2da0))
+* **core:** keep custom context transport attempt counts unknown ([71a4c90](https://github.com/cpaikr/ytm/commit/71a4c904158d0d7d6e6f2b428d0e2b97203f1324))
+* **python:** preserve cancellation when native bridge completion fails ([fcdbf94](https://github.com/cpaikr/ytm/commit/fcdbf9486e519be2a564e5e2612dccac98aa0d95))
+* refine CLI policy diagnostics and preserve golden output bytes ([c4b7f0f](https://github.com/cpaikr/ytm/commit/c4b7f0f8a2f845b814b76d2cfca612a98c4bde11))
+
 ## [0.4.1](https://github.com/cpaikr/ytm/compare/v0.4.0...v0.4.1) (2026-09-09)
 
 ### Bug Fixes
