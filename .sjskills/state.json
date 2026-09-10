@@ -3,6 +3,15 @@
   "records": [
     {
       "scope": "project",
+      "skill": "address-issues",
+      "target": ".agents",
+      "sourceIdentity": "github:sjunepark/agent-scripts",
+      "treeHashAlgorithm": "tree-sha256-v2",
+      "treeHash": "9f1c1d0730dcb2d2fd1304c667089eb8e6541ebc607450168f1936fc8b62c49c",
+      "recordedAt": "2026-09-10T02:22:04.938247Z"
+    },
+    {
+      "scope": "project",
       "skill": "address-pr-feedback",
       "target": ".agents",
       "sourceIdentity": "github:sjunepark/agent-scripts",
@@ -144,6 +153,15 @@
       "treeHashAlgorithm": "tree-sha256-v2",
       "treeHash": "2e5db1296f31354e75c3b98462d4f891421099183762a3ea56ac953a0b31a4c7",
       "recordedAt": "2026-09-09T13:43:05.771856Z"
+    },
+    {
+      "scope": "project",
+      "skill": "address-issues",
+      "target": ".claude",
+      "sourceIdentity": "github:sjunepark/agent-scripts",
+      "treeHashAlgorithm": "tree-sha256-v2",
+      "treeHash": "9f1c1d0730dcb2d2fd1304c667089eb8e6541ebc607450168f1936fc8b62c49c",
+      "recordedAt": "2026-09-10T02:22:04.938247Z"
     },
     {
       "scope": "project",
