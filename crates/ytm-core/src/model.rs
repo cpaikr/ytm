@@ -234,6 +234,8 @@ pub struct Capabilities {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct KindsResult {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub statistics: Option<crate::RetrievalStatistics>,
     pub base_date: Option<BaseDate>,
     pub kinds: Vec<Kind>,
     pub source: SourceMetadata,
@@ -243,6 +245,8 @@ pub struct KindsResult {
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct MatrixResult {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub statistics: Option<crate::RetrievalStatistics>,
     pub base_date: BaseDate,
     pub kind: Kind,
     pub tenors: Vec<String>,
@@ -643,6 +647,8 @@ pub enum UnavailableStage {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HistoryResult {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub statistics: Option<crate::RetrievalStatistics>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub count_selection: Option<CountSelectionMetadata>,
     pub requested_dates: Vec<BaseDate>,

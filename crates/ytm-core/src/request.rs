@@ -123,19 +123,71 @@ mod tests {
             Some(crate::REQUEST_DEADLINE_SECONDS * 1_000)
         );
         assert_eq!(
-            contract["x-ytm-nexacro-profile"]["transport"]["automaticRetries"].as_u64(),
-            Some(u64::from(crate::transport::MAX_ATTEMPTS - 1))
+            contract["x-ytm-nexacro-profile"]["transport"]["defaultAutomaticRetries"].as_u64(),
+            Some(u64::from(crate::RetrievalOptions::default().max_retries()))
         );
 
         assert_eq!(
-            contract["x-ytm-nexacro-profile"]["transport"]["maxAttempts"].as_u64(),
-            Some(u64::from(crate::transport::MAX_ATTEMPTS))
+            contract["x-ytm-nexacro-profile"]["transport"]["defaultMaxAttempts"].as_u64(),
+            Some(u64::from(
+                crate::RetrievalOptions::default().max_retries() + 1
+            ))
         );
         assert_eq!(
             contract["x-ytm-nexacro-profile"]["transport"]["defaultRetrievalTimeoutMilliseconds"]
                 .as_u64(),
             Some(crate::DEFAULT_OPERATION_TIMEOUT_SECONDS * 1000)
         );
+
+        let policy = crate::RetrievalOptions::default();
+        let profile = &contract["x-ytm-nexacro-profile"]["transport"];
+        assert_eq!(
+            profile["retryBackoff"]["defaultBaseMilliseconds"].as_u64(),
+            Some(policy.base_backoff().as_millis() as u64)
+        );
+        assert_eq!(
+            profile["retryBackoff"]["defaultMaximumMilliseconds"].as_u64(),
+            Some(policy.max_backoff().as_millis() as u64)
+        );
+        assert_eq!(
+            profile["pacing"]["defaultMinimumIntervalMilliseconds"].as_u64(),
+            Some(policy.min_request_interval().as_millis() as u64)
+        );
+        let maximum = profile["maximumAutomaticRetries"].as_u64().unwrap() as u8;
+        assert!(policy
+            .clone()
+            .with_request_policy(
+                maximum,
+                std::time::Duration::ZERO,
+                std::time::Duration::ZERO,
+                std::time::Duration::ZERO
+            )
+            .is_ok());
+        assert!(policy
+            .with_request_policy(
+                maximum + 1,
+                std::time::Duration::ZERO,
+                std::time::Duration::ZERO,
+                std::time::Duration::ZERO
+            )
+            .is_err());
+        let statistics = crate::RetrievalStatistics::default();
+        let value = serde_json::to_value(statistics).unwrap();
+        let mut actual_keys = value
+            .as_object()
+            .unwrap()
+            .keys()
+            .cloned()
+            .collect::<Vec<_>>();
+        let mut schema_keys = contract["components"]["schemas"]["RetrievalStatistics"]["required"]
+            .as_sequence()
+            .unwrap()
+            .iter()
+            .map(|v| v.as_str().unwrap().to_owned())
+            .collect::<Vec<_>>();
+        actual_keys.sort();
+        schema_keys.sort();
+        assert_eq!(actual_keys, schema_keys);
 
         assert_operation(
             &contract,

@@ -107,12 +107,33 @@ check(profile?.request?.directChildRules?.columns === "exact-order-matching-colu
 check(profile?.transport?.requestHeaders?.Accept === "text/xml, */*", "request Accept header must remain exact");
 check(profile?.transport?.requestDeadlineMilliseconds === 20_000, "request deadline must remain bounded at 20 seconds");
 check(profile?.transport?.redirects === "forbidden", "redirects must remain forbidden");
-check(profile?.transport?.automaticRetries === 2 && profile?.transport?.maxAttempts === 3, "one initial attempt plus two bounded retries");
+check(profile?.transport?.defaultAutomaticRetries === 2 && profile?.transport?.defaultMaxAttempts === 3, "default remains one initial attempt plus two retries");
+check(profile?.transport?.maximumAutomaticRetries === 10 && profile?.transport?.maximumAttempts === 11, "configurable retries remain bounded");
 equal(profile?.transport?.retryOperations, ["initializeYtmMatrix", "listYtmMatrix"], "only the two read-only lookups may replay");
 equal(profile?.transport?.retryableStatuses, [408, 429, 500, 502, 503, 504], "HTTP retry eligibility must remain explicit");
-check(isDeepStrictEqual(profile?.transport?.retryBackoff, {kind: "exponential-full-jitter", capsMilliseconds: [500, 1000], retryAfter: "delta-seconds-or-http-date-not-before"}), "retry waits must honor bounded jitter and provider guidance");
+check(isDeepStrictEqual(profile?.transport?.retryBackoff, {kind: "exponential-full-jitter", defaultBaseMilliseconds: 500, defaultMaximumMilliseconds: 1000, defaultCapsMilliseconds: [500, 1000], zeroBackoff: "allowed", maximumBelowBase: "forbidden", retryAfter: "delta-seconds-or-http-date-not-before"}), "retry waits must honor bounded jitter and provider guidance");
 check(profile?.transport?.defaultRetrievalTimeoutMilliseconds === 1_800_000, "default retrieval deadline must remain finite at 30 minutes");
-check(profile?.transport?.retrievalDeadlineScope === "invocation-source-calls-retry-waits-and-cooperative-normalization", "retrieval budget must span the invocation");
+check(profile?.transport?.retrievalDeadlineScope === "invocation-source-calls-combined-retry-pacing-waits-and-cooperative-normalization", "retrieval budget must span the invocation");
+
+check(isDeepStrictEqual(profile?.transport?.pacing, {defaultMinimumIntervalMilliseconds: 0, scope: "invocation-physical-attempt-starts", firstAttempt: "immediate", combinedWait: "latest-of-pacing-jitter-and-provider-guidance", afterFinalAttempt: "no-wait", customTransports: "own-attempt-policy"}), "pacing must preserve first/final attempt and custom-transport semantics");
+check(profile?.transport?.requestPolicySchema === "#/components/schemas/RetrievalRequestPolicy", "request controls must reference their local schema");
+check(profile?.transport?.statisticsSchema === "#/components/schemas/RetrievalStatistics", "statistics must reference their metadata-only schema");
+const requestPolicy = contract?.components?.schemas?.RetrievalRequestPolicy;
+check(isDeepStrictEqual(requestPolicy?.properties, {
+  maxRetries: {type: "integer", minimum: 0, maximum: 10, default: 2},
+  baseBackoffMs: {type: "integer", minimum: 0, default: 500},
+  maxBackoffMs: {type: "integer", minimum: 0, default: 1000},
+  minRequestIntervalMs: {type: "integer", minimum: 0, default: 0}
+}), "request option schema must distinguish defaults and configurable bounds");
+check(requestPolicy?.additionalProperties === false, "policy schema stays closed");
+const statistics = contract?.components?.schemas?.RetrievalStatistics;
+const counters = ["scannedDateCount", "completedQualifyingDateCount", "discoveryCount", "matrixLookupCount", "physicalAttemptCount", "retryCount", "elapsedMs", "waitingMs", "finished"];
+equal(statistics?.required, counters, "metadata schema must include every counter and completion marker");
+check(isDeepStrictEqual(new Set(Object.keys(statistics?.properties || {})), new Set(counters)), "statistics must not acquire payload fields");
+check(statistics?.additionalProperties === false, "statistics must stay metadata-only");
+for (const name of counters) {
+  check(isDeepStrictEqual(statistics?.properties?.[name], name === "finished" ? {type: "boolean"} : {type: ["physicalAttemptCount", "retryCount"].includes(name) ? ["integer", "null"] : "integer", minimum: 0}), `statistics ${name} schema must preserve integer/unknown semantics`);
+}
 
 const responseContentTypePattern = contract?.components?.responses?.NexacroResponse?.headers?.["Content-Type"]?.schema?.pattern;
 const responseContentType = new RegExp(responseContentTypePattern);

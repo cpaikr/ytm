@@ -12,7 +12,7 @@ use std::{
 use tokio::sync::Notify;
 use ytm_core::{
     BaseDate, CancellationToken, KindSelector, KindsInput, LookbackDays, MatrixInput,
-    RetrievalOptions, YtmError, YtmService,
+    RetrievalOptions, RetrievalProgress, YtmError, YtmService,
 };
 
 #[derive(Default)]
@@ -97,6 +97,51 @@ impl Drop for Registration {
 }
 
 #[pyclass]
+struct NativeProgress {
+    progress: RetrievalProgress,
+    cancellation: CancellationToken,
+}
+
+#[pymethods]
+impl NativeProgress {
+    #[new]
+    fn new() -> Self {
+        Self {
+            progress: RetrievalProgress::new(),
+            cancellation: CancellationToken::new(),
+        }
+    }
+    fn snapshot(&self) -> PyResult<String> {
+        serde_json::to_string(&self.progress.snapshot())
+            .map_err(|_| PyRuntimeError::new_err("Progress serialization failed."))
+    }
+    fn cancel(&self) {
+        self.cancellation.cancel();
+    }
+}
+
+#[derive(Clone)]
+struct Observation {
+    progress: RetrievalProgress,
+    cancellation: CancellationToken,
+}
+
+impl Observation {
+    fn from_python(progress: Option<PyRef<'_, NativeProgress>>) -> Self {
+        match progress {
+            Some(value) => Self {
+                progress: value.progress.clone(),
+                cancellation: value.cancellation.clone(),
+            },
+            None => Self {
+                progress: RetrievalProgress::new(),
+                cancellation: CancellationToken::new(),
+            },
+        }
+    }
+}
+
+#[pyclass]
 struct NativeClient {
     inner: Arc<Inner>,
 }
@@ -116,15 +161,18 @@ impl NativeClient {
         }
     }
 
-    #[pyo3(signature = (operation, input, timeout_json=None))]
+    #[pyo3(signature = (operation, input, timeout_json=None, policy_json=None, progress=None))]
     fn run_sync(
         &self,
         py: Python<'_>,
         operation: String,
         input: String,
         timeout_json: Option<String>,
+        policy_json: Option<String>,
+        progress: Option<PyRef<'_, NativeProgress>>,
     ) -> String {
         let inner = self.inner.clone();
+        let observation = Observation::from_python(progress);
         py.detach(move || {
             match panic_boundary::catch(AssertUnwindSafe(|| {
                 pyo3_async_runtimes::tokio::get_runtime().block_on(run(
@@ -132,6 +180,8 @@ impl NativeClient {
                     operation,
                     input,
                     timeout_json,
+                    policy_json,
+                    observation,
                 ))
             })) {
                 Ok(value) => value,
@@ -140,20 +190,30 @@ impl NativeClient {
         })
     }
 
-    #[pyo3(signature = (operation, input, timeout_json=None))]
+    #[pyo3(signature = (operation, input, timeout_json=None, policy_json=None, progress=None))]
     fn run_async<'py>(
         &self,
         py: Python<'py>,
         operation: String,
         input: String,
         timeout_json: Option<String>,
+        policy_json: Option<String>,
+        progress: Option<PyRef<'_, NativeProgress>>,
     ) -> PyResult<Bound<'py, PyAny>> {
         let inner = self.inner.clone();
+        let observation = Observation::from_python(progress);
         panic_boundary::catch(AssertUnwindSafe(|| {
             pyo3_async_runtimes::tokio::future_into_py(py, async move {
                 Ok(
-                    match panic_boundary::catch_future(run(inner, operation, input, timeout_json))
-                        .await
+                    match panic_boundary::catch_future(run(
+                        inner,
+                        operation,
+                        input,
+                        timeout_json,
+                        policy_json,
+                        observation,
+                    ))
+                    .await
                     {
                         Ok(value) => value,
                         Err(_) => defect(),
@@ -313,37 +373,47 @@ async fn run(
     operation: String,
     input: String,
     timeout_json: Option<String>,
+    policy_json: Option<String>,
+    observation: Observation,
 ) -> String {
     let result = async {
         if inner.state().closed { return Err(local_error("client_closed", "Client is closed.")); }
         let parsed = parse(&operation, &input).map_err(|e| json!(e.details))?;
-        let options = retrieval_options(&operation, timeout_json.as_deref()).map_err(|e| json!(e.details))?;
+        let mut options = retrieval_options(&operation, timeout_json.as_deref()).map_err(|e| json!(e.details))?;
+        if let Some(encoded) = policy_json {
+            let (retries, base, maximum, interval): (u8, u64, u64, u64) = serde_json::from_str(&encoded).map_err(|_| json!(invalid(&operation, "request_policy", "Expected bounded integer retry and millisecond settings.").details))?;
+            options = options.with_request_policy(retries, std::time::Duration::from_millis(base), std::time::Duration::from_millis(maximum), std::time::Duration::from_millis(interval)).map_err(|e| json!(e.details))?;
+        }
+        options = options.with_progress(observation.progress.clone());
         let operation = parsed;
         let call = inner.begin()?;
         let _serial = tokio::select! {
             biased;
             _ = call.cancellation.cancelled() => return Err(local_error("request_cancelled", "Request was cancelled.")),
+            _ = observation.cancellation.cancelled() => return Err(local_error("request_cancelled", "Request was cancelled.")),
             guard = inner.serial.lock() => guard,
         };
         #[cfg(feature = "judge-fixtures")]
         if std::env::var_os("YTM_PYTHON_JUDGE_PANIC").is_some() { panic!("injected binding defect"); }
-        let result = match operation {
+        let retrieval = async { match operation {
             Operation::History(input) => call.service.history_with_options_and_cancellation(input, options, call.cancellation.clone()).await
                 .and_then(|v| serde_json::to_value(v).map_err(|_| YtmError::defect())),
             Operation::Matrix(input) => call.service.matrix_with_options_and_cancellation(input, options, call.cancellation.clone()).await
                 .and_then(|v| serde_json::to_value(v).map_err(|_| YtmError::defect())),
             Operation::Kinds(input) => call.service.kinds_with_options_and_cancellation(input, options, call.cancellation.clone()).await
                 .and_then(|v| serde_json::to_value(v).map_err(|_| YtmError::defect())),
+        } };
+        tokio::pin!(retrieval);
+        let result = tokio::select! {
+            biased;
+            _ = observation.cancellation.cancelled() => {
+                call.cancellation.cancel();
+                retrieval.await
+            }
+            result = &mut retrieval => result,
         };
         if call.cancellation.is_cancelled() {
-            let mut details = result.err().map(|error| json!(error.details))
-                .unwrap_or_else(|| local_error("request_cancelled", "Request was cancelled."));
-            details["code"] = json!("request_cancelled");
-            details["reason"] = json!("Request was cancelled.");
-            details["retryable"] = json!(false);
-            details["recoverable"] = json!(false);
-            if let Some(retry) = details.get_mut("retry") { retry["stopReason"] = json!("cancellation"); }
-            return Err(details);
+            return Err(cancellation_details(result));
         }
         result.map_err(|e| json!(e.details))
     }.await;
@@ -374,6 +444,29 @@ fn retrieval_options(operation: &str, encoded: Option<&str>) -> Result<Retrieval
 fn invalid(operation: &str, parameter: &str, reason: &str) -> YtmError {
     YtmError::invalid_parameter(operation, parameter, reason, Value::Null)
 }
+// Close can win after core success; keep the completed retrieval counters while
+// preserving cancellation identity and all-or-error publication.
+fn cancellation_details(result: Result<Value, YtmError>) -> Value {
+    let mut details = match result {
+        Err(error) => json!(error.details),
+        Ok(value) => {
+            let mut details = local_error("request_cancelled", "Request was cancelled.");
+            if let Some(statistics) = value.get("statistics") {
+                details["statistics"] = statistics.clone();
+            }
+            details
+        }
+    };
+    details["code"] = json!("request_cancelled");
+    details["reason"] = json!("Request was cancelled.");
+    details["retryable"] = json!(false);
+    details["recoverable"] = json!(false);
+    if let Some(retry) = details.get_mut("retry") {
+        retry["stopReason"] = json!("cancellation");
+    }
+    details
+}
+
 fn local_error(code: &str, reason: &str) -> Value {
     json!({"code":code,"reason":reason,"retryable":false,"recoverable":false})
 }
@@ -392,6 +485,7 @@ fn service() -> Result<YtmService, YtmError> {
 fn _native(module: &Bound<'_, PyModule>) -> PyResult<()> {
     panic_boundary::install();
     module.add_class::<NativeClient>()?;
+    module.add_class::<NativeProgress>()?;
     module.add("__version__", env!("CARGO_PKG_VERSION"))?;
     Ok(())
 }
@@ -399,6 +493,18 @@ fn _native(module: &Bound<'_, PyModule>) -> PyResult<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn close_after_success_keeps_final_counters_without_publishing_data() {
+        let statistics = json!({"physicalAttemptCount": 7, "retryCount": 2, "finished": true});
+        let details = cancellation_details(Ok(json!({
+            "statistics": statistics, "entries": ["completed private data"]
+        })));
+        assert_eq!(details["code"], "request_cancelled");
+        assert_eq!(details["statistics"], statistics);
+        assert_eq!(details["retryable"], false);
+        assert!(details.get("entries").is_none());
+    }
 
     #[test]
     fn kinds_reports_each_unsupported_matrix_parameter() {

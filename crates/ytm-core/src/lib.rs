@@ -9,6 +9,7 @@ mod model;
 mod nexacro;
 mod request;
 mod service;
+mod statistics;
 mod transport;
 
 #[cfg(feature = "judge-fixtures")]
@@ -24,6 +25,7 @@ pub use model::{
     SourceRequest, UnavailableStage, DEFAULT_LOOKBACK_DAYS, MAX_HISTORY_DATES, MAX_LOOKBACK_DAYS,
 };
 pub use service::YtmService;
+pub use statistics::{RetrievalProgress, RetrievalStatistics};
 pub use tokio_util::sync::CancellationToken;
 pub use transport::{HttpTransport, PreparedRequest, Transport};
 

@@ -3,7 +3,8 @@
 ## Current
 
 [Bulk retrieval controls and visibility](plans/bulk-retrieval-controls.md):
-accepted target; implementation pending in the spawned goal task.
+implementation and offline validation complete; PR delivery in progress under the
+[bulk retrieval goal](goals/bulk-retrieval-controls.md).
 
 ## Plans
 

@@ -13,8 +13,11 @@ methods. `validateHistoryInput()`, `validateMatrixInput()`, and `validateKindsIn
 `{ ok: true, input }` or `{ ok: false, error }` without network I/O;
 validation and execution errors expose stable `name` and `message` fields,
 project `code`/`reason`, a tagged `recoveryAction`, and optional typed `retry`
-metadata. All three methods accept `RequestOptions` with `signal` and positive
-safe-integer `operationTimeoutMs`. Input validation precedes execution-option
+metadata and final `statistics` when retrieval started. Every successful top-level result has final
+`statistics`. All three methods accept `RequestOptions` with `signal`, positive
+safe-integer `operationTimeoutMs`, bounded `maxRetries`, nonnegative safe-integer
+`baseBackoffMs`, `maxBackoffMs`, `minRequestIntervalMs`, and optional
+single-use `RetrievalProgress`. Pull snapshots coalesce without callbacks. Input validation precedes execution-option
 validation; invalid options fail before source I/O. Omission uses the shared
 30-minute retrieval default. The [recovery contract](https://github.com/cpaikr/ytm/blob/main/SPEC.md#bounded-retrieval-recovery)
 owns the policy and compatibility implications.

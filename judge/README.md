@@ -35,6 +35,9 @@ blocked output), and terminal progress as part of `bun run test`;
 recovery, exhaustion, deadlines, and protected export through CLI/Node in
 `bun run test:surfaces` and installed Python sync/async clients in
 `bun run validate:python`;
+[`bulk-retrieval-controls.py`](bulk-retrieval-controls.py) verifies public option
+validation, retry bounds, pacing, progress, and final success/error/cancellation
+statistics through the same CLI/Node and installed-Python validation entry points;
 [`golden-results.json`](golden-results.json) owns the reviewed public-result
 oracle; and [`../contracts/kisnet/cases.json`](../contracts/kisnet/cases.json)
 owns the observed wire fixtures and evidence cases. There is deliberately no

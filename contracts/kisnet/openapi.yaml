@@ -114,16 +114,31 @@ x-ytm-nexacro-profile:
     requestDeadlineMilliseconds: 20000
     deadlineScope: dns-tls-headers-and-decompressed-body
     redirects: forbidden
-    automaticRetries: 2
-    maxAttempts: 3
+    defaultAutomaticRetries: 2
+    maximumAutomaticRetries: 10
+    defaultMaxAttempts: 3
+    maximumAttempts: 11
+    requestPolicySchema: "#/components/schemas/RetrievalRequestPolicy"
     retryOperations: [initializeYtmMatrix, listYtmMatrix]
     retryableStatuses: [408, 429, 500, 502, 503, 504]
     retryBackoff:
       kind: exponential-full-jitter
-      capsMilliseconds: [500, 1000]
+      defaultBaseMilliseconds: 500
+      defaultMaximumMilliseconds: 1000
+      defaultCapsMilliseconds: [500, 1000]
+      zeroBackoff: allowed
+      maximumBelowBase: forbidden
       retryAfter: delta-seconds-or-http-date-not-before
     defaultRetrievalTimeoutMilliseconds: 1800000
-    retrievalDeadlineScope: invocation-source-calls-retry-waits-and-cooperative-normalization
+    retrievalDeadlineScope: invocation-source-calls-combined-retry-pacing-waits-and-cooperative-normalization
+    pacing:
+      defaultMinimumIntervalMilliseconds: 0
+      scope: invocation-physical-attempt-starts
+      firstAttempt: immediate
+      combinedWait: latest-of-pacing-jitter-and-provider-guidance
+      afterFinalAttempt: no-wait
+      customTransports: own-attempt-policy
+    statisticsSchema: "#/components/schemas/RetrievalStatistics"
     concurrency: sequential
 
 paths:
@@ -319,6 +334,70 @@ components:
         interpreted as a Nexacro protocol document.
 
   schemas:
+    RetrievalRequestPolicy:
+      description: >-
+        Client-side request policy, never transmitted in the source XML. Numeric
+        durations are integer milliseconds representable by the core clock and
+        language boundary. maxBackoffMs must be at least baseBackoffMs. Rust
+        duration options use the same millisecond jitter sampling granularity.
+      type: object
+      additionalProperties: false
+      properties:
+        maxRetries:
+          type: integer
+          minimum: 0
+          maximum: 10
+          default: 2
+        baseBackoffMs:
+          type: integer
+          minimum: 0
+          default: 500
+        maxBackoffMs:
+          type: integer
+          minimum: 0
+          default: 1000
+        minRequestIntervalMs:
+          type: integer
+          minimum: 0
+          default: 0
+
+    RetrievalStatistics:
+      description: >-
+        Metadata for the entire core invocation, excluding adapter queue,
+        serialization and export. Final statistics are included on successful
+        top-level results and retrieval errors; progress is a coalesced snapshot.
+        Custom transports have null physicalAttemptCount and retryCount.
+      type: object
+      additionalProperties: false
+      required: [scannedDateCount, completedQualifyingDateCount, discoveryCount, matrixLookupCount, physicalAttemptCount, retryCount, elapsedMs, waitingMs, finished]
+      properties:
+        scannedDateCount:
+          type: integer
+          minimum: 0
+        completedQualifyingDateCount:
+          type: integer
+          minimum: 0
+        discoveryCount:
+          type: integer
+          minimum: 0
+        matrixLookupCount:
+          type: integer
+          minimum: 0
+        physicalAttemptCount:
+          type: [integer, "null"]
+          minimum: 0
+        retryCount:
+          type: [integer, "null"]
+          minimum: 0
+        elapsedMs:
+          type: integer
+          minimum: 0
+        waitingMs:
+          type: integer
+          minimum: 0
+        finished:
+          type: boolean
+
     NexacroPlatformDataRequest:
       type: string
       contentMediaType: text/xml

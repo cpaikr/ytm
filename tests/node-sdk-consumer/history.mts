@@ -1,4 +1,4 @@
-import { YtmClient, validateHistoryInput, type HistoryInput, type HistoryResult } from '../../packages/node/dist/client.js';
+import { RetrievalProgress, type RetrievalStatistics, YtmClient, validateHistoryInput, type HistoryInput, type HistoryResult } from '../../packages/node/dist/client.js';
 
 const client = new YtmClient();
 const dates = ['2026-06-08', '2026-06-09'] as const;
@@ -47,3 +47,15 @@ function retryMetadata(error: import('../../packages/node/dist/client.js').Seria
   return error.retry?.stopReason;
 }
 void retryMetadata;
+
+const progress = new RetrievalProgress();
+const snapshot: RetrievalStatistics | null = progress.snapshot();
+void snapshot;
+const observed = client.history(counted, { maxRetries: 4, baseBackoffMs: 0, maxBackoffMs: 0, minRequestIntervalMs: 1, progress });
+void observed.then(result => {
+  const statistics: RetrievalStatistics = result.statistics;
+  const attempts: number | null = statistics.physicalAttemptCount;
+  return attempts;
+});
+// @ts-expect-error Progress is a pull handle, not a callback.
+void client.kinds({}, { progress: () => {} });

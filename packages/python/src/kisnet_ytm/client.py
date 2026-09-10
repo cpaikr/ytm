@@ -1,6 +1,7 @@
 """Typed clients; Rust owns all product operations and domain validation."""
 import asyncio
 import json
+from threading import Lock
 from types import MappingProxyType, TracebackType
 from typing import Any, Self
 
@@ -13,7 +14,7 @@ from .errors import (
 from .models import (
     CountSelectionMetadata, AvailableHistoryEntry, UnavailableHistoryEntry, HistoryDiscovery, HistoryResult,
     DateResolution, Fallback, Kind, KindsResult, MatrixResult, MatrixRow,
-    SourceMetadata, SourceParameters, SourceRequest,
+    SourceMetadata, SourceParameters, SourceRequest, RetrievalStatistics,
 )
 
 _ERRORS: dict[str, type[YtmError]] = {
@@ -56,6 +57,51 @@ def _timeout_payload(value: int | None) -> str | None:
     return json.dumps(value)
 
 
+def _statistics(value: dict[str, Any] | None) -> RetrievalStatistics | None:
+    if value is None:
+        return None
+    return RetrievalStatistics(value["scannedDateCount"], value["completedQualifyingDateCount"],
+                               value["discoveryCount"], value["matrixLookupCount"],
+                               value["physicalAttemptCount"], value["retryCount"],
+                               value["elapsedMs"], value["waitingMs"], value["finished"])
+
+
+class RetrievalProgress:
+    """Single-use, thread-safe latest metadata snapshot. No callbacks or event queue."""
+    def __init__(self) -> None:
+        self._native = _native.NativeProgress()
+        self._claim_lock = Lock()
+        self._claimed = False
+
+    def snapshot(self) -> RetrievalStatistics | None:
+        """None before retrieval starts; immutable final metadata remains readable."""
+        return _statistics(json.loads(self._native.snapshot()))
+
+
+def _policy_payload(max_retries: int, base_backoff_ms: int, max_backoff_ms: int,
+                    min_request_interval_ms: int) -> str:
+    values = (max_retries, base_backoff_ms, max_backoff_ms, min_request_interval_ms)
+    names = ("max_retries", "base_backoff_ms", "max_backoff_ms", "min_request_interval_ms")
+    for name, value in zip(names, values):
+        if type(value) is not int or not 0 <= value <= 2**64 - 1 or (name == "max_retries" and value > 10):
+            raise InvalidParameterError("invalid_parameter", "Retry settings must be nonnegative integers; max_retries cannot exceed 10.", {"parameter": name})
+    if max_backoff_ms < base_backoff_ms:
+        raise InvalidParameterError("invalid_parameter", "max_backoff_ms must be at least base_backoff_ms.", {"parameter": "max_backoff_ms"})
+    return json.dumps(values)
+
+
+def _progress(value: RetrievalProgress | None) -> RetrievalProgress:
+    if value is None:
+        value = RetrievalProgress()
+    if not isinstance(value, RetrievalProgress):
+        raise InvalidParameterError("invalid_parameter", "progress must be a fresh RetrievalProgress handle.", {"parameter": "progress"})
+    with value._claim_lock:
+        if value._claimed:
+            raise InvalidParameterError("invalid_parameter", "A progress handle can be attached to only one invocation.", {"parameter": "progress"})
+        value._claimed = True
+    return value
+
+
 def _decode(encoded: str) -> dict[str, Any]:
     envelope = json.loads(encoded)
     if not envelope["ok"]:
@@ -80,7 +126,7 @@ def _source(value: dict[str, Any]) -> SourceMetadata:
 
 
 def _kinds(value: dict[str, Any]) -> KindsResult:
-    return KindsResult(value["baseDate"], tuple(Kind(**item) for item in value["kinds"]), _source(value["source"]))
+    return KindsResult(value["baseDate"], tuple(Kind(**item) for item in value["kinds"]), _source(value["source"]), _statistics(value.get("statistics")))
 
 
 def _matrix(value: dict[str, Any]) -> MatrixResult:
@@ -92,7 +138,7 @@ def _matrix(value: dict[str, Any]) -> MatrixResult:
                         _source(value["source"]), value["requestedBaseDate"],
                         DateResolution(resolution["mode"], resolution["requestedBaseDate"],
                                        resolution["resolvedBaseDate"], resolution["usedFallback"],
-                                       tuple(resolution["attemptedDates"]), resolution["lookbackDays"]))
+                                       tuple(resolution["attemptedDates"]), resolution["lookbackDays"]), _statistics(value.get("statistics")))
 
 
 def _history_shape(base_dates: list[str] | tuple[str, ...] | None, start_date: str | None,
@@ -127,7 +173,7 @@ def _history(value: dict[str, Any]) -> HistoryResult:
     return HistoryResult(tuple(value["requestedDates"]),
                          tuple(HistoryDiscovery(item["requestedBaseDate"], item["available"]) for item in value["discovery"]),
                          entries, value["availableCount"], value["unavailableCount"], value["dataRowCount"],
-                         value["mode"], value["lookbackDays"], metadata)
+                         value["mode"], value["lookbackDays"], metadata, _statistics(value.get("statistics")))
 
 
 class Client:
@@ -136,24 +182,35 @@ class Client:
         self._native = _native.NativeClient()
 
     def matrix(self, *, base_date: str, kind: str | int, fallback: Fallback = "exact",
-               lookback_days: int | None = None, operation_timeout_seconds: int | None = None) -> MatrixResult:
+               lookback_days: int | None = None, operation_timeout_seconds: int | None = None,
+               max_retries: int = 2, base_backoff_ms: int = 500, max_backoff_ms: int = 1000,
+               min_request_interval_ms: int = 0, progress: RetrievalProgress | None = None) -> MatrixResult:
         """Retrieve a matrix, with an optional bounded previous-date search."""
-        return _matrix(self._run("matrix", _shape(base_date, kind, fallback, lookback_days, matrix=True), operation_timeout_seconds))
+        return _matrix(self._run("matrix", _shape(base_date, kind, fallback, lookback_days, matrix=True), operation_timeout_seconds, max_retries, base_backoff_ms, max_backoff_ms, min_request_interval_ms, progress))
 
     def history(self, *, base_dates: list[str] | tuple[str, ...] | None = None,
                       start_date: str | None = None, end_date: str | None = None,
                       fallback: Fallback = "exact", lookback_days: int | None = None, count: int | None = None,
-                      operation_timeout_seconds: int | None = None) -> HistoryResult:
+                      operation_timeout_seconds: int | None = None,
+               max_retries: int = 2, base_backoff_ms: int = 500, max_backoff_ms: int = 1000,
+               min_request_interval_ms: int = 0, progress: RetrievalProgress | None = None) -> HistoryResult:
         """Retrieve all categories for fixed dates or the latest count of numeric dates."""
-        return _history(self._run("history", _history_shape(base_dates, start_date, end_date, fallback, lookback_days, count), operation_timeout_seconds))
+        return _history(self._run("history", _history_shape(base_dates, start_date, end_date, fallback, lookback_days, count), operation_timeout_seconds, max_retries, base_backoff_ms, max_backoff_ms, min_request_interval_ms, progress))
 
-    def kinds(self, *, base_date: str | None = None, operation_timeout_seconds: int | None = None) -> KindsResult:
+    def kinds(self, *, base_date: str | None = None, operation_timeout_seconds: int | None = None,
+               max_retries: int = 2, base_backoff_ms: int = 500, max_backoff_ms: int = 1000,
+               min_request_interval_ms: int = 0, progress: RetrievalProgress | None = None) -> KindsResult:
         """Return the canonical catalog, or merge source discovery for a date."""
-        return _kinds(self._run("kinds", _shape(base_date), operation_timeout_seconds))
+        return _kinds(self._run("kinds", _shape(base_date), operation_timeout_seconds, max_retries, base_backoff_ms, max_backoff_ms, min_request_interval_ms, progress))
 
-    def _run(self, operation: str, payload: str, operation_timeout_seconds: int | None = None) -> dict[str, Any]:
+    def _run(self, operation: str, payload: str, operation_timeout_seconds: int | None = None,
+               max_retries: int = 2, base_backoff_ms: int = 500, max_backoff_ms: int = 1000,
+               min_request_interval_ms: int = 0, progress: RetrievalProgress | None = None) -> dict[str, Any]:
+        timeout = _timeout_payload(operation_timeout_seconds)
+        policy = _policy_payload(max_retries, base_backoff_ms, max_backoff_ms, min_request_interval_ms)
+        monitor = _progress(progress)
         try:
-            encoded = self._native.run_sync(operation, payload, _timeout_payload(operation_timeout_seconds))
+            encoded = self._native.run_sync(operation, payload, timeout, policy, monitor._native)
         except RuntimeError:
             raise DefectError("implementation_defect", "Native operation failed.") from None
         return _decode(encoded)
@@ -187,25 +244,51 @@ class AsyncClient:
             raise ClientStateError("wrong_event_loop", "Client belongs to another event loop.")
 
     async def matrix(self, *, base_date: str, kind: str | int, fallback: Fallback = "exact",
-                     lookback_days: int | None = None, operation_timeout_seconds: int | None = None) -> MatrixResult:
+                     lookback_days: int | None = None, operation_timeout_seconds: int | None = None,
+               max_retries: int = 2, base_backoff_ms: int = 500, max_backoff_ms: int = 1000,
+               min_request_interval_ms: int = 0, progress: RetrievalProgress | None = None) -> MatrixResult:
         """Retrieve a matrix without blocking the event loop."""
-        return _matrix(await self._run("matrix", _shape(base_date, kind, fallback, lookback_days, matrix=True), operation_timeout_seconds))
+        return _matrix(await self._run("matrix", _shape(base_date, kind, fallback, lookback_days, matrix=True), operation_timeout_seconds, max_retries, base_backoff_ms, max_backoff_ms, min_request_interval_ms, progress))
 
     async def history(self, *, base_dates: list[str] | tuple[str, ...] | None = None,
                       start_date: str | None = None, end_date: str | None = None,
                       fallback: Fallback = "exact", lookback_days: int | None = None, count: int | None = None,
-                      operation_timeout_seconds: int | None = None) -> HistoryResult:
+                      operation_timeout_seconds: int | None = None,
+               max_retries: int = 2, base_backoff_ms: int = 500, max_backoff_ms: int = 1000,
+               min_request_interval_ms: int = 0, progress: RetrievalProgress | None = None) -> HistoryResult:
         """Retrieve all categories for fixed dates or the latest count of numeric dates."""
-        return _history(await self._run("history", _history_shape(base_dates, start_date, end_date, fallback, lookback_days, count), operation_timeout_seconds))
+        return _history(await self._run("history", _history_shape(base_dates, start_date, end_date, fallback, lookback_days, count), operation_timeout_seconds, max_retries, base_backoff_ms, max_backoff_ms, min_request_interval_ms, progress))
 
-    async def kinds(self, *, base_date: str | None = None, operation_timeout_seconds: int | None = None) -> KindsResult:
+    async def kinds(self, *, base_date: str | None = None, operation_timeout_seconds: int | None = None,
+               max_retries: int = 2, base_backoff_ms: int = 500, max_backoff_ms: int = 1000,
+               min_request_interval_ms: int = 0, progress: RetrievalProgress | None = None) -> KindsResult:
         """Return the canonical catalog, or merge source discovery for a date."""
-        return _kinds(await self._run("kinds", _shape(base_date), operation_timeout_seconds))
+        return _kinds(await self._run("kinds", _shape(base_date), operation_timeout_seconds, max_retries, base_backoff_ms, max_backoff_ms, min_request_interval_ms, progress))
 
-    async def _run(self, operation: str, payload: str, operation_timeout_seconds: int | None = None) -> dict[str, Any]:
+    async def _run(self, operation: str, payload: str, operation_timeout_seconds: int | None = None,
+               max_retries: int = 2, base_backoff_ms: int = 500, max_backoff_ms: int = 1000,
+               min_request_interval_ms: int = 0, progress: RetrievalProgress | None = None) -> dict[str, Any]:
         self._check_loop()
+        timeout = _timeout_payload(operation_timeout_seconds)
+        policy = _policy_payload(max_retries, base_backoff_ms, max_backoff_ms, min_request_interval_ms)
+        monitor = _progress(progress)
         try:
-            encoded = await self._native.run_async(operation, payload, _timeout_payload(operation_timeout_seconds))
+            future = asyncio.ensure_future(self._native.run_async(operation, payload, timeout, policy, monitor._native))
+            try:
+                encoded = await asyncio.shield(future)
+            except asyncio.CancelledError as cancelled:
+                # Cancel the invocation, then drain it before exposing its final snapshot.
+                # Shielding prevents the Python/Rust bridge from dropping work early.
+                monitor._native.cancel()
+                # Cancellation wins even if the bridge fails while draining.
+                drain = asyncio.gather(future, return_exceptions=True)
+                while not drain.done():
+                    try:
+                        await asyncio.shield(drain)
+                    except asyncio.CancelledError:
+                        continue
+                setattr(cancelled, "statistics", monitor.snapshot())
+                raise
         except RuntimeError:
             raise DefectError("implementation_defect", "Native operation failed.") from None
         return _decode(encoded)

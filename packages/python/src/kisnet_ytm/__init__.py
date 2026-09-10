@@ -1,6 +1,6 @@
 """KIS-NET YTM: typed Python clients backed by the shared Rust implementation."""
 from ._native import __version__ as __version__
-from .client import AsyncClient as AsyncClient, Client as Client
+from .client import AsyncClient as AsyncClient, Client as Client, RetrievalProgress as RetrievalProgress
 from .errors import (
     ClientStateError as ClientStateError, DefectError as DefectError,
     InsufficientHistoryError as InsufficientHistoryError,
@@ -11,6 +11,7 @@ from .errors import (
     SourceTransportError as SourceTransportError, YtmError as YtmError,
 )
 from .models import (
+    RetrievalStatistics as RetrievalStatistics,
     DateResolution as DateResolution, Fallback as Fallback, Kind as Kind,
     KindsResult as KindsResult, MatrixResult as MatrixResult, MatrixRow as MatrixRow,
     SourceMetadata as SourceMetadata, SourceParameters as SourceParameters,

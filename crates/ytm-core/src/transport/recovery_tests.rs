@@ -71,7 +71,12 @@ async fn history_sequence(
 #[tokio::test]
 async fn real_http_history_recovers_only_the_failed_lookup() {
     let (expected, baseline) = history_sequence(None, false).await;
-    let expected = serde_json::to_value(expected.unwrap()).unwrap();
+    let mut expected = expected.unwrap();
+    let statistics = expected.statistics.take().unwrap();
+    assert_eq!(statistics.physical_attempt_count, Some(18));
+    assert_eq!(statistics.retry_count, Some(0));
+    assert!(statistics.finished);
+    let expected = serde_json::to_value(expected).unwrap();
     assert_eq!(baseline.len(), 18);
     for (fail_at, interrupted) in [(16, false), (0, false), (16, true)] {
         let (actual, requests) = history_sequence(Some(fail_at), interrupted).await;
@@ -85,7 +90,15 @@ async fn real_http_history_recovers_only_the_failed_lookup() {
                 requests.len()
             );
         }
-        assert_eq!(serde_json::to_value(actual.unwrap()).unwrap(), expected);
+        let mut actual = actual.unwrap();
+        let statistics = actual.statistics.take().unwrap();
+        assert_eq!(statistics.physical_attempt_count, Some(19));
+        assert_eq!(statistics.retry_count, Some(1));
+        assert_eq!(statistics.scanned_date_count, 2);
+        assert_eq!(statistics.discovery_count, 2);
+        assert_eq!(statistics.matrix_lookup_count, 16);
+        assert!(statistics.finished);
+        assert_eq!(serde_json::to_value(actual).unwrap(), expected);
         assert_eq!(requests.len(), baseline.len() + 1);
         assert_eq!(
             requests[fail_at],
@@ -346,10 +359,25 @@ fn provider_guidance_and_schedule_are_bounded_without_wall_clock_waits() {
         retry_after("18446744073709551616", now),
         Some(Duration::MAX)
     );
-    assert_eq!([jitter_cap_ms(1), jitter_cap_ms(2)], [500, 1000]);
-    assert_eq!(full_jitter(1, |_| 0), Duration::ZERO);
-    assert_eq!(full_jitter(1, |cap| cap), Duration::from_millis(500));
-    assert_eq!(full_jitter(2, |cap| cap), Duration::from_millis(1000));
+    assert_eq!(
+        [
+            jitter_cap_ms(&RetrievalOptions::default(), 1),
+            jitter_cap_ms(&RetrievalOptions::default(), 2)
+        ],
+        [500, 1000]
+    );
+    assert_eq!(
+        full_jitter(&RetrievalOptions::default(), 1, |_| 0),
+        Duration::ZERO
+    );
+    assert_eq!(
+        full_jitter(&RetrievalOptions::default(), 1, |cap| cap),
+        Duration::from_millis(500)
+    );
+    assert_eq!(
+        full_jitter(&RetrievalOptions::default(), 2, |cap| cap),
+        Duration::from_millis(1000)
+    );
     let start = Instant::now();
     let deadline = start + Duration::from_secs(1);
     assert_eq!(
@@ -572,5 +600,544 @@ fn judge_routing_accepts_only_numeric_loopback_origins() {
             HttpTransport::with_loopback_origin(origin).is_err(),
             "{origin}"
         );
+    }
+}
+
+#[test]
+fn configurable_jitter_preserves_defaults_and_caps_overflow() {
+    let policy = |retries, base, maximum| {
+        RetrievalOptions::default()
+            .with_request_policy(
+                retries,
+                Duration::from_millis(base),
+                Duration::from_millis(maximum),
+                Duration::ZERO,
+            )
+            .unwrap()
+    };
+    let options = policy(10, 3, 20);
+    assert_eq!(
+        (1..=10)
+            .map(|attempt| jitter_cap_ms(&options, attempt))
+            .collect::<Vec<_>>(),
+        [3, 6, 12, 20, 20, 20, 20, 20, 20, 20]
+    );
+    assert_eq!(full_jitter(&options, 3, |_| 0), Duration::ZERO);
+    assert_eq!(
+        full_jitter(&options, 3, |cap| cap),
+        Duration::from_millis(12)
+    );
+    assert_eq!(full_jitter(&policy(0, 0, 0), 1, |cap| cap), Duration::ZERO);
+    // Platforms may reject this duration at the monotonic-clock boundary.
+    if let Ok(largest) = RetrievalOptions::default().with_request_policy(
+        10,
+        Duration::from_millis(u64::MAX),
+        Duration::from_millis(u64::MAX),
+        Duration::ZERO,
+    ) {
+        assert_eq!(jitter_cap_ms(&largest, 10), u64::MAX);
+        assert_eq!(jitter_cap_ms(&largest, u8::MAX), u64::MAX);
+    }
+}
+
+#[tokio::test(start_paused = true)]
+async fn pacing_and_retry_waits_overlap_and_partial_waits_are_counted_once() {
+    let progress = crate::RetrievalProgress::new();
+    let caller = CancellationToken::new();
+    let options = RetrievalOptions::new(Duration::from_secs(10))
+        .unwrap()
+        .with_request_policy(
+            2,
+            Duration::from_millis(500),
+            Duration::from_secs(1),
+            Duration::from_secs(2),
+        )
+        .unwrap()
+        .with_progress(progress.clone());
+    let context = RetrievalContext::new(options, caller.clone()).unwrap();
+    assert!(
+        context.pacing_wake().unwrap().is_none(),
+        "first attempt has no pacing wait"
+    );
+    context.record_attempt("initializeYtmMatrix", 1, 3).unwrap();
+    tokio::time::advance(Duration::from_millis(100)).await;
+    let retry_ready = Instant::now() + Duration::from_millis(500);
+    let wake = context.pacing_wake().unwrap().unwrap().max(retry_ready);
+    {
+        let _waiting = context.progress().wait();
+        wait_for_retry(&context, wake).await.unwrap();
+    }
+    assert_eq!(progress.snapshot().unwrap().waiting_ms, 1900);
+    assert_eq!(progress.snapshot().unwrap().elapsed_ms, 2000);
+    context.record_attempt("initializeYtmMatrix", 2, 3).unwrap();
+    // A different logical lookup shares the same physical-start pacing clock.
+    context.clear_lookup().unwrap();
+    let wake = context.pacing_wake().unwrap().unwrap();
+    {
+        let _waiting = context.progress().wait();
+        tokio::time::advance(Duration::from_millis(400)).await;
+        assert_eq!(progress.snapshot().unwrap().waiting_ms, 2300);
+        caller.cancel();
+        assert_eq!(
+            wait_for_retry(&context, wake).await,
+            Err(RetryStopReason::Cancellation)
+        );
+    }
+    let error = context
+        .complete::<()>(Err(YtmError::cancelled("history")), "history")
+        .unwrap_err();
+    let final_stats = error.details.statistics.unwrap();
+    assert_eq!(final_stats.waiting_ms, 2300);
+    assert_eq!(final_stats.physical_attempt_count, Some(2));
+    assert_eq!(final_stats.retry_count, Some(1));
+    assert!(final_stats.finished);
+    tokio::time::advance(Duration::from_secs(1)).await;
+    assert_eq!(progress.snapshot().unwrap(), final_stats);
+}
+
+#[tokio::test(start_paused = true)]
+async fn combined_wait_deadline_and_dropped_future_freeze_actual_wait() {
+    let progress = crate::RetrievalProgress::new();
+    let context = RetrievalContext::new(
+        RetrievalOptions::new(Duration::from_secs(2))
+            .unwrap()
+            .with_progress(progress.clone()),
+        CancellationToken::new(),
+    )
+    .unwrap();
+    {
+        let _waiting = context.progress().wait();
+        assert_eq!(
+            wait_for_retry(&context, Instant::now() + Duration::from_secs(3)).await,
+            Err(RetryStopReason::OperationDeadline)
+        );
+    }
+    let error = context
+        .complete::<()>(Err(YtmError::operation_deadline("history")), "history")
+        .unwrap_err();
+    assert_eq!(error.details.statistics.unwrap().waiting_ms, 2000);
+
+    let dropped = crate::RetrievalProgress::new();
+    let context = RetrievalContext::new(
+        RetrievalOptions::default().with_progress(dropped.clone()),
+        CancellationToken::new(),
+    )
+    .unwrap();
+    let waiting = context.progress().wait();
+    tokio::time::advance(Duration::from_millis(75)).await;
+    drop(waiting);
+    drop(context);
+    let frozen = dropped.snapshot().unwrap();
+    assert!(frozen.finished);
+    assert_eq!(frozen.waiting_ms, 75);
+    tokio::time::advance(Duration::from_secs(1)).await;
+    assert_eq!(dropped.snapshot().unwrap(), frozen);
+}
+
+#[tokio::test]
+async fn retry_limits_and_success_failure_summaries_match_final_progress() {
+    for retries in [0, 1, 4, 10] {
+        let scenario = Scenario::new(vec![http(503, b"")]).await;
+        let progress = crate::RetrievalProgress::new();
+        let options = RetrievalOptions::default()
+            .with_request_policy(retries, Duration::ZERO, Duration::ZERO, Duration::ZERO)
+            .unwrap()
+            .with_progress(progress.clone());
+        let error = YtmService::with_transport(scenario.transport.clone())
+            .kinds_with_options(
+                crate::KindsInput::for_date("2026-06-09".parse().unwrap()),
+                options,
+            )
+            .await
+            .unwrap_err();
+        assert_eq!(scenario.count(), usize::from(retries) + 1);
+        assert_eq!(error.details.actual, Some(serde_json::json!(503)));
+        let retry = error.details.retry.unwrap();
+        assert_eq!(retry.max_attempts, retries + 1);
+        assert_eq!(retry.stop_reason, RetryStopReason::AttemptExhaustion);
+        let statistics = error.details.statistics.unwrap();
+        assert_eq!(
+            statistics.physical_attempt_count,
+            Some(u64::from(retries) + 1)
+        );
+        assert_eq!(statistics.retry_count, Some(u64::from(retries)));
+        assert_eq!(statistics.waiting_ms, 0);
+        assert_eq!(statistics, progress.snapshot().unwrap());
+    }
+    let scenario = Scenario::new(vec![
+        http(503, b""),
+        http(200, &fixture("POST /rateInfo/ytmMatrixMobileInitList.do ")),
+    ])
+    .await;
+    let progress = crate::RetrievalProgress::new();
+    let result = YtmService::with_transport(scenario.transport.clone())
+        .kinds_with_options(
+            crate::KindsInput::for_date("2026-06-09".parse().unwrap()),
+            RetrievalOptions::default().with_progress(progress.clone()),
+        )
+        .await
+        .unwrap();
+    let statistics = result.statistics.unwrap();
+    assert_eq!(statistics.physical_attempt_count, Some(2));
+    assert_eq!(statistics.retry_count, Some(1));
+    assert_eq!(statistics.waiting_ms, 0);
+    assert_eq!(statistics, progress.snapshot().unwrap());
+}
+
+#[tokio::test]
+async fn real_http_pacing_can_be_cancelled_between_successful_lookups() {
+    let scenario = Scenario::new(vec![http(
+        200,
+        &fixture("POST /rateInfo/ytmMatrixMobileInitList.do "),
+    )])
+    .await;
+    let progress = crate::RetrievalProgress::new();
+    let caller = CancellationToken::new();
+    let options = RetrievalOptions::default()
+        .with_request_policy(2, Duration::ZERO, Duration::ZERO, Duration::from_secs(5))
+        .unwrap()
+        .with_progress(progress.clone());
+    let service = YtmService::with_transport(scenario.transport.clone());
+    let token = caller.clone();
+    let task = tokio::spawn(async move {
+        service
+            .matrix_with_options_and_cancellation(
+                crate::MatrixInput::new("2026-06-09".parse().unwrap(), "10".parse().unwrap()),
+                options,
+                token,
+            )
+            .await
+    });
+    tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            if progress
+                .snapshot()
+                .is_some_and(|stats| stats.matrix_lookup_count == 1 && stats.waiting_ms > 0)
+            {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(1)).await;
+        }
+    })
+    .await
+    .unwrap();
+    caller.cancel();
+    let error = task.await.unwrap().unwrap_err();
+    assert_eq!(error.details.cause.as_deref(), Some("AbortError"));
+    let statistics = error.details.statistics.unwrap();
+    assert_eq!(statistics.physical_attempt_count, Some(1));
+    assert_eq!(statistics.retry_count, Some(0));
+    assert!(statistics.waiting_ms > 0);
+    assert_eq!(statistics, progress.snapshot().unwrap());
+    assert_eq!(scenario.count(), 1);
+}
+
+const BULK_BASELINE_ATTEMPTS: u64 = 250 + 180 * 8;
+const BULK_INJECTED_RETRIES: u64 = 14;
+
+async fn synthetic_bulk(
+    inject_failures: bool,
+) -> (
+    crate::HistoryResult,
+    Vec<String>,
+    Vec<crate::RetrievalStatistics>,
+) {
+    use std::collections::{HashMap, HashSet};
+    let end: crate::BaseDate = "2026-06-09".parse().unwrap();
+    let dates: Vec<_> = (0..250)
+        .map(|offset| end.checked_sub_days(offset).unwrap())
+        .collect();
+    let offsets: HashMap<_, _> = dates
+        .iter()
+        .enumerate()
+        .map(|(index, date)| (date.compact(), index))
+        .collect();
+    let progress = crate::RetrievalProgress::new();
+    let observed = progress.clone();
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let origin = format!("http://{}", listener.local_addr().unwrap());
+    let mut server = tokio::spawn(async move {
+        let mut requests = Vec::new();
+        let mut snapshots = Vec::new();
+        let mut failed = HashSet::new();
+        let total = BULK_BASELINE_ATTEMPTS
+            + if inject_failures {
+                BULK_INJECTED_RETRIES
+            } else {
+                0
+            };
+        for _ in 0..total {
+            let (mut socket, _) = listener.accept().await.unwrap();
+            let request = super::tests::read_request(&mut socket).await;
+            let column = |name| {
+                let prefix = format!("<Col id=\"{name}\">");
+                request
+                    .split_once(&prefix)
+                    .unwrap()
+                    .1
+                    .split_once("</Col>")
+                    .unwrap()
+                    .0
+                    .to_owned()
+            };
+            let date = column("calBaseDt");
+            let kind = column("cboYtmSort");
+            let offset = offsets[&date];
+            let discovery = request.starts_with("POST /rateInfo/ytmMatrixMobileInitList.do ");
+            let key = (discovery, date.clone(), kind.clone());
+            let statistics = observed.snapshot().unwrap();
+            let completed_before_date = (offset / 7) * 5 + (offset % 7).min(5);
+            assert_eq!(
+                statistics.completed_qualifying_date_count, completed_before_date,
+                "the current date must not complete before its last category response"
+            );
+            assert!(!statistics.finished);
+            snapshots.push(statistics);
+            let fail = inject_failures
+                && ((discovery && offset % 37 == 0)
+                    || (!discovery && kind == "10" && offset % 29 == 0))
+                && failed.insert(key);
+            let response = if fail {
+                http(503, b"")
+            } else if (discovery && offset % 7 >= 5)
+                || (!discovery && kind == "80" && offset % 11 == 0)
+            {
+                http(200, &xml(""))
+            } else if discovery {
+                http(200, &fixture(&request))
+            } else {
+                let value = if kind == "70" {
+                    "-".to_owned()
+                } else {
+                    format!("{}.{}", offset, kind)
+                };
+                let mut row = String::from(
+                    r#"<Row><Col id="pricingGroupCode">001</Col><Col id="pricingGroupName">synthetic</Col>"#,
+                );
+                for (tenor, _) in crate::model::TENORS {
+                    row.push_str(&format!(r#"<Col id="{tenor}">{value}</Col>"#));
+                }
+                row.push_str("</Row>");
+                http(200, &xml(&row))
+            };
+            requests.push(request);
+            socket.write_all(&response).await.unwrap();
+        }
+        (requests, snapshots)
+    });
+    let mut transport = HttpTransport::new().unwrap();
+    transport.origin = Some(origin);
+    transport.jitter = |_| 0;
+    let options = RetrievalOptions::new(Duration::from_secs(120))
+        .unwrap()
+        .with_request_policy(
+            2,
+            Duration::ZERO,
+            Duration::ZERO,
+            if inject_failures {
+                Duration::from_millis(1)
+            } else {
+                Duration::ZERO
+            },
+        )
+        .unwrap()
+        .with_progress(progress.clone());
+    let selection = crate::CountSelection::new(180, end, None).unwrap();
+    let result = YtmService::with_transport(transport)
+        .history_with_options(HistoryInput::new(selection), options)
+        .await
+        .unwrap();
+    let joined = tokio::time::timeout(Duration::from_secs(5), &mut server).await;
+    if joined.is_err() {
+        server.abort();
+        let _ = server.await;
+        panic!("synthetic server did not observe the expected request count");
+    }
+    let (requests, mut snapshots) = joined.unwrap().unwrap();
+    let final_stats = progress.snapshot().unwrap();
+    assert_eq!(result.statistics.as_ref(), Some(&final_stats));
+    snapshots.push(final_stats);
+    (result, requests, snapshots)
+}
+
+#[tokio::test]
+async fn deterministic_180_date_http_acceptance_preserves_selection_and_day_boundaries() {
+    let (mut baseline, baseline_requests, _) = synthetic_bulk(false).await;
+    let baseline_stats = baseline.statistics.take().unwrap();
+    let (mut actual, requests, snapshots) = synthetic_bulk(true).await;
+    let statistics = actual.statistics.take().unwrap();
+    assert_eq!(statistics.scanned_date_count, 250);
+    assert_eq!(statistics.completed_qualifying_date_count, 180);
+    assert_eq!(statistics.discovery_count, 250);
+    assert_eq!(statistics.matrix_lookup_count, 1440);
+    assert_eq!(
+        statistics.physical_attempt_count,
+        Some(BULK_BASELINE_ATTEMPTS + BULK_INJECTED_RETRIES)
+    );
+    assert_eq!(statistics.retry_count, Some(BULK_INJECTED_RETRIES));
+    // Slow loopback I/O may itself satisfy the configured interval.
+    assert!(statistics.waiting_ms <= statistics.elapsed_ms);
+    assert!(
+        statistics.elapsed_ms < 120_000,
+        "the accepted workload fits its retrieval deadline"
+    );
+    assert!(statistics.finished);
+    assert_eq!(
+        baseline_stats.physical_attempt_count,
+        Some(BULK_BASELINE_ATTEMPTS)
+    );
+    assert_eq!(baseline_stats.retry_count, Some(0));
+    assert_eq!(baseline_stats.waiting_ms, 0);
+    assert_eq!(actual.requested_dates.len(), 180);
+    assert!(actual
+        .requested_dates
+        .windows(2)
+        .all(|pair| pair[0] < pair[1]));
+    assert_eq!(actual.entries.len(), 180 * 8);
+    assert!(actual.unavailable_count > 0);
+    for entry in &actual.entries {
+        if let crate::HistoryEntry::Available { matrix } = entry {
+            if matrix.kind.code == "70" {
+                assert!(matrix.rows[0].yields.values().all(Option::is_none));
+            }
+        }
+    }
+    assert_eq!(
+        serde_json::to_value(actual).unwrap(),
+        serde_json::to_value(baseline).unwrap()
+    );
+    for pair in snapshots.windows(2) {
+        assert!(pair[0].scanned_date_count <= pair[1].scanned_date_count);
+        assert!(pair[0].completed_qualifying_date_count <= pair[1].completed_qualifying_date_count);
+        assert!(pair[0].physical_attempt_count <= pair[1].physical_attempt_count);
+        assert!(pair[0].retry_count <= pair[1].retry_count);
+        assert!(pair[0].waiting_ms <= pair[1].waiting_ms);
+        assert!(pair[0].elapsed_ms <= pair[1].elapsed_ms);
+    }
+    // Remove only byte-identical replays. Every other wire request must match
+    // the unpaced baseline, including each complete date's category order.
+    let identities = |requests: Vec<String>| {
+        requests
+            .into_iter()
+            .map(|request| {
+                (
+                    request.lines().next().unwrap().to_owned(),
+                    request.split_once("\r\n\r\n").unwrap().1.to_owned(),
+                )
+            })
+            .collect::<Vec<_>>()
+    };
+    let mut deduplicated = identities(requests);
+    deduplicated.dedup();
+    assert_eq!(deduplicated, identities(baseline_requests));
+}
+
+#[tokio::test]
+async fn terminal_history_failure_retains_only_completed_day_counters() {
+    let catalog = http(200, &fixture("POST /rateInfo/ytmMatrixMobileInitList.do "));
+    let matrix = http(200, &fixture("matrix"));
+    let mut responses = vec![catalog.clone()];
+    responses.extend(std::iter::repeat_n(matrix.clone(), 8));
+    responses.extend([catalog, matrix, http(400, b"")]);
+    let scenario = Scenario::new(responses).await;
+    let progress = crate::RetrievalProgress::new();
+    let selection = crate::CountSelection::new(2, "2026-06-09".parse().unwrap(), None).unwrap();
+    let result = YtmService::with_transport(scenario.transport.clone())
+        .history_with_options(
+            HistoryInput::new(selection),
+            RetrievalOptions::default().with_progress(progress.clone()),
+        )
+        .await;
+    let error = result.unwrap_err();
+    assert_eq!(error.details.code, "source_transport_error");
+    assert_eq!(
+        error.details.retry.unwrap().stop_reason,
+        RetryStopReason::TerminalFailure
+    );
+    let stats = error.details.statistics.unwrap();
+    assert_eq!(stats.scanned_date_count, 2);
+    assert_eq!(stats.completed_qualifying_date_count, 1);
+    assert_eq!(stats.matrix_lookup_count, 10);
+    assert_eq!(stats.physical_attempt_count, Some(12));
+    assert_eq!(stats.retry_count, Some(0));
+    assert_eq!(scenario.count(), 12);
+    assert!(stats.finished);
+    assert_eq!(stats, progress.snapshot().unwrap());
+}
+
+#[tokio::test(start_paused = true)]
+async fn real_http_combines_provider_guidance_and_pacing_without_adding_waits() {
+    // Keep virtual time under explicit test control while loopback I/O is pending.
+    let keep_awake = tokio::spawn(async {
+        loop {
+            tokio::task::yield_now().await;
+        }
+    });
+    let mut scenario = Scenario::new(vec![
+        super::tests::response(503, &[("Retry-After", "2")], b""),
+        http(200, &fixture("POST /rateInfo/ytmMatrixMobileInitList.do ")),
+        http(200, &fixture("matrix")),
+    ])
+    .await;
+    scenario.transport.jitter = |cap| cap;
+    let service = YtmService::with_transport(scenario.transport.clone());
+    let progress = crate::RetrievalProgress::new();
+    let options = RetrievalOptions::default()
+        .with_request_policy(
+            2,
+            Duration::from_millis(500),
+            Duration::from_millis(500),
+            Duration::from_secs(1),
+        )
+        .unwrap()
+        .with_progress(progress.clone());
+    let task = tokio::spawn(async move {
+        service
+            .matrix_with_options(
+                crate::MatrixInput::new("2026-06-09".parse().unwrap(), "10".parse().unwrap()),
+                options,
+            )
+            .await
+    });
+    settle(|| progress.is_waiting()).await;
+    assert_eq!(progress.snapshot().unwrap().physical_attempt_count, Some(1));
+    tokio::time::advance(Duration::from_millis(1999)).await;
+    assert_eq!(progress.snapshot().unwrap().physical_attempt_count, Some(1));
+    tokio::time::advance(Duration::from_millis(1)).await;
+    settle(|| {
+        progress
+            .snapshot()
+            .is_some_and(|stats| stats.matrix_lookup_count == 1)
+            && progress.is_waiting()
+    })
+    .await;
+    assert_eq!(progress.snapshot().unwrap().physical_attempt_count, Some(2));
+    tokio::time::advance(Duration::from_millis(999)).await;
+    assert_eq!(progress.snapshot().unwrap().physical_attempt_count, Some(2));
+    tokio::time::advance(Duration::from_millis(1)).await;
+    settle(|| task.is_finished()).await;
+    let statistics = task.await.unwrap().unwrap().statistics.unwrap();
+    keep_awake.abort();
+    assert_eq!(statistics.physical_attempt_count, Some(3));
+    assert_eq!(statistics.retry_count, Some(1));
+    assert_eq!(statistics.elapsed_ms, 3000);
+    assert_eq!(statistics.waiting_ms, 3000);
+    assert_eq!(scenario.count(), 3);
+    tokio::time::advance(Duration::from_secs(1)).await;
+    assert_eq!(
+        progress.snapshot().unwrap(),
+        statistics,
+        "no timer survives final completion"
+    );
+}
+
+async fn settle(condition: impl Fn() -> bool) {
+    let started = std::time::Instant::now();
+    while !condition() {
+        assert!(
+            started.elapsed() < Duration::from_secs(10),
+            "loopback test did not reach its synchronization point"
+        );
+        tokio::task::yield_now().await;
     }
 }
