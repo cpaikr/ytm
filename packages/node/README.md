@@ -14,6 +14,11 @@ This package and its native packages are private development packages. The
 release pipeline publishes only the standalone CLI. Follow the root README
 for local use; historical npm releases expose an earlier implementation.
 
+The bundled [agent skill](skills/kisnet-ytm/SKILL.md) allows automatic selection
+for KIS-NET yield lookups, history retrieval, and bond-kind listing through this
+Node SDK when available in the agent’s skill catalog. Explicit `$kisnet-ytm`
+invocation remains supported.
+
 ```js
 import { YtmClient, validateMatrixInput } from "@sjunepark/ytm";
 

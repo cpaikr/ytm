@@ -1,6 +1,6 @@
 ---
 name: kisnet-ytm
-description: Use when retrieving Korean KIS-NET YTM Matrix rows or listing supported bond kinds through the standalone ytm CLI or @sjunepark/ytm Node SDK.
+description: "Retrieve Korean KIS-NET YTM Matrix data through the standalone ytm CLI or @sjunepark/ytm Node SDK. Use when requests ask for KIS-NET bond yields for a date, yield history over dates or the latest N observations, or supported bond kinds. Excludes general yield-to-maturity calculations, investment advice, other data providers, and repository maintenance."
 ---
 
 # KIS-NET YTM

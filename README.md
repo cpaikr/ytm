@@ -196,6 +196,11 @@ and Rust; historical PyPI 0.2.0 has a different API. The
 exact development CI consumers for conventional CPython 3.11–3.14. Node packages
 are private, and npm/PyPI publication is outside the release pipeline.
 
+The consumer [agent skill](skills/kisnet-ytm/SKILL.md) allows automatic selection
+for KIS-NET yield lookups, history retrieval, and bond-kind listing through the
+CLI or Node SDK when available in the agent’s skill catalog. Explicit
+`$kisnet-ytm` invocation remains supported.
+
 ## Repository validation
 
 ```sh
