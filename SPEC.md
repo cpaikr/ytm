@@ -179,7 +179,7 @@ terminal-only automatic history progress and nonterminal silence remain.
 
 The finite 30-minute default is an engineering guard, not a measured provider
 throughput guarantee. Choose a larger finite timeout when appropriate. Recorded
-live evidence remains in the [retrieval plan](plans/resilient-history-retrieval.md).
+live evidence remains in the [live acceptance record](docs/history-retrieval-live-acceptance.md).
 
 Rust result and `ErrorDetails` struct literals must include the new optional
 `statistics` field; nested values use `None`. Exhaustive patterns must bind the

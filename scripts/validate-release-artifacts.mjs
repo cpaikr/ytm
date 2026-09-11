@@ -79,7 +79,8 @@ const expectedRootPaths = new Set([
   "LICENSE.md",
   "README.md",
   "SPEC.md",
-  "skills/kisnet-ytm/SKILL.md"
+  "skills/kisnet-ytm/SKILL.md",
+  "skills/kisnet-ytm/agents/openai.yaml"
 ]);
 const expectedRootEntries = [...expectedRootPaths].map((entry) => `package/${entry}`);
 const missingRootEntries = expectedRootEntries.filter((entry) => !rootEntries.includes(entry));

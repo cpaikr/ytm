@@ -22,9 +22,12 @@ and final statistics while preserving default request behavior and selected data
   clean; all five CodeRabbit findings were fixed, accepted and resolved.
   Regression coverage preserves Python cancellation through native bridge
   failures and final counters through cancellation and CLI export failures.
-- Release publication and default-branch promotion remain separate. No new live
-  bulk run was performed. PowerShell-only Windows guide execution was outside
-  this host's coverage and remains separately tracked.
+- The original goal excluded release publication and default-branch promotion.
+  Subsequent PR #51 integrated the work into `main`; CLI version
+  [0.5.0](https://github.com/cpaikr/ytm/releases/tag/v0.5.0) was published on
+  2026-09-10 (UTC). SDK packages remain development-only. No new live bulk run
+  was performed by this delivery. Independent Windows guide execution is an
+  [accepted evidence limitation](windows-installation-visibility.md).
 
 ## Next action
 

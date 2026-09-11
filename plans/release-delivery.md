@@ -1,6 +1,7 @@
 # CLI release migration
 
-Status: original migration certified; subsequent CI cost policy is documented in
+Status: complete — original migration delivered through PR #36; subsequent CI
+cost policy and release operations are documented in
 [the release runbook](../docs/release.md#ci-platform-policy).
 
 ## Original migration outcome
@@ -43,10 +44,10 @@ packaging, and development CI. Historical published artifacts remain intact.
 
 - Full-platform [CI run 34181314759](https://github.com/cpaikr/ytm/actions/runs/34181314759)
   passed on candidate commit `7be5832961c3b915e8abeab6e68a2d82292d6b0c`.
-- [PR #36](https://github.com/cpaikr/ytm/pull/36) integrates the candidate into
-  protected `main`. Direct pushes were rejected even after the exact commit's
-  required checks passed; release delivery uses the PR path and preserves commits.
-- The selected release is `0.3.0`. Its
+- [PR #36](https://github.com/cpaikr/ytm/pull/36) merged into `main` on
+  2026-09-08 as `42f69f3`. Direct pushes had been rejected even after the exact
+  commit's required checks passed; delivery used the PR path and preserved commits.
+- The migration selected and published `0.3.0` on 2026-09-08 (UTC). Its
   [GitHub Release](https://github.com/cpaikr/ytm/releases/tag/v0.3.0) and
   [release workflow runs](https://github.com/cpaikr/ytm/actions/workflows/release.yml)
   are authoritative for publication and artifact-certification status.
@@ -55,3 +56,8 @@ The [runbook](../docs/release.md#prepare-a-release) defines the release
 sequence: prepare without push, merge the certified release commit through a
 PR, push its original tag after confirming ancestry on `origin/main`, and
 manually dispatch certification and publication on that tag.
+
+## Next action
+
+None — the migration is complete. Later releases and CI policy changes are
+owned by the runbook and GitHub release records above, not this delivery plan.

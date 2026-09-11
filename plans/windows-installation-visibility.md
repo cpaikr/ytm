@@ -1,7 +1,7 @@
 # Windows installation visibility
 
-Status: implementation, bounded review, and local validation complete; independent
-Windows consumer validation remains open.
+Status: complete — PR #43 is integrated and issue #42 is closed. Independent
+Windows/MSIX consumer validation remains an explicit evidence limitation.
 
 Scope: [issue #42](https://github.com/cpaikr/ytm/issues/42). Follow the accepted
 mytech guidance at `c6e33a7` for CLI installation, source-to-consumer verification,
@@ -23,7 +23,7 @@ outside this change.
 - Bounded `code-review` found no actionable issues. `harmonize-docs changes`
   reconciled README, the Windows guide, and the release runbook.
 
-## Evidence and remaining work
+## Delivery and validation evidence
 
 - Incident evidence is in issue #42: AppData physical redirection was observed.
   Independent post-recovery help confirmation was for Darty, not YTM.
@@ -49,6 +49,15 @@ outside this change.
   Python 3.9 and stopped at the Python minimum-version check; correcting the
   interpreter resolved it. Changed-document local links and `git diff --check`
   also passed.
-- Next: obtain independent Windows consumer evidence using the guide.
-  [GitHub Releases](https://github.com/cpaikr/ytm/releases) own installer-message
-  publication status; immutable v0.4.0 assets remain unchanged.
+- [Issue closure](https://github.com/cpaikr/ytm/issues/42#issuecomment-5616805920)
+  on 2026-09-10 verified PR #43, its passing Windows consumer checks, and
+  publication of the warning and recovery guidance in v0.4.1. The issue accepted
+  the explicitly unavailable independent Windows/MSIX validation; CI and
+  installer-child shells were not treated as proof of that boundary.
+
+## Next action
+
+None for this delivery. Use the guide for independent Windows verification when
+that environment is available; the evidence gap does not reopen the completed
+issue. [GitHub Releases](https://github.com/cpaikr/ytm/releases) own published
+installer artifacts; immutable v0.4.0 assets remain unchanged.

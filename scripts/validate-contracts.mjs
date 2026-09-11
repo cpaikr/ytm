@@ -227,6 +227,11 @@ for (const relativePath of ["../packages/node/src/client.js", "../packages/node/
 
 const repositorySkill = await readFile(new URL("../skills/kisnet-ytm/SKILL.md", import.meta.url), "utf8");
 const packagedSkill = await readFile(new URL("../packages/node/skills/kisnet-ytm/SKILL.md", import.meta.url), "utf8");
+for (const skillPath of ["skills/kisnet-ytm", "packages/node/skills/kisnet-ytm"]) {
+  const policy = parseDocument(await readFile(new URL(`../${skillPath}/agents/openai.yaml`, import.meta.url), "utf8"), { strict: true, uniqueKeys: true });
+  for (const error of policy.errors) failures.push(`${skillPath} invocation policy: ${error.message}`);
+  check(policy.toJS()?.policy?.allow_implicit_invocation === true, `${skillPath} must allow implicit invocation`);
+}
 const nodeReadme = await readFile(new URL("../packages/node/README.md", import.meta.url), "utf8");
 const clientTypes = await readFile(new URL("../packages/node/src/client.d.ts", import.meta.url), "utf8");
 check(!repositorySkill.includes("Python") && repositorySkill.includes("ytm matrix") && repositorySkill.includes("80` 회사채(사모)"), "the repository skill must cover the active Rust CLI and canonical kind 80");

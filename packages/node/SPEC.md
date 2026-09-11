@@ -1,5 +1,9 @@
 # Current Node package boundary
 
+This describes the private development SDK in this checkout. The release
+pipeline publishes only the standalone CLI; historical npm releases expose an
+earlier implementation. See the [package README](README.md) for local usage.
+
 The public Node client contract is defined by the repository
 [`SPEC.md`](https://github.com/cpaikr/ytm/blob/main/SPEC.md). External HTTP
 and Nexacro details are owned only by

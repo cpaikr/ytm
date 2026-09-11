@@ -2,8 +2,9 @@
 
 Issue #45's full live acceptance **passed** in the single owner-authorized run
 on 2026-09-10 (Korea time). This is a macOS ARM64 assessment, not a reproduction
-on the original Windows x64/PowerShell host. Release publication and production
-qualification remain separate and unapproved by this assessment.
+on the original Windows x64/PowerShell host. This historical assessment did not
+authorize release publication or production qualification. See the [release record](release.md) for subsequent publication
+and [provider qualification](provider-qualification.md) for the operating boundary.
 
 ## Authority and candidate
 
@@ -13,7 +14,7 @@ The immutable [goal contract](../goals/retrieval-live-acceptance.md) and
 and conditional closure authority. No repeat live run was performed.
 
 Provider preflight found no newly recorded withdrawal condition in the provider
-policy or open issue records. The latest existing scheduled smoke runs
+policy or open issue records. The latest scheduled smoke runs available at preflight
 [34317143294](https://github.com/cpaikr/ytm/actions/runs/34317143294),
 [34192715819](https://github.com/cpaikr/ytm/actions/runs/34192715819), and
 [34089482226](https://github.com/cpaikr/ytm/actions/runs/34089482226) succeeded.
@@ -111,5 +112,6 @@ scenario within the deadline; it establishes no general latency or quota claim.
 Independent final evidence review found no actionable issues and confirmed
 the candidate hash, ancestry and every recorded check. [Issue #45 evidence](https://github.com/cpaikr/ytm/issues/45#issuecomment-5610130717)
 records the remote outcome; the final acceptance criterion was checked and
-the issue closed as completed. Local commits are retained for later reviewed
-aggregation under no-PR delivery.
+the issue closed as completed. At assessment close, commits were retained
+locally for later reviewed aggregation under no-PR delivery; subsequent delivery
+is tracked by the [roadmap](../ROADMAP.md).
