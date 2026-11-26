@@ -10,6 +10,10 @@ production stability, reuse rights, quotas, or support. High-volume use,
 retained source bodies, redistribution, and production enablement remain
 unapproved pending an explicit human rights-and-operations decision.
 
+On 2026-11-27 the owner closed the production-enablement question: KIS-NET
+will not be pursued for production qualification. The status above is final
+unless the owner reopens it.
+
 A bounded scheduled smoke may continue as project monitoring. It must remain
 sequential, retain metadata only, and stop if any withdrawal criterion below
 is met.
