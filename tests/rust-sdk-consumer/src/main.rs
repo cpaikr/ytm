@@ -44,6 +44,37 @@ async fn main() -> Result<(), YtmError> {
     let error = client.history(ytm_core::HistoryInput::new(selection)).await.unwrap_err();
     assert_eq!(error.details.code, "insufficient_history");
     assert_eq!(error.details.actual.unwrap()["scannedDateCount"], 1);
+    treasury_consumer().await?;
+    Ok(())
+}
+
+struct TreasuryYear;
+
+#[async_trait]
+impl ytm_core::TreasuryTransport for TreasuryYear {
+    async fn get(
+        &self,
+        request: ytm_core::TreasuryRequest,
+        _cancellation: CancellationToken,
+    ) -> Result<Vec<u8>, YtmError> {
+        assert!(request.url.starts_with(ytm_core::TREASURY_ORIGIN));
+        // Independently authored single-row year in the observed header shape.
+        Ok(b"Date,\"3 Mo\",\"10 Yr\"
+09/30/2025,3.96,4.11".to_vec())
+    }
+}
+
+async fn treasury_consumer() -> Result<(), YtmError> {
+    let selection = ytm_core::DateSelection::dates(vec!["2025-09-30".parse().unwrap(), "2025-09-29".parse().unwrap()]).unwrap();
+    let result = ytm_core::TreasuryService::with_transport(TreasuryYear)
+        .curve(ytm_core::TreasuryCurveInput::new(selection))
+        .await?;
+    assert_eq!((result.available_count, result.unavailable_count), (1, 1));
+    let ytm_core::TreasuryCurveEntry::Available { curve } = &result.entries[1] else {
+        panic!("2025-09-30 is published");
+    };
+    assert_eq!(curve.tenors.iter().map(|tenor| (tenor.tenor, tenor.value)).collect::<Vec<_>>(), [("3M", Some(3.96)), ("10Y", Some(4.11))]);
+    assert_eq!(result.statistics.unwrap().physical_attempt_count, None);
     Ok(())
 }
 

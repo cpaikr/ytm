@@ -1,10 +1,20 @@
-# KIS-NET YTM Matrix Product Contract
+# ytm Product Contract
 
 ## Capability
 
-`ytm` retrieves KIS-NET YTM Matrix rows by `baseDate` (`기준일`) and
-`kind` (`종류`), or all categories across multiple dates with `history`. It
-reproduces the source protocol directly and does not drive a browser.
+`ytm` retrieves data from two independent sources. It reproduces each source
+protocol directly and does not drive a browser.
+
+- **KIS-NET YTM Matrix:** rows by `baseDate` (`기준일`) and `kind` (`종류`),
+  or all categories across multiple dates with `history`. Most of this
+  contract describes this source.
+- **US Treasury daily par yield curve:** the published curve for fixed dates
+  through the separate [Treasury surface](#us-treasury-yield-curve).
+
+The two sources share date formats, fallback vocabulary, retrieval controls,
+statistics, and export publication, but have separate commands, SDK methods,
+request and result types, wire contracts, and provider records. Neither
+reshapes its output to resemble the other.
 
 ## Authority and evidence
 
@@ -18,6 +28,9 @@ reproduces the source protocol directly and does not drive a browser.
 - [`docs/provider-qualification.md`](docs/provider-qualification.md) owns the
   distinction between protocol conformance, observed availability, and
   production suitability.
+- [`contracts/treasury/openapi.yaml`](contracts/treasury/openapi.yaml) is the
+  separate wire authority for the Treasury source, with its own fictional
+  evidence corpus in [`contracts/treasury/cases.json`](contracts/treasury/cases.json).
 
 ## Surface ownership
 
@@ -320,19 +333,20 @@ ytm history (--base-date <date>... | --start-date <date> --end-date <date>) [--f
 ytm history --end-date <date> --count <1..2000> [--start-date <date>] [--operation-timeout-seconds <seconds>] [--format json|csv|tsv|xlsx] [--output <file.xlsx>] [--overwrite] [--pretty]
 ytm matrix --base-date <기준일> --kind <종류> [--fallback previous-available] [--lookback-days <days>] [--operation-timeout-seconds <seconds>] [--format json|csv|tsv|xlsx] [--output <file.xlsx>] [--overwrite] [--pretty]
 ytm kinds [--base-date <기준일>] [--operation-timeout-seconds <seconds>] [--format json|csv|tsv|xlsx] [--output <file.xlsx>] [--overwrite] [--pretty]
+ytm treasury (--base-date <date>... | --start-date <date> --end-date <date>) [--fallback previous-available] [--lookback-days <days>] [--operation-timeout-seconds <seconds>] [--format json|csv|tsv|xlsx] [--output <file.xlsx>] [--overwrite] [--pretty]
 ytm upgrade [--check]
 ```
 
-All three retrieval commands also accept the [retry, pacing, and progress
+All four retrieval commands also accept the [retry, pacing, and progress
 controls](#controls-and-observation).
 
-For `history`, `matrix`, and `kinds`, `--help` or `-h` prints command help without network
+For `history`, `matrix`, `kinds`, and `treasury`, `--help` or `-h` prints command help without network
 I/O while validating supplied options. Value options accept `--option value`
 and `--option=value`; repeated `--pretty` is allowed.
 
 `ytm --version` is network-free and prints exactly `ytm <product-version>`
 followed by one newline on stdout. It has no update-check or other side effect.
-History, matrix, and kinds commands never inspect a receipt, check for updates, wait for
+History, matrix, kinds, and treasury commands never inspect a receipt, check for updates, wait for
 release infrastructure, or change their stdout or exit status because a newer
 release exists.
 
@@ -395,7 +409,7 @@ topic and exits with status 2.
 
 ### CLI Excel export
 
-All three data commands accept `--format xlsx --output <file.xlsx>`. The path must
+All four data commands accept `--format xlsx --output <file.xlsx>`. The path must
 have a nonempty filename ending in `.xlsx` (case-insensitive); relative and
 absolute Unicode paths, spaces, and Korean filenames are supported. The CLI
 does not infer a format, append an extension, create parent directories, or
@@ -520,6 +534,62 @@ Source failures use `source_data_unavailable`, `source_transport_error`,
 `source_protocol_error`, and `source_format_error`. Protocol failures preserve
 the source status and message. Validation failures preserve specific codes and
 machine-readable recovery metadata.
+
+## US Treasury yield curve
+
+The Treasury surface retrieves the US Department of the Treasury
+[daily par yield curve](https://home.treasury.gov/resource-center/data-chart-center/interest-rates/TextView?type=daily_treasury_yield_curve).
+Its wire facts live in [`contracts/treasury/openapi.yaml`](contracts/treasury/openapi.yaml).
+
+| Interface | Entry point |
+| --- | --- |
+| Rust | `TreasuryService::curve*` with `TreasuryCurveInput` (or the `TreasuryCurveRequest` wire shape). |
+| Node | `YtmClient.treasuryCurve(input, options)` and `validateTreasuryCurveInput()`. |
+| Python sync/async | `Client.treasury_curve(...)` / `AsyncClient.treasury_curve(...)`. |
+| CLI | `ytm treasury`. |
+
+- **Selection:** a fixed list (`baseDates`, CLI repeated `--base-date`) or an
+  inclusive range (`startDate`/`endDate`), using the history date formats and
+  the same 2,000-entry bound, normalized, sorted, and deduplicated. There is no
+  kind, pricing group, or count selection; those inputs are rejected.
+- **Fallback:** exact by default; explicit `previous-available` uses the same
+  1–31 day lookback (default 10) and may cross into the prior year.
+- **Requests:** one GET per distinct calendar year read, cached for the
+  invocation only. Bounded recovery, pacing, the retrieval timeout, progress,
+  and cancellation behave as in [bounded retrieval recovery](#bounded-retrieval-recovery);
+  only the exact contract request is replayed. Treasury's per-attempt ceiling is
+  60 seconds because uncached yearly files are generated slowly.
+- **Absence:** a date without a row in a successfully read year, including an
+  empty year body, is confirmed absence. It becomes an `unavailable` entry
+  (exit 0) or advances fallback. Transport, format, and validation failures
+  abort the whole call without partial results.
+- **Strict parsing:** an unknown or repeated tenor header, a row whose field
+  count differs from the header, a malformed or foreign-year date, a repeated
+  date, or a non-numeric yield is a `source_format_error`.
+
+The result contains `requestedDates`, one entry per requested date,
+`availableCount`, `unavailableCount`, `mode`, `lookbackDays`,
+`latestObservationDate` (the newest observation in any file read, so later
+requested dates are not yet published), and `source` (`pageUrl`, `dataset`,
+`method`, and the `files` read with their `year`, `url`, and
+`observationCount`). An `available` entry holds `curve`: `requestedBaseDate`,
+`baseDate`, `dateResolution`, and `tenors`. Each tenor has the canonical
+`tenor` (`1M`, `1.5M`, … `30Y`), the exact source `label`, `months`, percent
+`yield` (or `null` for a published blank cell), and the source `yieldText`.
+Tenors are exactly the columns Treasury published in that observation's year,
+in maturity order; none is interpolated, derived, or mapped to KIS-NET tenors.
+Fatal errors keep the shared error fields; `operationName` is `treasury` and
+`actual` nests the source value as `{ requestedBaseDate, attemptedDate,
+sourceActual }`, as history does. Statistics use the shared shape: `scannedDateCount` counts requested dates and
+physical attempts count yearly requests; KIS-NET discovery and matrix counters
+stay zero.
+
+CSV and TSV print `requestedBaseDate`, `baseDate`, `usedFallback`,
+`availability`, `reason`, then the union of published tenor columns in
+maturity order. XLSX writes `Treasury` and `Metadata` sheets with typed
+numbers, the source files read, and every requested and attempted date, under
+the [Excel publication rules](#cli-excel-export). Its receipt adds
+`availableCount` and `unavailableCount`.
 
 ## Runtime boundary
 

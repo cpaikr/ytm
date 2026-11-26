@@ -335,11 +335,53 @@ for (const target of nativeTargets.targets || []) {
   );
 }
 
+// The Treasury source has its own, independent wire authority and evidence corpus.
+const treasuryText = await readFile(new URL("../contracts/treasury/openapi.yaml", import.meta.url), "utf8");
+const treasuryValidation = await new Validator().validate(treasuryText);
+if (!treasuryValidation.valid) {
+  const errors = typeof treasuryValidation.errors === "string" ? [treasuryValidation.errors] : treasuryValidation.errors;
+  for (const error of errors || []) {
+    failures.push(`Treasury OpenAPI 3.1 schema: ${error.instancePath || "/"} ${error.message || String(error)}`);
+  }
+}
+const treasuryDocument = parseDocument(treasuryText, { prettyErrors: true, strict: true, uniqueKeys: true });
+for (const error of treasuryDocument.errors) failures.push(`Treasury OpenAPI YAML: ${error.message}`);
+const treasury = treasuryDocument.toJS();
+const treasuryProfile = treasury?.["x-ytm-treasury-profile"];
+equal(treasury?.servers, [{ url: "https://home.treasury.gov", description: "US Department of the Treasury resource center origin" }], "Treasury OpenAPI must allow exactly one source origin");
+check(treasury?.["x-ytm-authority"]?.role === "sole-external-http-wire-authority", "Treasury OpenAPI must declare its wire-authority role");
+equal(Object.keys(treasury?.paths || {}), [treasuryProfile?.request?.pathTemplate], "Treasury OpenAPI must expose exactly the profile path");
+equal(Object.keys(treasury?.paths?.[treasuryProfile?.request?.pathTemplate] || {}), ["get"], "Treasury path must expose GET only");
+check(treasury?.paths?.[treasuryProfile?.request?.pathTemplate]?.get?.operationId === "treasuryYieldCurve", "Treasury operationId must be treasuryYieldCurve");
+const treasuryTenors = treasuryProfile?.tenors || [];
+check(treasuryTenors.length > 0, "Treasury profile must declare tenor labels");
+check(new Set(treasuryTenors.map(({ label }) => label)).size === treasuryTenors.length, "Treasury tenor labels must be unique");
+check(treasuryTenors.every((tenor, index) => index === 0 || tenor.months > treasuryTenors[index - 1].months), "Treasury tenors must be in ascending maturity order");
+check(
+  treasuryProfile?.request?.example === `${treasury?.servers?.[0]?.url}${treasuryProfile?.request?.pathTemplate.replace("{year}", "2025")}?${treasuryProfile?.request?.query.replaceAll("{year}", "2025")}`,
+  "Treasury request example must instantiate the path and query templates"
+);
+const treasuryCases = JSON.parse(await readFile(new URL("../contracts/treasury/cases.json", import.meta.url), "utf8"));
+const knownTreasuryTenors = new Set(treasuryTenors.map(({ tenor }) => tenor));
+const referencedCsv = new Set();
+for (const parseCase of treasuryCases?.parseCases || []) {
+  check(/^[A-Za-z0-9][A-Za-z0-9._-]*\.csv$/.test(parseCase.fixture), `Treasury case ${parseCase.name} must name one CSV file`);
+  check(!referencedCsv.has(parseCase.fixture), `Treasury fixture ${parseCase.fixture} must be referenced once`);
+  referencedCsv.add(parseCase.fixture);
+  check(["ok", "source_format_error"].includes(parseCase.outcome), `Treasury case ${parseCase.name} has an unknown outcome`);
+  for (const tenor of parseCase.tenors || []) check(knownTreasuryTenors.has(tenor), `Treasury case ${parseCase.name} uses unknown tenor ${tenor}`);
+}
+const treasuryCsvFiles = (await readdir(new URL("../contracts/treasury/", import.meta.url), { withFileTypes: true }))
+  .filter((entry) => entry.isFile() && entry.name.endsWith(".csv"))
+  .map((entry) => entry.name)
+  .sort();
+equal(treasuryCsvFiles, [...referencedCsv].sort(), "Treasury cases.json must declare every contracts/treasury CSV file exactly once");
+
 if (failures.length > 0) {
   console.error(failures.map((failure) => `- ${failure}`).join("\n"));
   process.exit(1);
 }
-console.log("wire authority, evidence boundary, and native target selection are valid");
+console.log("wire authorities, evidence boundaries, and native target selection are valid");
 
 function serializeRequestExample(request, requestExample) {
   if (!request?.search?.orderedColumns || !request?.transaction?.orderedColumns) return undefined;

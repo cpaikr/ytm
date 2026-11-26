@@ -11,6 +11,7 @@ mod request;
 mod service;
 mod statistics;
 mod transport;
+mod treasury;
 
 #[cfg(feature = "judge-fixtures")]
 pub mod judge;
@@ -27,7 +28,15 @@ pub use model::{
 pub use service::YtmService;
 pub use statistics::{RetrievalProgress, RetrievalStatistics};
 pub use tokio_util::sync::CancellationToken;
-pub use transport::{HttpTransport, PreparedRequest, Transport};
+pub use transport::{
+    HttpTransport, PreparedRequest, Transport, TreasuryRequest, TreasuryTransport,
+};
+pub use treasury::{
+    TreasuryCurve, TreasuryCurveEntry, TreasuryCurveInput, TreasuryCurveRequest,
+    TreasuryCurveResult, TreasuryService, TreasurySource, TreasurySourceFile, TreasuryTenor,
+    TREASURY_DATASET, TREASURY_ORIGIN, TREASURY_PAGE_URL, TREASURY_REQUEST_DEADLINE_SECONDS,
+    TREASURY_TENORS,
+};
 
 pub type YtmClient = YtmService;
 

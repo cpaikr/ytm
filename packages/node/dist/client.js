@@ -58,6 +58,16 @@ const methodSpecs = {
       }
     ]
   },
+  treasuryCurve: {
+    requiredInputKeys: [],
+    inputJsonSchema: { type: "object", additionalProperties: false, properties: {
+      baseDates: { type: "array", minItems: 1, maxItems: 2000, items: { type: "string" } },
+      startDate: { type: "string" }, endDate: { type: "string" },
+      fallback: { type: "string", enum: ["exact", FALLBACK_PREVIOUS_AVAILABLE] },
+      lookbackDays: { type: "integer", minimum: 1, maximum: MAX_LOOKBACK_DAYS }
+    } },
+    examples: [{ baseDates: ["2025-09-30"] }]
+  },
   kinds: {
     requiredInputKeys: [],
     inputJsonSchema: {
@@ -121,6 +131,11 @@ export class YtmClient {
   kinds(input = {}, options = {}) {
     return executeOperation("kinds", input, options);
   }
+
+  /** US Treasury daily par yield curve, a source separate from KIS-NET. */
+  treasuryCurve(input, options = {}) {
+    return executeOperation("treasuryCurve", input, options);
+  }
 }
 
 export function validateHistoryInput(input) {
@@ -133,6 +148,10 @@ export function validateMatrixInput(input) {
 
 export function validateKindsInput(input = {}) {
   return validateInput("kinds", input);
+}
+
+export function validateTreasuryCurveInput(input) {
+  return validateInput("treasuryCurve", input);
 }
 
 export function serializeYtmError(error) {
@@ -203,7 +222,12 @@ async function executeOperation(operationName, input, options) {
     throw cause instanceof YtmError ? cause : new YtmError(serializeError(cause));
   }
   if (!envelope || envelope.ok !== true) {
-    throw new YtmError(envelope?.error ?? nativeEnvelopeError(operationName));
+    const error = envelope?.error ?? nativeEnvelopeError(operationName);
+    // The core names this operation "treasury"; the Node method is treasuryCurve.
+    if (operationName === "treasuryCurve" && isRecord(error) && error.operationName === "treasury") {
+      error.operationName = operationName;
+    }
+    throw new YtmError(error);
   }
   if (!isOperationResult(operationName, envelope.value)) {
     throw new YtmError(nativeEnvelopeError(operationName));
@@ -269,6 +293,29 @@ function validateInput(operationName, input) {
         })
       };
     }
+  }
+
+  if (operationName === "treasuryCurve") {
+    const fail = (parameter, reason) => ({ ok: false, error: validationError({
+      operationName, code: "invalid_parameter", parameter, reason,
+      recoveryHint: "Select a date list or an inclusive range (maximum 2000)."
+    }) });
+    if (input.baseDates !== undefined) {
+      if (input.startDate !== undefined || input.endDate !== undefined || !Array.isArray(input.baseDates) ||
+          input.baseDates.length < 1 || input.baseDates.length > 2000 || Array.from(input.baseDates).some(date => typeof date !== "string")) {
+        return fail("baseDates", "Select 1..=2000 date strings without range bounds.");
+      }
+    } else if (typeof input.startDate !== "string" || typeof input.endDate !== "string") {
+      return fail("dates", "Supply baseDates or both startDate and endDate.");
+    }
+    if (input.fallback !== undefined && !["exact", FALLBACK_PREVIOUS_AVAILABLE].includes(input.fallback)) {
+      return fail("fallback", `fallback must be exact or ${FALLBACK_PREVIOUS_AVAILABLE}.`);
+    }
+    if (input.lookbackDays !== undefined && (input.fallback !== FALLBACK_PREVIOUS_AVAILABLE || normalizeLookbackDays(input.lookbackDays) === null)) {
+      return fail("lookbackDays", `lookbackDays requires ${FALLBACK_PREVIOUS_AVAILABLE} and an integer from 1 to ${MAX_LOOKBACK_DAYS}.`);
+    }
+    // Shape checks here; Rust owns calendar validation, expansion and ordering.
+    return { ok: true, input: { ...input } };
   }
 
   if (operationName === "history") {
@@ -680,6 +727,17 @@ function isOperationResult(operationName, value, topLevel = true) {
         value.countSelection.scannedDateCount >= value.countSelection.count && value.countSelection.scannedDateCount <= 2000)) &&
       Number.isInteger(value.availableCount) && Number.isInteger(value.unavailableCount) && Number.isInteger(value.dataRowCount);
   }
+  if (operationName === "treasuryCurve") {
+    return Array.isArray(value.requestedDates) && Array.isArray(value.entries) &&
+      value.entries.length === value.requestedDates.length &&
+      value.entries.every(entry => isRecord(entry) &&
+        (entry.availability === "available" ? isTreasuryCurve(entry.curve) :
+          entry.availability === "unavailable" && typeof entry.requestedBaseDate === "string" &&
+          Array.isArray(entry.attemptedDates) && typeof entry.reason === "string")) &&
+      Number.isInteger(value.availableCount) && Number.isInteger(value.unavailableCount) &&
+      (value.latestObservationDate === null || typeof value.latestObservationDate === "string") &&
+      isRecord(value.source) && Array.isArray(value.source.files);
+  }
   if (!isRecord(value) || !isRecord(value.source)) return false;
   if (operationName === "kinds") {
     return (
@@ -714,6 +772,15 @@ function isDateResolution(value) {
   );
 }
 
+function isTreasuryCurve(value) {
+  return isRecord(value) && typeof value.requestedBaseDate === "string" &&
+    typeof value.baseDate === "string" && isDateResolution(value.dateResolution) &&
+    Array.isArray(value.tenors) && value.tenors.every(tenor => isRecord(tenor) &&
+      typeof tenor.tenor === "string" && typeof tenor.label === "string" &&
+      typeof tenor.months === "number" && typeof tenor.yieldText === "string" &&
+      (tenor.yield === null || typeof tenor.yield === "number"));
+}
+
 function isYtmKind(value) {
   return isRecord(value) && typeof value.code === "string" && typeof value.name === "string";
 }
@@ -736,7 +803,7 @@ function isStringRecord(value) {
 }
 
 function isMethodName(value) {
-  return value === "matrix" || value === "kinds" || value === "history";
+  return value === "matrix" || value === "kinds" || value === "history" || value === "treasuryCurve";
 }
 
 function isRecord(value) {

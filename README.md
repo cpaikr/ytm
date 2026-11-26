@@ -1,6 +1,7 @@
 # KIS-NET YTM
 
-KIS-NET YTM Matrix access backed by one Rust HTTP, Nexacro, and domain core.
+KIS-NET YTM Matrix access, plus a separate US Treasury daily par yield curve
+source, backed by one Rust HTTP, parser, and domain core.
 The current checkout exposes that core as a public Rust SDK, through a
 Rust-backed Node SDK, typed sync/async Python clients, and a standalone
 Rust/Clap CLI. The Node package
@@ -178,6 +179,25 @@ returns a JSON receipt after the workbook is saved. Workbooks preserve numeric
 yields, blank missing values, literal Korean labels, and a separate provenance
 sheet. Excel is not required to export. See the [Excel contract](SPEC.md#cli-excel-export)
 for file safety and typed-cell details.
+
+### US Treasury yield curve
+
+`treasury` retrieves the US Treasury daily par yield curve, a source separate
+from KIS-NET with its own result shape:
+
+```sh
+bun run cli -- treasury --base-date 2025-09-30 --format csv
+bun run cli -- treasury --start-date 2025-09-01 --end-date 2025-09-30 --format xlsx --output treasury.xlsx
+```
+
+It accepts repeated `--base-date` values or an inclusive range (up to 2,000
+dates) and the same exact or `--fallback previous-available` resolution.
+Each date reports the tenors Treasury published that year (1M through 30Y) as
+percent par yields; nothing is interpolated or mapped to KIS-NET tenors.
+Node uses `client.treasuryCurve({ baseDates })` and Python
+`client.treasury_curve(base_dates=[...])`. See the
+[Treasury contract](SPEC.md#us-treasury-yield-curve) and its
+[provider record](docs/treasury-provider-qualification.md).
 
 The standalone binary also exposes an exact, network-free identity:
 

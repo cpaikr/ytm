@@ -1,0 +1,146 @@
+openapi: 3.1.0
+info:
+  title: US Treasury Daily Par Yield Curve HTTP Contract
+  version: 1.0.0
+  description: >-
+    Repository authority for the external HTTP and CSV boundary used by the
+    ytm Treasury source. It is independent of the KIS-NET contract. Product
+    behavior, normalized results, and adapter APIs are outside this contract.
+servers:
+  - url: https://home.treasury.gov
+    description: US Department of the Treasury resource center origin
+security: []
+tags:
+  - name: Daily Treasury Par Yield Curve
+
+x-ytm-authority:
+  role: sole-external-http-wire-authority
+  evidenceCorpus: contracts/treasury/cases.json
+  generatedConsumers: []
+  handwrittenConformer: crates/ytm-core
+  knownBoundary:
+    closed:
+      - origin
+      - path and query
+      - method
+      - response HTTP status
+      - response media type
+      - CSV structural profile
+      - tenor header labels
+    open:
+      - which tenor columns a year publishes
+      - which dates a year publishes
+
+x-ytm-treasury-profile:
+  version: 1
+  dataset: daily_treasury_yield_curve
+  request:
+    method: GET
+    pathTemplate: /resource-center/data-chart-center/interest-rates/daily-treasury-rates.csv/{year}/all
+    query: type=daily_treasury_yield_curve&field_tdr_date_value={year}&page&_format=csv
+    accept: text/csv, */*
+    example: https://home.treasury.gov/resource-center/data-chart-center/interest-rates/daily-treasury-rates.csv/2025/all?type=daily_treasury_yield_curve&field_tdr_date_value=2025&page&_format=csv
+    granularity: one calendar year per request
+  transport:
+    redirects: forbidden
+    proxies: disabled
+    requestDeadlineMilliseconds: 60000
+    observedTimeToFirstByteMilliseconds: 19000
+    replay: only the exact year request above, under the shared bounded recovery policy
+  response:
+    status: 200
+    mediaType: text/csv
+    charset: optional; UTF-8 when present
+    maxDecompressedBodyBytes: 1048576
+    encoding: UTF-8
+    bom: optional-single-utf8
+    lineEndings: LF or CRLF
+    emptyBody: confirmed absence of any observation for the year; a header without rows is the same
+    trailingLineBreaks: ignored; interior blank lines are malformed
+    header:
+      firstField: Date
+      tenorFields: labels from the tenors table (observed quoted), each at most once, in source order
+      unknownLabel: source format error
+    rows:
+      fieldCount: equal to the header
+      date: zero-padded MM/DD/YYYY within the requested year, unique per file
+      order: not significant
+      yieldCell: empty, or an optional minus sign, digits, and an optional fraction
+      quoting: RFC 4180 without embedded line breaks
+    absence: a date without a row in a successfully read year is confirmed unavailable
+  tenors:
+    - { label: 1 Mo, tenor: 1M, months: 1 }
+    - { label: 1.5 Month, tenor: 1.5M, months: 1.5 }
+    - { label: 2 Mo, tenor: 2M, months: 2 }
+    - { label: 3 Mo, tenor: 3M, months: 3 }
+    - { label: 4 Mo, tenor: 4M, months: 4 }
+    - { label: 6 Mo, tenor: 6M, months: 6 }
+    - { label: 1 Yr, tenor: 1Y, months: 12 }
+    - { label: 2 Yr, tenor: 2Y, months: 24 }
+    - { label: 3 Yr, tenor: 3Y, months: 36 }
+    - { label: 5 Yr, tenor: 5Y, months: 60 }
+    - { label: 7 Yr, tenor: 7Y, months: 84 }
+    - { label: 10 Yr, tenor: 10Y, months: 120 }
+    - { label: 20 Yr, tenor: 20Y, months: 240 }
+    - { label: 30 Yr, tenor: 30Y, months: 360 }
+
+paths:
+  /resource-center/data-chart-center/interest-rates/daily-treasury-rates.csv/{year}/all:
+    get:
+      operationId: treasuryYieldCurve
+      tags: [Daily Treasury Par Yield Curve]
+      summary: Daily par yield curve rates for one calendar year
+      parameters:
+        - name: year
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 9999
+        - name: type
+          in: query
+          required: true
+          schema:
+            type: string
+            const: daily_treasury_yield_curve
+        - name: field_tdr_date_value
+          in: query
+          required: true
+          description: Must equal the path year.
+          schema:
+            type: integer
+        - name: page
+          in: query
+          required: true
+          allowEmptyValue: true
+          schema:
+            type: string
+            const: ""
+        - name: _format
+          in: query
+          required: true
+          schema:
+            type: string
+            const: csv
+      responses:
+        "200":
+          description: >-
+            CSV for the year, newest date first as observed. An empty body
+            means the year has no published observations. The root
+            x-ytm-treasury-profile is normative for structure.
+          content:
+            text/csv:
+              schema:
+                $ref: "#/components/schemas/YieldCurveCsv"
+        default:
+          description: Any other status is a transport failure; redirects are not followed.
+
+components:
+  schemas:
+    YieldCurveCsv:
+      type: string
+      contentMediaType: text/csv
+      description: >-
+        Header `Date` followed by tenor labels, then one row per published
+        business day with percent par yields (bond-equivalent basis).

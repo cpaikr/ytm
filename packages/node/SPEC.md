@@ -13,12 +13,15 @@ The package requires Node.js 22 or newer and supports Linux GNU x64/ARM64,
 macOS ARM64, and Windows x64 through exact-version optional native packages.
 The GNU/Linux artifacts require glibc 2.28 or newer.
 The root package export provides `YtmClient` with typed `history()`, `matrix()`, and `kinds()`
-methods. `validateHistoryInput()`, `validateMatrixInput()`, and `validateKindsInput()` return
+methods for KIS-NET and a separate `treasuryCurve()` method for the US Treasury daily par yield
+curve ([Treasury contract](https://github.com/cpaikr/ytm/blob/main/SPEC.md#us-treasury-yield-curve)).
+`validateHistoryInput()`, `validateMatrixInput()`, `validateKindsInput()`, and
+`validateTreasuryCurveInput()` return
 `{ ok: true, input }` or `{ ok: false, error }` without network I/O;
 validation and execution errors expose stable `name` and `message` fields,
 project `code`/`reason`, a tagged `recoveryAction`, and optional typed `retry`
 metadata and final `statistics` when retrieval started. Every successful top-level result has final
-`statistics`. All three methods accept `RequestOptions` with `signal`, positive
+`statistics`. All four methods accept `RequestOptions` with `signal`, positive
 safe-integer `operationTimeoutMs`, bounded `maxRetries`, nonnegative safe-integer
 `baseBackoffMs`, `maxBackoffMs`, `minRequestIntervalMs`, and optional
 single-use `RetrievalProgress`. Pull snapshots coalesce without callbacks. Input validation precedes execution-option

@@ -44,7 +44,7 @@ export interface KindsInput {
 
 export type RecoveryAction =
   | { readonly kind: "review_client_usage" }
-  | { readonly kind: "review_method_input"; readonly method: "matrix" | "kinds" | "history" }
+  | { readonly kind: "review_method_input"; readonly method: "matrix" | "kinds" | "history" | "treasuryCurve" }
   | { readonly kind: "use_previous_available_fallback" }
   | { readonly kind: "try_nearby_business_day" }
   | { readonly kind: "adjust_history_selection" }
@@ -165,6 +165,11 @@ export class YtmClient {
     input?: KindsInput,
     options?: RequestOptions
   ): Promise<ListYtmKindsResult & { readonly statistics: RetrievalStatistics }>;
+  /** US Treasury daily par yield curve, a source separate from KIS-NET. */
+  treasuryCurve(
+    input: TreasuryCurveInput,
+    options?: RequestOptions
+  ): Promise<TreasuryCurveResult & { readonly statistics: RetrievalStatistics }>;
 }
 
 export class YtmError extends Error {
@@ -210,3 +215,49 @@ export interface HistoryResult {
   readonly lookbackDays: number;
 }
 export function validateHistoryInput(input: unknown): ValidationResult<HistoryInput>;
+
+/** Exactly one date selection; Rust validates, sorts and deduplicates up to 2000 dates. */
+export type TreasuryCurveInput = (
+  | { readonly baseDates: readonly string[]; readonly startDate?: never; readonly endDate?: never }
+  | { readonly baseDates?: never; readonly startDate: string; readonly endDate: string }
+) & { readonly fallback?: "exact" | "previous-available"; readonly lookbackDays?: number };
+export interface TreasuryTenor {
+  /** Canonical maturity such as "1.5M" or "10Y". */
+  readonly tenor: string;
+  /** Exact source column header such as "1.5 Month" or "10 Yr". */
+  readonly label: string;
+  readonly months: number;
+  /** Percent par yield; null for a published blank cell. */
+  readonly yield: number | null;
+  readonly yieldText: string;
+}
+export interface TreasuryCurve {
+  readonly requestedBaseDate: string;
+  readonly baseDate: string;
+  readonly dateResolution: DateResolution;
+  /** Tenors published in the observation's yearly file, in maturity order. */
+  readonly tenors: readonly TreasuryTenor[];
+}
+export type TreasuryCurveEntry =
+  | { readonly availability: "available"; readonly curve: TreasuryCurve }
+  | { readonly availability: "unavailable"; readonly requestedBaseDate: string;
+      readonly attemptedDates: readonly string[]; readonly mode: "exact" | "previous-available";
+      readonly lookbackDays: number; readonly reason: string };
+export interface TreasuryCurveResult {
+  readonly statistics?: RetrievalStatistics;
+  readonly requestedDates: readonly string[];
+  readonly entries: readonly TreasuryCurveEntry[];
+  readonly availableCount: number;
+  readonly unavailableCount: number;
+  readonly mode: "exact" | "previous-available";
+  readonly lookbackDays: number;
+  /** Newest observation in any yearly file read; later requested dates are not yet published. */
+  readonly latestObservationDate: string | null;
+  readonly source: {
+    readonly pageUrl: string;
+    readonly dataset: string;
+    readonly method: "GET";
+    readonly files: readonly { readonly year: number; readonly url: string; readonly observationCount: number }[];
+  };
+}
+export function validateTreasuryCurveInput(input: unknown): ValidationResult<TreasuryCurveInput>;

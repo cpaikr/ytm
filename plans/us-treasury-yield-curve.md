@@ -42,30 +42,22 @@ These are planning observations; the new wire contract becomes their authority.
 | Absence | Non-business days have no row. Dates after the latest publication have no row. |
 | Rights | US federal government work; no automated-use restriction was found, but that is not yet recorded as a qualification decision. |
 
-## Proposed behavior
+## Behavior
 
-- **CLI:** a new `ytm treasury` command with `--base-date <date>...` or
-  `--start-date`/`--end-date`, `--fallback previous-available`,
-  `--lookback-days`, the existing retry/pacing/timeout/progress controls, and
-  `--format json|csv|tsv|xlsx` with the existing publication rules. Existing
-  `matrix`, `kinds`, and `history` are unchanged.
-- **SDKs:** a dedicated Treasury method and input/result types per surface
-  (Rust `TreasuryInput`/`TreasuryCurveResult`, Node `treasuryCurve`, Python
-  `treasury_curve`; final names settle in the SPEC change).
-- **Result:** per requested date, `requestedBaseDate`, `actualBaseDate`,
-  `attemptedDates`, `usedFallback`, and ordered `tenors` of
-  `{ label, months, yield, yieldText }`, where `label` is the source header,
-  `months` is the parsed maturity, and `yield` is a percent number or `null`.
-  Source provenance names the Treasury dataset and the files read.
-- **Tenors:** only those the source publishes for that date, ordered by
-  maturity. No interpolation, KIS tenor mapping, or derived curves.
-- **Fallback:** a missing row in a successfully read year file is confirmed
-  absence and may advance previous-available lookup, crossing into the prior
-  year's file when needed. A requested date after the source's latest published
-  date is reported as unavailable, distinct from a holiday. Transport, format,
-  and validation failures stop retrieval as they do for KIS-NET.
-- **Requests:** one request per distinct year, cached within the invocation.
-  Bounded recovery applies with Treasury's exact origin and path allowlist.
+The [Treasury contract](../SPEC.md#us-treasury-yield-curve) owns implemented
+behavior; [`contracts/treasury/openapi.yaml`](../contracts/treasury/openapi.yaml)
+owns wire facts. Implementation decisions made under the goal's delegated
+authority:
+
+- **Not-yet-published dates:** results expose `latestObservationDate` (the
+  newest observation in any file read) instead of a separate unavailable
+  reason, because a year file alone cannot distinguish a year-end holiday from
+  a date the source has not published yet.
+- **Per-attempt ceiling:** 60 seconds for Treasury (KIS-NET keeps 20), since
+  uncached yearly files took about 19 seconds to first byte.
+- **Statistics:** the shared shape is reused; `scannedDateCount` counts
+  requested dates, physical attempts count yearly requests, and the KIS-NET
+  discovery and matrix counters stay zero.
 
 ## Owner decisions
 
@@ -79,6 +71,10 @@ Accepted by the owner on 2026-11-26.
 | D4 | Provider qualification for Treasury. | A separate Treasury record under `docs/` states public-domain status, bounded sequential access, and no body retention, and marks the source production-suitable. |
 
 ## Delivery slices
+
+All four slices ship together in one PR into `codex/us-treasury-integration`,
+as the owner asked for PRs in large chunks; one integration PR then merges the
+branch into `main`.
 
 1. **Contract and core:** add `contracts/treasury/openapi.yaml` with fictional
    CSV fixtures and `cases.json`. Add a Treasury source module with strict CSV
@@ -112,8 +108,16 @@ licensing terms; bootstrapping, discount factors, or zero curves; real-yield,
 bill-rate, or other Treasury datasets; persistence or scheduled collection;
 release publication.
 
+## Current state
+
+All four slices are implemented and validated locally: workspace tests,
+clippy, doc tests, the external Rust consumer, contract checks, the KIS-NET
+judge (only intended help and client-surface goldens changed), the Treasury
+judge across CLI, Node, and installed Python, and a bounded live acceptance
+recorded in the [provider record](../docs/treasury-provider-qualification.md).
+Release notes come from the Conventional Commit at release time.
+
 ## Next action
 
-Start slice 1 on a branch from `codex/us-treasury-integration`: author
-`contracts/treasury/openapi.yaml` and fictional fixtures for each observed
-header set.
+Open the implementation PR into `codex/us-treasury-integration`, address
+review, merge, then merge the integration branch into `main`.
