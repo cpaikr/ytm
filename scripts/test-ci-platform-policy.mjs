@@ -26,13 +26,23 @@ console.log('CI platform policy covers integration, development, queue, dispatch
 // Execute the actual aggregate step, including failed/skipped positive controls.
 const workflow = parse(readFileSync('.github/workflows/ci.yml', 'utf8'));
 const gate = workflow.jobs['platform-gate'];
+// The step calls `python3`, which Windows Python installs do not provide.
+// Shim it there so the exact workflow step still runs locally.
+const gateEnvironment = { ...process.env };
+let python3Shim;
+if (process.platform === 'win32' && spawnSync('bash', ['-c', 'command -v python3']).status !== 0) {
+  python3Shim = mkdtempSync(join(tmpdir(), 'ytm-python3-'));
+  writeFileSync(join(python3Shim, 'python3'), '#!/bin/sh\nexec python "$@"\n');
+  const pathKey = Object.keys(gateEnvironment).find(key => key.toUpperCase() === 'PATH') ?? 'PATH';
+  gateEnvironment[pathKey] = `${python3Shim};${gateEnvironment[pathKey] ?? ''}`;
+}
 for (const full of [true, false]) {
   const needs = Object.fromEntries(gate.needs.map(name => [name, {
     result: !full && ['cli-artifact-set', 'cli-consumer', 'python-candidate'].includes(name) ? 'skipped' : 'success',
     outputs: name === 'cli-metadata' ? { full: String(full) } : {}
   }]));
   const run = state => spawnSync('bash', ['-c', gate.steps[0].run], {
-    env: { ...process.env, NEEDS_JSON: JSON.stringify(state) }, encoding: 'utf8'
+    env: { ...gateEnvironment, NEEDS_JSON: JSON.stringify(state) }, encoding: 'utf8'
   });
   assert.equal(run(needs).status, 0);
   for (const name of gate.needs) {
@@ -45,6 +55,7 @@ for (const full of [true, false]) {
     }
   }
 }
+if (python3Shim) rmSync(python3Shim, { recursive: true, force: true });
 console.log('Actual aggregate gate rejects failed and unexpectedly skipped prerequisites');
 
 const manualCandidate = parse(readFileSync('.github/workflows/cross-platform-candidate.yml', 'utf8'));
