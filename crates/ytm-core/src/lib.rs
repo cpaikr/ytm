@@ -34,8 +34,8 @@ pub use transport::{
 pub use treasury::{
     TreasuryCurve, TreasuryCurveEntry, TreasuryCurveInput, TreasuryCurveRequest,
     TreasuryCurveResult, TreasuryService, TreasurySource, TreasurySourceFile, TreasuryTenor,
-    TREASURY_DATASET, TREASURY_ORIGIN, TREASURY_PAGE_URL, TREASURY_REQUEST_DEADLINE_SECONDS,
-    TREASURY_TENORS,
+    MAX_TREASURY_YEARS, TREASURY_DATASET, TREASURY_ORIGIN, TREASURY_PAGE_URL,
+    TREASURY_REQUEST_DEADLINE_SECONDS, TREASURY_TENORS,
 };
 
 pub type YtmClient = YtmService;

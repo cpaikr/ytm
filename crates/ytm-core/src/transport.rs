@@ -312,11 +312,14 @@ impl HttpTransport {
 struct SourceProfile {
     label: &'static str,
     attempt_deadline: Duration,
+    /// KIS-NET tolerates a missing Content-Type; Treasury's contract requires one.
+    requires_content_type: bool,
 }
 
 const KISNET: SourceProfile = SourceProfile {
     label: "KIS-NET",
     attempt_deadline: Duration::from_secs(REQUEST_DEADLINE_SECONDS),
+    requires_content_type: false,
 };
 
 // Treasury generates uncached yearly CSV files slowly (about 19 s to first byte
@@ -324,6 +327,7 @@ const KISNET: SourceProfile = SourceProfile {
 const TREASURY: SourceProfile = SourceProfile {
     label: "Treasury",
     attempt_deadline: Duration::from_secs(TREASURY_REQUEST_DEADLINE_SECONDS),
+    requires_content_type: true,
 };
 
 async fn read_response(
@@ -350,12 +354,18 @@ async fn read_response(
             retry_after,
         });
     }
-    if let Some(content_type) = response.headers().get(header::CONTENT_TYPE) {
-        if !content_type.to_str().is_ok_and(accepts_content_type) {
+    match response.headers().get(header::CONTENT_TYPE) {
+        Some(content_type) if !content_type.to_str().is_ok_and(accepts_content_type) => {
             return Err(AttemptFailure::terminal(YtmError::format(format!(
                 "{label} HTTP 200 response Content-Type must use {expected_content_type} when present."
             ))));
         }
+        None if profile.requires_content_type => {
+            return Err(AttemptFailure::terminal(YtmError::format(format!(
+                "{label} HTTP 200 response must declare Content-Type {expected_content_type}."
+            ))));
+        }
+        _ => {}
     }
     let mut stream = response.bytes_stream();
     let mut body = Vec::new();
@@ -464,6 +474,21 @@ impl TreasuryTransport for HttpTransport {
     ) -> Result<Vec<u8>, YtmError> {
         context.progress().account_http_lookup()?;
         let operation = request.operation;
+        // Origin is checked on the caller's URL, before any fixture rewrite.
+        if !crate::treasury::is_treasury_origin(&request.url) {
+            let error = YtmError::invalid_parameter(
+                crate::treasury::OPERATION,
+                "url",
+                format!(
+                    "Treasury requests must target {}.",
+                    crate::treasury::TREASURY_ORIGIN
+                ),
+                serde_json::Value::String(request.url),
+            );
+            return context
+                .finish(Err(error), operation)
+                .map_err(crate::treasury::retarget);
+        }
         let can_retry = crate::treasury::is_supported_request(&request);
         #[cfg(any(test, feature = "judge-fixtures"))]
         let url = match &self.origin {
@@ -481,7 +506,10 @@ impl TreasuryTransport for HttpTransport {
                 |timeout| self.get_attempt(&url, timeout),
             )
             .await;
-        context.finish(result, operation)
+        // Direct transport callers get Treasury guidance, not KIS-NET's.
+        context
+            .finish(result, operation)
+            .map_err(crate::treasury::retarget)
     }
 }
 
@@ -499,8 +527,13 @@ pub(crate) fn is_treasury_content_type(value: &str) -> bool {
     }
     charset.is_none_or(|charset| {
         charset.split_once('=').is_some_and(|(name, value)| {
-            name.trim().eq_ignore_ascii_case("charset")
-                && value.trim().eq_ignore_ascii_case("UTF-8")
+            // RFC 9110 parameter values may be quoted with the same meaning.
+            let value = value.trim();
+            let value = value
+                .strip_prefix('"')
+                .and_then(|inner| inner.strip_suffix('"'))
+                .unwrap_or(value);
+            name.trim().eq_ignore_ascii_case("charset") && value.eq_ignore_ascii_case("UTF-8")
         })
     })
 }

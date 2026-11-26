@@ -64,7 +64,7 @@ and cancellation abort the call. The shared [history contract](../../SPEC.md#mul
 owns all-category targeting, fallback, ordering, and provenance semantics.
 
 `treasury_curve` accepts the same fixed selections and fallback as history,
-without `count`. `TreasuryCurveResult` contains `requested_dates`, `entries`,
+without `count`, touching at most eight calendar years including fallback. `TreasuryCurveResult` contains `requested_dates`, `entries`,
 `available_count`, `unavailable_count`, `mode`, `lookback_days`,
 `latest_observation_date`, `source` (`TreasurySource` with `TreasurySourceFile`
 values), and `statistics`. `TreasuryEntry` is a union of

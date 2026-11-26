@@ -551,11 +551,15 @@ Its wire facts live in [`contracts/treasury/openapi.yaml`](contracts/treasury/op
 - **Selection:** a fixed list (`baseDates`, CLI repeated `--base-date`) or an
   inclusive range (`startDate`/`endDate`), using the history date formats and
   the same 2,000-entry bound, normalized, sorted, and deduplicated. There is no
-  kind, pricing group, or count selection; those inputs are rejected.
+  kind, pricing group, or count selection; those inputs are rejected. Before
+  any request, a selection whose dates and fallback windows touch more than
+  eight calendar years is an `invalid_parameter` error; split it into smaller
+  calls. Any 2,000-day range stays within the bound.
 - **Fallback:** exact by default; explicit `previous-available` uses the same
   1–31 day lookback (default 10) and may cross into the prior year.
 - **Requests:** one GET per distinct calendar year read, cached for the
-  invocation only. Bounded recovery, pacing, the retrieval timeout, progress,
+  invocation only, and only to the Treasury origin; a success response must
+  declare `text/csv`. Bounded recovery, pacing, the retrieval timeout, progress,
   and cancellation behave as in [bounded retrieval recovery](#bounded-retrieval-recovery);
   only the exact contract request is replayed. Treasury's per-attempt ceiling is
   60 seconds because uncached yearly files are generated slowly.
@@ -569,8 +573,8 @@ Its wire facts live in [`contracts/treasury/openapi.yaml`](contracts/treasury/op
 
 The result contains `requestedDates`, one entry per requested date,
 `availableCount`, `unavailableCount`, `mode`, `lookbackDays`,
-`latestObservationDate` (the newest observation in any file read, so later
-requested dates are not yet published), and `source` (`pageUrl`, `dataset`,
+`latestObservationDate` (the newest observation in any file read; it does not
+predict whether a later date will be published), and `source` (`pageUrl`, `dataset`,
 `method`, and the `files` read with their `year`, `url`, and
 `observationCount`). An `available` entry holds `curve`: `requestedBaseDate`,
 `baseDate`, `dateResolution`, and `tenors`. Each tenor has the canonical

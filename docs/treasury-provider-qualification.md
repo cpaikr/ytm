@@ -18,8 +18,9 @@ This decision is separate from KIS-NET, whose
 
 - One GET per calendar year read in an invocation, sequential, with the shared
   bounded retry and pacing policy and no redirects or proxies.
-- At most 2,000 requested dates per call, which spans at most eight yearly files
-  including fallback into a prior year.
+- At most 2,000 requested dates per call, and at most eight yearly files
+  including fallback into a prior year. Fixed lists that would touch more
+  years are rejected before any request.
 - No retained response bodies, rows, or yields in the repository or evidence;
   live checks record metadata only.
 - Stop and revisit this decision if Treasury publishes terms restricting

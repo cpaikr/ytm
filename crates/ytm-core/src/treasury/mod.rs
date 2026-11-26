@@ -30,7 +30,11 @@ pub const TREASURY_DATASET: &str = "daily_treasury_yield_curve";
 /// Per-attempt ceiling through decompressed body consumption.
 pub const TREASURY_REQUEST_DEADLINE_SECONDS: u64 = 60;
 
-const OPERATION: &str = "treasury";
+pub(crate) const OPERATION: &str = "treasury";
+
+/// Most distinct yearly files one call may read. A 2,000-day range plus
+/// fallback into the prior year spans at most eight; fixed lists share the bound.
+pub const MAX_TREASURY_YEARS: usize = 8;
 const SOURCE_OPERATION: &str = "treasuryYieldCurve";
 
 /// Prepared lookup for one calendar year's yield curve CSV.
@@ -48,7 +52,14 @@ pub(crate) fn year_request(year: u16) -> TreasuryRequest {
 
 /// Only the exact contract request may be replayed by the core HTTP transport.
 pub(crate) fn is_supported_request(request: &TreasuryRequest) -> bool {
-    *request == year_request(request.year)
+    // The contract's year domain is 0..=9999.
+    request.year <= 9999 && *request == year_request(request.year)
+}
+
+/// Whether `url` has exactly the Treasury origin (scheme, host, and port).
+pub(crate) fn is_treasury_origin(url: &str) -> bool {
+    let expected = reqwest::Url::parse(TREASURY_ORIGIN).map(|url| url.origin());
+    reqwest::Url::parse(url).is_ok_and(|url| expected.is_ok_and(|origin| url.origin() == origin))
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -113,8 +124,8 @@ pub struct TreasuryCurveResult {
     pub unavailable_count: usize,
     pub mode: FallbackMode,
     pub lookback_days: u8,
-    /// Newest observation in any yearly file read. A later requested date has
-    /// not been published yet rather than being a non-business day.
+    /// Newest observation in any yearly file read. It is a computed maximum
+    /// and does not say whether a later date will ever be published.
     pub latest_observation_date: Option<BaseDate>,
     pub source: TreasurySource,
 }
@@ -252,6 +263,7 @@ impl TreasuryService {
                 (FallbackMode::PreviousAvailable, days.get())
             }
         };
+        check_year_bound(&input.selection, lookback_days)?;
         // Only confirmed file contents enter the cache; failures end the call.
         let mut files: BTreeMap<u16, YearFile> = BTreeMap::new();
         let mut entries = Vec::new();
@@ -365,6 +377,34 @@ impl TreasuryService {
         context.clear_lookup()?;
         Ok(file)
     }
+}
+
+/// Rejects, before any request, a selection whose dates and fallback windows
+/// could touch more than `MAX_TREASURY_YEARS` calendar years.
+fn check_year_bound(selection: &DateSelection, lookback_days: u8) -> Result<(), YtmError> {
+    let mut years = std::collections::BTreeSet::new();
+    for &date in selection.as_dates() {
+        years.insert(date.year());
+        let earliest = date
+            .checked_sub_days(u64::from(lookback_days))
+            .unwrap_or(date);
+        years.insert(earliest.year());
+    }
+    if years.len() <= MAX_TREASURY_YEARS {
+        return Ok(());
+    }
+    let mut error = YtmError::invalid_parameter(
+        OPERATION,
+        "baseDates",
+        format!(
+            "The selection and its fallback window touch {} calendar years; at most {MAX_TREASURY_YEARS} yearly files may be read per call.",
+            years.len()
+        ),
+        json!(years),
+    );
+    error.details.recovery_hint =
+        format!("Split the selection into calls that each touch at most {MAX_TREASURY_YEARS} calendar years.");
+    Err(error)
 }
 
 fn with_context(

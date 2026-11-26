@@ -216,7 +216,7 @@ export interface HistoryResult {
 }
 export function validateHistoryInput(input: unknown): ValidationResult<HistoryInput>;
 
-/** Exactly one date selection; Rust validates, sorts and deduplicates up to 2000 dates. */
+/** Exactly one date selection; Rust validates, sorts and deduplicates up to 2000 dates touching at most eight calendar years (fallback included). */
 export type TreasuryCurveInput = (
   | { readonly baseDates: readonly string[]; readonly startDate?: never; readonly endDate?: never }
   | { readonly baseDates?: never; readonly startDate: string; readonly endDate: string }

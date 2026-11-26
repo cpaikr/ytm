@@ -191,7 +191,8 @@ bun run cli -- treasury --start-date 2025-09-01 --end-date 2025-09-30 --format x
 ```
 
 It accepts repeated `--base-date` values or an inclusive range (up to 2,000
-dates) and the same exact or `--fallback previous-available` resolution.
+dates, touching at most eight calendar years including fallback) and the same
+exact or `--fallback previous-available` resolution.
 Each date reports the tenors Treasury published that year (1M through 30Y) as
 percent par yields; nothing is interpolated or mapped to KIS-NET tenors.
 Node uses `client.treasuryCurve({ baseDates })` and Python

@@ -395,13 +395,163 @@ async fn http_transport_does_not_replay_unsupported_requests() {
     .await;
     let transport = HttpTransport::new().unwrap().with_test_origin(&origin);
     let mut request = year_request(2025);
-    request.url = format!("{origin}/elsewhere");
+    request.url = format!("{TREASURY_ORIGIN}/elsewhere");
     let error = transport
         .get(request, CancellationToken::new())
         .await
         .unwrap_err();
     assert_eq!(error.details.actual, Some(json!(503)));
     assert_eq!(captured.lock().unwrap().len(), 1);
+}
+
+#[tokio::test]
+async fn http_transport_rejects_other_origins_before_dispatch() {
+    let (origin, captured) = serve(vec![http_response(200, "text/csv", b"")]).await;
+    let transport = HttpTransport::new().unwrap().with_test_origin(&origin);
+    for url in [
+        "https://example.com/resource-center/data-chart-center/interest-rates/daily-treasury-rates.csv/2025/all",
+        "http://home.treasury.gov/resource-center",
+        "https://home.treasury.gov:8443/resource-center",
+        "not a url",
+    ] {
+        let mut request = year_request(2025);
+        request.url = url.into();
+        let error = transport
+            .get(request, CancellationToken::new())
+            .await
+            .unwrap_err();
+        assert_eq!(error.details.code, "invalid_parameter", "{url}");
+        assert_eq!(error.details.parameter.as_deref(), Some("url"));
+    }
+    assert!(captured.lock().unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn direct_transport_errors_describe_treasury() {
+    let (origin, _) = serve(vec![http_response(404, "text/plain", b"missing")]).await;
+    let error = HttpTransport::new()
+        .unwrap()
+        .with_test_origin(&origin)
+        .get(year_request(2025), CancellationToken::new())
+        .await
+        .unwrap_err();
+    assert_eq!(
+        error.details.expected,
+        Some(json!("A successful HTTP response from Treasury"))
+    );
+    assert!(!error.details.recovery_hint.contains("KIS-NET"));
+}
+
+#[tokio::test]
+async fn http_transport_requires_content_type_on_success() {
+    let (origin, _) = serve(vec![crate::transport::tests_support::response(
+        200,
+        &[],
+        b"",
+    )])
+    .await;
+    let error =
+        TreasuryService::with_transport(HttpTransport::new().unwrap().with_test_origin(&origin))
+            .curve(TreasuryCurveInput::new(dates(&["2025-09-30"])))
+            .await
+            .unwrap_err();
+    assert_eq!(error.details.code, "source_format_error");
+    assert!(error.details.reason.contains("must declare Content-Type"));
+
+    // An empty body with the required media type is confirmed absence.
+    let (origin, _) = serve(vec![http_response(200, "text/csv", b"")]).await;
+    let result =
+        TreasuryService::with_transport(HttpTransport::new().unwrap().with_test_origin(&origin))
+            .curve(TreasuryCurveInput::new(dates(&["2025-09-30"])))
+            .await
+            .unwrap();
+    assert_eq!(result.unavailable_count, 1);
+}
+
+#[tokio::test]
+async fn cancellation_during_an_active_get_aborts_without_retry() {
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let origin = format!("http://{}", listener.local_addr().unwrap());
+    let accepted = Arc::new(Mutex::new(0usize));
+    let count = accepted.clone();
+    let (sent_tx, sent_rx) = tokio::sync::oneshot::channel();
+    tokio::spawn(async move {
+        let mut sent_tx = Some(sent_tx);
+        let mut held = Vec::new();
+        while let Ok((mut socket, _)) = listener.accept().await {
+            *count.lock().unwrap() += 1;
+            crate::transport::tests_support::read_request(&mut socket).await;
+            // Headers promise a body that never arrives.
+            let _ = socket
+                .write_all(
+                    b"HTTP/1.1 200 OK\r\nContent-Type: text/csv\r\nContent-Length: 1000\r\n\r\nDate",
+                )
+                .await;
+            if let Some(tx) = sent_tx.take() {
+                let _ = tx.send(());
+            }
+            held.push(socket);
+        }
+    });
+    let cancellation = CancellationToken::new();
+    let trigger = cancellation.clone();
+    tokio::spawn(async move {
+        let _ = sent_rx.await;
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        trigger.cancel();
+    });
+    let error =
+        TreasuryService::with_transport(HttpTransport::new().unwrap().with_test_origin(&origin))
+            .curve_with_cancellation(
+                TreasuryCurveInput::new(dates(&["2025-09-30"])),
+                cancellation,
+            )
+            .await
+            .unwrap_err();
+    assert_eq!(error.details.cause.as_deref(), Some("AbortError"));
+    assert_eq!(error.details.reason, "Treasury request was cancelled.");
+    assert_eq!(*accepted.lock().unwrap(), 1);
+    assert_eq!(
+        error
+            .details
+            .statistics
+            .as_ref()
+            .and_then(|s| s.retry_count),
+        Some(0)
+    );
+}
+
+#[tokio::test]
+async fn selections_touching_too_many_years_fail_before_any_request() {
+    let years = Years::new(Vec::new());
+    let service = TreasuryService::with_shared_transport(years.clone());
+    let nine: Vec<String> = (2017..=2025).map(|year| format!("{year}-06-30")).collect();
+    let nine: Vec<&str> = nine.iter().map(String::as_str).collect();
+    let error = service
+        .curve(TreasuryCurveInput::new(dates(&nine)))
+        .await
+        .unwrap_err();
+    assert_eq!(error.details.code, "invalid_parameter");
+    assert!(error.details.recovery_hint.contains("Split the selection"));
+    // Fallback windows count: eight January 1sts reach into a ninth year.
+    let eight: Vec<String> = (2018..=2025).map(|year| format!("{year}-01-01")).collect();
+    let eight: Vec<&str> = eight.iter().map(String::as_str).collect();
+    let error = service
+        .curve(TreasuryCurveInput::previous_available(
+            dates(&eight),
+            LookbackDays::default(),
+        ))
+        .await
+        .unwrap_err();
+    assert_eq!(error.details.code, "invalid_parameter");
+    assert!(years.years().is_empty());
+}
+
+#[test]
+fn replay_is_limited_to_the_contract_year_domain() {
+    assert!(is_supported_request(&year_request(9999)));
+    assert!(is_supported_request(&year_request(0)));
+    assert!(!is_supported_request(&year_request(10000)));
 }
 
 #[test]
@@ -411,12 +561,16 @@ fn content_type_accepts_csv_with_optional_utf8_charset() {
         "text/csv",
         "TEXT/CSV ; charset = utf-8",
         "text/csv; charset=UTF-8",
+        "text/csv; charset=\"UTF-8\"",
+        "text/csv; charset=\"utf-8\"",
     ] {
         assert!(is_treasury_content_type(accepted), "{accepted}");
     }
     for rejected in [
         "text/plain",
         "text/csv; charset=ISO-8859-1",
+        "text/csv; charset=\"ISO-8859-1\"",
+        "text/csv; charset=\"UTF-8",
         "text/csv; charset=UTF-8; header=present",
         "text/csv; header=present",
     ] {
@@ -459,8 +613,8 @@ fn parses_downloaded_source_years() {
         let path = entry.unwrap().path();
         let year: u16 = path.file_stem().unwrap().to_str().unwrap().parse().unwrap();
         let body = std::fs::read(&path).unwrap();
-        let file = parse::parse_year(&body, year).unwrap_or_else(|error| panic!("{year}: {error}"));
-        assert!(body.is_empty() || !file.observations.is_empty(), "{year}");
+        // Empty and header-only files are both valid absence.
+        parse::parse_year(&body, year).unwrap_or_else(|error| panic!("{year}: {error}"));
         parsed += 1;
     }
     assert!(parsed > 0);
