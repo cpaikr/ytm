@@ -1,7 +1,7 @@
 use std::{fmt, num::NonZeroU8, str::FromStr};
 
-use chrono::{Datelike, NaiveDate};
 use indexmap::IndexMap;
+use jiff::{civil::Date, Span};
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
 pub const DEFAULT_LOOKBACK_DAYS: u8 = 10;
@@ -31,29 +31,49 @@ impl fmt::Display for InputError {
 impl std::error::Error for InputError {}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct BaseDate(NaiveDate);
+/// A calendar date restricted to years `0..=9999`, so its ISO `YYYY-MM-DD`
+/// and compact `YYYYMMDD` forms always have a fixed four-digit year.
+pub struct BaseDate(Date);
 
 impl BaseDate {
     pub fn new(year: i32, month: u32, day: u32) -> Result<Self, InputError> {
         if !(0..=9999).contains(&year) {
             return Err(InputError::InvalidBaseDate);
         }
-        NaiveDate::from_ymd_opt(year, month, day)
+        let (Ok(year), Ok(month), Ok(day)) =
+            (i16::try_from(year), i8::try_from(month), i8::try_from(day))
+        else {
+            return Err(InputError::InvalidBaseDate);
+        };
+        Date::new(year, month, day)
             .map(Self)
-            .ok_or(InputError::InvalidBaseDate)
+            .map_err(|_| InputError::InvalidBaseDate)
     }
 
     pub(crate) fn year(self) -> i32 {
-        self.0.year()
+        i32::from(self.0.year())
     }
 
     pub(crate) fn compact(self) -> String {
-        self.0.format("%Y%m%d").to_string()
+        format!(
+            "{:04}{:02}{:02}",
+            self.0.year(),
+            self.0.month(),
+            self.0.day()
+        )
+    }
+
+    /// Signed whole days from `self` to `later`; negative when `later` is earlier.
+    fn days_until(self, later: Self) -> Option<i32> {
+        // A civil date difference defaults to days as its largest unit.
+        self.0.until(later.0).ok().map(|span| span.get_days())
     }
 
     pub(crate) fn checked_sub_days(self, days: u64) -> Option<Self> {
+        let span = Span::new().try_days(i64::try_from(days).ok()?).ok()?;
         self.0
-            .checked_sub_days(chrono::Days::new(days))
+            .checked_sub(span)
+            .ok()
             .filter(|date| (0..=9999).contains(&date.year()))
             .map(Self)
     }
@@ -61,7 +81,13 @@ impl BaseDate {
 
 impl fmt::Display for BaseDate {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(formatter, "{}", self.0.format("%Y-%m-%d"))
+        write!(
+            formatter,
+            "{:04}-{:02}-{:02}",
+            self.0.year(),
+            self.0.month(),
+            self.0.day()
+        )
     }
 }
 
@@ -81,10 +107,18 @@ impl FromStr for BaseDate {
         if !supported_shape {
             return Err(InputError::InvalidBaseDate);
         }
-        let compact = trimmed.replace(['-', '.'], "");
-        NaiveDate::parse_from_str(&compact, "%Y%m%d")
-            .map(Self)
-            .map_err(|_| InputError::InvalidBaseDate)
+        let digits: Vec<u32> = bytes
+            .iter()
+            .filter(|byte| byte.is_ascii_digit())
+            .map(|byte| u32::from(byte - b'0'))
+            .collect();
+        let number = |range: std::ops::Range<usize>| {
+            digits[range]
+                .iter()
+                .fold(0, |value, digit| value * 10 + digit)
+        };
+        // Four ASCII digits always fit in i32.
+        Self::new(number(0..4) as i32, number(4..6), number(6..8))
     }
 }
 
@@ -405,6 +439,36 @@ mod tests {
             .unwrap()
             .checked_sub_days(1)
             .is_none());
+        let max = BaseDate::new(9999, 12, 31).unwrap();
+        assert_eq!(max.to_string(), "9999-12-31");
+        assert_eq!(max.compact(), "99991231");
+        assert_eq!(BaseDate::new(0, 1, 1).unwrap().compact(), "00000101");
+        assert_eq!(
+            BaseDate::new(2024, 3, 1)
+                .unwrap()
+                .checked_sub_days(1)
+                .unwrap()
+                .to_string(),
+            "2024-02-29"
+        );
+        assert!(BaseDate::new(2024, 1, 1)
+            .unwrap()
+            .checked_sub_days(u64::MAX)
+            .is_none());
+    }
+
+    #[test]
+    fn date_ranges_enforce_the_day_bound() {
+        let start = BaseDate::new(2020, 1, 1).unwrap();
+        let last = BaseDate::new(2025, 6, 22).unwrap();
+        assert_eq!(start.days_until(last), Some(1_999));
+        let range = DateSelection::range(start, last).unwrap();
+        assert_eq!(range.as_dates().len(), MAX_HISTORY_DATES);
+        assert_eq!(range.as_dates().last(), Some(&last));
+        let too_far = BaseDate::new(2025, 6, 23).unwrap();
+        assert!(DateSelection::range(start, too_far).is_err());
+        assert!(CountSelection::new(1, too_far, Some(start)).is_err());
+        assert!(CountSelection::new(1, last, Some(start)).is_ok());
     }
 
     #[test]
@@ -442,13 +506,18 @@ impl DateSelection {
     }
 
     pub fn range(start: BaseDate, end: BaseDate) -> Result<Self, InputError> {
-        let days = (end.0 - start.0).num_days();
-        if !(0..MAX_HISTORY_DATES as i64).contains(&days) {
+        let days = start
+            .days_until(end)
+            .ok_or(InputError::InvalidDateSelection)?;
+        if !(0..MAX_HISTORY_DATES as i32).contains(&days) {
             return Err(InputError::InvalidDateSelection);
         }
         Ok(Self(
-            (0..=days)
-                .map(|offset| BaseDate(start.0 + chrono::Days::new(offset as u64)))
+            start
+                .0
+                .series(Span::new().days(1))
+                .take(days as usize + 1)
+                .map(BaseDate)
                 .collect(),
         ))
     }
@@ -476,8 +545,10 @@ impl CountSelection {
             return Err(InputError::InvalidDateSelection);
         }
         if let Some(start) = start_date {
-            let days = (end_date.0 - start.0).num_days();
-            if !(0..MAX_HISTORY_DATES as i64).contains(&days) {
+            let days = start
+                .days_until(end_date)
+                .ok_or(InputError::InvalidDateSelection)?;
+            if !(0..MAX_HISTORY_DATES as i32).contains(&days) {
                 return Err(InputError::InvalidDateSelection);
             }
         }

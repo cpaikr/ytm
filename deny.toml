@@ -6,7 +6,6 @@ all-features = true
 # to move to. None reports a vulnerability. Remove each entry once its
 # dependency path is replaced.
 ignore = [
-  { id = "RUSTSEC-2026-0543", reason = "chrono unmaintained: direct ytm-core date dependency; migration to a maintained date crate is separate work" },
   { id = "RUSTSEC-2026-0441", reason = "pin-utils unmaintained: transitive through futures-util 0.3.31, the latest release" },
   { id = "RUSTSEC-2024-0449", reason = "unsafe-libyaml unmaintained: test-only, through serde_yaml_ng 0.10.0, the latest release" },
 ]
