@@ -14,7 +14,8 @@ if (!existsSync(sourceClientPath)) {
 const temporaryRoot = await mkdtemp(join(tmpdir(), "ytm-judge-broken-"));
 
 try {
-  await cp(productRoot, temporaryRoot, { recursive: true });
+  // Dereference workspace links: Windows may not permit creating symlinks.
+  await cp(productRoot, temporaryRoot, { recursive: true, dereference: true });
   const clientPath = resolve(temporaryRoot, "dist/client.js");
   const source = await readFile(clientPath, "utf8");
   const marker = "return envelope.value;";
