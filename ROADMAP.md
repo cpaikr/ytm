@@ -6,8 +6,9 @@ This file owns active delivery order and routes completed work to its records.
 
 ## Remaining work
 
-- [Production provider enablement](tasks/resolve-production-provider-enablement.md):
-   an owner rights-and-operations decision remains required.
+None. KIS-NET production enablement was closed by the owner on 2026-11-27 and
+will not be pursued; the [provider record](docs/provider-qualification.md)
+keeps its not-production-qualified status.
 
 ## Completed delivery
 
