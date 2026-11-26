@@ -19,28 +19,42 @@ FIELDS = dict(scannedDateCount='scanned_date_count', completedQualifyingDateCoun
               elapsedMs='elapsed_ms', waitingMs='waiting_ms', finished='finished')
 
 
-def statistics(value):
+PHYSICAL = ('physicalAttemptCount', 'retryCount')
+
+
+def statistics(value, dispatching=False):
     assert isinstance(value, dict), value
     assert set(value) in (set(FIELDS), set(FIELDS.values())), value
     normalized = value if 'elapsedMs' in value else {key: value[snake] for key, snake in FIELDS.items()}
+    # SPEC: physical counts are null while a lookup is dispatched, until it
+    # establishes built-in HTTP accounting. Both are null together.
+    unknown = dispatching and not normalized['finished'] and normalized['physicalAttemptCount'] is None
     for key, number in normalized.items():
         if key == 'finished':
             assert type(number) is bool
+        elif unknown and key in PHYSICAL:
+            assert number is None, (key, number)
         else:
             assert type(number) is int and number >= 0, (key, number)
     assert normalized['waitingMs'] <= normalized['elapsedMs'], normalized
-    assert normalized['retryCount'] <= normalized['physicalAttemptCount'], normalized
+    if not unknown:
+        assert normalized['retryCount'] <= normalized['physicalAttemptCount'], normalized
     return normalized
 
 
 def snapshots(values, final):
     previous = None
     for value in values:
-        current = statistics(value)
+        current = statistics(value, dispatching=True)
         if previous:
             for key in FIELDS:
-                assert current[key] >= previous[key], (key, previous, current)
-        previous = current
+                if None not in (current[key], previous[key]):
+                    assert current[key] >= previous[key], (key, previous, current)
+        if previous is None or current['physicalAttemptCount'] is not None:
+            previous = current
+        else:
+            # Keep the last known physical counts for monotonic comparison.
+            previous = current | {key: previous[key] for key in PHYSICAL}
     assert previous == statistics(final), (previous, final)
     assert previous['finished']
 

@@ -193,6 +193,7 @@ fn render(result: &OperationResult) -> Result<(Vec<u8>, usize), XlsxError> {
         OperationResult::History(result) => ("History", table::history(result, false), 7),
         OperationResult::Matrix(result) => ("Matrix", table::matrix(result), 7),
         OperationResult::Kinds(result) => ("Kinds", table::kinds(result), 0),
+        OperationResult::Treasury(result) => ("Treasury", table::treasury(result), TREASURY_FROZEN),
     };
     let count = data.rows.len();
     write_table(
@@ -218,6 +219,9 @@ fn render(result: &OperationResult) -> Result<(Vec<u8>, usize), XlsxError> {
     Ok((workbook.save_to_buffer()?, count))
 }
 
+/// Treasury identity columns: requested date, date, fallback, availability, reason.
+const TREASURY_FROZEN: u16 = 5;
+
 fn check_dimensions(rows: usize, columns: usize) -> Result<(), XlsxError> {
     if rows >= 1_048_576 || columns == 0 || columns > 16_384 {
         return Err(XlsxError::RowColumnLimitError);
@@ -240,6 +244,8 @@ fn write_table(
     let text = Format::new().set_text_wrap();
     let number = Format::new().set_num_format(if metadata || frozen == 3 {
         "0"
+    } else if frozen == TREASURY_FROZEN {
+        "0.00"
     } else {
         "0.000"
     });
@@ -253,6 +259,11 @@ fn write_table(
             }
         } else if frozen == 3 {
             [19.0, 10.0, 22.0, 16.0, 14.0, 16.0, 12.0, 62.0, 23.0][column]
+        } else if frozen == TREASURY_FROZEN {
+            [19.0, 13.0, 14.0, 13.0, 40.0]
+                .get(column)
+                .copied()
+                .unwrap_or(9.0)
         } else if frozen == 0 {
             if column == 0 {
                 14.0
@@ -309,6 +320,7 @@ fn metadata(result: &OperationResult) -> Table {
     let mut rows = vec![entry("operation", result.operation().name())];
     let source = match result {
         OperationResult::History(result) => return history_metadata(result),
+        OperationResult::Treasury(result) => return treasury_metadata(result),
         OperationResult::Kinds(result) => {
             rows.push(vec![
                 Cell::Text("baseDate".into()),
@@ -453,6 +465,82 @@ fn history_metadata(result: &ytm_core::HistoryResult) -> Table {
             requested.to_string(),
         ));
         rows.push(entry(&format!("entries[{index}].kindCode"), &kind.code));
+        for (offset, date) in attempted.iter().enumerate() {
+            rows.push(entry(
+                &format!("entries[{index}].attemptedDates[{offset}]"),
+                date.to_string(),
+            ));
+        }
+    }
+    Table {
+        columns: vec!["field".into(), "value".into()],
+        rows,
+    }
+}
+
+fn treasury_metadata(result: &ytm_core::TreasuryCurveResult) -> Table {
+    let mut rows = vec![
+        entry("operation", "treasury"),
+        entry("selection", "normalized requested dates"),
+        entry(
+            "mode",
+            match result.mode {
+                FallbackMode::Exact => "exact",
+                FallbackMode::PreviousAvailable => "previous-available",
+            },
+        ),
+        entry("lookbackDays", result.lookback_days.to_string()),
+        entry("availableCount", result.available_count.to_string()),
+        entry("unavailableCount", result.unavailable_count.to_string()),
+        vec![
+            Cell::Text("latestObservationDate".into()),
+            result
+                .latest_observation_date
+                .map(|date| Cell::Text(date.to_string()))
+                .unwrap_or(Cell::Empty),
+        ],
+        entry("source.pageUrl", result.source.page_url),
+        entry("source.dataset", result.source.dataset),
+        entry("source.method", result.source.method),
+        entry("source.units", "percent par yield, bond-equivalent basis"),
+    ];
+    for (index, file) in result.source.files.iter().enumerate() {
+        rows.push(entry(
+            &format!("source.files[{index}].year"),
+            file.year.to_string(),
+        ));
+        rows.push(entry(&format!("source.files[{index}].url"), &file.url));
+        rows.push(entry(
+            &format!("source.files[{index}].observationCount"),
+            file.observation_count.to_string(),
+        ));
+    }
+    for (index, pair) in result.entries.iter().enumerate() {
+        let (requested, attempted) = match pair {
+            ytm_core::TreasuryCurveEntry::Available { curve } => {
+                rows.push(entry(
+                    &format!("entries[{index}].baseDate"),
+                    curve.base_date.to_string(),
+                ));
+                (
+                    curve.requested_base_date,
+                    &curve.date_resolution.attempted_dates,
+                )
+            }
+            ytm_core::TreasuryCurveEntry::Unavailable {
+                requested_base_date,
+                attempted_dates,
+                reason,
+                ..
+            } => {
+                rows.push(entry(&format!("entries[{index}].reason"), reason));
+                (*requested_base_date, attempted_dates)
+            }
+        };
+        rows.push(entry(
+            &format!("entries[{index}].requestedBaseDate"),
+            requested.to_string(),
+        ));
         for (offset, date) in attempted.iter().enumerate() {
             rows.push(entry(
                 &format!("entries[{index}].attemptedDates[{offset}]"),

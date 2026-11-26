@@ -156,8 +156,8 @@ historyScenarios({ runNode, runCli, check, fixture, initPath, matrixPath, invoke
 
 runNode("client-surface", { action: "inspect" }, undefined, (result, label) => {
   check(result.ok, `${label} must inspect successfully`);
-  check(result.value?.exports?.join(",") === "RetrievalProgress,YtmClient,YtmError,serializeYtmError,validateHistoryInput,validateKindsInput,validateMatrixInput", `${label} must expose only the complete root SDK interface`);
-  check(result.value?.methods?.join(",") === "history,matrix,kinds", `${label} must expose only typed domain methods on the client`);
+  check(result.value?.exports?.join(",") === "RetrievalProgress,YtmClient,YtmError,serializeYtmError,validateHistoryInput,validateKindsInput,validateMatrixInput,validateTreasuryCurveInput", `${label} must expose only the complete root SDK interface`);
+  check(result.value?.methods?.join(",") === "history,matrix,kinds,treasuryCurve", `${label} must expose only typed domain methods on the client`);
 });
 
 for (const validation of [

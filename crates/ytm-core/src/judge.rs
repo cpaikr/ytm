@@ -14,7 +14,7 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use tokio_util::sync::CancellationToken;
 
-use crate::{PreparedRequest, Transport, YtmError};
+use crate::{PreparedRequest, Transport, TreasuryRequest, TreasuryTransport, YtmError};
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -54,8 +54,8 @@ struct Capture {
 #[derive(Debug, Serialize)]
 struct CaptureHeaders {
     accept: &'static str,
-    #[serde(rename = "content-type")]
-    content_type: &'static str,
+    #[serde(rename = "content-type", skip_serializing_if = "Option::is_none")]
+    content_type: Option<&'static str>,
 }
 
 struct State {
@@ -71,15 +71,30 @@ pub struct FixtureTransport {
 
 impl FixtureTransport {
     pub fn from_env() -> Result<Option<Arc<dyn Transport>>, YtmError> {
+        Ok(Self::selected()?.map(|selected| match selected {
+            Selected::Http(transport) => Arc::new(transport) as Arc<dyn Transport>,
+            Selected::Fixture(transport) => Arc::new(transport) as Arc<dyn Transport>,
+        }))
+    }
+
+    /// The same environment selection for the separate Treasury source.
+    pub fn treasury_from_env() -> Result<Option<Arc<dyn TreasuryTransport>>, YtmError> {
+        Ok(Self::selected()?.map(|selected| match selected {
+            Selected::Http(transport) => Arc::new(transport) as Arc<dyn TreasuryTransport>,
+            Selected::Fixture(transport) => Arc::new(transport) as Arc<dyn TreasuryTransport>,
+        }))
+    }
+
+    fn selected() -> Result<Option<Selected>, YtmError> {
         if let Ok(origin) = env::var("YTM_JUDGE_HTTP_ORIGIN") {
             if env::var_os("YTM_JUDGE_FIXTURE").is_some() {
                 return Err(YtmError::defect_with_reason(
                     "Judge HTTP and replacement fixtures are mutually exclusive.",
                 ));
             }
-            return Ok(Some(Arc::new(crate::HttpTransport::with_loopback_origin(
-                &origin,
-            )?)));
+            return Ok(Some(Selected::Http(
+                crate::HttpTransport::with_loopback_origin(&origin)?,
+            )));
         }
         let Ok(encoded) = env::var("YTM_JUDGE_FIXTURE") else {
             return Ok(None);
@@ -90,15 +105,74 @@ impl FixtureTransport {
             ))
         })?;
         let capture_path = env::var_os("YTM_JUDGE_CAPTURE_PATH").map(PathBuf::from);
-        let transport = Self {
+        Ok(Some(Selected::Fixture(Self {
             state: Mutex::new(State {
                 config,
                 next_step: 0,
                 captures: Vec::new(),
                 capture_path,
             }),
-        };
-        Ok(Some(Arc::new(transport)))
+        })))
+    }
+}
+
+enum Selected {
+    Http(crate::HttpTransport),
+    Fixture(FixtureTransport),
+}
+
+#[async_trait]
+impl TreasuryTransport for FixtureTransport {
+    async fn get(
+        &self,
+        request: TreasuryRequest,
+        cancellation: CancellationToken,
+    ) -> Result<Vec<u8>, YtmError> {
+        let mut state = self.state.lock().map_err(|_| YtmError::defect())?;
+        state.captures.push(Capture {
+            url: request.url.clone(),
+            method: "GET",
+            headers: CaptureHeaders {
+                accept: "text/csv, */*",
+                content_type: None,
+            },
+            body: String::new(),
+            signal_present: true,
+            signal_aborted: cancellation.is_cancelled(),
+        });
+        persist_captures(&state)?;
+        let step_index = state.next_step;
+        state.next_step += 1;
+        let step = state.config.steps.get(step_index).ok_or_else(|| {
+            YtmError::defect_with_reason(format!(
+                "Judge fixture received unexpected request {}.",
+                request.url
+            ))
+        })?;
+        if let Some(expected) = &step.path {
+            if !request.path.starts_with(expected) {
+                return Err(YtmError::defect_with_reason(format!(
+                    "Judge fixture expected {expected}, received {}.",
+                    request.url
+                )));
+            }
+        }
+        if step.transport_error.is_some() {
+            return Err(YtmError::transport(
+                "Treasury request failed before a response was received.",
+                None,
+                Some("TypeError"),
+            ));
+        }
+        let status = step.status.unwrap_or(200);
+        if status != 200 {
+            return Err(YtmError::transport(
+                format!("Treasury returned HTTP {status}."),
+                Some(status),
+                None,
+            ));
+        }
+        response_bytes(step, &state.config.fixture_directory)
     }
 }
 
@@ -117,7 +191,7 @@ impl Transport for FixtureTransport {
                 method: "POST",
                 headers: CaptureHeaders {
                     accept: "text/xml, */*",
-                    content_type: "text/xml; charset=UTF-8",
+                    content_type: Some("text/xml; charset=UTF-8"),
                 },
                 body: request.body,
                 signal_present: true,

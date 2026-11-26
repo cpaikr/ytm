@@ -43,6 +43,10 @@ impl BaseDate {
             .ok_or(InputError::InvalidBaseDate)
     }
 
+    pub(crate) fn year(self) -> i32 {
+        self.0.year()
+    }
+
     pub(crate) fn compact(self) -> String {
         self.0.format("%Y%m%d").to_string()
     }
@@ -572,41 +576,69 @@ impl TryFrom<HistoryRequest> for HistoryInput {
                 .map_err(|e| invalid("count", e.to_string()))?,
             )
         } else {
-            let dates = match (input.base_dates, input.start_date, input.end_date) {
-                (Some(values), None, None)
-                    if !values.is_empty() && values.len() <= MAX_HISTORY_DATES =>
-                {
-                    DateSelection::dates(values.into_iter().map(parse).collect::<Result<_, _>>()?)
-                }
-                (None, Some(start), Some(end)) => DateSelection::range(parse(start)?, parse(end)?),
-                _ => Err(InputError::InvalidDateSelection),
-            }
-            .map_err(|e| invalid("dates", e.to_string()))?;
-            HistorySelection::Dates(dates)
+            HistorySelection::Dates(fixed_dates(
+                "history",
+                input.base_dates,
+                input.start_date,
+                input.end_date,
+            )?)
         };
-        let fallback = match (input.fallback.as_deref(), input.lookback_days) {
-            (None | Some("exact"), None) => FallbackPolicy::Exact,
-            (Some("previous-available"), days) => FallbackPolicy::PreviousAvailable(
-                LookbackDays::new(days.unwrap_or(DEFAULT_LOOKBACK_DAYS))
-                    .map_err(|e| invalid("lookbackDays", e.to_string()))?,
-            ),
-            (None | Some("exact"), Some(_)) => {
-                return Err(invalid(
-                    "lookbackDays",
-                    "lookbackDays only applies to previous-available.".into(),
-                ))
-            }
-            _ => {
-                return Err(invalid(
-                    "fallback",
-                    "fallback must be exact or previous-available.".into(),
-                ))
-            }
-        };
+        let fallback = fallback_policy("history", input.fallback, input.lookback_days)?;
         Ok(Self {
             selection,
             fallback,
         })
+    }
+}
+
+/// Adapter wire parsing for a fixed list or inclusive range of dates.
+pub(crate) fn fixed_dates(
+    operation: &str,
+    base_dates: Option<Vec<String>>,
+    start_date: Option<String>,
+    end_date: Option<String>,
+) -> Result<DateSelection, crate::YtmError> {
+    let invalid = |reason: String| {
+        crate::YtmError::invalid_parameter(operation, "dates", reason, serde_json::Value::Null)
+    };
+    let parse = |value: String| {
+        value
+            .parse::<BaseDate>()
+            .map_err(|e| invalid(e.to_string()))
+    };
+    match (base_dates, start_date, end_date) {
+        (Some(values), None, None) if !values.is_empty() && values.len() <= MAX_HISTORY_DATES => {
+            DateSelection::dates(values.into_iter().map(parse).collect::<Result<_, _>>()?)
+        }
+        (None, Some(start), Some(end)) => DateSelection::range(parse(start)?, parse(end)?),
+        _ => Err(InputError::InvalidDateSelection),
+    }
+    .map_err(|e| invalid(e.to_string()))
+}
+
+/// Adapter wire parsing for exact or bounded previous-available resolution.
+pub(crate) fn fallback_policy(
+    operation: &str,
+    fallback: Option<String>,
+    lookback_days: Option<u8>,
+) -> Result<FallbackPolicy, crate::YtmError> {
+    let invalid = |parameter: &str, reason: String| {
+        crate::YtmError::invalid_parameter(operation, parameter, reason, serde_json::Value::Null)
+    };
+    match (fallback.as_deref(), lookback_days) {
+        (None | Some("exact"), None) => Ok(FallbackPolicy::Exact),
+        (Some("previous-available"), days) => Ok(FallbackPolicy::PreviousAvailable(
+            LookbackDays::new(days.unwrap_or(DEFAULT_LOOKBACK_DAYS))
+                .map_err(|e| invalid("lookbackDays", e.to_string()))?,
+        )),
+        (None | Some("exact"), Some(_)) => Err(invalid(
+            "lookbackDays",
+            "lookbackDays only applies to previous-available.".into(),
+        )),
+        _ => Err(invalid(
+            "fallback",
+            "fallback must be exact or previous-available.".into(),
+        )),
     }
 }
 

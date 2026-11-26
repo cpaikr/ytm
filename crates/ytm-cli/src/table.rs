@@ -1,4 +1,7 @@
-use ytm_core::{HistoryEntry, HistoryResult, KindsResult, MatrixResult, YtmService};
+use ytm_core::{
+    HistoryEntry, HistoryResult, KindsResult, MatrixResult, TreasuryCurveEntry,
+    TreasuryCurveResult, YtmService, TREASURY_TENORS,
+};
 
 pub(super) struct Table {
     pub columns: Vec<String>,
@@ -55,6 +58,74 @@ pub(super) fn kinds(result: &KindsResult) -> Table {
         .map(|kind| vec![Cell::Text(kind.code.clone()), Cell::Text(kind.name.clone())]);
     Table {
         columns: vec!["code".to_owned(), "name".to_owned()],
+        rows: rows.collect(),
+    }
+}
+
+/// One row per requested date; tenor columns are the union published by the
+/// returned observations, in maturity order, so no source column is invented.
+pub(super) fn treasury(result: &TreasuryCurveResult) -> Table {
+    let tenors = TREASURY_TENORS
+        .iter()
+        .map(|(_, tenor, _)| *tenor)
+        .filter(|tenor| {
+            result.entries.iter().any(|entry| match entry {
+                TreasuryCurveEntry::Available { curve } => curve
+                    .tenors
+                    .iter()
+                    .any(|published| published.tenor == *tenor),
+                TreasuryCurveEntry::Unavailable { .. } => false,
+            })
+        })
+        .collect::<Vec<_>>();
+    let mut columns = [
+        "requestedBaseDate",
+        "baseDate",
+        "usedFallback",
+        "availability",
+        "reason",
+    ]
+    .map(str::to_owned)
+    .to_vec();
+    columns.extend(tenors.iter().map(|tenor| (*tenor).to_owned()));
+    let rows = result.entries.iter().map(|entry| match entry {
+        TreasuryCurveEntry::Available { curve } => {
+            let mut cells = vec![
+                Cell::Text(curve.requested_base_date.to_string()),
+                Cell::Text(curve.base_date.to_string()),
+                Cell::Boolean(curve.date_resolution.used_fallback),
+                Cell::Text("available".into()),
+                Cell::Empty,
+            ];
+            cells.extend(tenors.iter().map(|tenor| {
+                curve
+                    .tenors
+                    .iter()
+                    .find(|published| published.tenor == *tenor)
+                    .and_then(|published| published.value)
+                    .map(Cell::Number)
+                    .unwrap_or(Cell::Empty)
+            }));
+            cells
+        }
+        TreasuryCurveEntry::Unavailable {
+            requested_base_date,
+            reason,
+            ..
+        } => {
+            let mut cells = vec![
+                Cell::Text(requested_base_date.to_string()),
+                Cell::Empty,
+                Cell::Empty,
+                Cell::Text("unavailable".into()),
+                Cell::Text(reason.clone()),
+            ];
+            cells.extend(tenors.iter().map(|_| Cell::Empty));
+            cells
+        }
+    });
+    Table {
+        columns,
         rows: rows.collect(),
     }
 }

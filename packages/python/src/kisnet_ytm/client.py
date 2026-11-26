@@ -15,6 +15,8 @@ from .models import (
     CountSelectionMetadata, AvailableHistoryEntry, UnavailableHistoryEntry, HistoryDiscovery, HistoryResult,
     DateResolution, Fallback, Kind, KindsResult, MatrixResult, MatrixRow,
     SourceMetadata, SourceParameters, SourceRequest, RetrievalStatistics,
+    AvailableTreasuryEntry, TreasuryCurve, TreasuryCurveResult, TreasurySource,
+    TreasurySourceFile, TreasuryTenor, UnavailableTreasuryEntry,
 )
 
 _ERRORS: dict[str, type[YtmError]] = {
@@ -130,15 +132,12 @@ def _kinds(value: dict[str, Any]) -> KindsResult:
 
 
 def _matrix(value: dict[str, Any]) -> MatrixResult:
-    resolution = value["dateResolution"]
     rows = tuple(MatrixRow(row["groupName"], row["pricingGroupCode"], row["pricingGroupName"],
                            MappingProxyType(row["yields"]), MappingProxyType(row["yieldText"]),
                            MappingProxyType(row["raw"])) for row in value["rows"])
     return MatrixResult(value["baseDate"], Kind(**value["kind"]), tuple(value["tenors"]), rows,
                         _source(value["source"]), value["requestedBaseDate"],
-                        DateResolution(resolution["mode"], resolution["requestedBaseDate"],
-                                       resolution["resolvedBaseDate"], resolution["usedFallback"],
-                                       tuple(resolution["attemptedDates"]), resolution["lookbackDays"]), _statistics(value.get("statistics")))
+                        _resolution(value["dateResolution"]), _statistics(value.get("statistics")))
 
 
 def _history_shape(base_dates: list[str] | tuple[str, ...] | None, start_date: str | None,
@@ -176,6 +175,40 @@ def _history(value: dict[str, Any]) -> HistoryResult:
                          value["mode"], value["lookbackDays"], metadata, _statistics(value.get("statistics")))
 
 
+def _treasury_shape(base_dates: list[str] | tuple[str, ...] | None, start_date: str | None,
+                    end_date: str | None, fallback: Fallback, lookback_days: int | None) -> str:
+    # Reuse history's shape checks; Treasury has no count selection.
+    encoded = json.loads(_history_shape(base_dates, start_date, end_date, fallback, lookback_days, None))
+    del encoded["count"]
+    return json.dumps(encoded)
+
+
+def _resolution(value: dict[str, Any]) -> DateResolution:
+    return DateResolution(value["mode"], value["requestedBaseDate"], value["resolvedBaseDate"],
+                          value["usedFallback"], tuple(value["attemptedDates"]), value["lookbackDays"])
+
+
+def _treasury(value: dict[str, Any]) -> TreasuryCurveResult:
+    entries = tuple(
+        AvailableTreasuryEntry(TreasuryCurve(
+            entry["curve"]["requestedBaseDate"], entry["curve"]["baseDate"],
+            _resolution(entry["curve"]["dateResolution"]),
+            tuple(TreasuryTenor(t["tenor"], t["label"], float(t["months"]), t["yield"], t["yieldText"])
+                  for t in entry["curve"]["tenors"])))
+        if entry["availability"] == "available"
+        else UnavailableTreasuryEntry(entry["requestedBaseDate"], tuple(entry["attemptedDates"]),
+                                      entry["mode"], entry["lookbackDays"], entry["reason"])
+        for entry in value["entries"])
+    source = value["source"]
+    return TreasuryCurveResult(
+        tuple(value["requestedDates"]), entries, value["availableCount"], value["unavailableCount"],
+        value["mode"], value["lookbackDays"], value["latestObservationDate"],
+        TreasurySource(source["pageUrl"], source["dataset"], source["method"],
+                       tuple(TreasurySourceFile(f["year"], f["url"], f["observationCount"])
+                             for f in source["files"])),
+        _statistics(value.get("statistics")))
+
+
 class Client:
     """Synchronous, thread-safe client; use a context manager for cleanup."""
     def __init__(self) -> None:
@@ -202,6 +235,15 @@ class Client:
                min_request_interval_ms: int = 0, progress: RetrievalProgress | None = None) -> KindsResult:
         """Return the canonical catalog, or merge source discovery for a date."""
         return _kinds(self._run("kinds", _shape(base_date), operation_timeout_seconds, max_retries, base_backoff_ms, max_backoff_ms, min_request_interval_ms, progress))
+
+    def treasury_curve(self, *, base_dates: list[str] | tuple[str, ...] | None = None,
+                       start_date: str | None = None, end_date: str | None = None,
+                       fallback: Fallback = "exact", lookback_days: int | None = None,
+                       operation_timeout_seconds: int | None = None,
+                       max_retries: int = 2, base_backoff_ms: int = 500, max_backoff_ms: int = 1000,
+                       min_request_interval_ms: int = 0, progress: RetrievalProgress | None = None) -> TreasuryCurveResult:
+        """Retrieve the US Treasury daily par yield curve for fixed dates (separate from KIS-NET)."""
+        return _treasury(self._run("treasury", _treasury_shape(base_dates, start_date, end_date, fallback, lookback_days), operation_timeout_seconds, max_retries, base_backoff_ms, max_backoff_ms, min_request_interval_ms, progress))
 
     def _run(self, operation: str, payload: str, operation_timeout_seconds: int | None = None,
                max_retries: int = 2, base_backoff_ms: int = 500, max_backoff_ms: int = 1000,
@@ -264,6 +306,15 @@ class AsyncClient:
                min_request_interval_ms: int = 0, progress: RetrievalProgress | None = None) -> KindsResult:
         """Return the canonical catalog, or merge source discovery for a date."""
         return _kinds(await self._run("kinds", _shape(base_date), operation_timeout_seconds, max_retries, base_backoff_ms, max_backoff_ms, min_request_interval_ms, progress))
+
+    async def treasury_curve(self, *, base_dates: list[str] | tuple[str, ...] | None = None,
+                             start_date: str | None = None, end_date: str | None = None,
+                             fallback: Fallback = "exact", lookback_days: int | None = None,
+                             operation_timeout_seconds: int | None = None,
+                             max_retries: int = 2, base_backoff_ms: int = 500, max_backoff_ms: int = 1000,
+                             min_request_interval_ms: int = 0, progress: RetrievalProgress | None = None) -> TreasuryCurveResult:
+        """Retrieve the US Treasury daily par yield curve for fixed dates (separate from KIS-NET)."""
+        return _treasury(await self._run("treasury", _treasury_shape(base_dates, start_date, end_date, fallback, lookback_days), operation_timeout_seconds, max_retries, base_backoff_ms, max_backoff_ms, min_request_interval_ms, progress))
 
     async def _run(self, operation: str, payload: str, operation_timeout_seconds: int | None = None,
                max_retries: int = 2, base_backoff_ms: int = 500, max_backoff_ms: int = 1000,

@@ -11,6 +11,9 @@ This file owns active delivery order and routes completed work to its records.
 
 ## Completed delivery
 
+- [US Treasury yield curve](plans/us-treasury-yield-curve.md): delivered under
+  its [goal contract](goals/us-treasury-yield-curve.md) as a source separate
+  from KIS-NET; release publication remains separate.
 - [Windows installation visibility](plans/windows-installation-visibility.md):
   delivered and accepted; independent Windows/MSIX validation remains an
   explicit evidence limitation.

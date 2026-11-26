@@ -27,6 +27,13 @@ have a different API.
   max_retries: int = 2, base_backoff_ms: int = 500, max_backoff_ms: int = 1000,
   min_request_interval_ms: int = 0, progress: RetrievalProgress | None = None)` returns `KindsResult`. Omitting the
   date returns the Rust-owned canonical catalog without network access.
+- `treasury_curve(*, base_dates: list[str] | tuple[str, ...] | None = None,
+  start_date: str | None = None, end_date: str | None = None,
+  fallback: Literal["exact", "previous-available"] = "exact",
+  lookback_days: int | None = None, operation_timeout_seconds: int | None = None,
+  max_retries: int = 2, base_backoff_ms: int = 500, max_backoff_ms: int = 1000,
+  min_request_interval_ms: int = 0, progress: RetrievalProgress | None = None)` returns
+  `TreasuryCurveResult` for the separate US Treasury source.
 
 Arguments are keyword-only. Python checks call shapes (including rejecting
 booleans as integers); Rust owns date syntax/calendar validity, kind resolution,
@@ -55,6 +62,16 @@ omitted), `scanned_start_date`, and `scanned_date_count`.
 Confirmed unavailable pairs remain successful entries within selected dates; operational failures
 and cancellation abort the call. The shared [history contract](../../SPEC.md#multi-date-history)
 owns all-category targeting, fallback, ordering, and provenance semantics.
+
+`treasury_curve` accepts the same fixed selections and fallback as history,
+without `count`, touching at most eight calendar years including fallback. `TreasuryCurveResult` contains `requested_dates`, `entries`,
+`available_count`, `unavailable_count`, `mode`, `lookback_days`,
+`latest_observation_date`, `source` (`TreasurySource` with `TreasurySourceFile`
+values), and `statistics`. `TreasuryEntry` is a union of
+`AvailableTreasuryEntry` (with a `TreasuryCurve`) and `UnavailableTreasuryEntry`.
+`TreasuryTenor` has `tenor`, `label`, `months`, `yield_` (percent or `None`),
+and `yield_text`; the trailing underscore avoids the `yield` keyword. The
+[Treasury contract](../../SPEC.md#us-treasury-yield-curve) owns its semantics.
 
 `operation_timeout_seconds` is a positive integer representable by the core
 clock; booleans, fractions, non-finite values and overflow fail before source

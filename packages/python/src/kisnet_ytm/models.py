@@ -123,3 +123,62 @@ class HistoryResult:
     lookback_days: int
     count_selection: CountSelectionMetadata | None = None
     statistics: RetrievalStatistics | None = None
+
+
+@dataclass(frozen=True)
+class TreasuryTenor:
+    """One published US Treasury par yield; ``yield_`` is percent or None for a blank cell."""
+    tenor: str
+    label: str
+    months: float
+    yield_: float | None
+    yield_text: str
+
+@dataclass(frozen=True)
+class TreasuryCurve:
+    requested_base_date: str
+    base_date: str
+    date_resolution: DateResolution
+    tenors: tuple[TreasuryTenor, ...]
+
+@dataclass(frozen=True)
+class AvailableTreasuryEntry:
+    curve: TreasuryCurve
+    availability: Literal["available"] = "available"
+
+@dataclass(frozen=True)
+class UnavailableTreasuryEntry:
+    requested_base_date: str
+    attempted_dates: tuple[str, ...]
+    mode: Fallback
+    lookback_days: int
+    reason: str
+    availability: Literal["unavailable"] = "unavailable"
+
+TreasuryEntry = AvailableTreasuryEntry | UnavailableTreasuryEntry
+
+@dataclass(frozen=True)
+class TreasurySourceFile:
+    year: int
+    url: str
+    observation_count: int
+
+@dataclass(frozen=True)
+class TreasurySource:
+    page_url: str
+    dataset: str
+    method: str
+    files: tuple[TreasurySourceFile, ...]
+
+@dataclass(frozen=True)
+class TreasuryCurveResult:
+    """US Treasury daily par yield curve, a source separate from KIS-NET."""
+    requested_dates: tuple[str, ...]
+    entries: tuple[TreasuryEntry, ...]
+    available_count: int
+    unavailable_count: int
+    mode: Fallback
+    lookback_days: int
+    latest_observation_date: str | None
+    source: TreasurySource
+    statistics: RetrievalStatistics | None = None

@@ -89,6 +89,7 @@ async function testFreshInstall(mode) {
   assertSucceeded(await runProcess(executable, ["--help"]), "installed --help", "CLI usage:");
   await testCommandDiscovery(installDir);
   await testExcelExport(executable);
+  await testTreasuryCommand(executable);
 }
 
 // These shells share this runner's filesystem context. They verify discovery and
@@ -125,6 +126,16 @@ ytm --help
   const result = await runProcess(shell, args, environment);
   assertSucceeded(result, "current and newly launched consumer shells", `ytm ${version}`);
   if (result.stdout.split("CLI usage:").length !== 3) throw new Error("Both consumer shells must return help.");
+}
+
+// Network-free: help and pre-I/O validation of the separate Treasury command.
+async function testTreasuryCommand(executable) {
+  assertSucceeded(await runProcess(executable, ["treasury", "--help"]), "installed treasury help", "separate from KIS-NET");
+  const invalid = await runProcess(executable, ["treasury", "--base-date", "2025-02-30"]);
+  const envelope = JSON.parse(invalid.stdout || "{}");
+  if (invalid.status !== 2 || envelope.error?.operationName !== "treasury" || envelope.error?.parameter !== "dates") {
+    throw new Error(`Exact binary must reject an invalid Treasury date before I/O: ${invalid.stdout}`);
+  }
 }
 
 async function testExcelExport(executable) {

@@ -5,7 +5,8 @@ use serde::Serialize;
 use serde_json::{json, Map, Number, Value};
 use ytm_core::{
     BaseDate, HistoryInput, HistoryRequest, HistoryResult, KindSelector, KindsInput, KindsResult,
-    LookbackDays, MatrixInput, MatrixResult, RetrievalOptions, YtmError, YtmService,
+    LookbackDays, MatrixInput, MatrixResult, RetrievalOptions, TreasuryCurveInput,
+    TreasuryCurveRequest, TreasuryCurveResult, TreasuryService, YtmError, YtmService,
     DEFAULT_LOOKBACK_DAYS, DEFAULT_OPERATION_TIMEOUT_SECONDS, MAX_LOOKBACK_DAYS,
 };
 
@@ -36,6 +37,7 @@ enum Operation {
     History,
     Matrix,
     Kinds,
+    Treasury,
 }
 
 impl Operation {
@@ -44,7 +46,13 @@ impl Operation {
             Self::History => "history",
             Self::Matrix => "matrix",
             Self::Kinds => "kinds",
+            Self::Treasury => "treasury",
         }
+    }
+
+    /// History and Treasury select fixed date lists or ranges.
+    fn selects_dates(self) -> bool {
+        matches!(self, Self::History | Self::Treasury)
     }
 
     fn parse(value: &str) -> Option<Self> {
@@ -52,6 +60,7 @@ impl Operation {
             "history" => Some(Self::History),
             "matrix" => Some(Self::Matrix),
             "kinds" => Some(Self::Kinds),
+            "treasury" => Some(Self::Treasury),
             _ => None,
         }
     }
@@ -97,6 +106,7 @@ enum ValidatedInput {
     History(HistoryInput),
     Matrix(MatrixInput),
     Kinds(KindsInput),
+    Treasury(TreasuryCurveInput),
 }
 
 #[derive(Debug)]
@@ -104,6 +114,7 @@ enum OperationResult {
     History(HistoryResult),
     Matrix(MatrixResult),
     Kinds(KindsResult),
+    Treasury(TreasuryCurveResult),
 }
 
 impl OperationResult {
@@ -112,6 +123,7 @@ impl OperationResult {
             Self::History(_) => Operation::History,
             Self::Matrix(_) => Operation::Matrix,
             Self::Kinds(_) => Operation::Kinds,
+            Self::Treasury(_) => Operation::Treasury,
         }
     }
 
@@ -120,6 +132,7 @@ impl OperationResult {
             Self::History(result) => result.statistics.as_ref(),
             Self::Matrix(result) => result.statistics.as_ref(),
             Self::Kinds(result) => result.statistics.as_ref(),
+            Self::Treasury(result) => result.statistics.as_ref(),
         }
     }
 
@@ -128,6 +141,7 @@ impl OperationResult {
             Self::History(result) => serialize_result(result),
             Self::Matrix(result) => serialize_result(result),
             Self::Kinds(result) => serialize_result(result),
+            Self::Treasury(result) => serialize_result(result),
         }
     }
 }
@@ -247,6 +261,10 @@ pub async fn run_with_cancellation(
                 receipt["selectedDateCount"] = json!(history.requested_dates.len());
             }
         }
+        if let OperationResult::Treasury(treasury) = &result {
+            receipt["availableCount"] = json!(treasury.available_count);
+            receipt["unavailableCount"] = json!(treasury.unavailable_count);
+        }
         return match xlsx::export_with_cancellation(&result, path, *overwrite, &cancellation) {
             Ok(row_count) => stdout_output(
                 0,
@@ -361,18 +379,19 @@ fn command() -> Command {
         .subcommand(operation_command("history"))
         .subcommand(operation_command("matrix"))
         .subcommand(operation_command("kinds"))
+        .subcommand(operation_command("treasury"))
 }
 
 fn operation_command(name: &'static str) -> Command {
     Command::new(name)
         .disable_help_flag(true)
-        .arg(
-            value_arg("base_date", "base-date").action(if name == "history" {
+        .arg(value_arg("base_date", "base-date").action(
+            if matches!(name, "history" | "treasury") {
                 ArgAction::Append
             } else {
                 ArgAction::Set
-            }),
-        )
+            },
+        ))
         .arg(value_arg("start_date", "start-date"))
         .arg(value_arg("end_date", "end-date"))
         .arg(value_arg("count", "count"))
@@ -415,7 +434,7 @@ fn value_arg(id: &'static str, long: &'static str) -> Arg {
 
 fn input_from_matches(matches: &ArgMatches, operation: Operation) -> Map<String, Value> {
     let mut input = Map::new();
-    if operation == Operation::History {
+    if operation.selects_dates() {
         if let Some(values) = matches.get_many::<String>("base_date") {
             input.insert("baseDates".into(), json!(values.collect::<Vec<_>>()));
         }
@@ -723,7 +742,7 @@ fn validate_operation_help(args: &[OsString], operation: Operation) -> Result<()
             .or_insert_with(|| json!("2000-01-01"));
         input.entry("kind").or_insert_with(|| json!("10"));
     }
-    if operation == Operation::History
+    if operation.selects_dates()
         && !input.contains_key("count")
         && !input.contains_key("baseDates")
         && !input.contains_key("startDate")
@@ -749,22 +768,28 @@ fn validate_input(
                 )
             })
             .and_then(HistoryInput::try_from);
-        return parsed.map(ValidatedInput::History).map_err(|e| {
-            Box::new(validation_error(
-                operation,
-                "invalid_parameter",
-                e.details.parameter.as_deref(),
-                e.details.reason,
-                e.details.expected,
-                e.details.actual,
-                e.details.recovery_hint,
-            ))
-        });
+        return parsed
+            .map(ValidatedInput::History)
+            .map_err(|error| core_validation_error(operation, error));
+    }
+    if operation == Operation::Treasury {
+        return serde_json::from_value::<TreasuryCurveRequest>(Value::Object(input.clone()))
+            .map_err(|e| {
+                YtmError::invalid_parameter(
+                    "treasury",
+                    "input",
+                    format!("Invalid treasury input: {e}"),
+                    Value::Null,
+                )
+            })
+            .and_then(TreasuryCurveInput::try_from)
+            .map(ValidatedInput::Treasury)
+            .map_err(|error| core_validation_error(operation, error));
     }
     let allowed = match operation {
         Operation::Matrix => &["baseDate", "kind", "fallback", "lookbackDays"][..],
         Operation::Kinds => &["baseDate"][..],
-        Operation::History => unreachable!(),
+        Operation::History | Operation::Treasury => unreachable!(),
     };
     for key in input.keys() {
         if !allowed.contains(&key.as_str()) {
@@ -905,6 +930,19 @@ fn validate_input(
     }))
 }
 
+fn core_validation_error(operation: Operation, error: YtmError) -> Box<CliError> {
+    let details = *error.details;
+    Box::new(validation_error(
+        operation,
+        "invalid_parameter",
+        details.parameter.as_deref(),
+        details.reason,
+        details.expected,
+        details.actual,
+        details.recovery_hint,
+    ))
+}
+
 fn stringify_kind_number(number: &Number) -> String {
     number
         .as_i64()
@@ -1018,6 +1056,7 @@ fn example_input(operation: Operation) -> Value {
         Operation::Matrix => json!({ "baseDate": "2026-06-08", "kind": "국채" }),
         Operation::Kinds => json!({ "baseDate": "2026-06-08" }),
         Operation::History => json!({ "baseDates": ["2026-06-08"] }),
+        Operation::Treasury => json!({ "baseDates": ["2025-09-30"] }),
     }
 }
 
@@ -1025,6 +1064,7 @@ fn validation_example_input(operation: Operation, parameter: Option<&str>) -> Va
     match (operation, parameter) {
         (Operation::Kinds, _) => json!({}),
         (Operation::History, _) => example_input(Operation::History),
+        (Operation::Treasury, _) => example_input(Operation::Treasury),
         (Operation::Matrix, Some("fallback" | "lookbackDays")) => json!({
             "baseDate": "2026-06-07",
             "kind": "국채",
@@ -1049,7 +1089,6 @@ async fn execute(
     cancellation: ytm_core::CancellationToken,
     detailed_progress: bool,
 ) -> Result<OperationResult, YtmError> {
-    let service = service()?;
     let observe = detailed_progress
         || (matches!(input, ValidatedInput::History(_))
             && std::io::IsTerminal::is_terminal(&std::io::stderr()));
@@ -1061,18 +1100,22 @@ async fn execute(
     };
     let retrieval = async {
         match input {
-            ValidatedInput::History(input) => service
+            ValidatedInput::History(input) => service()?
                 .history_with_options_and_cancellation(input, options, cancellation)
                 .await
                 .map(OperationResult::History),
-            ValidatedInput::Matrix(input) => service
+            ValidatedInput::Matrix(input) => service()?
                 .matrix_with_options_and_cancellation(input, options, cancellation)
                 .await
                 .map(OperationResult::Matrix),
-            ValidatedInput::Kinds(input) => service
+            ValidatedInput::Kinds(input) => service()?
                 .kinds_with_options_and_cancellation(input, options, cancellation)
                 .await
                 .map(OperationResult::Kinds),
+            ValidatedInput::Treasury(input) => treasury_service()?
+                .curve_with_options_and_cancellation(input, options, cancellation)
+                .await
+                .map(OperationResult::Treasury),
         }
     };
     if observe {
@@ -1092,6 +1135,14 @@ fn service() -> Result<YtmService, YtmError> {
         return Ok(YtmService::with_shared_transport(transport));
     }
     YtmService::new()
+}
+
+fn treasury_service() -> Result<TreasuryService, YtmError> {
+    #[cfg(feature = "judge-fixtures")]
+    if let Some(transport) = ytm_core::judge::FixtureTransport::treasury_from_env()? {
+        return Ok(TreasuryService::with_shared_transport(transport));
+    }
+    TreasuryService::new()
 }
 
 fn success_output(
@@ -1118,6 +1169,7 @@ fn success_output(
                 OperationResult::History(result) => table::history(&result, true).render(delimiter),
                 OperationResult::Matrix(result) => table::matrix(&result).render(delimiter),
                 OperationResult::Kinds(result) => table::kinds(&result).render(delimiter),
+                OperationResult::Treasury(result) => table::treasury(&result).render(delimiter),
             }
         }
     };
@@ -1212,7 +1264,7 @@ fn unknown_command_output(command: &str) -> ProcessOutput {
     let error = json!({
         "code": "invalid_request",
         "reason": format!("Unknown command: {command}."),
-        "expected": ["history", "matrix", "kinds", "upgrade"],
+        "expected": ["history", "matrix", "kinds", "treasury", "upgrade"],
         "actual": command,
         "recoveryHint": "Run ytm --help and retry with a listed command.",
         "recoveryAction": "inspect_tool_help",
@@ -1236,14 +1288,14 @@ fn stdout_output(code: u8, stdout: String) -> ProcessOutput {
 
 fn root_help() -> String {
     format!(
-        "{}\n\nCLI usage:\n  ytm --version\n  ytm matrix --base-date <기준일> --kind <종류> [--fallback previous-available] [--lookback-days <days>] [--format json|csv|tsv|xlsx] [--output <file.xlsx>] [--overwrite] [--pretty]\n  ytm kinds [--base-date <기준일>] [--format json|csv|tsv|xlsx] [--output <file.xlsx>] [--overwrite] [--pretty]\n  ytm upgrade [--check]\n  ytm help <command>\n\nOutput:\n  json is the default and prints one JSON object. csv and tsv print tabular success rows. xlsx requires --output <file.xlsx>, writes one workbook, and prints one JSON receipt; it replaces an existing file only with --overwrite. Command failures print one JSON object to stdout and exit non-zero, including upgrade failures. Unknown command names given to ytm help print a plain-text message and exit non-zero. Help diagnostics for invalid invocations are written to stderr.\n",
+        "{}\n\nCLI usage:\n  ytm --version\n  ytm matrix --base-date <기준일> --kind <종류> [--fallback previous-available] [--lookback-days <days>] [--format json|csv|tsv|xlsx] [--output <file.xlsx>] [--overwrite] [--pretty]\n  ytm kinds [--base-date <기준일>] [--format json|csv|tsv|xlsx] [--output <file.xlsx>] [--overwrite] [--pretty]\n  ytm treasury (--base-date <date>... | --start-date <date> --end-date <date>) [--fallback previous-available] [--lookback-days <days>] [--format json|csv|tsv|xlsx] [--output <file.xlsx>] [--overwrite] [--pretty]\n  ytm upgrade [--check]\n  ytm help <command>\n\nOutput:\n  json is the default and prints one JSON object. csv and tsv print tabular success rows. xlsx requires --output <file.xlsx>, writes one workbook, and prints one JSON receipt; it replaces an existing file only with --overwrite. Command failures print one JSON object to stdout and exit non-zero, including upgrade failures. Unknown command names given to ytm help print a plain-text message and exit non-zero. Help diagnostics for invalid invocations are written to stderr.\n",
         tool_help()
     )
 }
 
 fn tool_help() -> String {
     format!(
-        "KIS-NET YTM Matrix CLI\n\nOperations:\n  history: retrieve all categories for up to 2000 dates; run ytm history --help.\n  matrix: fetch YTM Matrix rows for a 기준일 and 종류.\n  kinds: list accepted 종류 codes and Korean labels.\n  upgrade: check or replace an official managed installation.\n\nAccepted 종류 values:\n{}\n\nSource terms are preserved where official: 기준일, 종류, and 적용대상채권.\nRun ytm help <command> for command-specific input and output guidance.",
+        "KIS-NET YTM Matrix CLI\n\nOperations:\n  history: retrieve all categories for up to 2000 dates; run ytm history --help.\n  matrix: fetch YTM Matrix rows for a 기준일 and 종류.\n  kinds: list accepted 종류 codes and Korean labels.\n  treasury: retrieve the separate US Treasury daily par yield curve; run ytm treasury --help.\n  upgrade: check or replace an official managed installation.\n\nAccepted 종류 values:\n{}\n\nSource terms are preserved where official: 기준일, 종류, and 적용대상채권.\nRun ytm help <command> for command-specific input and output guidance.",
         formatted_kinds("  ")
     )
 }
@@ -1280,11 +1332,13 @@ fn command_help(operation: Operation) -> String {
             formatted_kinds("    ")
         ),
         Operation::Kinds => "kinds\n  Optional: --base-date <기준일>\n  Output: --format json|csv|tsv|xlsx [--pretty]\n  XLSX: --output <file.xlsx> [--overwrite]\n  base-date accepts YYYY-MM-DD, YYYY.MM.DD, or YYYYMMDD.\n  Returns accepted 종류 source codes and Korean labels.".into(),
+        Operation::Treasury => "treasury\n  US Treasury daily par yield curve, separate from KIS-NET; no kind or count.\n  Select repeated --base-date <date> OR --start-date <date> --end-date <date> (inclusive).\n  Maximum 2000 raw list entries or range days; dates normalize, sort and deduplicate.\n  Dates: YYYY-MM-DD, YYYY.MM.DD, YYYYMMDD. One source request per calendar year read.\n  Exact dates are the default.\n  Optional: --fallback previous-available --lookback-days <1..31> (default 10).\n    Returns the latest published curve on or before each requested date, within the lookback.\n  Tenors are those Treasury published that year (1M through 30Y), as percent par yields.\n  No tenor is interpolated or mapped to KIS-NET tenors.\n  Output: --format json|csv|tsv|xlsx [--pretty]\n  XLSX: --output <file.xlsx> [--overwrite]\n  Unavailable dates are reported with exit 0; latestObservationDate shows the newest published date read.\n  Treasury and Metadata sheets preserve requested and actual dates and source files.".into(),
     };
     let example = match operation {
         Operation::History => "ytm history --start-date 2026-06-01 --end-date 2026-06-08 --format xlsx --output history.xlsx",
         Operation::Matrix => "ytm matrix --base-date 2026-06-08 --kind 국채 --format json",
         Operation::Kinds => "ytm kinds --base-date 2026-06-08 --format json",
+        Operation::Treasury => "ytm treasury --base-date 2025-09-30 --format csv",
     };
     let defaults = RetrievalOptions::default();
     format!("{body}\n  Retrieval: --operation-timeout-seconds <positive integer> (default {DEFAULT_OPERATION_TIMEOUT_SECONDS}).\n  Retry: --max-retries <0..10> (default {max_retries}), --base-backoff-ms <integer> ({base_backoff}), --max-backoff-ms <integer> ({max_backoff}).\n  Pacing: --min-request-interval-ms <integer> (default {interval}, disabled); invocation-local.\n  --progress prints detailed metadata snapshots and final statistics on stderr.\n  JSON results and XLSX receipts include statistics; CSV/TSV rows and workbook data stay tabular.\n  One deadline covers source calls and combined retry/pacing waits; destination preflight and export time are excluded.\n\nCLI example:\n  {example}\n",
@@ -1376,6 +1430,123 @@ mod tests {
             assert_eq!(envelope["error"]["operationName"], operation);
         }
         assert!(!output.stderr.is_empty());
+    }
+
+    #[tokio::test]
+    async fn treasury_is_a_separate_validated_command() {
+        let help = run(vec!["ytm".into(), "treasury".into(), "--help".into()]).await;
+        assert_eq!(help.code, 0);
+        assert!(help.stdout.starts_with("treasury\n"));
+        assert!(help.stdout.contains("separate from KIS-NET"));
+        let root = run(vec!["ytm".into(), "--help".into()]).await;
+        assert!(root.stdout.contains("ytm treasury (--base-date <date>..."));
+
+        for (args, parameter) in [
+            (vec!["ytm", "treasury"], "dates"),
+            (
+                vec![
+                    "ytm",
+                    "treasury",
+                    "--base-date",
+                    "2025-09-30",
+                    "--kind",
+                    "10",
+                ],
+                "input",
+            ),
+            (
+                vec![
+                    "ytm",
+                    "treasury",
+                    "--end-date",
+                    "2025-09-30",
+                    "--count",
+                    "3",
+                ],
+                "input",
+            ),
+            (
+                vec!["ytm", "treasury", "--base-date", "2025-02-30"],
+                "dates",
+            ),
+            (
+                vec![
+                    "ytm",
+                    "treasury",
+                    "--base-date",
+                    "2025-09-30",
+                    "--lookback-days",
+                    "3",
+                ],
+                "lookbackDays",
+            ),
+            (
+                vec![
+                    "ytm",
+                    "treasury",
+                    "--base-date",
+                    "2025-09-30",
+                    "--fallback",
+                    "nearest",
+                ],
+                "fallback",
+            ),
+        ] {
+            let output = run(args.iter().map(OsString::from).collect()).await;
+            assert_structured_failure(&output, Some("treasury"));
+            let envelope: Value = serde_json::from_str(&output.stdout).unwrap();
+            assert_eq!(envelope["error"]["parameter"], parameter, "{args:?}");
+            assert_eq!(
+                envelope["error"]["exampleInput"],
+                json!({ "baseDates": ["2025-09-30"] })
+            );
+        }
+        let unknown = run(vec!["ytm".into(), "treasuries".into()]).await;
+        let envelope: Value = serde_json::from_str(&unknown.stdout).unwrap();
+        assert_eq!(
+            envelope["error"]["expected"],
+            json!(["history", "matrix", "kinds", "treasury", "upgrade"])
+        );
+    }
+
+    #[test]
+    fn treasury_table_uses_published_tenors_and_marks_unavailable_dates() {
+        let body = "Date,\"3 Mo\",\"30 Yr\"\n09/30/2025,4.02,\n";
+        let result = treasury_result(body, &["2025-09-28", "2025-09-30"]);
+        let rendered = table::treasury(&result).render(',');
+        assert_eq!(
+            rendered,
+            "requestedBaseDate,baseDate,usedFallback,availability,reason,3M,30Y\n\
+             2025-09-28,,,unavailable,source_data_unavailable: Treasury published no curve for this date,,\n\
+             2025-09-30,2025-09-30,false,available,,4.02,\n"
+        );
+    }
+
+    fn treasury_result(body: &'static str, dates: &[&str]) -> TreasuryCurveResult {
+        struct Fixed(&'static str);
+        #[async_trait::async_trait]
+        impl ytm_core::TreasuryTransport for Fixed {
+            async fn get(
+                &self,
+                _request: ytm_core::TreasuryRequest,
+                _cancellation: ytm_core::CancellationToken,
+            ) -> Result<Vec<u8>, YtmError> {
+                Ok(self.0.as_bytes().to_vec())
+            }
+        }
+        let selection = ytm_core::DateSelection::dates(
+            dates.iter().map(|date| date.parse().unwrap()).collect(),
+        )
+        .unwrap();
+        tokio::runtime::Builder::new_current_thread()
+            .enable_time()
+            .build()
+            .unwrap()
+            .block_on(
+                TreasuryService::with_transport(Fixed(body))
+                    .curve(TreasuryCurveInput::new(selection)),
+            )
+            .unwrap()
     }
 
     #[tokio::test]

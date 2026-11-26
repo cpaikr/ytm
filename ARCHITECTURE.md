@@ -2,17 +2,18 @@
 
 ## Purpose and boundary
 
-`ytm` retrieves deterministic KIS-NET YTM Matrix data through one Rust HTTP,
-Nexacro, and domain implementation. The active checkout exposes that
-implementation as a public Rust SDK, Rust-backed Node and Python SDKs, and a
-standalone Rust/Clap CLI. The Node package does not own or distribute the CLI.
+`ytm` retrieves deterministic data from two independent sources, the KIS-NET
+YTM Matrix and the US Treasury daily par yield curve, through one Rust
+implementation. The active checkout exposes that implementation as a public
+Rust SDK, Rust-backed Node and Python SDKs, and a standalone Rust/Clap CLI.
+The Node package does not own or distribute the CLI.
 
 [`SPEC.md`](SPEC.md) defines public behavior. [`ROADMAP.md`](ROADMAP.md) owns
 remaining verification and future decision boundaries; it is not an account of
 implemented architecture.
 
-Browser, edge, Deno, Bun-runtime, proxy discovery, and alternate
-provider implementations are outside the product boundary. Bun remains a
+Browser, edge, Deno, Bun-runtime, proxy discovery, and sources other than
+KIS-NET and Treasury are outside the product boundary. Bun remains a
 development package manager for the Node workspace.
 
 ## System shape
@@ -20,8 +21,8 @@ development package manager for the Node workspace.
 The implemented shape is:
 
 ```text
-contracts/kisnet/openapi.yaml
-              |
+contracts/kisnet/openapi.yaml   contracts/treasury/openapi.yaml
+              \                 /
        crates/ytm-core
        public Rust SDK
         /     |      \
@@ -39,6 +40,9 @@ executable entry, and the repository supports only the Rust `ytm` CLI.
 - [`contracts/kisnet/openapi.yaml`](contracts/kisnet/openapi.yaml) — sole
   authority for external HTTP and serialized Nexacro facts, including the
   named profile for constraints OpenAPI cannot express directly.
+- [`contracts/treasury/openapi.yaml`](contracts/treasury/openapi.yaml) —
+  separate authority for the Treasury yearly CSV request and structural
+  profile, with its own fictional corpus.
 - [`crates/ytm-core`](crates/ytm-core) — public Rust SDK. It owns prepared
   requests, bounded transport, strict XML parsing, kind resolution,
   normalization, date fallback, history orchestration, typed inputs and results, source metadata, and
@@ -72,6 +76,20 @@ executable entry, and the repository supports only the Rust `ytm` CLI.
   matrix and source for archive names, installer selection, and CLI artifact CI.
 - [`docs/provider-qualification.md`](docs/provider-qualification.md) — source
   evidence and enablement decisions that protocol tests cannot establish.
+
+## Two sources
+
+KIS-NET and Treasury are separate products behind one core. `YtmService` and
+the `Transport` trait serve KIS-NET; the private `treasury` module owns
+`TreasuryService`, the `TreasuryTransport` trait, its CSV parser, and its
+result types. They share date selection and fallback parsing, the retrieval
+context, statistics, and `HttpTransport`'s bounded attempt engine, which takes a
+per-source profile (diagnostic label and per-attempt ceiling) and a send
+closure. Replay eligibility stays per source: only the exact contract requests
+of each source are retried. Every adapter dispatches the Treasury operation to
+its own service and projects its own result; no adapter converts one source's
+shape into the other's. The [Treasury contract](SPEC.md#us-treasury-yield-curve)
+owns its behavior.
 
 ## Runtime flows
 
@@ -130,7 +148,7 @@ only diagnostics within those boundaries.
 - OpenAPI and its named Nexacro profile are the only wire authority. Fixtures
   and judge expectations are independent evidence.
 - Rust is the only component allowed to know source origins, paths, headers,
-  serialized XML, transport policy, parser rules, dataset mappings, or fallback
+  serialized XML or CSV, transport policy, parser rules, dataset mappings, or fallback
   execution and source semantics. The Node, Python, and CLI boundaries may project the
   public fallback inputs and validate them before calling the SDK.
 - `ytm-core` exposes caller-facing requests, results, capabilities, source
