@@ -1,5 +1,6 @@
 use std::{
     error::Error,
+    future::Future,
     io,
     sync::Arc,
     time::{Duration, SystemTime},
@@ -13,7 +14,7 @@ use tokio_util::sync::CancellationToken;
 
 use crate::{
     RetrievalContext, RetrievalOptions, RetryDetails, RetryStopReason, YtmError,
-    MAX_RESPONSE_BODY_BYTES, REQUEST_DEADLINE_SECONDS,
+    MAX_RESPONSE_BODY_BYTES, REQUEST_DEADLINE_SECONDS, TREASURY_REQUEST_DEADLINE_SECONDS,
 };
 
 #[derive(Debug, Clone)]
@@ -130,34 +131,34 @@ impl HttpTransport {
         Ok(transport)
     }
 
+    #[cfg(test)]
+    pub(crate) fn with_test_origin(mut self, origin: &str) -> Self {
+        self.origin = Some(origin.trim_end_matches('/').to_owned());
+        self
+    }
+
     pub fn shared() -> Result<Arc<dyn Transport>, YtmError> {
         Ok(Arc::new(Self::new()?))
     }
 
-    async fn retrieve(
+    async fn retrieve<F, Fut>(
         &self,
-        request: PreparedRequest,
+        operation: &'static str,
+        can_retry: bool,
+        profile: &SourceProfile,
         context: RetrievalContext,
-    ) -> Result<Vec<u8>, YtmError> {
-        let operation = request.operation;
+        send_attempt: F,
+    ) -> Result<Vec<u8>, YtmError>
+    where
+        F: Fn(Duration) -> Fut,
+        Fut: Future<Output = Result<Vec<u8>, AttemptFailure>>,
+    {
         context.clear_lookup()?;
         context.check(operation)?;
-        let can_retry = replayable(&request);
         let max_attempts = if can_retry {
             context.options().max_retries() + 1
         } else {
             1
-        };
-        // Test routing occurs after replay eligibility: an arbitrary caller URL
-        // never becomes a supported lookup merely by matching its operation name.
-        #[cfg(any(test, feature = "judge-fixtures"))]
-        let request = if let Some(origin) = &self.origin {
-            PreparedRequest {
-                url: format!("{origin}{}", request.path),
-                ..request
-            }
-        } else {
-            request
         };
         let cancellation = context.cancellation();
         let mut last_failure = None;
@@ -199,15 +200,15 @@ impl HttpTransport {
             context.record_attempt(operation, attempt, max_attempts)?;
             let attempt_deadline = context
                 .deadline()
-                .min(Instant::now() + Duration::from_secs(REQUEST_DEADLINE_SECONDS));
+                .min(Instant::now() + profile.attempt_deadline);
             let result = tokio::select! {
                 biased;
                 () = cancellation.cancelled() => return Err(attach_retry(YtmError::cancelled(operation), attempt, max_attempts, operation, RetryStopReason::Cancellation)),
                 () = sleep_until(attempt_deadline) => Err(AttemptFailure {
-                    error: YtmError::transport("KIS-NET request exceeded its attempt deadline.", None, Some("TimeoutError")),
+                    error: YtmError::transport(format!("{} request exceeded its attempt deadline.", profile.label), None, Some("TimeoutError")),
                     transient: true, retry_after: None,
                 }),
-                result = self.attempt(&request, attempt_deadline.saturating_duration_since(Instant::now())) => result,
+                result = send_attempt(attempt_deadline.saturating_duration_since(Instant::now())) => result,
             };
             let failure = match result {
                 Ok(body) => return context.finish(Ok(body), operation),
@@ -253,7 +254,7 @@ impl HttpTransport {
         unreachable!("positive attempt limit always returns from its final attempt")
     }
 
-    async fn attempt(
+    async fn post_attempt(
         &self,
         request: &PreparedRequest,
         timeout: Duration,
@@ -273,41 +274,113 @@ impl HttpTransport {
                     "KIS-NET request failed before a response was received.",
                 )
             })?;
-        let status = response.status().as_u16();
-        if status != 200 {
-            let retry_after = response
-                .headers()
-                .get(header::RETRY_AFTER)
-                .and_then(|value| value.to_str().ok())
-                .and_then(|value| retry_after(value, SystemTime::now()));
-            return Err(AttemptFailure {
-                error: YtmError::transport(
-                    format!("KIS-NET returned HTTP {status}."),
-                    Some(status),
-                    None,
-                ),
-                transient: matches!(status, 408 | 429 | 500 | 502 | 503 | 504),
-                retry_after,
-            });
-        }
-        if let Some(content_type) = response.headers().get(header::CONTENT_TYPE) {
-            if !content_type.to_str().is_ok_and(is_nexacro_content_type) {
-                return Err(AttemptFailure::terminal(YtmError::format("KIS-NET HTTP 200 response Content-Type must use text/xml; charset=UTF-8 when present.")));
-            }
-        }
-        let mut stream = response.bytes_stream();
-        let mut body = Vec::new();
-        while let Some(chunk) = stream.next().await {
-            let chunk = chunk.map_err(|error| {
-                AttemptFailure::dependency(error, "KIS-NET response body could not be read.")
-            })?;
-            if body.len().saturating_add(chunk.len()) > MAX_RESPONSE_BODY_BYTES {
-                return Err(AttemptFailure::terminal(YtmError::format(format!("KIS-NET response exceeds the maximum body size of {MAX_RESPONSE_BODY_BYTES} bytes."))));
-            }
-            body.extend_from_slice(&chunk);
-        }
-        Ok(body)
+        read_response(
+            response,
+            &KISNET,
+            is_nexacro_content_type,
+            "text/xml; charset=UTF-8",
+        )
+        .await
     }
+
+    async fn get_attempt(&self, url: &str, timeout: Duration) -> Result<Vec<u8>, AttemptFailure> {
+        let response = self
+            .client
+            .get(url)
+            .header(header::ACCEPT, "text/csv, */*")
+            .timeout(timeout)
+            .send()
+            .await
+            .map_err(|error| {
+                AttemptFailure::dependency(
+                    error,
+                    "Treasury request failed before a response was received.",
+                )
+            })?;
+        read_response(
+            response,
+            &TREASURY,
+            is_treasury_content_type,
+            "text/csv with an optional UTF-8 charset",
+        )
+        .await
+    }
+}
+
+/// Source facts the shared attempt engine needs: the diagnostics label and the
+/// per-attempt ceiling through decompressed body consumption.
+struct SourceProfile {
+    label: &'static str,
+    attempt_deadline: Duration,
+    /// KIS-NET tolerates a missing Content-Type; Treasury's contract requires one.
+    requires_content_type: bool,
+}
+
+const KISNET: SourceProfile = SourceProfile {
+    label: "KIS-NET",
+    attempt_deadline: Duration::from_secs(REQUEST_DEADLINE_SECONDS),
+    requires_content_type: false,
+};
+
+// Treasury generates uncached yearly CSV files slowly (about 19 s to first byte
+// was observed on 2026-11-26), so its ceiling is wider than KIS-NET's.
+const TREASURY: SourceProfile = SourceProfile {
+    label: "Treasury",
+    attempt_deadline: Duration::from_secs(TREASURY_REQUEST_DEADLINE_SECONDS),
+    requires_content_type: true,
+};
+
+async fn read_response(
+    response: reqwest::Response,
+    profile: &SourceProfile,
+    accepts_content_type: fn(&str) -> bool,
+    expected_content_type: &str,
+) -> Result<Vec<u8>, AttemptFailure> {
+    let label = profile.label;
+    let status = response.status().as_u16();
+    if status != 200 {
+        let retry_after = response
+            .headers()
+            .get(header::RETRY_AFTER)
+            .and_then(|value| value.to_str().ok())
+            .and_then(|value| retry_after(value, SystemTime::now()));
+        return Err(AttemptFailure {
+            error: YtmError::transport(
+                format!("{label} returned HTTP {status}."),
+                Some(status),
+                None,
+            ),
+            transient: matches!(status, 408 | 429 | 500 | 502 | 503 | 504),
+            retry_after,
+        });
+    }
+    match response.headers().get(header::CONTENT_TYPE) {
+        Some(content_type) if !content_type.to_str().is_ok_and(accepts_content_type) => {
+            return Err(AttemptFailure::terminal(YtmError::format(format!(
+                "{label} HTTP 200 response Content-Type must use {expected_content_type} when present."
+            ))));
+        }
+        None if profile.requires_content_type => {
+            return Err(AttemptFailure::terminal(YtmError::format(format!(
+                "{label} HTTP 200 response must declare Content-Type {expected_content_type}."
+            ))));
+        }
+        _ => {}
+    }
+    let mut stream = response.bytes_stream();
+    let mut body = Vec::new();
+    while let Some(chunk) = stream.next().await {
+        let chunk = chunk.map_err(|error| {
+            AttemptFailure::dependency(error, &format!("{label} response body could not be read."))
+        })?;
+        if body.len().saturating_add(chunk.len()) > MAX_RESPONSE_BODY_BYTES {
+            return Err(AttemptFailure::terminal(YtmError::format(format!(
+                "{label} response exceeds the maximum body size of {MAX_RESPONSE_BODY_BYTES} bytes."
+            ))));
+        }
+        body.extend_from_slice(&chunk);
+    }
+    Ok(body)
 }
 
 #[async_trait]
@@ -332,9 +405,137 @@ impl Transport for HttpTransport {
         // Claim accounting before cancellation or waits, including zero attempts.
         context.progress().account_http_lookup()?;
         let operation = request.operation;
-        let result = self.retrieve(request, context.clone()).await;
+        let can_retry = replayable(&request);
+        // Test routing occurs after replay eligibility: an arbitrary caller URL
+        // never becomes a supported lookup merely by matching its operation name.
+        #[cfg(any(test, feature = "judge-fixtures"))]
+        let request = match &self.origin {
+            Some(origin) => PreparedRequest {
+                url: format!("{origin}{}", request.path),
+                ..request
+            },
+            None => request,
+        };
+        let result = self
+            .retrieve(operation, can_retry, &KISNET, context.clone(), |timeout| {
+                self.post_attempt(&request, timeout)
+            })
+            .await;
         context.finish(result, operation)
     }
+}
+
+/// One Treasury yearly yield-curve CSV lookup. `path` includes the exact query.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TreasuryRequest {
+    pub operation: &'static str,
+    pub year: u16,
+    pub path: String,
+    pub url: String,
+}
+
+/// Treasury source transport, separate from the KIS-NET `Transport`.
+/// Custom implementations own their retry policy and need only implement `get`.
+#[async_trait]
+pub trait TreasuryTransport: Send + Sync {
+    async fn get(
+        &self,
+        request: TreasuryRequest,
+        cancellation: CancellationToken,
+    ) -> Result<Vec<u8>, YtmError>;
+
+    async fn get_with_context(
+        &self,
+        request: TreasuryRequest,
+        context: RetrievalContext,
+    ) -> Result<Vec<u8>, YtmError> {
+        self.get(request, context.cancellation()).await
+    }
+}
+
+#[async_trait]
+impl TreasuryTransport for HttpTransport {
+    async fn get(
+        &self,
+        request: TreasuryRequest,
+        cancellation: CancellationToken,
+    ) -> Result<Vec<u8>, YtmError> {
+        self.get_with_context(
+            request,
+            RetrievalContext::new(RetrievalOptions::default(), cancellation)?,
+        )
+        .await
+    }
+
+    async fn get_with_context(
+        &self,
+        request: TreasuryRequest,
+        context: RetrievalContext,
+    ) -> Result<Vec<u8>, YtmError> {
+        context.progress().account_http_lookup()?;
+        let operation = request.operation;
+        // Origin is checked on the caller's URL, before any fixture rewrite.
+        if !crate::treasury::is_treasury_origin(&request.url) {
+            let error = YtmError::invalid_parameter(
+                crate::treasury::OPERATION,
+                "url",
+                format!(
+                    "Treasury requests must target {}.",
+                    crate::treasury::TREASURY_ORIGIN
+                ),
+                serde_json::Value::String(request.url),
+            );
+            return context
+                .finish(Err(error), operation)
+                .map_err(crate::treasury::retarget);
+        }
+        let can_retry = crate::treasury::is_supported_request(&request);
+        #[cfg(any(test, feature = "judge-fixtures"))]
+        let url = match &self.origin {
+            Some(origin) => format!("{origin}{}", request.path),
+            None => request.url.clone(),
+        };
+        #[cfg(not(any(test, feature = "judge-fixtures")))]
+        let url = request.url.clone();
+        let result = self
+            .retrieve(
+                operation,
+                can_retry,
+                &TREASURY,
+                context.clone(),
+                |timeout| self.get_attempt(&url, timeout),
+            )
+            .await;
+        // Direct transport callers get Treasury guidance, not KIS-NET's.
+        context
+            .finish(result, operation)
+            .map_err(crate::treasury::retarget)
+    }
+}
+
+pub(crate) fn is_treasury_content_type(value: &str) -> bool {
+    let mut parts = value.split(';');
+    if !parts
+        .next()
+        .is_some_and(|media_type| media_type.trim().eq_ignore_ascii_case("text/csv"))
+    {
+        return false;
+    }
+    let charset = parts.next();
+    if parts.next().is_some() {
+        return false;
+    }
+    charset.is_none_or(|charset| {
+        charset.split_once('=').is_some_and(|(name, value)| {
+            // RFC 9110 parameter values may be quoted with the same meaning.
+            let value = value.trim();
+            let value = value
+                .strip_prefix('"')
+                .and_then(|inner| inner.strip_suffix('"'))
+                .unwrap_or(value);
+            name.trim().eq_ignore_ascii_case("charset") && value.eq_ignore_ascii_case("UTF-8")
+        })
+    })
 }
 
 fn replayable(request: &PreparedRequest) -> bool {
@@ -648,7 +849,7 @@ mod tests {
         (url, request_received)
     }
 
-    pub(super) async fn read_request(socket: &mut tokio::net::TcpStream) -> String {
+    pub(crate) async fn read_request(socket: &mut tokio::net::TcpStream) -> String {
         let mut bytes = Vec::new();
         let mut buffer = [0; 1024];
         loop {
@@ -675,7 +876,7 @@ mod tests {
         }
     }
 
-    pub(super) fn response(status: u16, headers: &[(&str, &str)], body: &[u8]) -> Vec<u8> {
+    pub(crate) fn response(status: u16, headers: &[(&str, &str)], body: &[u8]) -> Vec<u8> {
         let reason = match status {
             200 => "OK",
             204 => "No Content",
@@ -698,3 +899,9 @@ mod tests {
 
 #[cfg(test)]
 mod recovery_tests;
+
+#[cfg(test)]
+pub(crate) mod tests_support {
+    pub(crate) use super::is_treasury_content_type;
+    pub(crate) use super::tests::{read_request, response};
+}

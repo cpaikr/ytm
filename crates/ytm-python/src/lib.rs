@@ -12,7 +12,7 @@ use std::{
 use tokio::sync::Notify;
 use ytm_core::{
     BaseDate, CancellationToken, KindSelector, KindsInput, LookbackDays, MatrixInput,
-    RetrievalOptions, RetrievalProgress, YtmError, YtmService,
+    RetrievalOptions, RetrievalProgress, TreasuryService, YtmError, YtmService,
 };
 
 #[derive(Default)]
@@ -274,11 +274,17 @@ struct Input {
 
 enum Operation {
     History(ytm_core::HistoryInput),
+    Treasury(ytm_core::TreasuryCurveInput),
     Matrix(MatrixInput),
     Kinds(KindsInput),
 }
 
 fn parse(operation: &str, input: &str) -> Result<Operation, YtmError> {
+    if operation == "treasury" {
+        let request: ytm_core::TreasuryCurveRequest = serde_json::from_str(input)
+            .map_err(|_| invalid(operation, "input", "Invalid treasury input shape."))?;
+        return Ok(Operation::Treasury(request.try_into()?));
+    }
     if operation == "history" {
         let request: ytm_core::HistoryRequest = serde_json::from_str(input)
             .map_err(|_| invalid(operation, "input", "Invalid history input shape."))?;
@@ -402,6 +408,8 @@ async fn run(
                 .and_then(|v| serde_json::to_value(v).map_err(|_| YtmError::defect())),
             Operation::Kinds(input) => call.service.kinds_with_options_and_cancellation(input, options, call.cancellation.clone()).await
                 .and_then(|v| serde_json::to_value(v).map_err(|_| YtmError::defect())),
+            Operation::Treasury(input) => treasury_service()?.curve_with_options_and_cancellation(input, options, call.cancellation.clone()).await
+                .and_then(|v| serde_json::to_value(v).map_err(|_| YtmError::defect())),
         } };
         tokio::pin!(retrieval);
         let result = tokio::select! {
@@ -473,6 +481,14 @@ fn local_error(code: &str, reason: &str) -> Value {
 fn defect() -> String {
     json!({"ok":false,"error":YtmError::defect().details}).to_string()
 }
+fn treasury_service() -> Result<TreasuryService, YtmError> {
+    #[cfg(feature = "judge-fixtures")]
+    if let Some(transport) = ytm_core::judge::FixtureTransport::treasury_from_env()? {
+        return Ok(TreasuryService::with_shared_transport(transport));
+    }
+    TreasuryService::new()
+}
+
 fn service() -> Result<YtmService, YtmError> {
     #[cfg(feature = "judge-fixtures")]
     if let Some(transport) = ytm_core::judge::FixtureTransport::from_env()? {

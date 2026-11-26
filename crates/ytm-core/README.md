@@ -1,7 +1,8 @@
 # ytm-core
 
-`ytm-core` is the Rust SDK and sole KIS-NET protocol implementation for this
-repository. It owns bounded HTTP transport, Nexacro parsing, kind resolution,
+`ytm-core` is the Rust SDK and sole protocol implementation for this
+repository's two sources: the KIS-NET YTM Matrix and the US Treasury daily par
+yield curve. It owns bounded HTTP transport, Nexacro and CSV parsing, kind resolution,
 date fallback, all-category history orchestration, normalization, source metadata, and structured errors.
 
 ```rust
@@ -61,3 +62,28 @@ when migrating from versions before `0.5.0`.
 
 The crate is not published by this repository workflow; consumers currently
 use a Git or path dependency.
+
+## US Treasury yield curve
+
+`TreasuryService` is separate from `YtmClient`, with its own
+`TreasuryTransport` trait and result types. It shares date selection,
+fallback, `RetrievalOptions`, progress, and cancellation:
+
+```rust
+use ytm_core::{BaseDate, DateSelection, TreasuryCurveEntry, TreasuryCurveInput, TreasuryService};
+
+# async fn run() -> Result<(), Box<dyn std::error::Error>> {
+let dates = DateSelection::dates(vec![BaseDate::new(2025, 9, 30)?])?;
+let result = TreasuryService::new()?.curve(TreasuryCurveInput::new(dates)).await?;
+if let TreasuryCurveEntry::Available { curve } = &result.entries[0] {
+    let three_month = curve.tenors.iter().find(|tenor| tenor.tenor == "3M");
+    println!("{:?}", three_month.and_then(|tenor| tenor.value));
+}
+# Ok(())
+# }
+```
+
+Tenors are the columns Treasury published for the observation's year, as
+percent par yields; nothing is interpolated. Custom `TreasuryTransport`
+implementations need only `get` and own their retry policy. The
+[Treasury contract](../../SPEC.md#us-treasury-yield-curve) owns its semantics.

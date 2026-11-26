@@ -1,6 +1,6 @@
 """Typed offline public usage, run from an installed wheel outside the checkout."""
 import asyncio
-from kisnet_ytm import AsyncClient, Client, ClientStateError, InvalidParameterError, KindsResult, RetrievalProgress, RetrievalStatistics
+from kisnet_ytm import AsyncClient, Client, ClientStateError, InvalidParameterError, KindsResult, RetrievalProgress, RetrievalStatistics, TreasuryCurveResult
 
 
 def sync_usage() -> None:
@@ -19,6 +19,13 @@ def sync_usage() -> None:
             pass
         else:
             raise AssertionError("invalid history accepted")
+        try:
+            treasury: TreasuryCurveResult = client.treasury_curve(base_dates=["2025-02-30"])
+            assert treasury.available_count >= 0
+        except InvalidParameterError:
+            pass
+        else:
+            raise AssertionError("invalid treasury date accepted")
         try:
             client.matrix(base_date="invalid", kind="국채")
         except InvalidParameterError as error:

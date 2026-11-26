@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "note": "Fictional values in the observed source shapes. Header sets mirror the column sets Treasury published for 1990-1992, 2003-2005, 2022-2024, and 2025 onward; the source returns an empty body for years without observations.",
+  "parseCases": [
+    {
+      "name": "current header set with a blank cell",
+      "fixture": "yield-curve-2025.csv",
+      "year": 2025,
+      "outcome": "ok",
+      "observationCount": 4,
+      "tenors": ["1M", "1.5M", "2M", "3M", "4M", "6M", "1Y", "2Y", "3Y", "5Y", "7Y", "10Y", "20Y", "30Y"],
+      "sample": { "date": "2025-09-29", "tenor": "1.5M", "yield": null, "yieldText": "" }
+    },
+    {
+      "name": "2022-2024 header set",
+      "fixture": "yield-curve-2024.csv",
+      "year": 2024,
+      "outcome": "ok",
+      "observationCount": 1,
+      "tenors": ["1M", "2M", "3M", "4M", "6M", "1Y", "2Y", "3Y", "5Y", "7Y", "10Y", "20Y", "30Y"],
+      "sample": { "date": "2024-12-31", "tenor": "3M", "yield": 4.3, "yieldText": "4.30" }
+    },
+    {
+      "name": "2003-2005 header set without 30Y",
+      "fixture": "yield-curve-2005.csv",
+      "year": 2005,
+      "outcome": "ok",
+      "observationCount": 2,
+      "tenors": ["1M", "3M", "6M", "1Y", "2Y", "3Y", "5Y", "7Y", "10Y", "20Y"],
+      "sample": { "date": "2005-12-30", "tenor": "20Y", "yield": 4.58, "yieldText": "4.58" }
+    },
+    {
+      "name": "1990-1992 header set",
+      "fixture": "yield-curve-1991.csv",
+      "year": 1991,
+      "outcome": "ok",
+      "observationCount": 1,
+      "tenors": ["3M", "6M", "1Y", "2Y", "3Y", "5Y", "7Y", "10Y", "30Y"],
+      "sample": { "date": "1991-12-31", "tenor": "30Y", "yield": 7.38, "yieldText": "7.38" }
+    },
+    {
+      "name": "empty body is confirmed absence",
+      "fixture": "yield-curve-empty.csv",
+      "year": 1989,
+      "outcome": "ok",
+      "observationCount": 0,
+      "tenors": []
+    },
+    { "name": "unknown tenor header", "fixture": "invalid-unknown-header.csv", "year": 2025, "outcome": "source_format_error" },
+    { "name": "duplicate date", "fixture": "invalid-duplicate-date.csv", "year": 2025, "outcome": "source_format_error" },
+    { "name": "non-numeric yield", "fixture": "invalid-yield.csv", "year": 2025, "outcome": "source_format_error" },
+    { "name": "row outside the requested year", "fixture": "invalid-foreign-year.csv", "year": 2025, "outcome": "source_format_error" },
+    { "name": "row field count differs from header", "fixture": "invalid-field-count.csv", "year": 2025, "outcome": "source_format_error" }
+  ]
+}

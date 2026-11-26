@@ -38,6 +38,11 @@ recovery, exhaustion, deadlines, and protected export through CLI/Node in
 [`bulk-retrieval-controls.py`](bulk-retrieval-controls.py) verifies public option
 validation, retry bounds, pacing, progress, and final success/error/cancellation
 statistics through the same CLI/Node and installed-Python validation entry points;
+[`treasury.py`](treasury.py) runs the separate Treasury source through the CLI
+(JSON, CSV, XLSX), the Node SDK, and installed Python sync/async clients against
+the fictional [`../contracts/treasury`](../contracts/treasury/cases.json) corpus,
+via `node judge/treasury.mjs` in `bun run test:surfaces` and
+`bun run validate:python`;
 [`golden-results.json`](golden-results.json) owns the reviewed public-result
 oracle; and [`../contracts/kisnet/cases.json`](../contracts/kisnet/cases.json)
 owns the observed wire fixtures and evidence cases. There is deliberately no

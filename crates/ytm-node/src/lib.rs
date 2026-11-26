@@ -19,7 +19,8 @@ use serde_json::{json, Value};
 use ytm_core::{
     BaseDate, CancellationToken, HistoryInput, HistoryRequest, HttpTransport, KindSelector,
     KindsInput, LookbackDays, MatrixInput, RetrievalOptions, RetrievalProgress, Transport,
-    YtmError, YtmService, DEFAULT_LOOKBACK_DAYS, MAX_LOOKBACK_DAYS,
+    TreasuryCurveInput, TreasuryCurveRequest, TreasuryService, TreasuryTransport, YtmError,
+    YtmService, DEFAULT_LOOKBACK_DAYS, MAX_LOOKBACK_DAYS,
 };
 
 /// Native storage for a bounded metadata snapshot; no JavaScript references cross runtimes.
@@ -66,6 +67,7 @@ struct KindsInputDto {
 
 enum Operation {
     History(HistoryRequest),
+    Treasury(TreasuryCurveRequest),
     Matrix(Box<MatrixInputDto>),
     Kinds(KindsInputDto),
 }
@@ -85,6 +87,29 @@ fn history(
     task(
         &env,
         Operation::History(input),
+        signal,
+        pre_aborted.unwrap_or(false),
+        operation_timeout_ms,
+        request_policy_json,
+        progress.map(|progress| progress.inner.clone()),
+    )
+}
+
+#[napi(js_name = "treasuryCurve")]
+fn treasury_curve(
+    env: Env,
+    input_json: String,
+    signal: Option<AbortSignal>,
+    pre_aborted: Option<bool>,
+    operation_timeout_ms: Option<f64>,
+    request_policy_json: Option<String>,
+    progress: Option<&NativeProgress>,
+) -> napi::Result<AsyncBlock<String>> {
+    let input = serde_json::from_str(&input_json)
+        .map_err(|e| napi::Error::from_reason(format!("invalid treasury input JSON: {e}")))?;
+    task(
+        &env,
+        Operation::Treasury(input),
         signal,
         pre_aborted.unwrap_or(false),
         operation_timeout_ms,
@@ -222,6 +247,16 @@ async fn execute(
     if let Some(progress) = progress {
         options = options.with_progress(progress);
     }
+    if let Operation::Treasury(input) = operation {
+        return TreasuryService::with_shared_transport(treasury_transport()?)
+            .curve_with_options_and_cancellation(
+                TreasuryCurveInput::try_from(input)?,
+                options,
+                cancellation,
+            )
+            .await
+            .and_then(|v| serde_json::to_value(v).map_err(|_| YtmError::defect()));
+    }
     let transport = transport()?;
     let service = YtmService::with_shared_transport(transport);
     match operation {
@@ -241,6 +276,7 @@ async fn execute(
             .kinds_with_options_and_cancellation(kinds_input(input)?, options, cancellation)
             .await
             .map(|value| serde_json::to_value(value).expect("kinds result serializes")),
+        Operation::Treasury(_) => unreachable!("Treasury dispatch returns above"),
     }
 }
 
@@ -377,6 +413,19 @@ fn transport() -> Result<Arc<dyn Transport>, YtmError> {
         return Ok(transport.clone());
     }
     let transport = HttpTransport::shared()?;
+    Ok(SHARED.get_or_init(|| transport).clone())
+}
+
+fn treasury_transport() -> Result<Arc<dyn TreasuryTransport>, YtmError> {
+    #[cfg(feature = "judge-fixtures")]
+    if let Some(transport) = ytm_core::judge::FixtureTransport::treasury_from_env()? {
+        return Ok(transport);
+    }
+    static SHARED: OnceLock<Arc<dyn TreasuryTransport>> = OnceLock::new();
+    if let Some(transport) = SHARED.get() {
+        return Ok(transport.clone());
+    }
+    let transport: Arc<dyn TreasuryTransport> = Arc::new(HttpTransport::new()?);
     Ok(SHARED.get_or_init(|| transport).clone())
 }
 

@@ -93,10 +93,11 @@ impl RetrievalProgress {
             state.statistics.retry_count = None;
         }
         state.lookup_pending = true;
-        if operation == "initializeYtmMatrix" {
-            state.statistics.discovery_count += 1;
-        } else {
-            state.statistics.matrix_lookup_count += 1;
+        // KIS-NET counters only; Treasury yearly lookups appear in attempt totals.
+        match operation {
+            "initializeYtmMatrix" => state.statistics.discovery_count += 1,
+            "listYtmMatrix" => state.statistics.matrix_lookup_count += 1,
+            _ => {}
         }
         Ok(())
     }
