@@ -66,5 +66,5 @@ outside that delivery and were subsequently implemented by the
 ## Next action
 
 None — this delivery is complete. The
-[provider decision](../tasks/resolve-production-provider-enablement.md) remains
+[provider decision](../docs/provider-qualification.md) remains
 separate; ongoing publication belongs to [release operations](../docs/release.md).

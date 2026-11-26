@@ -74,5 +74,5 @@ The [live evidence record](../docs/history-retrieval-live-acceptance.md) is the
 canonical home for candidate identity, authorization, sanitized measurements,
 and acceptance checks. No live source payload or yield rows were retained.
 
-Production qualification remains with the
-[provider enablement task](../tasks/resolve-production-provider-enablement.md).
+Production qualification is recorded in the
+[provider record](../docs/provider-qualification.md).
