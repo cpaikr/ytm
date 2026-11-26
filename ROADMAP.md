@@ -8,6 +8,9 @@ This file owns active delivery order and routes completed work to its records.
 
 - [Production provider enablement](tasks/resolve-production-provider-enablement.md):
    an owner rights-and-operations decision remains required.
+- [US Treasury yield curve](plans/us-treasury-yield-curve.md): active under
+  its [goal contract](goals/us-treasury-yield-curve.md); slice 1 (contract
+  and core) next.
 
 ## Completed delivery
 
