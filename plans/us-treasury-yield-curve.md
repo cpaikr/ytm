@@ -110,7 +110,9 @@ release publication.
 
 ## Current state
 
-All four slices are implemented and validated locally: workspace tests,
+Complete. All four slices merged into `codex/us-treasury-integration` via
+cpaikr/ytm#54 with CI passing, and the integration branch merges into `main`
+through one reviewed PR. Validation covered workspace tests,
 clippy, doc tests, the external Rust consumer, contract checks, the KIS-NET
 judge (only intended help and client-surface goldens changed), the Treasury
 judge across CLI, Node, and installed Python, and a bounded live acceptance
@@ -119,5 +121,4 @@ Release notes come from the Conventional Commit at release time.
 
 ## Next action
 
-Open the implementation PR into `codex/us-treasury-integration`, address
-review, merge, then merge the integration branch into `main`.
+None for this plan. Release publication is out of scope.

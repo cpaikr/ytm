@@ -8,12 +8,12 @@ This file owns active delivery order and routes completed work to its records.
 
 - [Production provider enablement](tasks/resolve-production-provider-enablement.md):
    an owner rights-and-operations decision remains required.
-- [US Treasury yield curve](plans/us-treasury-yield-curve.md): active under
-  its [goal contract](goals/us-treasury-yield-curve.md); slice 1 (contract
-  and core) next.
 
 ## Completed delivery
 
+- [US Treasury yield curve](plans/us-treasury-yield-curve.md): delivered under
+  its [goal contract](goals/us-treasury-yield-curve.md) as a source separate
+  from KIS-NET; release publication remains separate.
 - [Windows installation visibility](plans/windows-installation-visibility.md):
   delivered and accepted; independent Windows/MSIX validation remains an
   explicit evidence limitation.

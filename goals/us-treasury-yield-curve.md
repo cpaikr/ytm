@@ -1,6 +1,6 @@
 # Goal: US Treasury yield curve retrieval
 
-Status: active
+Status: complete
 Planning scope: ROADMAP.md
 
 ## Original contract
@@ -27,18 +27,19 @@ _None._
 
 ### Completed included results
 
-_None._
+- Slices 1-4: Treasury wire contract, fixtures, and core source; `ytm
+  treasury` CLI; Node and Python surfaces; live acceptance, provider record,
+  and documentation. Delivered in one implementation PR, cpaikr/ytm#54,
+  merged into `codex/us-treasury-integration` on 2026-11-26.
 
 ### Current in-scope result
 
-Treasury wire contract, fixtures, core source, public Rust types, and the
-two-source SPEC and ARCHITECTURE amendments (slice 1).
+_None._ Delivery finishes when the integration PR merges
+`codex/us-treasury-integration` into `main`.
 
 ### Next in-scope action
 
-Branch slice 1 from `codex/us-treasury-integration` and author
-`contracts/treasury/openapi.yaml` with fictional CSV fixtures covering each
-observed header set.
+_None._
 
 ### Evidence and blockers
 
@@ -46,4 +47,10 @@ observed header set.
 - `origin/dev` is stale relative to `main`, so delivery uses a temporary
   integration branch from `origin/main`, following the precedent of the
   bulk-retrieval and retrieval-recovery integration branches.
+- PR #54 CI passed at `63bc350`. Review findings from Codex and CodeRabbit
+  were fixed and answered in-thread. The branch also carries fixes `main`
+  needed for CI: a bulk-controls judge race, RustSec dependency updates, and
+  three owner-approved `deny.toml` ignores for unmaintained crates with no
+  successor (2026-11-26).
+- Follow-up outside this goal: replacing `chrono` so its ignore can be removed.
 - No blockers.
