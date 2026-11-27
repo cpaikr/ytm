@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.1](https://github.com/cpaikr/ytm/compare/v0.6.0...v0.6.1) (2026-11-27)
+
+### Bug Fixes
+
+* **install:** extract the Windows CLI archive with .NET instead of Expand-Archive ([e99fb50](https://github.com/cpaikr/ytm/commit/e99fb50f60a03d34a34adf6d4d07fc2a62dddf51))
+
 ## [0.6.0](https://github.com/cpaikr/ytm/compare/v0.5.0...v0.6.0) (2026-11-27)
 
 ### Features
