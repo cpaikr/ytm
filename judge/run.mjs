@@ -14,7 +14,11 @@ import { nativeRuntimeKey } from "../scripts/native-build-policy.mjs";
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const options = parseArguments(process.argv.slice(2));
 const productRoot = resolve(options.productRoot || resolve(root, "packages/node"));
-const cliBin = resolve(options.cliBin || resolve(root, "target/debug/ytm"));
+const requestedCliBin = resolve(options.cliBin || resolve(root, "target/debug/ytm"));
+// Cargo names the Windows executable ytm.exe; accept the portable path too.
+const cliBin = process.platform === "win32" && !existsSync(requestedCliBin) && existsSync(`${requestedCliBin}.exe`)
+  ? `${requestedCliBin}.exe`
+  : requestedCliBin;
 const selectedScenario = options.scenario;
 const selectedSurface = options.surface;
 const childTimeoutMilliseconds = 15_000;
@@ -28,6 +32,8 @@ const goldenResults = options.updateGolden
   ? {}
   : JSON.parse(await readFile(goldenPath, "utf8"));
 const observedGoldenKeys = new Set();
+// Scenarios this platform cannot run; their goldens are not stale here.
+const platformSkippedGoldenKeys = new Set(process.platform === "win32" ? ["cli:cli-xlsx:preflight-symlink"] : []);
 const exercisedFixtureFiles = new Set();
 
 const evidence = JSON.parse(await readFile(resolve(root, "contracts/kisnet/cases.json"), "utf8"));
@@ -61,7 +67,7 @@ function assertGolden(name, surface, actual) {
     failures.push(`${name}: ${surface} attempted to reuse approved golden key ${key}`);
     return;
   }
-  const normalized = normalizeStatistics(JSON.parse(JSON.stringify(actual)), key);
+  const normalized = normalizeStatistics(normalizeOsErrors(JSON.parse(JSON.stringify(actual))), key);
   observedGoldenKeys.add(key);
   if (options.updateGolden) {
     goldenResults[key] = normalized;
@@ -71,6 +77,17 @@ function assertGolden(name, surface, actual) {
   if (Object.hasOwn(goldenResults, key)) {
     check(isDeepStrictEqual(normalized, goldenResults[key]), `${name}: ${surface} public result differs from the approved golden result`);
   }
+}
+
+// Operating systems word I/O errors differently (for example "No such file or
+// directory (os error 2)" on Unix and "The system cannot find the path
+// specified. (os error 3)" on Windows). Goldens keep the product's own wording
+// and replace only the OS-supplied suffix, so results compare on every platform.
+function normalizeOsErrors(value) {
+  if (typeof value === "string") return value.replace(/: [^"\\]*?\(os error \d+\)/g, ": <os error>");
+  if (Array.isArray(value)) return value.map(normalizeOsErrors);
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(Object.entries(value).map(([key, child]) => [key, normalizeOsErrors(child)]));
 }
 
 function normalizeStatistics(value, label) {
@@ -862,7 +879,7 @@ if (!selectedScenario && !selectedSurface) {
   check(undeclaredFixtures.length === 0, `full judge run exercised undeclared fixture(s): ${undeclaredFixtures.join(", ")}`);
 }
 if (!selectedScenario && !selectedSurface && !options.updateGolden) {
-  const unobserved = Object.keys(goldenResults).filter((key) => !observedGoldenKeys.has(key));
+  const unobserved = Object.keys(goldenResults).filter((key) => !observedGoldenKeys.has(key) && !platformSkippedGoldenKeys.has(key));
   check(unobserved.length === 0, `approved golden results contain stale scenarios: ${unobserved.join(", ")}`);
 }
 

@@ -416,7 +416,7 @@
   "cli:cli-xlsx:preflight-missing-parent": {
     "status": 1,
     "signal": null,
-    "stdout": "{\"ok\":false,\"error\":{\"ok\":false,\"code\":\"output_write_error\",\"operationName\":\"matrix\",\"parameter\":\"output\",\"actual\":\"absent/out.xlsx\",\"reason\":\"Cannot inspect parent of output \\\"absent/out.xlsx\\\": No such file or directory (os error 2)\",\"recoveryHint\":\"Check the parent directory, permissions, available space, and whether another application has locked the file.\",\"recoveryAction\":\"inspect_output\",\"recoverable\":true,\"retryable\":false}}\n",
+    "stdout": "{\"ok\":false,\"error\":{\"ok\":false,\"code\":\"output_write_error\",\"operationName\":\"matrix\",\"parameter\":\"output\",\"actual\":\"absent/out.xlsx\",\"reason\":\"Cannot inspect parent of output \\\"absent/out.xlsx\\\": <os error>\",\"recoveryHint\":\"Check the parent directory, permissions, available space, and whether another application has locked the file.\",\"recoveryAction\":\"inspect_output\",\"recoverable\":true,\"retryable\":false}}\n",
     "stderr": ""
   },
   "cli:cli-xlsx:preflight-symlink": {
