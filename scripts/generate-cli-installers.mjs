@@ -261,7 +261,11 @@ try {
   Invoke-WebRequest -UseBasicParsing -TimeoutSec 120 -Uri "$ReleaseBase/$Archive" -OutFile (Join-Path $Temp $Archive)
   $Actual = Get-Sha256 (Join-Path $Temp $Archive)
   if ($Actual -ne $Expected) { throw "checksum mismatch for $Archive" }
-  Expand-Archive -LiteralPath (Join-Path $Temp $Archive) -DestinationPath $Temp
+  # Extract through .NET instead of Expand-Archive: on current Windows images,
+  # Windows PowerShell's Archive module can fail to bind ZipFile overloads.
+  # ExtractToDirectory rejects entries that resolve outside the destination.
+  Add-Type -AssemblyName System.IO.Compression.FileSystem
+  [IO.Compression.ZipFile]::ExtractToDirectory((Join-Path $Temp $Archive), $Temp)
   $Root = '${root}'
   $Binary = Join-Path (Join-Path $Temp $Root) 'ytm.exe'
   if (-not (Test-Path -LiteralPath $Binary -PathType Leaf)) { throw 'archive does not contain ytm.exe' }
