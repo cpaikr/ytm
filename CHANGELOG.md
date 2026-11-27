@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.6.0](https://github.com/cpaikr/ytm/compare/v0.5.0...v0.6.0) (2026-11-27)
+
+### Features
+
+* retrieve the US Treasury daily par yield curve as a separate source ([9296d18](https://github.com/cpaikr/ytm/commit/9296d182ed3ade76f3be28ef0c7ad4f8659ea211))
+* **skills:** enable implicit KIS-NET consumer invocation ([8801025](https://github.com/cpaikr/ytm/commit/88010252b9c11ec17ac9c1f627420cfa0b006811))
+
+### Bug Fixes
+
+* **treasury:** harden the Treasury transport and enforce the yearly-file bound ([575113d](https://github.com/cpaikr/ytm/commit/575113d63f38f5a57ac628b2af8502d73a95d1ab))
+
 This is the product changelog for the Rust core, standalone CLI, and Node and
 Python SDK source. Entries before the unified `vX.Y.Z` lifecycle retain their
 historical tag links. [GitHub Releases](https://github.com/cpaikr/ytm/releases)
